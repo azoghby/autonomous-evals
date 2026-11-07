@@ -68,6 +68,7 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - [ ] E2E pipeline test (`scripts/e2e-pipeline.ts`, dev-only simulated payment)
 
 ### Merged since last update
+- Shared Track B adapters on `ServiceContext` (`ctx.sessions`, `ctx.budget`, `ctx.artifacts`, `packages/core/src/adapters/`), live-smoked against Neon; e2e pipeline script/spec (`scripts/e2e-pipeline.ts`, `E2E_PIPELINE=1`); fixes: draft polling, report summary. Redeployed.
 - Expert call booking (`call_slots`, Jitsi, .ics, `/expert/book/[token]`, operator slots + notes), real monitoring + follow-up crons (migration 0008/0009 applied), typed remediations, mobile nav. **Deployed to prod** (/, /sample, /experts 200; crons 401 without secret)
 - UI v3 retheme (black/white/#2F6BFF, cursor-reactive ribbed lines), `/sample` public report, AI gateway (`@ae/core/ai/gateway`: Vercel primary, Neon fallback, cost logging, credential guard), Track B conformance harness (`npm run conformance`-style `scripts/conformance.ts`, docs/INTEGRATION.md)
 - Pay per confirmed finding (Stripe manual capture), fix-not-just-find (remediations), MCP server (`/api/mcp/mcp` + `/settings/keys`), Neon Realtime live progress, security batches 1+2 + M4 (all HIGH/MEDIUM fixed), infra 500 fix, `npm run deploy` (migrate then deploy)
@@ -100,3 +101,4 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - ~14:15: Neon storage, Neon ops, client/server reconciliation merged. AgentMail key received. UI v2 (calmer + Motion/anime.js) started.
 - ~15:35: v3 retheme, /sample, AI gateway, conformance harness merged and pushed. Waiting on e2e pipeline, expert call booking, follow-ups/monitoring crons.
 - ~15:55: booking, crons, UI hooks merged; `npm run deploy` → prod Ready. Remaining in flight: e2e pipeline test.
+- ~16:20: adapters + e2e merged, prod redeployed. Open: stale-job recovery check in prod, Playwright happy-path selectors for v3, Stripe test key.
