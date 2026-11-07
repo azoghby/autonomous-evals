@@ -3,8 +3,11 @@ import {
   Finding, QualifyResult, Remediation, Report, Suite, type IntakeInput,
 } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext, RunResult } from "@ae/core/contracts/services";
+import { rejectTargetUrl } from "./target-url";
 
 const MOCK = "[MOCK]";
+const MOCK_CLARIFY_MARKER = "[needs-clarification]";
+const MOCK_MIN_TRACE_CHARS = 20;
 
 type FixTemplate = Pick<Remediation, "kind" | "summary" | "patch" | "rationale"> & { after: number; total: number };
 
@@ -82,25 +85,19 @@ const mockFinding = (id: string, scenarioId?: string): Finding => Finding.parse(
   reproductions: 0,
 });
 
-/** Mock-only URL guard (no DNS, no network): HTTPS only; rejects localhost and private/link-local IP literals. */
-function rejectTargetUrl(raw: string): string | null {
-  let u: URL;
-  try { u = new URL(raw); } catch { return "invalid URL"; }
-  if (u.protocol !== "https:") return "endpoint must use HTTPS";
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) return "private host not allowed";
-  const m = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])];
-    if (a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return "private address not allowed";
-  }
-  if (host.includes(":") && (host === "::1" || host === "::" || /^(fc|fd|fe80)/.test(host) || host.startsWith("::ffff:"))) return "private address not allowed";
-  return null;
-}
-
 /** Deterministic MOCK services. Jobs served by these must carry jobs.is_mock = true and never count as revenue. */
 export const mockServices: EvalServices = {
   async qualify(_ctx, intake: IntakeInput, clarifications) {
+    // Deterministic clarification path: the marker (in trace/notes), or a trace shorter than the minimum, asks once.
+    const description = `${intake.package === "trace_audit" ? intake.trace : ""}\n${intake.notes ?? ""}`;
+    const tooShort = intake.package === "trace_audit" && intake.trace.trim().length < MOCK_MIN_TRACE_CHARS;
+    if (clarifications.length === 0 && (description.includes(MOCK_CLARIFY_MARKER) || tooShort)) {
+      return QualifyResult.parse({
+        decision: "clarify", package: intake.package,
+        questions: [`${MOCK} What specific agent behavior should this review focus on?`],
+        scopeSummary: `${MOCK} Need more detail before quoting.`, deliverables: [],
+      });
+    }
     return QualifyResult.parse({
       decision: "quote", package: intake.package, questions: [],
       scopeSummary: `${MOCK} ${intake.package} review${clarifications.length ? ` (${clarifications.length} clarification(s) considered)` : ""}.`,

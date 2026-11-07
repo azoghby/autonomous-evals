@@ -49,7 +49,7 @@ test.describe("pipeline", () => {
     const stateOf = async () => (await (await context.request.get(`/api/jobs/${jobId}/progress`)).json()).state as string;
     await expect.poll(stateOf, { timeout: 120_000 }).toBe("quoted");
     await page.goto(`/jobs/${jobId}`);
-    await expect(page.getByText(/\$5(\.00)?/).first()).toBeVisible();
+    await expect(page.getByText(/\$5(\.00)?/).first()).toBeVisible({ timeout: 20_000 });
 
     // Operator simulates the payment (no Stripe key locally).
     const op = await pwRequest.newContext({ baseURL: base, extraHTTPHeaders: headers });
@@ -64,7 +64,7 @@ test.describe("pipeline", () => {
     await page.reload();
     await expect(page.getByText("Delivered", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/Unsupported success claim/i).first()).toBeVisible();
-    await expect(page.getByText(/1 findings? · 1 fixes? verified/i)).toBeVisible();
+    await expect(page.getByText(/1 of 1 fixes verified/i)).toBeVisible();
     // The finding card is collapsed by default; the validated fix lives inside it.
     await page.getByRole("button", { name: /Unsupported success claim/i }).click();
     await expect(page.getByText(/Fix · /i).first()).toBeVisible();

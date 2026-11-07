@@ -17,26 +17,29 @@ test.describe("happy path", () => {
   test.skip(process.env.E2E_HAPPY_PATH !== "1", "set E2E_HAPPY_PATH=1 to run");
 
   test("trace audit reaches a quote", async ({ page, request }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(90_000);
     const email = `e2e+${Date.now()}@example.com`;
     const fixture = readFileSync(join(__dirname, "fixtures", "trace-unsupported-claim.json"), "utf8");
 
-    const linkRes = await request.post("/api/auth/request-link", { data: { email } });
+    const linkRes = await request.post("/api/auth/request-link", { data: { email }, headers: { "x-forwarded-for": `192.0.2.${1 + Math.floor(Math.random() * 253)}` } });
     expect(linkRes.ok()).toBe(true);
     const { devLink } = (await linkRes.json()) as { devLink?: string };
     expect(devLink, "request-link must return devLink outside production").toBeTruthy();
-    await page.goto(devLink as string);
+    const token = new URL(devLink as string, "http://localhost").searchParams.get("token");
+    await page.goto(`/signin/confirm?token=${token}`);
+    await page.getByRole("button", { name: /continue to autonomous evals/i }).click();
+    await page.waitForURL((u) => !u.pathname.startsWith("/signin"));
 
     await page.goto("/start");
     await expect(page).toHaveURL(/\/start/);
 
-    await page.getByRole("button", { name: /trace audit/i }).or(page.getByText(/trace audit/i).first()).click();
-    await page.getByRole("textbox", { name: /trace/i }).fill(fixture);
-    await page.getByRole("checkbox", { name: /authori[sz]ed/i }).check();
-    await page.getByRole("button", { name: /submit|get (a )?quote|continue|start/i }).first().click();
+    await page.getByRole("radio", { name: /trace audit/i }).click();
+    await page.getByRole("textbox", { name: /transcript or tool log/i }).fill(fixture);
+    await page.getByRole("checkbox", { name: /authorized to test/i }).check();
+    await page.getByRole("button", { name: /submit request/i }).click();
 
     await expect(page).toHaveURL(/\/jobs?\//, { timeout: 30_000 });
-    await expect(page.getByText(/quote/i).first()).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByText(/quote · version/i).first()).toBeVisible({ timeout: 120_000 });
     // Stripe checkout is out of scope for the automated run: stop at the quote card.
     await expect(page.getByText(/\$5(\.00)?/).first()).toBeVisible();
   });

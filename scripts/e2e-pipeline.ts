@@ -175,6 +175,24 @@ async function main(): Promise<void> {
   const costs = await d.select({ n: sql<number>`count(*)::int`, sum: sql<number>`coalesce(sum(micro_usd),0)::bigint` }).from(schema.costs).where(eq(schema.costs.jobId, jobId));
   check("cost rows recorded (mock services record none; real ones must)", job.isMock ? costs[0].n >= 0 : costs[0].n >= 1, `rows=${costs[0].n} total=${costs[0].sum} microUSD`);
 
+  // 6. Clarification path: marker in notes -> needs_clarification -> answer -> quoted.
+  const cl = await customer.json<{ jobId: string }>("/api/jobs", {
+    method: "POST", headers: { "content-type": "application/json", "idempotency-key": `e2e-clarify-${randomUUID()}` },
+    body: JSON.stringify({ package: "trace_audit", trace, notes: "[needs-clarification]", authorizedToTest: true }),
+  });
+  const clId = cl.body?.jobId;
+  check("create clarification job", cl.status === 201 && !!clId, `status ${cl.status} jobId ${clId}`);
+  if (clId) {
+    const st = await pollState(customer, clId, ["needs_clarification", "quoted"], 60_000);
+    check("job enters needs_clarification", st === "needs_clarification", `state=${st}`);
+    const ans = await customer.json(`/api/jobs/${clId}/messages`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answer: "Focus on unsupported success claims." }),
+    });
+    check("clarification answer accepted", ans.status === 201, `status ${ans.status}`);
+    const after = await pollState(customer, clId, ["quoted"], 60_000);
+    check("job reaches quoted after answer", after === "quoted", `state=${after}`);
+  }
+
   console.log(`\nJOB_ID=${jobId}`);
 }
 

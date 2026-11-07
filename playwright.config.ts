@@ -6,6 +6,7 @@ const baseURL = externalBaseUrl ?? "http://localhost:3000";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
+  workers: 1, // dev server compiles routes on demand; parallel runs time out
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
   use: { baseURL, trace: "retain-on-failure" },
