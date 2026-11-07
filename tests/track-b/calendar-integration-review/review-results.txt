@@ -1,0 +1,14 @@
+Review source HEAD: 19580d2fde4406fd9237722dc97542d315e68276; local contracts: c4bd22e177a6b14ecd9b505033b3a27dbdb0b061
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/calendar-integration-review-zkiV3C
+
+ ✓ review/service/service.test.ts (8 tests) 2489ms
+ ✓ review/report/report.test.ts (12 tests) 1724ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed (20)
+   Start at  14:11:19
+   Duration  5.21s (tests 85%, transform 8%, import 7%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/calendar-integration-review-zkiV3C/results.json
+Strict review: 2 files, 20 passed, none skipped. CHARACTERIZATION tests assert defects; green is not acceptance.

@@ -7,7 +7,7 @@ import { runConformance, summarize } from "../packages/core/src/contracts/confor
 import type { EvalServices } from "../packages/core/src/contracts/services";
 
 async function main() {
-  const modPath = "@ae/core/evals/index";
+  const modPath = "../packages/core/src/integration/eval-services";
   let services: EvalServices | undefined;
   try {
     const mod = (await import(modPath)) as { evalServices?: EvalServices };
@@ -16,7 +16,7 @@ async function main() {
   } catch (e) {
     const err = e as { code?: string; message?: string };
     if (err.code === "ERR_MODULE_NOT_FOUND" || err.code === "MODULE_NOT_FOUND" || /Cannot find (module|package)/.test(err.message ?? "")) {
-      console.error(`Track B module not found: packages/core/src/evals/index.ts (exporting \`evalServices\`). Nothing to check yet.\n${err.message}`);
+      console.error(`Real services module not found: packages/core/src/integration/eval-services.ts (exporting \`evalServices\`). Nothing to check yet.\n${err.message}`);
       process.exit(2);
     }
     console.error("Failed to load real services:", e);

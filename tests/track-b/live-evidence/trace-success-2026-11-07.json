@@ -1,0 +1,73 @@
+{
+  "jobId": "live-trace-success-20261107d",
+  "outcome": {
+    "status": "completed",
+    "result": {
+      "schemaVersion": "trace_audit.v1",
+      "jobId": "live-trace-success-20261107d",
+      "generatedAt": "2026-11-07T21:46:54.482Z",
+      "input": {
+        "format": "json",
+        "bytes": 377,
+        "eventCount": 4,
+        "toolCallCount": 1,
+        "toolErrorCount": 0,
+        "redactions": 0,
+        "instructionsProvided": true,
+        "instructionsClipped": false,
+        "warnings": []
+      },
+      "claims": [
+        {
+          "id": "c1",
+          "eventId": "e4",
+          "quote": "Your review is booked for tomorrow at 15:00 UTC.",
+          "topics": [
+            "calendar"
+          ],
+          "status": "supported",
+          "evidenceEventIds": [
+            "e2",
+            "e3"
+          ]
+        }
+      ],
+      "findings": [],
+      "dismissed": [],
+      "testDefects": [],
+      "rejectedAgentFindings": 0,
+      "investigator": {
+        "status": "completed",
+        "reason": null,
+        "taskKey": "live-trace-success-20261107d:quality_investigator:trace_recheck:1",
+        "sessionId": "ses_wwd8ffedtt3jm2emewrpbaf0n6"
+      },
+      "limitations": [
+        "Only the supplied log was examined. Actions outside the log cannot be verified.",
+        "A claim without matching evidence is reported as unsupported, not as a failed action.",
+        "Claim detection is pattern-based and conservative; hedged or future-tense statements are not treated as claims.",
+        "Credentials found in the log were redacted before analysis and are not reproduced in this report."
+      ],
+      "costs": [
+        {
+          "jobId": "live-trace-success-20261107d",
+          "source": "naive_session",
+          "role": "quality_investigator",
+          "externalId": "ses_wwd8ffedtt3jm2emewrpbaf0n6",
+          "purpose": "trace_recheck",
+          "microUsd": 11619,
+          "measured": true,
+          "recordedAt": "2026-11-07T21:46:54.480Z"
+        }
+      ]
+    }
+  },
+  "sessions": [
+    {
+      "sessionId": "ses_wwd8ffedtt3jm2emewrpbaf0n6",
+      "state": "completed",
+      "agentVersion": 1,
+      "consumedMicroUsd": 11619
+    }
+  ]
+}

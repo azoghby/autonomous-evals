@@ -1,0 +1,13 @@
+{
+  "resultsMatch": true,
+  "totalConsumedMicroUsd": 26023,
+  "getRequests": 1,
+  "blockedMutations": 0,
+  "sessionIds": [
+    "ses_pk9kqydd8p2yxjsc50z0k7cggt",
+    "ses_1v6j73vaqjfmk15nn3ngpt6k50",
+    "ses_6gknx1k95w0qzk3ns9b45n9kf4",
+    "ses_aad93jf4rvp1fjkg6fbqqsbstr"
+  ],
+  "elapsedMs": 3032
+}

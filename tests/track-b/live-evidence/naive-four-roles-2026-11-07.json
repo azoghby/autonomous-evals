@@ -1,0 +1,61 @@
+{
+  "createdAgents": [],
+  "directory": {
+    "commercial": {
+      "agentId": "agt_8qs08dagxf8jyyj76afczxrdhp",
+      "agentVersion": 1
+    },
+    "evaluation_engineer": {
+      "agentId": "agt_gwht2ygfm04s2j19062q3r5sad",
+      "agentVersion": 1
+    },
+    "quality_investigator": {
+      "agentId": "agt_p2r9zh605pmpzvx4fdprd832vt",
+      "agentVersion": 1
+    },
+    "company_operator": {
+      "agentId": "agt_46gdd6aqq1vtzcvvtnrtnyqk7j",
+      "agentVersion": 1
+    }
+  },
+  "results": [
+    {
+      "role": "commercial",
+      "status": "completed",
+      "sessionId": "ses_pk9kqydd8p2yxjsc50z0k7cggt",
+      "agentId": "agt_8qs08dagxf8jyyj76afczxrdhp",
+      "agentVersion": 1,
+      "consumedMicroUsd": 6039,
+      "detail": "decision=quote package=trace_audit policyWarnings=0"
+    },
+    {
+      "role": "evaluation_engineer",
+      "status": "completed",
+      "sessionId": "ses_1v6j73vaqjfmk15nn3ngpt6k50",
+      "agentId": "agt_gwht2ygfm04s2j19062q3r5sad",
+      "agentVersion": 1,
+      "consumedMicroUsd": 4826,
+      "detail": "scenarios=2"
+    },
+    {
+      "role": "quality_investigator",
+      "status": "completed/investigator=completed",
+      "sessionId": "ses_6gknx1k95w0qzk3ns9b45n9kf4",
+      "agentId": "agt_p2r9zh605pmpzvx4fdprd832vt",
+      "agentVersion": 1,
+      "consumedMicroUsd": 8508,
+      "detail": "findings=F1:unsupported_claim:inconclusive dismissed=0 rejectedAgentFindings=0"
+    },
+    {
+      "role": "company_operator",
+      "status": "completed",
+      "sessionId": "ses_aad93jf4rvp1fjkg6fbqqsbstr",
+      "agentId": "agt_46gdd6aqq1vtzcvvtnrtnyqk7j",
+      "agentVersion": 1,
+      "consumedMicroUsd": 6650,
+      "detail": "summary_chars=351 notes=1"
+    }
+  ],
+  "totalConsumedMicroUsd": 26023,
+  "elapsedMs": 112715
+}
