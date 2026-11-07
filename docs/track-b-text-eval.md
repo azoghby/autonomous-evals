@@ -105,3 +105,21 @@ The live literal-fact defect now has an offline code safeguard; live quality acc
 `verifyFrozenSuite` checks content integrity only. `verifyAdmittedFrozenSuite` additionally gates all text execution, investigation, reruns and monitoring. Unsafe legacy suites (including the real live fixture) remain readable for evidence/export but throw `FrozenSuiteAdmissionError` before evaluation. Store that as a test/suite defect or operator blocker, never a customer failure. Legacy content and hashes remain unchanged. The low-level freeze function supports uncatalogued historical artifacts; a frozen digest alone does not certify admission.
 
 Current follow-up verification: strict eval harness **241 tests / 19 files**, none skipped, including integration services and PGlite checkpoints; isolated text review **96 tests / 5 files**, including all T1–T3 regressions and 30 admission tests. Commands are the same as above with the existing offline dependency cache. The final harness run resolved locally available `origin/track-a` to `c4bd22e177a6b14ecd9b505033b3a27dbdb0b061`, contract digest unchanged (`67a98dc7ddab55f56223fe40b402edae6bd0edbab4d4d070a19706fc006ae915`). An initial run exposed the data-mapping fixture's reliance on integrity-only freezing/reading; separating content integrity from the execution admission boundary preserved that compatibility without exempting unsafe suites from execution quarantine. No tests outside text were edited, no fetch/install occurred, and the temporary dependency symlink was removed.
+
+## Prose admission v2 follow-up (offline)
+
+The original live Lumen paragraph now supplies both meaningful system objectives with exact source quotes and offsets: `max_words: 50` and case-sensitive `not_contains: INTERNAL_ONLY`. Neither system text nor original scenario questions are rewritten. First-draft and bounded-revision injected designs execute compliant “three projects” responses successfully, fail 51-word/banned-token responses, and keep conditional fallback meaning in a rubric. New design validation rejects omission of supported unconditional system checks; moving them all into rubrics cannot obtain acceptance. Reference facts still never justify numeric literals. The original unsound frozen digest remains quarantined before outbound work.
+
+Admission/task identity is `explicit_output.v2`; safe v1 catalogs retain original hashes and are checked with the v1 grammar. Unknown context remains conservative and may make a source rubric-only; examples, reported/quoted/code instructions and trailing scope modifiers are not promoted to commands. See [the admission design](track-b-text-design-admission.md) for precise supported forms, context limits and compatibility.
+
+Final validation commands:
+
+```sh
+TEXT_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/text-security-review/run.mjs
+npm --prefix tests/track-b run check -- --components evals --track-a-ref origin/track-a
+node tests/track-b/calendar-integration-review/run.mjs --track-a-ref origin/track-a
+```
+
+All strict TypeScript checks pass. Selected evals: **312 tests / 21 files**, none skipped, including 13 calendar integration service tests, 12 integration service tests, 5 PGlite checkpoints and 38 PostgreSQL data-store tests. Text security review: **116 tests / 5 files**, including 50 admission tests and unchanged execution/investigation safety regressions. Calendar integration review dependents: **20 tests / 2 files**, none skipped. The final text review also strengthens the same-input v1/v2 task-identity assertion. `git diff --check` passes.
+
+The existing offline dependency cache was temporarily symlinked at `tests/track-b/node_modules` for the selected/calendar harnesses and removed afterward. Local `origin/track-a` resolved to `103ff42059da950780213bb8ea2832521c457eb9`; shared-contract digest remains `67a98dc7ddab55f56223fe40b402edae6bd0edbab4d4d070a19706fc006ae915`. Initial new-test typing errors and a quoted conditional sentence-boundary failure were corrected before the passing runs. A disjoint read-only Sol adversarial review supplied parser cases. No ECC, Track A edits, provider/cloud calls, install/fetch, outreach, push or PR. The parent still owns the next bounded live diagnostic and real-agent quality acceptance.

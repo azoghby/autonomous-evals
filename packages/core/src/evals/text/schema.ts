@@ -72,7 +72,7 @@ export const ObjectiveSpecSchema = z
 export type ObjectiveSpec = z.infer<typeof ObjectiveSpecSchema>;
 
 export const ConstraintCatalogSchema = z.object({
-  version: z.literal('explicit_output.v1'),
+  version: z.enum(['explicit_output.v1', 'explicit_output.v2']),
   entries: z.array(z.object({
     id: z.string(), source: z.enum(['systemPrompt', 'userMessage']), scenarioId: z.string().nullable(),
     start: z.number().int().nonnegative(), quote: z.string().min(1), spec: ObjectiveSpecSchema,
