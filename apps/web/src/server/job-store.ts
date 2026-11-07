@@ -3,7 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import {
   PRICE_CENTS, JOB_BUDGET_MICRO_USD, CostEntry, type Finding, type JobState, type QualifyResult,
-  type Quote, type Package, type IntakeInput, type Environment,
+  type Quote, type Package, type Remediation, type IntakeInput, type Environment,
 } from "@ae/core/contracts/index";
 import type { ServiceContext } from "@ae/core/contracts/services";
 import { decryptJson } from "@ae/core/storage/crypto";
@@ -136,4 +136,17 @@ export async function makeServiceContext(jobId: string): Promise<ServiceContext>
 export async function latestQuote(jobId: string) {
   const [q] = await db().select().from(schema.quotes).where(eq(schema.quotes.jobId, jobId)).orderBy(desc(schema.quotes.version)).limit(1);
   return q ?? null;
+}
+
+/** Row id of a job's original (non-rerun) finding with this key, or null. */
+export async function findingRowIdByKey(jobId: string, findingKey: string): Promise<string | null> {
+  const [row] = await db().select({ id: schema.findings.id }).from(schema.findings)
+    .where(and(eq(schema.findings.jobId, jobId), eq(schema.findings.findingKey, findingKey), sql`${schema.findings.rerunOfFindingId} is null`)).limit(1);
+  return row?.id ?? null;
+}
+
+/** Persists a validated fix for a finding row. Idempotent: one remediation per finding row (retries overwrite). */
+export async function saveRemediation(jobId: string, findingRowId: string, remediation: Remediation): Promise<void> {
+  await db().insert(schema.remediations).values({ jobId, findingRowId, data: remediation })
+    .onConflictDoUpdate({ target: schema.remediations.findingRowId, set: { data: remediation } });
 }
