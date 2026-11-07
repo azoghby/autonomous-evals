@@ -329,7 +329,7 @@ export type Evidence = z.infer<typeof EvidenceSchema>;
 
 export const FindingSchema = z.object({
   id: z.string(),
-  source: z.enum(["trace_audit", "text_eval"]),
+  source: z.enum(["trace_audit", "text_eval", "workflow_eval"]),
   category: z.string(),
   title: z.string(),
   label: FindingLabelSchema,

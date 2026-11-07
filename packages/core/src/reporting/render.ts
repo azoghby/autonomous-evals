@@ -22,6 +22,8 @@ export interface ReportInput {
   details?: Record<string, unknown>;
   includeMonitoringPitch?: boolean;
   includeHtml?: boolean;
+  /** Supplied by execution, never inferred from an empty findings list. */
+  evaluationStatus?: 'completed' | 'unresolved' | 'needs_operator';
 }
 
 export interface ReportJson {
@@ -37,6 +39,7 @@ export interface ReportJson {
   costs: { knownMicroUsd: MicroUsd | null; entries: CostEntry[]; unknown: string[] };
   monitoringPitch: string | null;
   details: Record<string, unknown>;
+  evaluationStatus: ReportInput['evaluationStatus'] | null;
 }
 
 export interface RenderedReport {
@@ -91,7 +94,10 @@ export function renderReport(input: ReportInput): RenderedReport {
   const unknown = ["Your own model-provider usage during the evaluation", "Hosting and infrastructure"];
   if (input.judgeUsage && input.judgeUsage.calls > 0) unknown.push(`AI Gateway judge calls (${input.judgeUsage.calls}; token counts recorded, monetary cost not reported)`);
 
-  const summaryText = input.operatorSummary?.executive_summary ?? generatedSummary(input.findings);
+  const incomplete = input.evaluationStatus && input.evaluationStatus !== 'completed';
+  const summaryText = incomplete
+    ? `${input.evaluationStatus === 'needs_operator' ? 'Operator reconciliation required' : 'Evaluation incomplete'}. ${input.findings.length ? generatedSummary(input.findings) : 'No product conclusion is available.'}`
+    : input.operatorSummary?.executive_summary ?? generatedSummary(input.findings);
   const pitch = input.includeMonitoringPitch ? monitoringPitch() : null;
 
   const json: ReportJson = {
@@ -99,7 +105,7 @@ export function renderReport(input: ReportInput): RenderedReport {
     generatedAt: input.generatedAt,
     job: { jobId: input.job.jobId, package: input.job.package, environment: input.job.environment, isFixture: input.job.isFixture, linkedRetestOf: input.job.linkedRetestOf },
     package: { name: offer.name, price: priceLabel(offer) },
-    summary: { text: summaryText, authorship: input.operatorSummary ? "agent_written" : "generated_from_findings", counts: counts(input.findings) },
+    summary: { text: summaryText, authorship: input.operatorSummary && !incomplete ? "agent_written" : "generated_from_findings", counts: counts(input.findings) },
     findings: input.findings,
     operatorNotes: (input.operatorSummary?.finding_notes ?? []).map((n) => ({ findingId: n.finding_id, note: n.note })),
     nextSteps: input.operatorSummary?.recommended_next_steps ?? [],
@@ -107,6 +113,7 @@ export function renderReport(input: ReportInput): RenderedReport {
     costs: { knownMicroUsd, entries: input.costs ?? [], unknown },
     monitoringPitch: pitch,
     details: input.details ?? {},
+    evaluationStatus: input.evaluationStatus ?? null,
   };
 
   const notes = new Map(json.operatorNotes.map((n) => [n.findingId, n.note]));
@@ -116,7 +123,7 @@ export function renderReport(input: ReportInput): RenderedReport {
   if (input.job.environment === "test") md.push("", "> Test-mode job.");
   md.push("", `Job \`${input.job.jobId}\` · generated ${mdText(input.generatedAt)} · ${mdText(priceLabel(offer))}`);
   md.push("", "## Summary", "", mdText(summaryText));
-  if (input.operatorSummary) md.push("", "_Summary written by our operator agent from the findings below._");
+  if (input.operatorSummary && !incomplete) md.push("", "_Summary written by our operator agent from the findings below._");
   md.push("", `| Confirmed | Rubric concern | Inconclusive |`, `|---|---|---|`, `| ${json.summary.counts.confirmed} | ${json.summary.counts.rubric_concern} | ${json.summary.counts.inconclusive} |`);
 
   md.push("", "## Findings");

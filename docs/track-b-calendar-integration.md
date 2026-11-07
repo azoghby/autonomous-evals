@@ -127,12 +127,28 @@ execution scopes: `passed → passed`, `product_failure → failed`,
 This preserves unresolved states and ties the projection to suite hash and stable
 target version; it makes no significance or population-reliability claim.
 
+Track B now provides `renderCalendarReport` from `reporting/calendar.ts` for this
+rich projection. Pass the authorized `job`, `report` returned above, `generatedAt`,
+the full measured cost list (or null if unknown), `knownSecrets`, and optional
+`includeHtml`. It returns JSON/Markdown/HTML artifacts using the existing escaped
+renderer. Findings retain `source: workflow_eval`; SQL state evidence, actual
+reproduction identity and labels are mapped without relabeling them as text.
+The JSON details retain the full suite, run, investigation and monitoring projection.
+The adapter checks job/suite/branch/run associations and rejects recognized or known
+credentials. It accepts trusted service output, not arbitrary customer JSON.
+
+Report status is recomputed from unresolved executions, findings and pending
+reproductions. Incomplete/operator-required reports cannot acquire a clean summary
+merely because their findings list is empty. `completed` means the evaluation has
+a determinate result; it does not mean the evaluated product passed. The renderer
+does not invoke an agent, perform retries, persist artifacts or deliver reports.
+
 Parent changes requested (outside this implementation's ownership): wire the
 factory into Workflow and authenticated routes; retain stable operation IDs;
 authorize/load reviewed suites and branches; apply migrations and manage pools;
 persist/export report artifacts; and extend the report/Track A contracts for
-workflow evidence. Existing `Finding.source` only admits text/trace sources, so
-these findings must **not** be relabeled as text to call `renderReport`.
+workflow evidence. Track B's internal finding schema now admits workflow sources;
+Track A's report contract still needs explicit mapping of the rich artifact.
 Likewise `toTrackAWorkflowRun` rejects infrastructure/inconclusive states; the
 parent must preserve rich evidence and pause/extend the contract rather than
 invent booleans. No app routes, contracts, root manifests or existing engine

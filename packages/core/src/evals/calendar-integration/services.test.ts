@@ -13,6 +13,7 @@ import type { SqlPool } from '../../simulator/pool';
 import type { ChatTarget } from '../../targets/chat';
 import type { CalendarSuiteInput } from '../../simulator/workflow';
 import { createCalendarEvaluationServices } from './index';
+import { renderCalendarReport } from '../../reporting/calendar';
 
 const request = { suiteId: 'reviewed-suite', operationId: 'workflow-baseline', versionLabel: 'baseline' };
 const acceptance = calendarAcceptanceScenarios();
@@ -97,6 +98,11 @@ describe('durable calendar integration: SQL-backed local fixtures', () => {
     const report = await f.restart().reportInput(f.ctx, request);
     expect(report.run).toEqual(run);
     expect(report.suite).toEqual(suite);
+    const rendered = renderCalendarReport({ job: f.job, report, generatedAt: suite.frozenAt, costs: null, includeHtml: true });
+    expect(rendered.json.evaluationStatus).toBe('completed');
+    expect(rendered.json.details.calendar).toMatchObject({ run, investigation });
+    expect(rendered.json.costs.knownMicroUsd).toBeNull();
+    expect(() => renderCalendarReport({ job: { ...f.job, jobId: 'other-job' }, report, generatedAt: suite.frozenAt, costs: null })).toThrow('identity_mismatch');
     expect(f.complete).toHaveBeenCalledTimes(24);
     expect(f.resolve).toHaveBeenCalledTimes(7);
     expect(JSON.stringify(await engine.query('SELECT value FROM text_integration.checkpoints WHERE job_id=$1', [f.job.jobId]))).not.toContain('postgres://');
@@ -119,6 +125,12 @@ describe('durable calendar integration: SQL-backed local fixtures', () => {
     expect(row?.record.original).toEqual(JSON.parse(JSON.stringify(run)));
     expect(row?.record.attempts).toHaveLength(3);
     expect(JSON.stringify(investigation)).toContain('No action was performed.');
+    const report = await f.api.reportInput(f.ctx, request);
+    const rendered = renderCalendarReport({ job: f.job, report, generatedAt: report.suite.frozenAt, costs: null });
+    expect(rendered.json.findings.filter(f => f.label === 'confirmed')).toHaveLength(3);
+    expect(rendered.json.findings.every(f => f.source === 'workflow_eval')).toBe(true);
+    expect(rendered.json.findings.filter(f => f.label === 'confirmed').every(f => f.reproduction?.attempted)).toBe(true);
+    expect(rendered.json.details.calendar).toMatchObject({ investigation });
   });
 
   it('serializes competing Workflow run claims before dispatch without redispatch', async () => {
@@ -229,6 +241,13 @@ describe('durable calendar integration: SQL-backed local fixtures', () => {
     expect(report.status).toBe('unresolved');
     expect(report.limitations.join(' ')).toContain('infrastructure_error');
     expect(report.monitoring.checks.every(c => c.outcome === 'infrastructure_error')).toBe(true);
+    const rendered = renderCalendarReport({ job: f.job, report, generatedAt: report.suite.frozenAt, costs: null, includeHtml: true });
+    expect(rendered.json.evaluationStatus).toBe('unresolved');
+    expect(rendered.summary).toContain('Evaluation incomplete');
+    expect(rendered.json.summary.counts.confirmed).toBe(0);
+    expect(rendered.markdown).toContain('infrastructure\\_error');
+    expect(() => renderCalendarReport({ job: f.job, report, generatedAt: report.suite.frozenAt, costs: null,
+      knownSecrets: ['Trusted calendar system prompt.'] })).toThrow('unsafe_evidence');
     expect(f.complete).toHaveBeenCalledTimes(12);
   });
 

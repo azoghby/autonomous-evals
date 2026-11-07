@@ -19,6 +19,17 @@ const evil: Finding = {
 };
 
 describe("renderReport", () => {
+  it('does not call an empty unresolved evaluation clean, even if an operator summary does', () => {
+    const report = renderReport({ job: fixtureJob(), generatedAt: '2026-11-07T21:00:00Z', findings: [],
+      limitations: ['Execution unavailable.'], costs: null, evaluationStatus: 'unresolved',
+      operatorSummary: { executive_summary: 'Everything passed.', finding_notes: [], recommended_next_steps: [], retest_recommended: false, authorship: 'agent_written' },
+      includeHtml: true });
+    expect(report.summary).toBe('Evaluation incomplete. No product conclusion is available.');
+    expect(report.json.evaluationStatus).toBe('unresolved');
+    expect(report.json.summary.authorship).toBe('generated_from_findings');
+    expect(report.markdown).not.toContain('Everything passed');
+    expect(report.html).not.toContain('Everything passed');
+  });
   const r = renderReport({
     job: fixtureJob(),
     generatedAt: "2026-11-07T21:00:00.000Z",
