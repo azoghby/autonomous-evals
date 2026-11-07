@@ -1,0 +1,51 @@
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import { cn } from "./cn";
+
+const control =
+  "w-full rounded-2xl border border-glass-border bg-glass px-4 py-3 text-[15px] text-cream placeholder:text-cream/40 backdrop-blur-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-coral aria-[invalid=true]:border-danger";
+
+type FieldBase = {
+  label: string;
+  /** id for the control; required for label association. */
+  id: string;
+  hint?: ReactNode;
+  error?: ReactNode;
+  className?: string;
+};
+type InputField = FieldBase & { multiline?: false } & Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "className">;
+type TextareaField = FieldBase & { multiline: true } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id" | "className">;
+export type FieldProps = InputField | TextareaField;
+
+/** Label + input/textarea wrapper with hint and error text. */
+export function Field(props: FieldProps) {
+  const { label, id, hint, error, className, multiline, ...rest } = props;
+  const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
+  const shared = { id, "aria-describedby": describedBy, "aria-invalid": error ? true : undefined };
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <label htmlFor={id} className="text-sm font-medium text-cream">
+        {label}
+      </label>
+      {multiline ? (
+        <textarea
+          rows={6}
+          {...(rest as TextareaHTMLAttributes<HTMLTextAreaElement>)}
+          {...shared}
+          className={cn(control, "min-h-28 resize-y")}
+        />
+      ) : (
+        <input {...(rest as InputHTMLAttributes<HTMLInputElement>)} {...shared} className={control} />
+      )}
+      {hint && (
+        <p id={`${id}-hint`} className="text-xs text-cream/60">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-error`} role="alert" className="text-xs text-[#ff8e81]">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
