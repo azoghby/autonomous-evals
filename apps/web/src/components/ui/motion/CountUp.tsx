@@ -1,5 +1,5 @@
 "use client";
-import { animate } from "animejs";
+import type { JSAnimation } from "animejs";
 import { useInView } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -26,14 +26,20 @@ export function CountUp({ value, prefix = "", suffix = "", duration = 1100, clas
       return;
     }
     const state = { v: 0 };
-    const anim = animate(state, {
-      v: value,
-      duration,
-      ease: "outExpo",
-      onUpdate: () => setText(String(Math.round(state.v))),
-      onComplete: () => setText(String(value)),
+    let anim: JSAnimation | undefined;
+    let cancelled = false;
+    // anime.js is only needed once the number scrolls into view; keep it out of the initial bundle.
+    import("animejs").then(({ animate }) => {
+      if (cancelled) return;
+      anim = animate(state, {
+        v: value,
+        duration,
+        ease: "outExpo",
+        onUpdate: () => setText(String(Math.round(state.v))),
+        onComplete: () => setText(String(value)),
+      });
     });
-    return () => { anim.revert(); };
+    return () => { cancelled = true; anim?.revert(); };
   }, [inView, value, duration]);
 
   return <span ref={ref} className={className}>{prefix}{text}{suffix}</span>;

@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { cn } from "../cn";
 import { motionTokens } from "./tokens";
 import { useMotionDuration } from "./useMotionOk";
@@ -8,7 +8,7 @@ import { useMotionDuration } from "./useMotionOk";
 export function DrawRule({ className, delay = 0 }: { className?: string; delay?: number }) {
   const dur = useMotionDuration(motionTokens.duration.crawl);
   return (
-    <motion.span
+    <m.span
       aria-hidden
       data-rule
       className={cn("block h-px w-full origin-left bg-current", className)}

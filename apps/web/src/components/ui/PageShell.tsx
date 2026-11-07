@@ -29,7 +29,7 @@ export function PageShell({
     <div className="relative isolate min-h-screen overflow-x-clip bg-bg text-fg">
       <BlueLight dim className="fixed" />
       <TopBar nav={nav} active={active} />
-      <main className={cn("relative z-10 mx-auto w-full px-5 pb-24 pt-6 sm:px-8", narrow ? "max-w-2xl" : "max-w-5xl", className)}>
+      <main id="main" tabIndex={-1} className={cn("outline-none ","relative z-10 mx-auto w-full px-5 pb-24 pt-6 sm:px-8", narrow ? "max-w-2xl" : "max-w-5xl", className)}>
         {children}
       </main>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGroup, motion } from "motion/react";
+import { LayoutGroup, m } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "./cn";
 import { springs } from "./motion/tokens";
@@ -39,7 +39,11 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
     return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
   }, [open]);
   return (
-    <header ref={wrapRef} className="relative z-20 border-b border-line flex items-center justify-between gap-4 px-5 py-5 sm:px-8">
+    <header
+      ref={wrapRef}
+      onBlur={(e) => { if (open && !e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false); }}
+      className="relative z-20 border-b border-line flex items-center justify-between gap-4 px-5 py-5 sm:px-8"
+    >
       <Wordmark />
       <nav aria-label="Main navigation" className="hidden md:block">
         <LayoutGroup id="topbar-nav">
@@ -49,7 +53,7 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
               return (
                 <li key={item.href} className="relative">
                   {item.href === lit && (
-                    <motion.span
+                    <m.span
                       layoutId="nav-underline"
                       aria-hidden
                       className="absolute inset-x-3 -bottom-px h-px bg-accent-bright"

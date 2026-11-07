@@ -1,5 +1,5 @@
 "use client";
-import { motion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 import type { ReactNode } from "react";
 import { motionTokens } from "./tokens";
 import { useMotionDuration } from "./useMotionOk";
@@ -18,7 +18,7 @@ export type StaggerProps = {
   id?: string;
 };
 
-const parts = { div: motion.div, ul: motion.ul, ol: motion.ol, section: motion.section };
+const parts = { div: m.div, ul: m.ul, ol: m.ol, section: m.section };
 
 /** Parent that staggers its <StaggerItem> children in. */
 export function Stagger({ children, className, as = "div", gap = motionTokens.stagger, delay = 0, inView = true, margin = "-60px", id }: StaggerProps) {
@@ -39,7 +39,7 @@ export type StaggerItemProps = {
   /** Rise distance in px. */
   y?: number;
 };
-const itemParts = { div: motion.div, li: motion.li, p: motion.p, span: motion.span, article: motion.article };
+const itemParts = { div: m.div, li: m.li, p: m.p, span: m.span, article: m.article };
 
 /** Child of <Stagger>: fades + rises. Reduced motion = opacity only. */
 export function StaggerItem({ children, className, as = "div", y = motionTokens.distance.md }: StaggerItemProps) {

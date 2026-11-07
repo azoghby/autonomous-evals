@@ -1,12 +1,12 @@
 "use client";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { CSSProperties, ElementType, ReactNode } from "react";
 import { motionTokens } from "./tokens";
 import { useMotionDuration } from "./useMotionOk";
 
 const MotionTags = {
-  div: motion.div, section: motion.section, li: motion.li, ul: motion.ul, ol: motion.ol,
-  p: motion.p, h2: motion.h2, h3: motion.h3, article: motion.article, header: motion.header, span: motion.span,
+  div: m.div, section: m.section, li: m.li, ul: m.ul, ol: m.ol,
+  p: m.p, h2: m.h2, h3: m.h3, article: m.article, header: m.header, span: m.span,
 } as const;
 export type RevealTag = keyof typeof MotionTags;
 

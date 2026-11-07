@@ -4,8 +4,8 @@ import { Footer, HowItWorks, Pricing, SampleFinding } from "@/components/marketi
 export default function Home() {
   return (
     <div className="bg-bg text-fg">
-      <Hero />
-      <main>
+      <main id="main" tabIndex={-1} className="outline-none">
+        <Hero />
         <HowItWorks />
         <Pricing />
         <SampleFinding />

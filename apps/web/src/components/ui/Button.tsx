@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "./cn";
 import { springs, motionTokens } from "./motion/tokens";
@@ -36,7 +36,7 @@ type AsButton = Common & { href?: undefined } & ButtonHTMLAttributes<HTMLButtonE
 type AsLink = Common & { href: string; target?: string; rel?: string; "aria-label"?: string };
 export type ButtonProps = AsButton | AsLink;
 
-const MotionLink = motion.create(Link);
+const MotionLink = m.create(Link);
 
 /** Rectangular button with spring hover-lift / press. Pass `href` to render a Next Link, otherwise a <button>. */
 export function Button(props: ButtonProps) {
@@ -59,8 +59,8 @@ export function Button(props: ButtonProps) {
   }
   const { variant: _v, size: _s, className: _c, children: _ch, href: _h, onDrag: _d, onDragStart: _ds, onDragEnd: _de, onAnimationStart: _as, ...rest } = props as AsButton;
   return (
-    <motion.button type="button" {...rest} className={cls} {...gestures}>
+    <m.button type="button" {...rest} className={cls} {...gestures}>
       {children}
-    </motion.button>
+    </m.button>
   );
 }

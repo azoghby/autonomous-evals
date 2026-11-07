@@ -5,3 +5,4 @@ export { Stagger, StaggerItem, type StaggerProps, type StaggerItemProps } from "
 export { PageTransition } from "./PageTransition";
 export { DrawRule } from "./DrawRule";
 export { CountUp, type CountUpProps } from "./CountUp";
+export { MotionProvider } from "./MotionProvider";

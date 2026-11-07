@@ -7,7 +7,7 @@
   --bg-sunken: #000000;
   --fg: #ffffff;
   --muted: #a1a1aa;
-  --subtle: #71717a;
+  --subtle: #8a8a94; /* >=4.5:1 on #0a0a0b and #101012 */
   --line: rgb(255 255 255 / 0.1);
   --line-strong: rgb(255 255 255 / 0.18);
   --accent: #2f6bff;
@@ -85,13 +85,16 @@ html { scroll-behavior: smooth; }
 @keyframes reveal { from { opacity: 0; transform: translate3d(0, 18px, 0); } }
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
 
-/* ---- Hero entrance (anime.js timeline) ----
-   Elements start hidden via .pre (SSR-identical markup); the timeline animates them in.
-   .hero-ready (set by JS under reduced motion) or no-JS shows everything immediately. */
-.pre { opacity: 0; }
-.pre-rise { transform: translate3d(0, 105%, 0); }
-.hero-ready .pre { opacity: 1; transform: none; }
-@media (scripting: none) { .pre { opacity: 1; transform: none; } }
+/* ---- Hero entrance (pure CSS, compositor-only: opacity + transform) ----
+   Runs from first paint with per-element --delay/--dur, so LCP never waits on JS hydration.
+   Reduced motion and no-animation contexts show everything immediately. */
+.pre { opacity: 0; --from: translate3d(0, 16px, 0); animation: hero-in var(--dur, 1000ms) var(--ease-out-expo) var(--delay, 0ms) both; }
+.pre-rise { --from: translate3d(0, 105%, 0); }
+.pre-lift-sm { --from: translate3d(0, 14px, 0); }
+.pre-lift-xs { --from: translate3d(0, 10px, 0); }
+.pre-scale { --from: scaleX(0); }
+@keyframes hero-in { from { opacity: 0; transform: var(--from); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pre { opacity: 1; animation: none; } }
 
 /* Reduced motion: scroll/route reveals become opacity-only fades. */
 @media (prefers-reduced-motion: reduce) {
