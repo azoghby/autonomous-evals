@@ -27,7 +27,6 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 | Neon (current) | `icy-star-64097833`, PG 18, aws-us-east-2, db `app`. main `br-long-voice-bdogu70i` (Realtime on, Storage on, pg_stat_statements on), sim-seed `br-dry-wave-bdhrghkh` |
 | Neon snapshots | `pre-demo-baseline` (`snap-fragrant-mouse-bdhvrb2y`); daily schedule 12:00 UTC, kept 48h |
 | Neon storage | private bucket `artifacts` on main (artifacts default here, Vercel Blob is the fallback) |
-| Old Neon projects (unused, empty) | `sparkling-frost-08478178` (us-west-2), `long-shape-06677281` (PG17). Delete only with the owner's OK |
 | Vercel Blob | private store `autonomous-evals-artifacts` (fallback) |
 | Email | AgentMail (`AGENTMAIL_API_KEY` set); Resend is the fallback (no key) |
 | Monid | CLI is logged in (key `main`, $20); `MONID_API_KEY` on Vercel, used for expert contact research |
@@ -102,3 +101,4 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - ~15:35: v3 retheme, /sample, AI gateway, conformance harness merged and pushed. Waiting on e2e pipeline, expert call booking, follow-ups/monitoring crons.
 - ~15:55: booking, crons, UI hooks merged; `npm run deploy` → prod Ready. Remaining in flight: e2e pipeline test.
 - ~16:20: adapters + e2e merged, prod redeployed. Open: stale-job recovery check in prod, Playwright happy-path selectors for v3, Stripe test key.
+- ~16:30: deleted old Neon projects sparkling-frost-08478178 and long-shape-06677281 (owner OK, both empty).
