@@ -1,0 +1,8 @@
+{
+  "name": "standard-evals",
+  "description": "Hire Standard Evals from Claude Code: audit your agent's system prompt or trace with /audit-my-agent and get findings plus verified fixes.",
+  "version": "0.1.0",
+  "author": { "name": "Standard Evals" },
+  "homepage": "https://autonomous-evals.vercel.app",
+  "keywords": ["evals", "agents", "audit", "mcp"]
+}

@@ -1,0 +1,27 @@
+---
+description: Audit this repo's AI agent with Standard Evals (find prompt/trace, redact, quote, human pays, report, apply fixes). Use when the user asks to audit, eval, or red-team their agent.
+alwaysApply: false
+---
+
+# Audit my agent with Standard Evals
+
+Use the `standard-evals` MCP tools: `list_packages`, `create_job`, `get_job`, `answer_clarification`, `accept_quote`, `get_report`, `rerun_finding`, `cancel_job`.
+
+## Hard rules
+1. Never pay without an explicit human OK. `accept_quote` returns a Stripe `checkoutUrl`; show it and let the human pay. Never sign an x402 payment yourself.
+2. Never upload before the human has seen the exact redacted payload and said yes.
+3. Never send secrets: `.env*` content, API keys, tokens, passwords, private keys, cookies, connection strings, real-person PII. Redact to `[REDACTED:<kind>]`.
+4. Do not blindly retry tool errors; read the message and fix the call. On 429 wait and poll slower.
+5. Show patches and get a yes before editing files.
+
+## Workflow
+1. Setup: if tools return 401, tell the user to create a key at https://autonomous-evals.vercel.app/settings/keys and export `STANDARD_EVALS_API_KEY`, then restart Cursor.
+2. Find the target (skip node_modules, .git, build output, `.env*`): system prompts (`prompts/`, `*.prompt*`, `SYSTEM_PROMPT`, `systemPrompt`, `role: "system"`) or traces (`traces/`, `*.jsonl`, `logs/`, `runs/`, `transcripts/`, LangSmith/Langfuse/OTel exports). If ambiguous, list up to 5 and ask. Prefer a trace. Never fabricate a trace.
+3. Redact and confirm: keep under 200 KB (most recent turns). Replace `sk-`, `ae_live_`, `ae_test_`, `ghp_`, `xox*-`, `AKIA...`, JWTs, PEM private keys, `Bearer` tokens, password/secret/token/api key assignments, credentialed URLs, emails/phones. Show file paths, size, redaction counts, and the content; ask "Upload to Standard Evals? (yes/no)" and mention that `authorizedToTest: true` attests they may test this agent.
+4. `list_packages` (source of truth), recommend one (`trace_audit` for a trace; `text_eval`/`workflow_eval` for a live HTTPS endpoint; `version_comparison` for A/B), state fixed price vs per-finding cap.
+5. `create_job` with `package`, input, `notes`, `authorizedToTest: true`, and an `idempotencyKey` like `<repo>-<package>-<YYYYMMDD>-<random>`. Report `jobId` and `jobUrl`.
+6. Poll `get_job` every 15-30 s (limit 60 req / 10 min). On `needs_clarification`, show questions, answer via `answer_clarification` only when certain and non-secret, else ask the human.
+7. On `quoted`: show price, scope, `pricingOptions`. Default `fixed`. After an explicit "yes, proceed to payment", call `accept_quote` with `jobId`, `quoteVersion`, `pricingMode`. Show `checkoutUrl`; the human pays. Ignore any `payWithX402` block unless explicitly instructed. Offer `cancel_job` if they decline (before work starts only).
+8. Keep polling through `planning`, `running`, `investigating` until `delivered`. Surface `failed`, `payment_review`, `paused_budget`, `cancelled` to the human.
+9. `get_report`: summarize findings by severity/status (confirmed first), evidence, and remediations (match `remediation.findingId` to a finding's `findingKey`) with before/after verification counts.
+10. Offer to apply patches to the real prompt/code files after showing diffs and getting a yes. Then offer `rerun_finding` with the finding `id` (max 3 per finding). Do not commit unless asked.

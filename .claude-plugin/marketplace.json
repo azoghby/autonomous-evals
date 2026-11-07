@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "standard-evals",
+  "description": "Standard Evals: hire autonomous agents to evaluate your AI agent.",
+  "owner": { "name": "Standard Evals" },
+  "plugins": [
+    {
+      "name": "standard-evals",
+      "description": "/audit-my-agent: Claude hires Standard Evals to test your agent, find failures, and return verified fixes.",
+      "source": "./integrations/claude-code-plugin",
+      "category": "development"
+    }
+  ]
+}

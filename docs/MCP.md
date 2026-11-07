@@ -190,3 +190,8 @@ If `accept_quote` is called before a quote exists, or with a stale `quoteVersion
 - Only submit targets you are authorized to test. Evaluations send adversarial and edge-case inputs to the endpoint you provide.
 - Payment always happens through Stripe Checkout. The MCP server never sees card details.
 - Test keys (`ae_test_...`) work against Stripe test mode and should not be used for real purchases.
+
+## Ready-made integrations
+
+- Claude Code plugin (`/audit-my-agent`): [`integrations/claude-code-plugin`](../integrations/claude-code-plugin/README.md)
+- Cursor MCP config and rule: [`integrations/cursor`](../integrations/cursor/README.md)

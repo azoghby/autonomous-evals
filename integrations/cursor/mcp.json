@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "standard-evals": {
+      "url": "https://autonomous-evals.vercel.app/api/mcp/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:STANDARD_EVALS_API_KEY}"
+      }
+    }
+  }
+}
