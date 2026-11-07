@@ -6,19 +6,19 @@ import { cn } from "./cn";
 import { springs, motionTokens } from "./motion/tokens";
 import { useMotionOk } from "./motion/useMotionOk";
 
-export type ButtonVariant = "coral" | "glass" | "ghost" | "quiet" | "navy";
+export type ButtonVariant = "primary" | "outline" | "ghost" | "quiet";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const base =
-  "group inline-flex items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap select-none transition-[background-color,box-shadow,opacity,color] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream disabled:opacity-50 disabled:pointer-events-none";
+  "group inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none transition-[background-color,box-shadow,opacity,color,border-color] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-bright disabled:opacity-50 disabled:pointer-events-none";
+const PRIMARY = "bolt-sweep bg-accent text-white hover:bg-accent-bright shadow-[0_0_0_1px_rgb(91_140_255/0.5),0_8px_28px_-10px_var(--accent-glow)]";
+const OUTLINE = "border border-line-strong text-fg hover:border-accent-bright hover:text-white bg-transparent";
 const variants: Record<ButtonVariant, string> = {
-  coral: "bg-coral text-navy-deep hover:bg-[#ff8173] shadow-[0_6px_24px_-10px_rgb(255_107_91/0.55)]",
-  glass: "bg-glass text-cream border border-glass-border hover:bg-glass-strong",
-  ghost: "text-cream/80 hover:text-cream hover:bg-glass",
+  primary: PRIMARY,
+  outline: OUTLINE,
+  ghost: "text-muted hover:text-fg hover:bg-white/[0.05]",
   /** Text-only secondary: underline on hover, no fill. */
-  quiet: "rounded-none px-0 text-cream/75 hover:text-cream underline-offset-[6px] decoration-cream/40 hover:underline",
-  /** Solid navy for cream backgrounds. */
-  navy: "bg-navy text-cream hover:bg-navy-soft focus-visible:outline-navy",
+  quiet: "rounded-none px-0 text-muted hover:text-fg underline-offset-[6px] decoration-accent-bright hover:underline",
 };
 const sizes: Record<ButtonSize, string> = {
   sm: "h-9 px-4 text-sm",
@@ -38,10 +38,10 @@ export type ButtonProps = AsButton | AsLink;
 
 const MotionLink = motion.create(Link);
 
-/** Pill button with spring hover-lift / press. Pass `href` to render a Next Link, otherwise a <button>. */
+/** Rectangular button with spring hover-lift / press. Pass `href` to render a Next Link, otherwise a <button>. */
 export function Button(props: ButtonProps) {
   const ok = useMotionOk();
-  const { variant = "coral", size = "md", className, children } = props;
+  const { variant = "primary", size = "md", className, children } = props;
   const quiet = variant === "quiet";
   const cls = cn(base, variants[variant], quiet ? "h-auto py-1 text-[15px]" : sizes[size], className);
   const gestures = {

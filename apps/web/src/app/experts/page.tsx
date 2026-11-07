@@ -25,36 +25,36 @@ export default function ExpertsPage() {
     <PageShell nav={NAV} active="/experts">
       <section aria-labelledby="experts-heading" className="pb-12 pt-10 sm:pt-16">
         <Reveal className="max-w-3xl">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-cream/45">Paid pilot</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-subtle">Paid pilot</p>
           <h1 id="experts-heading" className="text-balance mt-4 text-5xl font-medium leading-[0.98] tracking-[-0.04em] sm:text-7xl">
             Get paid to review AI agents in your field
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-cream/65 sm:text-lg">
+          <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
             We test AI agents for legal, clinical, insurance, accounting and more. Our agents can write the tests, but only
             someone who does the work can say what correct looks like. That is where you come in.
           </p>
         </Reveal>
       </section>
 
-      <div className="text-cream/15"><DrawRule /></div>
-      <Stagger className="grid sm:grid-cols-2 sm:divide-x sm:divide-cream/10">
+      <div className="text-line-strong"><DrawRule /></div>
+      <Stagger className="grid sm:grid-cols-2 sm:divide-x sm:divide-line">
         {FACTS.map((f, i) => (
           <StaggerItem key={f.k} className={`py-8 ${i === 1 ? "sm:pl-8" : "sm:pr-8"}`}>
-            <p className="text-5xl font-medium tracking-tight text-coral"><CountUp value={f.k} prefix="$" /></p>
+            <p className="text-5xl font-medium tracking-tight text-accent-bright"><CountUp value={f.k} prefix="$" /></p>
             <h2 className="mt-3 text-lg font-medium">{f.v}</h2>
-            <p className="mt-1 text-sm text-cream/60">{f.d}</p>
+            <p className="mt-1 text-sm text-muted">{f.d}</p>
           </StaggerItem>
         ))}
       </Stagger>
-      <div className="text-cream/15"><DrawRule /></div>
+      <div className="text-line-strong"><DrawRule /></div>
 
       <section aria-labelledby="honest-heading" className="mt-14 grid gap-12 lg:grid-cols-5">
         <Reveal className="lg:col-span-2">
           <h2 id="honest-heading" className="text-2xl font-medium tracking-tight">How this works, plainly</h2>
-          <dl className="mt-6 divide-y divide-cream/10 text-sm">
+          <dl className="mt-6 divide-y divide-line text-sm">
             {NOTES.map(([t, d]) => (
-              <div key={t} className="py-4 first:pt-0"><dt className="font-medium text-cream">{t}</dt>
-                <dd className="mt-1 text-cream/60">{d}</dd></div>
+              <div key={t} className="py-4 first:pt-0"><dt className="font-medium text-fg">{t}</dt>
+                <dd className="mt-1 text-muted">{d}</dd></div>
             ))}
           </dl>
         </Reveal>

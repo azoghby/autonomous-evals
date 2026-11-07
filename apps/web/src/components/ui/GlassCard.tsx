@@ -1,21 +1,17 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "./cn";
 
-export type GlassCardProps = HTMLAttributes<HTMLDivElement> & {
-  /** Slightly heavier fill for nested/foreground cards. */
+export type SurfaceProps = HTMLAttributes<HTMLDivElement> & {
+  /** Slightly raised fill for nested/foreground surfaces. */
   strong?: boolean;
 };
 
-/** Quiet frosted surface for navy backgrounds: hairline border, soft fill, no heavy shadow. */
-export function GlassCard({ strong, className, ...rest }: GlassCardProps) {
+/** Flat hairline surface on black: 1px border, tiny radius, no blur, no shadow. */
+export function Surface({ strong, className, ...rest }: SurfaceProps) {
   return (
     <div
       {...rest}
-      className={cn(
-        "rounded-[var(--radius-card)] border border-cream/10 backdrop-blur-lg",
-        strong ? "bg-cream/[0.07]" : "bg-cream/[0.04]",
-        className,
-      )}
+      className={cn("rounded-lg border border-line", strong ? "bg-white/[0.04]" : "bg-white/[0.015]", className)}
     />
   );
 }

@@ -9,26 +9,26 @@ const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "non
 
 function Panel({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
   return (
-    <StaggerItem className="border-t border-white/10 pt-5">
+    <StaggerItem className="border-t border-line pt-5">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="text-xs font-medium uppercase tracking-[0.14em] text-cream/50">{title}</h3>
-        {note && <span className="text-xs text-cream/35">{note}</span>}
+        <h3 className="text-xs font-medium uppercase tracking-[0.14em] text-subtle">{title}</h3>
+        {note && <span className="text-xs text-subtle">{note}</span>}
       </div>
       {children}
     </StaggerItem>
   );
 }
 
-const Muted = ({ children }: { children: ReactNode }) => <p className="text-sm text-cream/55">{children}</p>;
+const Muted = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted">{children}</p>;
 
 /** Operator-only Neon infra panel (GET /api/operator/infra). Mount inside the operator page. */
 export function OperatorInfra() {
   const { data, error, loading, reload } = useFetch<InfraReport>("/api/operator/infra");
 
-  if (loading) return <div className="flex items-center gap-2 text-cream/70"><Spinner size={14} /> Loading infrastructure</div>;
+  if (loading) return <div className="flex items-center gap-2 text-muted"><Spinner size={14} /> Loading infrastructure</div>;
   if (error?.status === 403) return null;
   if (error || !data) {
-    return <Banner tone="bad"><span className="block text-cream">Could not load infrastructure</span><span className="block text-cream/60">{error?.message}</span><Btn variant="ghost" className="mt-3" onClick={() => void reload()}>Retry</Btn></Banner>;
+    return <Banner tone="bad"><span className="block text-fg">Could not load infrastructure</span><span className="block text-muted">{error?.message}</span><Btn variant="ghost" className="mt-3" onClick={() => void reload()}>Retry</Btn></Banner>;
   }
 
   const { neon } = data;
@@ -41,7 +41,7 @@ export function OperatorInfra() {
               <Chip tone="muted">{neon.region ?? "unknown region"}</Chip>
               <Chip tone="muted">PG {neon.pgVersion ?? "?"}</Chip>
               <Chip tone="muted">{neon.branchCount} branches</Chip>
-              <code className="text-xs text-cream/40">{neon.projectId}</code>
+              <code className="text-xs text-subtle">{neon.projectId}</code>
             </div>
           ) : <Muted>{data.neonError ?? "Neon API unavailable"}</Muted>}
         </Panel>
@@ -52,7 +52,7 @@ export function OperatorInfra() {
               {neon.jobBranches.map((b) => (
                 <li key={b.id} className="flex items-center justify-between gap-3">
                   <span className="truncate font-mono text-xs">{b.name}</span>
-                  <span className="shrink-0 text-xs text-cream/60">{b.expiresAt ? `expires ${fmt(b.expiresAt)}` : <Chip tone="warn">no TTL</Chip>}</span>
+                  <span className="shrink-0 text-xs text-muted">{b.expiresAt ? `expires ${fmt(b.expiresAt)}` : <Chip tone="warn">no TTL</Chip>}</span>
                 </li>
               ))}
             </ul>
@@ -65,7 +65,7 @@ export function OperatorInfra() {
               {neon.snapshots.map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-3">
                   <span className="truncate">{s.name}</span>
-                  <span className="shrink-0 text-xs text-cream/60">{fmt(s.createdAt)}</span>
+                  <span className="shrink-0 text-xs text-muted">{fmt(s.createdAt)}</span>
                 </li>
               ))}
             </ul>
@@ -77,8 +77,8 @@ export function OperatorInfra() {
             <ul className="space-y-2">
               {data.slowQueries.map((q, i) => (
                 <li key={i} className="text-xs">
-                  <code className="line-clamp-2 break-all text-cream/80">{q.query}</code>
-                  <div className="mt-0.5 tabular-nums text-cream/50">{q.meanMs} ms mean, {q.calls} calls</div>
+                  <code className="line-clamp-2 break-all text-fg/90">{q.query}</code>
+                  <div className="mt-0.5 tabular-nums text-subtle">{q.meanMs} ms mean, {q.calls} calls</div>
                 </li>
               ))}
             </ul>

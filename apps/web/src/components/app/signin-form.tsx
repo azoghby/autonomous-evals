@@ -41,17 +41,17 @@ export function SignInForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md pt-16">
+    <div className="mx-auto max-w-md pt-12 sm:pt-16">
       <PageTitle title="Sign in" sub="No password. We email you a one-time link." />
       <AnimatePresence>{authError && !sent && <div className="mb-6"><Banner key="ae" tone="bad">{authError}</Banner></div>}</AnimatePresence>
       <AnimatePresence mode="wait" initial={false}>
         {sent ? (
           <motion.div key="sent" {...swap} className="space-y-4" aria-live="polite">
             <h2 className="text-lg font-medium">Check your email</h2>
-            <p className="text-sm text-cream/65">We sent a sign-in link to <span className="text-cream">{email}</span>. It expires shortly.</p>
+            <p className="text-sm text-muted">We sent a sign-in link to <span className="font-mono text-fg">{email}</span>. It expires shortly.</p>
             {sent.devLink && (
-              <p className="border-l border-white/20 pl-4 text-xs text-cream/60">
-                Dev mode: <a className="break-all text-cream underline decoration-cream/30 underline-offset-4" href={sent.devLink}>{sent.devLink}</a>
+              <p className="border-l border-line-strong pl-4 text-xs text-muted">
+                Dev mode: <a className="break-all text-fg underline decoration-line-strong underline-offset-4 hover:text-accent-bright" href={sent.devLink}>{sent.devLink}</a>
               </p>
             )}
             <Btn variant="ghost" onClick={() => setSent(null)}>Use a different email</Btn>

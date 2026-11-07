@@ -19,31 +19,31 @@ const TABS = ["Overview", "Experts", "Infra"] as const;
 type Tab = (typeof TABS)[number];
 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="space-y-4 border-t border-white/10 pt-6"><h2 className="text-xs font-medium uppercase tracking-[0.14em] text-cream/50">{title}</h2>{children}</section>;
+  return <section className="space-y-4 border-t border-line pt-6"><h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">{title}</h2>{children}</section>;
 }
 
 function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div>
-      <div className="text-xs text-cream/45">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{value}</div>
-      {note && <div className="mt-0.5 text-xs text-cream/40">{note}</div>}
+      <div className="text-xs text-subtle">{label}</div>
+      <div className="mt-1 font-mono text-2xl font-medium tabular-nums tracking-tight">{value}</div>
+      {note && <div className="mt-0.5 text-xs text-subtle">{note}</div>}
     </div>
   );
 }
 
-const th = "px-0 py-2 pr-6 text-left text-xs font-normal text-cream/40";
+const th = "px-0 py-2 pr-6 text-left text-xs font-normal text-subtle";
 const td = "py-3 pr-6";
 
 function Tabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <LayoutGroup id="op-tabs">
-      <div role="tablist" aria-label="Operator sections" className="mb-10 flex gap-8 border-b border-white/10">
+      <div role="tablist" aria-label="Operator sections" className="mb-10 flex gap-8 border-b border-line">
         {TABS.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => onChange(t)}
-            className={`relative pb-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-cream ${tab === t ? "text-cream" : "text-cream/45 hover:text-cream/75"}`}>
+            className={`relative pb-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-accent ${tab === t ? "text-fg" : "text-subtle hover:text-muted"}`}>
             {t}
-            {tab === t && <motion.span layoutId="op-tab-underline" transition={SPRING} className="absolute inset-x-0 -bottom-px h-px bg-cream" />}
+            {tab === t && <motion.span layoutId="op-tab-underline" transition={SPRING} className="absolute inset-x-0 -bottom-px h-px bg-accent" />}
           </button>
         ))}
       </div>
@@ -100,7 +100,7 @@ function Overview({ data, reload }: { data: OperatorOverview; reload: () => Prom
           <Metric label="AI Gateway" value={microUsd(gw)} />
           <Metric label="Total known cost" value={microUsd(data.knownCostMicroUsd ?? naive + gw)} />
         </div>
-        <p className="mt-6 text-xs text-cream/40">Unknown, not included: {UNKNOWN_COSTS.join("; ")}.</p>
+        <p className="mt-6 text-xs text-subtle">Unknown, not included: {UNKNOWN_COSTS.join("; ")}.</p>
       </StaggerItem>
 
       <StaggerItem><Section title="Jobs">
@@ -109,13 +109,13 @@ function Overview({ data, reload }: { data: OperatorOverview; reload: () => Prom
             <table className="w-full min-w-[640px] text-sm">
               <thead><tr>{["Customer", "Package", "State", "Env", "Revenue", "Known cost"].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
               <tbody>{jobs.map((j) => (
-                <tr key={j.id} className="border-t border-white/[0.07] transition-colors hover:bg-white/[0.03]">
-                  <td className={td}><Link className="text-cream/90 underline decoration-cream/20 underline-offset-4 hover:decoration-cream" href={`/jobs/${j.id}`}>{j.customerEmail ?? j.id.slice(0, 8)}</Link></td>
-                  <td className={`${td} text-cream/70`}>{PACKAGE_LABEL[j.package] ?? j.package}</td>
+                <tr key={j.id} className="border-t border-line transition-colors hover:bg-bg-raised">
+                  <td className={td}><Link className="text-fg/90 underline decoration-line-strong underline-offset-4 hover:decoration-accent-bright" href={`/jobs/${j.id}`}>{j.customerEmail ?? j.id.slice(0, 8)}</Link></td>
+                  <td className={`${td} text-muted`}>{PACKAGE_LABEL[j.package] ?? j.package}</td>
                   <td className={td}><StateChip state={j.state} /></td>
                   <td className={td}><Chip tone={j.environment === "live" ? "ok" : "warn"}>{j.environment}</Chip></td>
-                  <td className={`${td} tabular-nums`}>{j.environment === "live" ? dollars(revenueByJob.get(j.id) ?? 0) : <span className="text-cream/35">not counted</span>}</td>
-                  <td className={`${td} tabular-nums text-cream/70`}>{microUsd(j.knownCostMicroUsd ?? 0)}</td>
+                  <td className={`${td} tabular-nums`}>{j.environment === "live" ? dollars(revenueByJob.get(j.id) ?? 0) : <span className="text-subtle">not counted</span>}</td>
+                  <td className={`${td} tabular-nums text-muted`}>{microUsd(j.knownCostMicroUsd ?? 0)}</td>
                 </tr>))}</tbody>
             </table>
           </div>
@@ -123,27 +123,27 @@ function Overview({ data, reload }: { data: OperatorOverview; reload: () => Prom
       </Section></StaggerItem>
 
       <StaggerItem><Section title="Payments">
-        {(data.payments ?? []).length === 0 ? <p className="text-sm text-cream/50">No payments recorded.</p> : (
+        {(data.payments ?? []).length === 0 ? <p className="text-sm text-subtle">No payments recorded.</p> : (
           <table className="w-full text-sm"><tbody>
             {data.payments!.map((p) => (
-              <tr key={p.id} className="border-t border-white/[0.07]">
+              <tr key={p.id} className="border-t border-line">
                 <td className={`${td} tabular-nums`}>{dollars(p.amountCents)}</td>
-                <td className={`${td} text-cream/50`}>{p.kind ?? ""}</td>
+                <td className={`${td} text-subtle`}>{p.kind ?? ""}</td>
                 <td className={td}><Chip tone={p.environment === "live" ? "ok" : "warn"}>{p.environment}</Chip></td>
-                <td className="py-3 text-right text-xs text-cream/45">{when(p.createdAt)}</td>
+                <td className="py-3 text-right text-xs text-subtle">{when(p.createdAt)}</td>
               </tr>))}
           </tbody></table>
         )}
       </Section></StaggerItem>
 
       <StaggerItem><Section title="Agent decisions">
-        {(data.agentSessions ?? []).length === 0 ? <p className="text-sm text-cream/50">No agent decisions yet.</p> : (
+        {(data.agentSessions ?? []).length === 0 ? <p className="text-sm text-subtle">No agent decisions yet.</p> : (
           <table className="w-full text-sm"><tbody>
             {data.agentSessions.map((d) => (
-              <tr key={d.id} className="border-t border-white/[0.07]">
-                <td className={`${td} text-cream/60`}>{d.agent}</td>
+              <tr key={d.id} className="border-t border-line">
+                <td className={`${td} text-muted`}>{d.agent}</td>
                 <td className={td}>{d.decision ?? d.status ?? "-"}</td>
-                <td className="py-3 text-right text-xs text-cream/45">{d.usageMicroUsd != null ? `${microUsd(d.usageMicroUsd)} · ` : ""}{when(d.createdAt)}</td>
+                <td className="py-3 text-right text-xs text-subtle">{d.usageMicroUsd != null ? `${microUsd(d.usageMicroUsd)} · ` : ""}{when(d.createdAt)}</td>
               </tr>))}
           </tbody></table>
         )}
@@ -174,11 +174,11 @@ function InterventionSection({ items, jobs, onAdded }: { items: OperatorOverview
 
   return (
     <Section title="Intervention log">
-      {items.length === 0 ? <p className="text-sm text-cream/50">No founder interventions logged.</p> : (
+      {items.length === 0 ? <p className="text-sm text-subtle">No founder interventions logged.</p> : (
         <ul>{items.map((i) => (
-          <li key={i.id} className="border-t border-white/[0.07] py-3 text-sm">
-            <div className="flex flex-wrap items-center gap-4"><Chip tone="warn">{i.kind}</Chip><span className="text-xs text-cream/45">{i.operatorEmail} · {when(i.createdAt)}{i.jobId ? ` · job ${i.jobId.slice(0, 8)}` : ""}</span></div>
-            <p className="mt-1 whitespace-pre-wrap text-cream/85">{i.note}</p>
+          <li key={i.id} className="border-t border-line py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-4"><Chip tone="warn">{i.kind}</Chip><span className="text-xs text-subtle">{i.operatorEmail} · {when(i.createdAt)}{i.jobId ? ` · job ${i.jobId.slice(0, 8)}` : ""}</span></div>
+            <p className="mt-1 whitespace-pre-wrap text-fg/90">{i.note}</p>
           </li>))}
         </ul>
       )}
@@ -187,7 +187,7 @@ function InterventionSection({ items, jobs, onAdded }: { items: OperatorOverview
           <h3 className="text-sm font-medium">Log an intervention</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Kind">
-              <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="w-full rounded-xl bg-white/[0.05] px-4 py-2.5 text-sm text-cream outline-none ring-1 ring-inset ring-white/10 focus:ring-cream/40">
+              <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="w-full rounded-md bg-bg-raised px-4 py-2.5 text-sm text-fg outline-none ring-1 ring-inset ring-line focus:ring-accent">
                 {KINDS.map((k) => <option key={k}>{k}</option>)}
               </select>
             </Field>
@@ -216,12 +216,12 @@ function OutreachSection({ items, onChanged }: { items: OperatorOverview["outrea
   return (
     <Section title="Outreach approval queue">
       {error && <ErrorBox message={error} />}
-      {pending.length === 0 ? <p className="text-sm text-cream/50">Nothing waiting for approval. Nothing is sent without it.</p> : (
+      {pending.length === 0 ? <p className="text-sm text-subtle">Nothing waiting for approval. Nothing is sent without it.</p> : (
         <ul>{pending.map((o) => (
-          <li key={o.id} className="border-t border-white/[0.07] py-5">
-            <div className="text-xs text-cream/50">To {o.toEmail}</div>
+          <li key={o.id} className="border-t border-line py-5">
+            <div className="text-xs text-subtle">To {o.toEmail}</div>
             <div className="font-semibold">{o.subject}</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-cream/80">{o.body}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-fg/90">{o.body}</p>
             <div className="mt-4 flex gap-2">
               <Btn onClick={() => act(o.id, "approve")} loading={busyId === o.id + "approve"} disabled={busyId !== null}>Approve &amp; send</Btn>
               <Btn variant="danger" onClick={() => act(o.id, "reject")} loading={busyId === o.id + "reject"} disabled={busyId !== null}>Reject</Btn>
@@ -229,7 +229,7 @@ function OutreachSection({ items, onChanged }: { items: OperatorOverview["outrea
           </li>))}
         </ul>
       )}
-      {items.length > pending.length && <p className="text-xs text-cream/50">{items.length - pending.length} already decided or sent.</p>}
+      {items.length > pending.length && <p className="text-xs text-subtle">{items.length - pending.length} already decided or sent.</p>}
     </Section>
   );
 }

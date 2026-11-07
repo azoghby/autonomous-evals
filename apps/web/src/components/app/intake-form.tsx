@@ -104,23 +104,23 @@ export function IntakeForm() {
       <PageTitle title="New request" sub="Pilot pricing. Pick a package, tell us what to test, and an agent will quote you from the fixed price table." />
 
       <fieldset>
-        <legend className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-cream/50">1 · Package</legend>
+        <legend className="mb-3 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">1 · Package</legend>
         <LayoutGroup id="pkg">
-          <Stagger className="border-t border-white/10" delay={0.1}>
+          <Stagger className="border-t border-line" delay={0.1}>
             <div role="radiogroup">
               {PACKAGES.map((p) => (
-                <StaggerItem key={p} className="border-b border-white/10">
+                <StaggerItem key={p} className="border-b border-line">
                   <button type="button" role="radio" aria-checked={pkg === p} onClick={() => { setPkg(p); setErrors({}); }}
-                    className="relative block w-full px-4 py-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-cream sm:px-5">
+                    className="relative block w-full px-4 py-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-accent-bright sm:px-5">
                     {pkg === p && (
-                      <motion.span layoutId="pkg-highlight" aria-hidden transition={SPRING} className="absolute inset-0 rounded-xl bg-white/[0.07]" />
+                      <motion.span layoutId="pkg-highlight" aria-hidden transition={SPRING} className="absolute inset-0 rounded-md bg-fg/[0.04]" />
                     )}
-                    {pkg === p && <motion.span layoutId="pkg-bar" aria-hidden transition={SPRING} className="absolute inset-y-4 left-0 w-0.5 rounded-full bg-cream" />}
+                    {pkg === p && <motion.span layoutId="pkg-bar" aria-hidden transition={SPRING} className="absolute inset-y-0 left-0 w-0.5 bg-accent" />}
                     <span className="relative flex items-baseline justify-between gap-4">
-                      <span className={cx("text-lg font-medium transition-colors", pkg === p ? "text-cream" : "text-cream/75")}>{PACKAGE_LABEL[p]}</span>
-                      <span className="text-lg tabular-nums text-cream/80">{dollars(PRICE_CENTS[p])}</span>
+                      <span className={cx("text-lg font-medium transition-colors", pkg === p ? "text-fg" : "text-fg/75")}>{PACKAGE_LABEL[p]}</span>
+                      <span className="font-mono text-lg tabular-nums text-fg">{dollars(PRICE_CENTS[p])}</span>
                     </span>
-                    <span className="relative mt-1 block max-w-xl text-sm text-cream/50">{BLURB[p]}</span>
+                    <span className="relative mt-1 block max-w-xl text-sm text-muted">{BLURB[p]}</span>
                   </button>
                 </StaggerItem>
               ))}
@@ -132,7 +132,7 @@ export function IntakeForm() {
       <AnimatePresence mode="wait" initial={false}>
         {pkg && (
           <motion.div key={pkg} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.4, ease: EASE }} className="space-y-8">
-            <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-cream/50">2 · {PACKAGE_LABEL[pkg]} details</h2>
+            <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">2 · {PACKAGE_LABEL[pkg]} details</h2>
 
             {pkg === "trace_audit" && (
               <div className="space-y-5">
@@ -141,7 +141,7 @@ export function IntakeForm() {
                 </Field>
                 <Field label="Or upload a file" hint=".json or .txt, read in your browser">
                   <input type="file" accept=".json,.txt,application/json,text/plain" onChange={(e) => void onFile(e.target.files?.[0])}
-                    className="block w-full text-sm text-cream/60 file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-white/[0.08] file:px-4 file:py-2 file:text-cream hover:file:bg-white/[0.14]" />
+                    className="block w-full text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-line-strong file:bg-transparent file:px-4 file:py-2 file:text-fg hover:file:border-accent-bright" />
                 </Field>
                 <Field label="System prompt (optional)" hint="Lets us flag instruction violations." error={errors.systemPrompt}>
                   <Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
@@ -157,11 +157,11 @@ export function IntakeForm() {
               <div className="space-y-8">
                 <Field label="Evaluation mode">
                   <LayoutGroup id="mode">
-                    <div className="inline-flex gap-1 rounded-full bg-white/[0.05] p-1" role="radiogroup">
+                    <div className="inline-flex gap-1 rounded-md border border-line p-1" role="radiogroup">
                       {(["text", "workflow"] as const).map((m) => (
                         <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)}
-                          className={cx("relative rounded-full px-4 py-1.5 text-sm transition-colors", mode === m ? "text-cream" : "text-cream/50 hover:text-cream/80")}>
-                          {mode === m && <motion.span layoutId="mode-pill" transition={SPRING} className="absolute inset-0 rounded-full bg-white/[0.12]" />}
+                          className={cx("relative rounded px-4 py-1.5 text-sm transition-colors", mode === m ? "text-fg" : "text-subtle hover:text-fg")}>
+                          {mode === m && <motion.span layoutId="mode-pill" transition={SPRING} className="absolute inset-0 rounded bg-accent/25 ring-1 ring-inset ring-accent" />}
                           <span className="relative">{m === "text" ? "Text Eval" : "Workflow Eval"}</span>
                         </button>
                       ))}
@@ -178,11 +178,11 @@ export function IntakeForm() {
             </Field>
 
             <div>
-              <label className="flex cursor-pointer items-start gap-3 text-sm text-cream/80">
-                <input type="checkbox" checked={authorized} onChange={(e) => setAuthorized(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#f4ede0]" />
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-fg/85">
+                <input type="checkbox" checked={authorized} onChange={(e) => setAuthorized(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#2F6BFF]" />
                 <span>I&apos;m authorized to test this system.</span>
               </label>
-              {errors.authorizedToTest && <p role="alert" className="mt-1 text-xs text-coral">{errors.authorizedToTest}</p>}
+              {errors.authorizedToTest && <p role="alert" className="mt-1 text-xs text-danger">{errors.authorizedToTest}</p>}
             </div>
 
             <AnimatePresence>
@@ -191,7 +191,7 @@ export function IntakeForm() {
             </AnimatePresence>
             <div className="flex flex-wrap items-center gap-5">
               <Btn type="submit" loading={busy}>Submit request · {dollars(PRICE_CENTS[pkg])}</Btn>
-              <p className="text-xs text-cream/45">You will not be charged until you accept a quote.</p>
+              <p className="text-xs text-subtle">You will not be charged until you accept a quote.</p>
             </div>
           </motion.div>
         )}

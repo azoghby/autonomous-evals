@@ -21,7 +21,7 @@ interface Overview {
 const tone = (s: string) => (s === "answered" ? "warn" : s === "paid" ? "ok" : s === "cancelled" || s === "opted_out" ? "muted" : "info") as "warn" | "ok" | "muted" | "info";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="space-y-4 border-t border-white/10 pt-6"><h2 className="text-xs font-medium uppercase tracking-[0.14em] text-cream/50">{title}</h2>{children}</section>;
+  return <section className="space-y-4 border-t border-line pt-6"><h2 className="text-xs font-medium uppercase tracking-[0.14em] text-subtle">{title}</h2>{children}</section>;
 }
 
 function NewRequest({ onCreated }: { onCreated: () => void }) {
@@ -57,7 +57,7 @@ function NewRequest({ onCreated }: { onCreated: () => void }) {
         <Field label="Purpose" hint="Shown to the expert. Never include customer data."><Input name="purpose" required /></Field>
         <Field label="Questions (one per line, max 8)"><Textarea name="questions" required rows={4} /></Field>
         <Field label="Job id (optional)"><Input name="jobId" placeholder="uuid" /></Field>
-        {err && <p role="alert" className="text-sm text-coral">{err}</p>}
+        {err && <p role="alert" className="text-sm text-accent-bright">{err}</p>}
         <Btn type="submit" loading={busy}>Create request</Btn>
       </form>
     </div>
@@ -95,7 +95,7 @@ export function OperatorExperts() {
     <div className="space-y-10">
       <div className="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-4">
         {([["Honoraria owed", dollars(data.honorariaOwedCents)], ["Honoraria paid", dollars(data.honorariaPaidCents)], ["Responses", String(data.counts.responses)], ["Cold contacts today", `${data.coldContactsToday}/${data.coldContactLimit}`]] as const).map(([l, v]) => (
-          <div key={l}><div className="text-xs text-cream/45">{l}</div><div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{v}</div></div>
+          <div key={l}><div className="text-xs text-subtle">{l}</div><div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{v}</div></div>
         ))}
       </div>
       <AnimatePresence>{notice && <Banner key={notice.text} tone={notice.ok ? "ok" : "bad"}>{notice.text}</Banner>}</AnimatePresence>
@@ -103,11 +103,11 @@ export function OperatorExperts() {
       <Section title="Requests">
         {data.requests.length === 0 ? <Empty title="No requests yet" body="Create one below, or wait for an agent to emit one." /> : (
           <Stagger as="ul">{data.requests.map((r) => (
-            <StaggerItem as="li" key={r.id} className="space-y-2 border-t border-white/[0.07] py-5">
+            <StaggerItem as="li" key={r.id} className="space-y-2 border-t border-line py-5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1"><strong className="font-medium">{r.domain}</strong><Chip tone={tone(r.status)}>{r.status}</Chip>
-                <span className="text-xs text-cream/45">budget {dollars(r.maxBudgetCents)} · {when(r.createdAt)}</span></div>
-              <p className="text-sm text-cream/65">{r.purpose}</p>
-              <ol className="list-decimal space-y-0.5 pl-5 text-sm text-cream/75">{r.questions.map((q, i) => <li key={i}>{q}</li>)}</ol>
+                <span className="text-xs text-subtle">budget {dollars(r.maxBudgetCents)} · {when(r.createdAt)}</span></div>
+              <p className="text-sm text-muted">{r.purpose}</p>
+              <ol className="list-decimal space-y-0.5 pl-5 text-sm text-muted">{r.questions.map((q, i) => <li key={i}>{q}</li>)}</ol>
             </StaggerItem>
           ))}</Stagger>
         )}
@@ -118,17 +118,17 @@ export function OperatorExperts() {
         {data.requests.length > 0 && (
           <label className="flex flex-wrap items-center gap-3 text-sm">Invite into
             <select value={selected} onChange={(e) => setRequestId(e.target.value)}
-              className="rounded-xl bg-white/[0.05] px-4 py-2 text-sm text-cream outline-none ring-1 ring-inset ring-white/10 focus:ring-cream/40">
+              className="rounded-md bg-bg-raised px-4 py-2 text-sm text-fg outline-none ring-1 ring-inset ring-line focus:ring-accent">
               {data.requests.map((r) => <option key={r.id} value={r.id}>{r.domain} ({r.status})</option>)}
             </select></label>
         )}
         {data.experts.length === 0 ? <Empty title="No experts yet" body="Share /experts so professionals can opt in." /> : (
           <Stagger as="ul">{data.experts.map((x) => (
-            <StaggerItem as="li" key={x.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] py-4">
+            <StaggerItem as="li" key={x.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-4">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1"><strong className="font-medium">{x.name}</strong><Chip tone={tone(x.status)}>{x.status}</Chip><span className="text-xs text-cream/40">{x.source}</span></div>
-                <div className="text-sm text-cream/65">{x.title}{x.organization ? `, ${x.organization}` : ""} · {x.domains.join(", ")}</div>
-                <div className="text-xs text-cream/40">{x.email}</div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1"><strong className="font-medium">{x.name}</strong><Chip tone={tone(x.status)}>{x.status}</Chip><span className="text-xs text-subtle">{x.source}</span></div>
+                <div className="text-sm text-muted">{x.title}{x.organization ? `, ${x.organization}` : ""} · {x.domains.join(", ")}</div>
+                <div className="text-xs text-subtle">{x.email}</div>
               </div>
               <Btn variant="ghost" disabled={!selected || x.status !== "active"} loading={busyId === `i${x.id}`} onClick={() => void invite(x.id)}>Invite</Btn>
             </StaggerItem>
@@ -139,17 +139,17 @@ export function OperatorExperts() {
       <Section title="Engagements">
         {data.engagements.length === 0 ? <Empty title="No engagements" body="Invites appear here once drafted." /> : (
           <Stagger as="ul">{data.engagements.map((e) => (
-            <StaggerItem as="li" key={e.id} className="space-y-2 border-t border-white/[0.07] py-4">
+            <StaggerItem as="li" key={e.id} className="space-y-2 border-t border-line py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <strong className="font-medium">{expertName.get(e.expertId) ?? "Expert"}</strong><span className="text-sm text-cream/60">on {requestDomain.get(e.requestId) ?? "request"}</span>
-                  <Chip tone={tone(e.status)}>{e.status}</Chip>{e.draftStatus && <span className="text-xs text-cream/40">email {e.draftStatus}</span>}
-                  <span className="text-xs text-cream/45">{dollars(e.honorariumCents)}</span>
+                  <strong className="font-medium">{expertName.get(e.expertId) ?? "Expert"}</strong><span className="text-sm text-muted">on {requestDomain.get(e.requestId) ?? "request"}</span>
+                  <Chip tone={tone(e.status)}>{e.status}</Chip>{e.draftStatus && <span className="text-xs text-subtle">email {e.draftStatus}</span>}
+                  <span className="text-xs text-subtle">{dollars(e.honorariumCents)}</span>
                 </div>
                 {e.status === "answered" && <Btn variant="ghost" loading={busyId === `p${e.id}`} onClick={() => void markPaid(e.id)}>Mark paid</Btn>}
               </div>
-              {e.answers && <details className="text-sm"><summary className="cursor-pointer text-cream/70">View answers</summary>
-                <ol className="mt-2 space-y-2">{e.answers.map((a) => <li key={a.questionIndex}><span className="text-xs text-cream/50">Q{a.questionIndex + 1}</span><p className="whitespace-pre-wrap">{a.answer}</p></li>)}</ol></details>}
+              {e.answers && <details className="text-sm"><summary className="cursor-pointer text-muted">View answers</summary>
+                <ol className="mt-2 space-y-2">{e.answers.map((a) => <li key={a.questionIndex}><span className="text-xs text-subtle">Q{a.questionIndex + 1}</span><p className="whitespace-pre-wrap">{a.answer}</p></li>)}</ol></details>}
             </StaggerItem>
           ))}</Stagger>
         )}

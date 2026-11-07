@@ -35,10 +35,10 @@ export function ProgressTimeline({ progress, state }: { progress: ProgressItem[]
   return (
     <Block title={`Work in progress · ${labelOf(state)}`}>
       {progress.length === 0 ? (
-        <p className="text-sm text-cream/55">Starting up. Milestones will appear here as they happen.</p>
+        <p className="text-sm text-muted">Starting up. Milestones will appear here as they happen.</p>
       ) : (
         <ol ref={listRef} className="relative space-y-6 pl-7" aria-live="polite">
-          <span ref={lineRef} aria-hidden className="absolute left-[4.5px] top-2 w-px origin-top bg-white/20" style={{ transform: "scaleY(0)" }} />
+          <span ref={lineRef} aria-hidden className="absolute left-[4.5px] top-2 w-px origin-top bg-line-strong" style={{ transform: "scaleY(0)" }} />
           <AnimatePresence initial={false}>
             {progress.map((p, i) => {
               const current = i === progress.length - 1;
@@ -47,20 +47,20 @@ export function ProgressTimeline({ progress, state }: { progress: ProgressItem[]
                   initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: EASE }}>
                   <span className="absolute -left-7 top-1.5 flex h-[10px] w-[10px] items-center justify-center">
                     {current && !reduce && (
-                      <motion.span aria-hidden className="absolute h-[10px] w-[10px] rounded-full bg-coral"
+                      <motion.span aria-hidden className="absolute h-[10px] w-[10px] rounded-full bg-accent"
                         animate={{ scale: [1, 2.6], opacity: [0.5, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }} />
                     )}
-                    <span className={`relative h-[10px] w-[10px] rounded-full ${current ? "bg-coral" : "bg-cream/40"}`} />
+                    <span className={`relative h-[10px] w-[10px] rounded-full ${current ? "bg-accent" : "bg-subtle"}`} />
                   </span>
-                  <div className={`text-sm ${current ? "font-medium text-cream" : "text-cream/75"}`}>{p.message}</div>
-                  <div className="mt-0.5 text-xs text-cream/40">{p.milestone.replace(/_/g, " ")} · {when(p.createdAt)}</div>
+                  <div className={`text-sm ${current ? "font-medium text-fg" : "text-muted"}`}>{p.message}</div>
+                  <div className="mt-0.5 text-xs text-subtle">{p.milestone.replace(/_/g, " ")} · {when(p.createdAt)}</div>
                 </motion.li>
               );
             })}
           </AnimatePresence>
         </ol>
       )}
-      <p className="mt-8 text-xs text-cream/40">You can close this tab; your report will be waiting when you come back.</p>
+      <p className="mt-8 text-xs text-subtle">You can close this tab; your report will be waiting when you come back.</p>
     </Block>
   );
 }

@@ -1,36 +1,38 @@
 @import "tailwindcss";
 
-/* Design tokens — "Agents build your evals". Navy / Cream / Coral, ribbed-glass gradient. */
+/* Design system v3 — black / white / lightning blue. Flat, hairline, no glass. */
 :root {
-  --navy: #14213d;
-  --navy-deep: #0b1428;
-  --navy-soft: #23345a;
-  --cream: #f4ede0;
-  --cream-dim: #d9d1c2;
-  --coral: #ff6b5b;
-  --coral-deep: #e8513f;
-  --glass: rgb(255 255 255 / 0.08);
-  --glass-strong: rgb(255 255 255 / 0.14);
-  --glass-border: rgb(255 255 255 / 0.16);
-  --ok: #7fd1a8;
-  --warn: #ffc56b;
-  --danger: #ff6b5b;
-  --radius-pill: 999px;
-  --radius-card: 18px;
+  --bg: #0a0a0b;
+  --bg-raised: #101012;
+  --bg-sunken: #000000;
+  --fg: #ffffff;
+  --muted: #a1a1aa;
+  --subtle: #71717a;
+  --line: rgb(255 255 255 / 0.1);
+  --line-strong: rgb(255 255 255 / 0.18);
+  --accent: #2f6bff;
+  --accent-bright: #5b8cff;
+  --accent-deep: #1f55e0;
+  --accent-glow: rgb(47 107 255 / 0.35);
+  --ok: #4ade80;
+  --warn: #f5b84b;
+  --danger: #f06a5f;
+  --radius-ctl: 8px;
+  --radius-card: 8px;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
-  --color-navy: var(--navy);
-  --color-navy-deep: var(--navy-deep);
-  --color-navy-soft: var(--navy-soft);
-  --color-cream: var(--cream);
-  --color-cream-dim: var(--cream-dim);
-  --color-coral: var(--coral);
-  --color-coral-deep: var(--coral-deep);
-  --color-glass: var(--glass);
-  --color-glass-strong: var(--glass-strong);
-  --color-glass-border: var(--glass-border);
+  --color-bg: var(--bg);
+  --color-bg-raised: var(--bg-raised);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-deep: var(--accent-deep);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
@@ -38,47 +40,45 @@
   --font-mono: var(--font-mono-face), ui-monospace, monospace;
 }
 
-html, body { background: var(--navy-deep); color: var(--cream); }
+html, body { background: var(--bg); color: var(--fg); }
 body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-:focus-visible { outline-color: var(--cream); }
-::selection { background: var(--coral); color: var(--navy-deep); }
+:focus-visible { outline-color: var(--accent-bright); }
+::selection { background: var(--accent); color: #fff; }
 
-/* ---- Ribbed-glass glow ---- */
-.glow-field { position: absolute; inset: -10%; filter: blur(70px) saturate(1.15); }
-/* Blobs are driven by anime.js in <RibbedGlow>. */
-.glow-blob { position: absolute; border-radius: 9999px; will-change: transform; }
-.glow-coral {
-  width: 60%; aspect-ratio: 1; left: 12%; top: 30%;
-  background: radial-gradient(circle at 50% 50%, #ff7a3d 0%, #ff6b5b 35%, rgb(255 107 91 / 0) 70%);
-}
-.glow-indigo {
-  width: 70%; aspect-ratio: 1; right: -5%; top: -20%;
-  background: radial-gradient(circle, #4a4fd6 0%, rgb(60 70 190 / 0.55) 40%, rgb(60 70 190 / 0) 70%);
-}
-.glow-amber {
-  width: 30%; aspect-ratio: 1; left: 28%; top: 48%;
-  background: radial-gradient(circle, #ffb04a 0%, rgb(255 176 74 / 0) 70%);
-  opacity: 0.8;
-}
-
-/* vertical fluted ribs */
-.ribs {
+/* ---- Atmosphere: faint blue light at the top edge + hairline grid (restrained) ---- */
+.blue-light {
   position: absolute; inset: 0;
-  background:
-    repeating-linear-gradient(90deg,
-      rgb(255 255 255 / 0.10) 0px, rgb(255 255 255 / 0.02) 3px,
-      rgb(0 0 0 / 0.16) 7px, rgb(0 0 0 / 0.02) 9px, rgb(255 255 255 / 0.10) 11px);
-  backdrop-filter: blur(5px) saturate(1.1);
-  -webkit-backdrop-filter: blur(5px) saturate(1.1);
-  mix-blend-mode: normal;
+  background: radial-gradient(60% 50% at 50% -10%, rgb(47 107 255 / 0.22) 0%, rgb(47 107 255 / 0.06) 45%, transparent 75%);
 }
-.grain {
-  position: absolute; inset: 0; opacity: 0.22; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .8 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+.grid-lines {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 75%);
 }
+
+/* ---- Lightning sweep: a bright blue highlight travels across the element on hover/once ---- */
+.bolt-sweep { position: relative; overflow: hidden; }
+.bolt-sweep::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%);
+  transform: translate3d(-120%, 0, 0);
+}
+.bolt-sweep:hover::after { transform: translate3d(120%, 0, 0); transition: transform 0.7s var(--ease-out-expo); }
+@media (prefers-reduced-motion: reduce) { .bolt-sweep::after { display: none; } }
+.bolt-underline {
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright) 50%, var(--accent));
+  background-size: 200% 100%;
+  animation: bolt 3.2s linear infinite;
+}
+@keyframes bolt { from { background-position: 200% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .bolt-underline { animation: none; } }
 
 .text-balance { text-wrap: balance; }
 .reveal { animation: reveal 0.9s var(--ease-out-expo) both; }
@@ -97,4 +97,15 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { transform: none !important; }
   [data-rule] { transform: none !important; }
+}
+
+/* ---- Ribbed lines (fluted-glass stripes) recoloured for v3: black base, faint white/blue variation ---- */
+.ribs {
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg,
+      rgb(255 255 255 / 0.05) 0px, rgb(255 255 255 / 0.012) 3px,
+      rgb(0 0 0 / 0.35) 7px, rgb(47 107 255 / 0.025) 9px, rgb(255 255 255 / 0.05) 11px);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
 }

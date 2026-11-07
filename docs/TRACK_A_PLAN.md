@@ -123,4 +123,49 @@ The job page and operator console update live over Neon Realtime (project `icy-s
 - Because the query is sealed, a client cannot change the SQL, the job id or the database, and cannot subscribe to another job. Sealed queries are bearer tokens, so the routes send `Cache-Control: private, no-store`. Subscriptions are renewed by re-calling the route 10 seconds before expiry, so ownership is re-checked about once a minute. Realtime only accepts browser origins on the branch allowlist (`https://autonomous-evals.vercel.app`, `http://localhost:3000`).
 - Env: `NEON_REALTIME_URL`, `NEON_REALTIME_SECRET`, optional `NEON_REALTIME_DB` (default `app`), set in `.env.local` and in Vercel (production, preview, development).
 
-**Client and fallback.** `use-live-job.ts` and `use-live-operator.ts` (in `apps/web/src/lib/client/`) share `live-connection.ts`. If realtime has not reached `live` within 5 seconds, or any subscription errors, or the live route fails (for example 503 when unconfigured), the hook falls back to the old behavior: polling `GET /api/jobs/:id/progress` every 3 seconds (operator: reloading `/api/operator/overview` every 5 seconds). The hooks expose `mode: 'live' | 'polling'`, and a coral pulsing "Live" chip is shown only in `live` mode. The job page still reloads `GET /api/jobs/:id` when the state changes, and the operator console reloads the overview when live rows change, so aggregates (revenue, costs) stay server-computed.
+**Client and fallback.** `use-live-job.ts` and `use-live-operator.ts` (in `apps/web/src/lib/client/`) share `live-connection.ts`. If realtime has not reached `live` within 5 seconds, or any subscription errors, or the live route fails (for example 503 when unconfigured), the hook falls back to the old behavior: polling `GET /api/jobs/:id/progress` every 3 seconds (operator: reloading `/api/operator/overview` every 5 seconds). The hooks expose `mode: 'live' | 'polling'`, and a blue pulsing "Live" indicator is shown only in `live` mode. The job page still reloads `GET /api/jobs/:id` when the state changes, and the operator console reloads the overview when live rows change, so aggregates (revenue, costs) stay server-computed.
+
+## Design system v3 (black / white / lightning blue)
+
+Supersedes the earlier navy / cream / coral "ribbed glass" UI direction.
+
+**Palette (tokens in `apps/web/src/app/globals.css`).** `--bg #0A0A0B`, `--fg #FFFFFF`, `--muted #A1A1AA`, `--subtle #71717A`, `--line` white at 10% (`--line-strong` 18%), one accent `--accent #2F6BFF` with `--accent-bright #5B8CFF` for hover, glow and focus. Status dots only: `--ok`, `--warn`, `--danger`, muted. Tailwind: `bg-bg`, `text-fg`, `text-muted`, `border-line`, `bg-accent`, `text-accent-bright`.
+
+**Rules.**
+- Blue is for primary actions, active states, key numbers, focus rings, live indicators and link hover. Nothing else.
+- No pills, no glass or blur cards, no gradient blobs. Buttons and inputs are rectangular with a 6-8px radius. Separate content with hairlines, spacing and type, not boxes.
+- Status is dot plus text (`StatusChip`). Findings are flat hairline rows.
+- Type: Inter Tight for display and body, JetBrains Mono for labels, numbers and code. Headlines are tight (about -0.04em) and pure white; secondary copy is `#A1A1AA`.
+- Hero: full-bleed black, plain-text nav, headline bottom-left, CTA bottom-right, feature row under a hairline. The background is `RibField` (canvas of thin vertical ribbed lines that bend and turn electric blue near the cursor, lerped, paused offscreen, static under reduced motion, drift on touch).
+- Motion is kept: anime.js headline stagger, `CountUp`, Motion `Reveal`/`Stagger`/`DrawRule`, sliding nav underline, button press springs, lightning sweep (`.bolt-sweep`) on the primary button. All respect `prefers-reduced-motion`.
+
+**Primitives (`apps/web/src/components/ui`).** `Button` (primary | outline | ghost | quiet), `Surface`, `Chip`/`StatusChip`, `Field`, `TopBar`, `PageShell`, `BlueLight`, `RibField`. The old navy/cream/coral/glass aliases were removed.
+
+### Model access (AI gateways)
+
+Track B gets every model call through `packages/core/src/ai/gateway.ts`; do not instantiate provider SDKs elsewhere.
+
+```ts
+import { generateStructured, generateText, GatewayError } from "@ae/core/ai/gateway";
+import { z } from "zod";
+
+const Verdict = z.object({ pass: z.boolean(), reason: z.string() });
+const { object, microUsd } = await generateStructured({
+  model: "sonnet",            // "haiku" | "sonnet" | "opus" (packages/core/src/ai/models.ts) or a ModelSpec
+  system: rubric,
+  prompt: transcript,
+  schema: Verdict,
+  ctx,                        // a ServiceContext: needs recordCost() and (optionally) budgetMicroUsd
+  agent: "judge",             // CostEntry.agent
+  maxOutputTokens: 600,
+  timeoutMs: 45_000,
+});
+```
+
+- **Providers.** Vercel AI Gateway first (`anthropic/claude-sonnet-5.5`, `anthropic/claude-haiku-5.5`, `anthropic/claude-opus-5.5`; auth is OIDC on Vercel, `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` locally). On 429, 5xx, timeout, 401/402/403 or a missing config it falls back to the Neon AI Gateway (OpenAI-compatible `${NEON_AI_GATEWAY_URL}/v1`, ids `claude-sonnet-5-5` etc., credential `NEON_AI_GATEWAY_KEY`). A 400-class error is not retried elsewhere. Pass `providers: ["neon"]` to pin one.
+- **Cost.** Every successful call (even one whose output later fails validation) calls `ctx.recordCost({source:"ai_gateway", agent, microUsd, meta:{provider, model, inputTokens, outputTokens, costBasis}})`. Vercel reports cost in `providerMetadata.gateway.cost` (`costBasis: "gateway_reported"`); Neon reports none, so we record the list-price estimate (`"list_price_estimate"`; Neon inference is currently free in preview, so this overstates). If `ctx.budgetMicroUsd <= 0` the call is refused (`budget_exhausted`).
+- **Structured output.** `generateStructured` appends the zod JSON Schema to the system prompt, extracts the first JSON value (fences tolerated) and validates with the schema. Malformed output throws `GatewayError` with `code: "malformed_output"` (raw text in `details.raw`); it is never coerced or silently retried. Callers decide whether to re-ask.
+- **Errors.** `GatewayError.code`: `credential_leak | malformed_output | all_providers_failed | budget_exhausted | not_configured`.
+- **Never send customer credentials.** `assertNoCredentials` rejects prompts/system text that look like API keys, bearer tokens, AWS/Google/GitHub/Slack/Stripe/Neon keys or private keys. Redact before calling; customer secrets must never reach a model.
+- **Smoke:** `npx tsx scripts/ai-smoke.ts` runs one tiny structured call through each provider and prints provider, model, latency, micro-USD.
+- **Env:** `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN`, `NEON_AI_GATEWAY_URL`, `NEON_AI_GATEWAY_KEY` (the Neon pair is set on Vercel production/preview/development).

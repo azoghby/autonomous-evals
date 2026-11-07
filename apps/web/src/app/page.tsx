@@ -3,7 +3,7 @@ import { Footer, HowItWorks, Pricing, SampleFinding } from "@/components/marketi
 
 export default function Home() {
   return (
-    <div className="bg-cream text-navy">
+    <div className="bg-bg text-fg">
       <Hero />
       <main>
         <HowItWorks />

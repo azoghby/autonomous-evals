@@ -10,11 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "^4.0.138",
+    "@ai-sdk/openai-compatible": "^3.0.87",
     "@aws-sdk/client-s3": "^3.1164.0",
     "@aws-sdk/s3-request-presigner": "^3.1164.0",
     "@neondatabase/serverless": "^1.2.0",
     "@vercel/blob": "^2.8.2",
     "agentmail": "^0.5.53",
+    "ai": "^7.0.165",
     "drizzle-orm": "^0.45.4",
     "stripe": "^23.1.0",
     "zod": "^4.6.7"

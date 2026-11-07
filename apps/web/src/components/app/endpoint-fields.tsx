@@ -23,7 +23,7 @@ export function EndpointFields({ value, onChange, errors, legend }: {
   const set = (k: keyof EndpointDraft) => (e: { target: { value: string } }) => onChange({ ...value, [k]: e.target.value });
   return (
     <fieldset className="space-y-4">
-      {legend && <legend className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-cream/50">{legend}</legend>}
+      {legend && <legend className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">{legend}</legend>}
       <Field label="Endpoint URL" hint="OpenAI-compatible chat completions endpoint. HTTPS only." error={errors.url}>
         <Input type="url" inputMode="url" placeholder="https://api.example.com/v1/chat/completions" value={value.url} onChange={set("url")} />
       </Field>

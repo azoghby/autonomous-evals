@@ -11,7 +11,7 @@ import { Banner, Chip, ErrorBox, LiveChip, Block, Loading, LinkBtn, PageTitle, S
 import { Clarification } from "./job-clarification";
 import { QuoteCard } from "./job-quote";
 import { ProgressTimeline } from "./job-progress";
-import { ReportView } from "./job-report";
+import { ReportView, type RemediationView, type ChargeView } from "./job-report";
 
 const POLLING_STATES: ReadonlySet<JobState> = new Set(["planning", "running", "investigating"]);
 
@@ -63,6 +63,9 @@ export function JobView({ jobId }: { jobId: string }) {
   const progress = live && live.progress.length >= data.progress.length ? live.progress : data.progress;
   const quote = data.quotes.length ? data.quotes.reduce((a, b) => (b.version > a.version ? b : a)) : null;
   const findings = data.findings.map(normalizeFinding);
+  const extra = data as unknown as { remediations?: RemediationView[]; payments?: Array<ChargeView & { kind?: string }> };
+  const pricingMode = (quote as unknown as { pricingMode?: string } | null)?.pricingMode ?? "fixed";
+  const charge = extra.payments?.length ? extra.payments[extra.payments.length - 1] : null;
 
   return (
     <div className="space-y-10">
@@ -78,7 +81,7 @@ export function JobView({ jobId }: { jobId: string }) {
         {monitoringStarted && <Banner key="mon" tone="ok">Monitoring pilot started. Your frozen suite will re-run nightly.</Banner>}
       </AnimatePresence>
       {job.retestOfJobId && (
-        <p className="text-sm text-cream/60">Linked retest of <a className="text-cream underline decoration-cream/30 underline-offset-4 hover:decoration-cream" href={`/jobs/${job.retestOfJobId}`}>an earlier job</a>.</p>
+        <p className="text-sm text-muted">Linked retest of <a className="text-fg underline decoration-line-strong underline-offset-4 hover:decoration-accent-bright" href={`/jobs/${job.retestOfJobId}`}>an earlier job</a>.</p>
       )}
 
       {data.messages.length > 0 && current !== "needs_clarification" && current !== "delivered" && (
@@ -96,14 +99,14 @@ export function JobView({ jobId }: { jobId: string }) {
       {(POLLING_STATES.has(current) || (current === "planning")) && <ProgressTimeline progress={progress} state={current} />}
 
       {current === "delivered" && (
-        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} />
+        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} remediations={extra.remediations ?? []} charge={charge} pricingMode={pricingMode} />
       )}
 
       {EXPLAIN[current] && (
         <Block>
           <h2 className="text-lg font-medium">{EXPLAIN[current]!.title}</h2>
-          <p className="mt-1 max-w-xl text-sm leading-relaxed text-cream/65">{EXPLAIN[current]!.body}</p>
-          {job.error && current === "failed" && <p className="mt-3 rounded-xl bg-black/25 p-3 font-mono text-xs text-cream/70">{job.error}</p>}
+          <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">{EXPLAIN[current]!.body}</p>
+          {job.error && current === "failed" && <p className="mt-3 rounded-md border border-line bg-bg-raised p-3 font-mono text-xs text-muted">{job.error}</p>}
           {(current === "failed" || current === "cancelled") && <div className="mt-4"><LinkBtn href="/start" variant="ghost">Start a new request</LinkBtn></div>}
         </Block>
       )}

@@ -14,19 +14,19 @@ export type NavItem = { label: string; href: string };
 export const DEFAULT_NAV: NavItem[] = [
   { label: "Services", href: "/#services" },
   { label: "How it works", href: "/#how" },
-  { label: "Sample report", href: "/#sample" },
+  { label: "Sample report", href: "/sample" },
   { label: "Pricing", href: "/#pricing" },
 ];
 
-/** Wordmark left, nav centre with a sliding pill (follows hover, rests on `active`), quiet links right. */
+/** Wordmark left, nav centre with a sliding blue underline (follows hover, rests on `active`), quiet links right. */
 export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?: string }) {
   const pathname = usePathname();
   const ok = useMotionOk();
-  const current = active ?? nav[0]?.href;
+  const current = active ?? nav.find((n) => n.href === pathname)?.href ?? (pathname === "/" ? nav[0]?.href : undefined);
   const [hover, setHover] = useState<string | null>(null);
   const lit = hover ?? current;
   return (
-    <header className="relative z-20 flex items-center justify-between gap-4 px-5 py-5 sm:px-8">
+    <header className="relative z-20 border-b border-line flex items-center justify-between gap-4 px-5 py-5 sm:px-8">
       <Wordmark />
       <nav aria-label="Main navigation" className="hidden md:block">
         <LayoutGroup id="topbar-nav">
@@ -37,9 +37,9 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
                 <li key={item.href} className="relative">
                   {item.href === lit && (
                     <motion.span
-                      layoutId="nav-pill"
+                      layoutId="nav-underline"
                       aria-hidden
-                      className="absolute inset-0 rounded-full bg-cream/10"
+                      className="absolute inset-x-3 -bottom-px h-px bg-accent-bright"
                       transition={ok ? springs.nav : { duration: 0 }}
                     />
                   )}
@@ -50,8 +50,8 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
                     onFocus={() => setHover(item.href)}
                     onBlur={() => setHover(null)}
                     className={cn(
-                      "relative inline-flex h-9 items-center rounded-full px-4 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-cream",
-                      item.href === lit ? "text-cream" : "text-cream/60",
+                      "relative inline-flex h-9 items-center px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-accent-bright",
+                      item.href === lit ? "text-fg" : "text-muted",
                     )}
                   >
                     {item.label}
@@ -63,12 +63,12 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
         </LayoutGroup>
       </nav>
       <div className="flex items-center gap-5 whitespace-nowrap text-sm">
-        <Link href="/dashboard" className="hidden text-cream/70 sm:inline transition-colors hover:text-cream focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream">
+        <Link href="/dashboard" className="hidden text-muted sm:inline transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-bright">
           Dashboard
         </Link>
         <Link
           href={pathname === "/" ? "/start" : "/"}
-          className="group inline-flex items-center gap-1 text-cream transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream"
+          className="group inline-flex items-center gap-1 text-fg transition-colors hover:text-accent-bright focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-bright"
         >
           {pathname === "/" ? "Get an eval" : "Home"} <NudgeArrow size={15} />
         </Link>
