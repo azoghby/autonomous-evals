@@ -1,3 +1,4 @@
+import { answerReviewContextDigest, reviewDigest } from "./binding";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { assessDataQuality, inspectDataSafety } from "./quality";
@@ -12,10 +13,11 @@ const source = (): DataSource => {
     provenance: { origin: "public", producerId: "fixture-author", retrievedAt: "2026-11-07T00:00:00Z", contentHash: createHash("sha256").update(content).digest("hex") },
     review: { status: "approved", reviewerId: "independent-reviewer", reviewedAt: "2026-11-07T00:00:00Z", notes: "Locally authored fixture, not a claim about a live source." } };
 };
-const candidate = (): EvaluationDataCase => ({ id: "grounded", input: "Which export format is supported?", requirementIds: ["grounding"],
+const candidate = (): EvaluationDataCase => { const item: EvaluationDataCase = { id: "grounded", input: "Which export format is supported?", requirementIds: ["grounding"],
   synthetic: true, generatorId: "fixture-generator", sourceIds: ["reference"], expectedAnswer: "JSON",
   verification: { status: "approved", method: "independent_evidence", verifierId: "reviewer", independentOfTarget: true, independentOfGenerator: true,
-    evidenceSourceIds: ["reference"], reviewedAnswer: "JSON", reviewedAt: "2026-11-07T00:00:00Z", rationale: "Matches the supplied fixture reference." } });
+    evidenceSourceIds: ["reference"], reviewedAnswer: "JSON", reviewedAt: "2026-11-07T00:00:00Z", rationale: "Matches the supplied fixture reference." } };
+  item.verification!.contextDigest = answerReviewContextDigest(task, item, [source()]); return item; };
 
 describe("evaluation data quality admission", () => {
   it("admits a labeled synthetic case only with independent reviewed evidence", () => {
@@ -61,7 +63,8 @@ describe("evaluation data quality admission", () => {
   it("permits an independently qualified consented expert, but not an unqualified assertion", () => {
     const item = candidate(); item.sourceIds = [];
     item.verification = { ...item.verification!, method: "expert", evidenceSourceIds: [],
-      expertAttestation: { qualified: true, consentToEvaluation: true, contributionId: "reviewed-contribution" } };
+      expertAttestation: { qualified: true, consentToEvaluation: true, contributionContextDigest: reviewDigest({ task, consent: { evaluation: true }, qualification: "authored expert fixture" }), contributionId: "reviewed-contribution" } };
+    item.verification.contextDigest = answerReviewContextDigest(task, item, []);
     expect(assessDataQuality(task, [item], []).status).toBe("sufficient");
     item.verification.expertAttestation!.qualified = false;
     expect(assessDataQuality(task, [item], []).status).toBe("insufficient");

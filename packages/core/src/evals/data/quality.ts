@@ -1,3 +1,4 @@
+import { answerReviewContextDigest } from "./binding";
 import { createHash } from "node:crypto";
 import { redactSecrets } from "../../agents/redact";
 import type { DataSource, DataTaskSpec, DataQualityAssessment, EvaluationDataCase } from "./types";
@@ -82,11 +83,13 @@ export function assessDataQuality(
         && source.provenance.producerId !== spec.targetId && source.provenance.producerId !== candidate.generatorId
         && source.review.reviewerId !== candidate.generatorId);
       const expertValid = verification.method === "expert" && verification.expertAttestation?.qualified === true
-        && verification.expertAttestation.consentToEvaluation === true && nonblank(verification.expertAttestation.contributionId);
+        && verification.expertAttestation.consentToEvaluation === true && nonblank(verification.expertAttestation.contributionId)
+        && /^[a-f0-9]{64}$/.test(verification.expertAttestation.contributionContextDigest ?? "");
       answerApproved = verification.independentOfTarget && verification.independentOfGenerator
         && nonblank(verification.verifierId) && verification.verifierId !== spec.targetId
         && verification.verifierId !== candidate.generatorId && timestamp(verification.reviewedAt)
         && nonblank(verification.rationale) && verification.reviewedAnswer === candidate.expectedAnswer
+        && verification.contextDigest === answerReviewContextDigest(spec, candidate, sources)
         && (verification.method === "independent_evidence" ? evidenceValid : expertValid);
     }
     if (answerPresent && !answerApproved) reasons.push("answer_unverified");

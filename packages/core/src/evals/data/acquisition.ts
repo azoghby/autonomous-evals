@@ -1,3 +1,4 @@
+import { casePayload, reviewDigest } from "./binding";
 import { createHash } from "node:crypto";
 import { createExpertRequestDraft, type ExpertRequestDraft } from "./expert";
 import { assessDataQuality, inspectDataSafety } from "./quality";
@@ -78,7 +79,7 @@ export async function acquireEvaluationData(
     };
     task = (await ports.store.insertIfAbsent(record)).record;
   }
-  if (task.requestHash !== requestHash) throw new Error("Evaluation-data task identity conflict");
+  validateLoaded(task);
   if (task.phase === "complete") return task;
   const phase = task.phase;
   const operationKey = `evaluation-data:${spec.taskId}:${requestHash}:${phase}`;
@@ -89,7 +90,7 @@ export async function acquireEvaluationData(
   };
   let result: AcquisitionResult;
   try {
-    result = await ports[phase === "discovery" ? "discover" : phase === "generation" ? "generate" : "expert"](request);
+    result = await ports[phase === "discovery" ? "discover" : phase === "generation" ? "generate" : "expert"](structuredClone(request));
   } catch {
     return save(task, { ...task, state: phase === "expert" ? "waiting_for_expert" : "waiting_for_data" }, "provider_unavailable");
   }
@@ -119,8 +120,12 @@ export async function acquireEvaluationData(
   if (safe && ports.reviewCandidates) {
     try {
       // Review the accumulated corpus so later expert arrivals can verify earlier synthetic cases.
-      const reviewed = await ports.reviewCandidates({ sources, cases }, request);
+      const reviewed = await ports.reviewCandidates(structuredClone({ sources, cases }), structuredClone(request));
       if (!inspectDataSafety(reviewed, ports.knownSecrets).safe) throw new Error("Unsafe review");
+      if (new Set(reviewed.cases.map(item => item.id)).size !== reviewed.cases.length
+        || new Set(reviewed.sources.map(item => item.id)).size !== reviewed.sources.length
+        || reviewed.cases.some(item => !cases.some(original => original.id === item.id
+          && reviewDigest(casePayload(original)) === reviewDigest(casePayload(item))))) throw new Error("Review case payload mismatch");
       const caseReviews = new Map(reviewed.cases.map(item => [item.id, item]));
       const sourceReviews = new Map(reviewed.sources.map(item => [item.id, item]));
       cases = cases.map(item => {
@@ -145,16 +150,28 @@ export async function acquireEvaluationData(
     state: assessment.status === "sufficient" ? "ready" : phaseAfter === "expert" ? "waiting_for_expert" : phaseAfter === "complete" ? "waiting_for_data" : "acquiring",
   }, safe ? assessment.status : "unsafe_batch_rejected");
 
+  function validateLoaded(record: EvaluationDataTask): void {
+    if (!inspectDataSafety(record, ports.knownSecrets).safe) throw new Error("Unsafe persisted evaluation data rejected");
+    if (record.taskId !== spec.taskId || record.requestHash !== requestHash || reviewDigest(record.spec) !== reviewDigest(spec)) throw new Error("Evaluation-data task identity conflict");
+    // Never replay a legacy/stale ready assessment as an approved factual result.
+    if (record.state === "ready") {
+      const current = assessDataQuality(spec, record.cases, record.sources, { knownSecrets: ports.knownSecrets });
+      if (current.status !== "sufficient" || reviewDigest(current) !== reviewDigest(record.assessment)) throw new Error("Evaluation-data ready assessment is stale");
+    }
+  }
+
   async function save(previous: EvaluationDataTask, proposed: EvaluationDataTask, outcome: string): Promise<EvaluationDataTask> {
     const decisionId = `${operationKey}:${outcome}`;
     const next = {
       ...proposed, revision: previous.revision + 1, updatedAt: now(),
       decisions: previous.decisions.some((item) => item.id === decisionId) ? previous.decisions : [...previous.decisions, { id: decisionId, phase, outcome, at: now() }],
     };
+    validateLoaded(next);
     const saved = await ports.store.compareAndSet(spec.taskId, previous.revision, next);
-    if (saved) return saved;
+    if (saved) { validateLoaded(saved); return saved; }
     const winner = await ports.store.get(spec.taskId);
     if (!winner || winner.requestHash !== requestHash) throw new Error("Evaluation-data persistence conflict");
+    validateLoaded(winner);
     return winner;
   }
 }

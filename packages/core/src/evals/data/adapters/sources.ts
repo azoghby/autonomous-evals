@@ -71,9 +71,15 @@ export function createVerifiedRegistryAdapter(config: VerifiedRegistryConfig): {
     async reviewCandidates(data, request) {
       const entry = entryFor(request);
       if (!entry) return { sources: [], cases: [] };
+      // A ledger approval is valid only for the same referenced evidence payload as well as the case.
+      const evidenceMatches = (approved: DataBatch["cases"][number]) =>
+        [...approved.sourceIds, ...(approved.verification?.evidenceSourceIds ?? [])].every(sourceId => {
+          const trusted = entry.data.sources.find(source => source.id === sourceId);
+          return trusted && data.sources.some(candidate => candidate.id === sourceId && same(withoutReview(candidate), withoutReview(trusted)));
+        });
       return structuredClone({
         sources: entry.data.sources.filter(approved => data.sources.some(candidate => candidate.id === approved.id && same(withoutReview(candidate), withoutReview(approved)))),
-        cases: entry.data.cases.filter(approved => data.cases.some(candidate => candidate.id === approved.id && same(withoutVerification(candidate), withoutVerification(approved)))),
+        cases: entry.data.cases.filter(approved => evidenceMatches(approved) && data.cases.some(candidate => candidate.id === approved.id && same(withoutVerification(candidate), withoutVerification(approved)))),
       });
     },
   };

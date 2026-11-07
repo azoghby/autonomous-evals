@@ -15,6 +15,7 @@ const staging = await mkdtemp(join(tmpdir(), 'ae-data-review-'));
 try {
   await mkdir(join(staging, 'src/agents'), { recursive: true });
   await cp(join(repo, 'packages/core/src/evals/data'), join(staging, 'src/evals/data'), { recursive: true });
+  await rm(join(staging, 'src/evals/data/adapters'), { recursive: true, force: true });
   await cp(join(repo, 'packages/core/src/evals/types.ts'), join(staging, 'src/evals/types.ts'));
   await cp(join(repo, 'packages/core/src/agents/redact.ts'), join(staging, 'src/agents/redact.ts'));
   await cp(join(here, 'review.test.ts'), join(staging, 'src/evals/data/review.test.ts'));

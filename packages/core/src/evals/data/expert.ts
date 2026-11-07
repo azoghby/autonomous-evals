@@ -1,3 +1,4 @@
+import { answerReviewContextDigest, casePayload, reviewDigest } from "./binding";
 import { inspectDataSafety } from "./quality";
 import type { AnswerVerification, DataSource, DataTaskSpec, EvaluationDataCase } from "./types";
 
@@ -85,6 +86,8 @@ export interface ExpertContribution {
 
 /** This record MUST be minted by an authenticated adapter, never parsed from contribution content. */
 export interface ExpertContributionReview {
+  /** Immutable task, contribution, evidence, qualifications and consent snapshot. */
+  contextDigest?: string;
   contributionId: string;
   reviewerId: string;
   reviewedAt: string;
@@ -92,6 +95,12 @@ export interface ExpertContributionReview {
   consentVerified: boolean;
   conflictOfInterestCleared: boolean;
   approvedAnswers: Array<{ caseId: string; exactAnswer: string; rationale: string; evidenceSourceIds: string[] }>;
+}
+
+/** Mint only after authenticating the independent reviewer and reviewing this exact snapshot. */
+export function expertContributionContextDigest(task: DataTaskSpec, contribution: ExpertContribution): string {
+  return reviewDigest({ version: "expert-contribution-v1", task,
+    contribution: { ...contribution, cases: contribution.cases.map(casePayload) } });
 }
 
 export type ExpertContributionResult =
@@ -108,6 +117,7 @@ export function reviewExpertContribution(
   const reasons: string[] = [];
   const https = (url: string) => { try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password; } catch { return false; } };
   if (!inspectDataSafety({ task, contribution, review }, knownSecrets).safe) return { accepted: false, reasons: ["unsafe_contribution"], cases: [] };
+  if (review.contextDigest !== expertContributionContextDigest(task, contribution)) reasons.push("review_context_mismatch");
   if (contribution.taskId !== task.taskId || review.contributionId !== contribution.id) reasons.push("identity_mismatch");
   if (!contribution.id.trim() || !contribution.contributorId.trim() || !review.reviewerId.trim() || !Number.isFinite(Date.parse(review.reviewedAt))) reasons.push("missing_review_identity");
   if (!review.qualificationsVerified || !contribution.qualificationEvidence.length || contribution.qualificationEvidence.some(x => !x.trim())) reasons.push("unverified_qualifications");
@@ -135,8 +145,10 @@ export function reviewExpertContribution(
       independentOfTarget: true, independentOfGenerator: true,
       evidenceSourceIds: [...answer.evidenceSourceIds], reviewedAnswer: answer.exactAnswer,
       reviewedAt: review.reviewedAt, rationale: answer.rationale,
-      expertAttestation: { qualified: true, consentToEvaluation: true, contributionId: contribution.id },
+      expertAttestation: { qualified: true, consentToEvaluation: true, contributionId: contribution.id, contributionContextDigest: review.contextDigest },
     };
-    return { ...safeCase, verification };
+    const approved = { ...safeCase, verification };
+    verification.contextDigest = answerReviewContextDigest(task, approved, contribution.sources);
+    return approved;
   }) };
 }

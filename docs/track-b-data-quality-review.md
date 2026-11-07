@@ -1,8 +1,31 @@
 # Track B core data quality review
 
+## Correction status — DQ-1 and DQ-2 fixed locally
+
+The findings below describe the reviewed base, before this correction. Both defects now have rejection regressions; no test deliberately asserts the unsafe outcome. Production edits are confined to `packages/core/src/evals/data/**`; other changes are this review runner/tests and the two data documentation files. No ECC, cloud/provider calls, spending, outreach, push or PR.
+
+DQ-1: `AnswerVerification.contextDigest` binds a versioned canonical snapshot of the complete task, non-verification case payload, approval metadata (excluding the digest itself), and full referenced source/evidence records, including provenance, license and review. `ExpertContributionReview.contextDigest` separately binds the task and entire non-verification contribution, including all cases, sources, contributor, consent receipt/uses and qualification evidence. The expert helper carries that digest into the attestation and binds the resulting answer approval. Missing legacy bindings fail closed. Digests are integrity bindings, not authentication: mint them only after actual independent review, never automatically upgrade old approvals. Authenticated ledgers must keep snapshots immutable and assign new IDs to edited contributions.
+
+Acquisition rejects changed or unknown reviewed case payloads and duplicate review IDs before attaching approvals. Detached reviewer/provider inputs prevent in-place mutation of stored candidates. The registry requires matching case and referenced evidence payloads and preserves configured bindings; it does not remint approvals. Provider results still cannot self-approve, and target/generator/contributor independence checks remain.
+
+DQ-2: acquisition screens the complete loaded/insert-winner record with its current `knownSecrets` before provider dispatch or completed-task replay, validates proposed writes and returned CAS records, and screens CAS-loser reloads before returning them. Ready records also undergo current quality reassessment, so stale legacy ready approvals are rejected. Rejections use fixed diagnostics without returning sensitive records. Store-level screening remains defense in depth.
+
+Current offline verification (existing dependency directory temporarily symlinked into `tests/track-b/node_modules`, then removed):
+
+```sh
+node tests/track-b/data-quality-review/run.mjs
+node tests/track-b/run-checks.mjs --components evals --track-a-ref origin/track-a
+```
+
+Strict compilation passed for both. Isolated review: 5 files, 81 tests passed, none skipped (46 existing data tests plus 35 review regressions/controls). Eval harness: 18 files, 211 tests passed, none skipped. The locally available `origin/track-a` resolved to `e969708da6a2bee205fcff9f78faa5e242fdd3c3`; no fetch occurred. The review runner explicitly excludes adapters, which are covered by the eval harness. Context regressions cover question, task scope, coverage, lineage, answer, evidence, consent, qualifications, missing legacy bindings, reviewer mutation and CAS-winner safety for pending, unavailable and completed provider results.
+
+Limitations: only the eval component harness was run, not all Track B components or the app. Fixtures and fake providers do not establish live factual accuracy, legal permission, production review-ledger authentication, deployment behavior or cloud integration. The original review limitations below still apply.
+
+## Historical review
+
 Reviewed base: `800a0b243fd251e1b7df62e8d5f1dfcc734ddb59`. Scope: core acquisition, quality, expert, and file persistence modules under `packages/core/src/evals/data/`. Read PLAN.md, TRACKS.md, docs/TRACK_B_INTEGRATION.md and docs/track-b-evaluation-data.md. No repository AGENTS.md file was found; the supplied ownership and ECC opt-in instructions apply.
 
-Only this document and `tests/track-b/data-quality-review/**` are changed. Production code, existing assertions, Track A, adapters, integration code, journal code and manifests are untouched. No delegation, network/provider calls, spending, outreach, push or PR occurred.
+In the original review, only this document and `tests/track-b/data-quality-review/**` were changed. Production code, existing assertions, Track A, adapters, integration code, journal code and manifests are untouched. No delegation, network/provider calls, spending, outreach, push or PR occurred.
 
 ## Proven failures
 
@@ -42,4 +65,4 @@ node tests/track-b/data-quality-review/run.mjs
 node tests/track-b/data-quality-review/run.mjs --deps '/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-1045f043/tests/track-b/node_modules'
 ```
 
-Final result: strict compilation passed; 5 test files, 63 tests passed, none skipped. This comprises the existing 46 data tests and 17 review tests (4 defect characterizations, 13 controls). Tests named `OPEN DEFECT` deliberately assert the current unsafe result to make it reproducible; they must be replaced with rejection expectations when fixed. A green result here therefore confirms the findings remain reproducible and is not an integration acceptance gate. No mocks or fixtures in this review prove production app, database, network, expert-ledger or live-provider integration. The full Track B harness was not run; its contract/simulator issues documented in the implementation handoff are neither cleared nor newly verified by this isolated run.
+Historical pre-fix result: strict compilation passed; 5 test files, 63 tests passed, none skipped. This comprises the existing 46 data tests and 17 review tests (4 defect characterizations, 13 controls). At that base, tests named `OPEN DEFECT` deliberately asserted the unsafe result. Those tests are now replaced with rejection expectations. A green result here therefore confirms the findings remain reproducible and is not an integration acceptance gate. No mocks or fixtures in this review prove production app, database, network, expert-ledger or live-provider integration. The full Track B harness was not run; its contract/simulator issues documented in the implementation handoff are neither cleared nor newly verified by this isolated run.

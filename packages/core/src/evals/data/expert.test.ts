@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createExpertRequestDraft, reviewExpertContribution } from "./expert";
+import { createExpertRequestDraft, reviewExpertContribution, expertContributionContextDigest } from "./expert";
 import type { ExpertContribution, ExpertContributionReview } from "./expert";
 import type { DataTaskSpec } from "./types";
 
@@ -16,7 +16,8 @@ const contribution = (): ExpertContribution => ({
     generatorId: "synthetic-generator", sourceIds: [], expectedAnswer: "No." }],
   sources: [],
 });
-const review = (): ExpertContributionReview => ({
+const review = (c = contribution()): ExpertContributionReview => ({
+  contextDigest: expertContributionContextDigest(task, c),
   contributionId: "contribution-1", reviewerId: "independent-reviewer", reviewedAt: "2026-11-07T00:00:00Z",
   qualificationsVerified: true, consentVerified: true, conflictOfInterestCleared: true,
   approvedAnswers: [{ caseId: "case-1", exactAnswer: "No.", rationale: "Qualified reviewer confirms the read-only capability restriction.", evidenceSourceIds: [] }],
@@ -73,7 +74,7 @@ describe("expert contribution drafts and review", () => {
     const c = contribution(); delete c.cases[0]!.expectedAnswer;
     c.cases[0]!.verification = { status: "approved", method: "expert", verifierId: "attacker", independentOfGenerator: true,
       independentOfTarget: true, evidenceSourceIds: [], reviewedAnswer: "fabricated", reviewedAt: review().reviewedAt, rationale: "Trust me" };
-    const result = reviewExpertContribution(task, c, { ...review(), approvedAnswers: [] });
+    const result = reviewExpertContribution(task, c, { ...review(c), approvedAnswers: [] });
     expect(result.accepted).toBe(true);
     expect(result.cases[0]!.verification).toBeUndefined();
   });

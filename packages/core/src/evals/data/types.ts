@@ -41,6 +41,8 @@ export interface DataSource {
   review: DataReview;
 }
 export interface AnswerVerification {
+  /** Required for approval admission; legacy records without it fail closed. */
+  contextDigest?: string;
   status: ReviewStatus;
   method: "independent_evidence" | "expert";
   verifierId: string;
@@ -52,7 +54,7 @@ export interface AnswerVerification {
   reviewedAt: string;
   rationale: string;
   /** Authenticated expert adapter attests qualifications and consent. */
-  expertAttestation?: { qualified: boolean; consentToEvaluation: boolean; contributionId: string };
+  expertAttestation?: { qualified: boolean; consentToEvaluation: boolean; contributionId: string; contributionContextDigest?: string };
 }
 export interface EvaluationDataCase {
   id: string;

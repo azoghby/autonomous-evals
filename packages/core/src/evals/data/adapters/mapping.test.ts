@@ -1,3 +1,4 @@
+import { answerReviewContextDigest } from '../binding';
 import { describe, expect, it } from 'vitest';
 import { assessDataQuality } from '../quality';
 import { freezeSuite } from '../../text/freeze';
@@ -36,6 +37,7 @@ describe('approved evaluation data export', () => {
     const syntheticSource = fixtureTask(); syntheticSource.sources[0]!.provenance.origin = 'synthetic';
     expect(mapApprovedDataToTextDesign(syntheticSource, context()).status).toBe('blocked');
     const independentlyReviewed = fixtureTask(); independentlyReviewed.cases[0]!.synthetic = true; independentlyReviewed.cases[0]!.generatorId = 'generator';
+    independentlyReviewed.cases[0]!.verification!.contextDigest = answerReviewContextDigest(independentlyReviewed.spec, independentlyReviewed.cases[0]!, independentlyReviewed.sources);
     independentlyReviewed.assessment = assessDataQuality(independentlyReviewed.spec, independentlyReviewed.cases, independentlyReviewed.sources);
     const mapping = mapApprovedDataToTextDesign(independentlyReviewed, context());
     expect(mapping.status).toBe('ready'); if (mapping.status === 'ready') expect(mapping.provenance.cases[0]?.synthetic).toBe(true);

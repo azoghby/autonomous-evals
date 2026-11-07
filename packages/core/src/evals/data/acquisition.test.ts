@@ -1,3 +1,4 @@
+import { answerReviewContextDigest, reviewDigest } from "./binding";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { acquireEvaluationData, evaluationDataProgress, type EvaluationDataTask, type EvaluationDataStore, type EvaluationDataPorts, type AcquisitionRequest, type DataBatch } from "./acquisition";
@@ -5,7 +6,7 @@ import type { DataTaskSpec } from "./types";
 
 const spec: DataTaskSpec = { taskId: "task-1", jobId: "job-1", description: "Check arithmetic factual answers", requirements: [{ id: "arithmetic", description: "Basic addition", minimumCases: 1 }], factualAnswersRequired: true, targetId: "target-1" };
 const empty: DataBatch = { sources: [], cases: [] };
-const generated: DataBatch = { sources: [], cases: [{ id: "synthetic-1", input: "What is 2 + 2?", expectedAnswer: "4", requirementIds: ["arithmetic"], sourceIds: [], synthetic: false, verification: { status: "approved", method: "expert", verifierId: "pretend-expert", independentOfTarget: true, independentOfGenerator: true, evidenceSourceIds: [], reviewedAnswer: "4", reviewedAt: "2026-11-07T12:00:00Z", rationale: "trust me", expertAttestation: { qualified: true, consentToEvaluation: true, contributionId: "fake" } } }] };
+const generated: DataBatch = { sources: [], cases: [{ id: "synthetic-1", input: "What is 2 + 2?", expectedAnswer: "4", requirementIds: ["arithmetic"], sourceIds: [], synthetic: false, verification: { status: "approved", method: "expert", verifierId: "pretend-expert", independentOfTarget: true, independentOfGenerator: true, evidenceSourceIds: [], reviewedAnswer: "4", reviewedAt: "2026-11-07T12:00:00Z", rationale: "trust me", expertAttestation: { qualified: true, consentToEvaluation: true, contributionContextDigest: reviewDigest({ spec, consent: { evaluation: true }, qualification: "authored expert fixture" }), contributionId: "fake" } } }] };
 class MemoryStore implements EvaluationDataStore {
   record: EvaluationDataTask | null = null;
   async get() { return this.record ? structuredClone(this.record) : null; }
@@ -61,7 +62,7 @@ describe("evaluation data acquisition", () => {
     await acquireEvaluationData(spec, empty, p);
     await acquireEvaluationData(spec, empty, p);
     p.expert = async () => ({ status: "complete", data: { sources: [], cases: [{ ...generated.cases[0]!, id: "expert-revision", synthetic: true, generatorId: "generator-1" }] } });
-    p.reviewCandidates = async data => ({ sources: [], cases: data.cases.map(item => ({ ...item, verification: generated.cases[0]!.verification! })) });
+    p.reviewCandidates = async data => ({ sources: [], cases: data.cases.map(item => { const approved = { ...item, verification: { ...generated.cases[0]!.verification! } }; approved.verification.contextDigest = answerReviewContextDigest(spec, approved, data.sources); return approved; }) });
     const task = await acquireEvaluationData(spec, empty, p);
     expect(task.state).toBe("ready");
     expect(task.assessment.approvedAnswerCaseIds).toEqual(["synthetic-1", "expert-revision"]);
@@ -70,7 +71,7 @@ describe("evaluation data acquisition", () => {
     await acquireEvaluationData(spec, empty, p);
     expect(calls).toBe(0);
   });
-  it("lets later independent expert review upgrade an existing synthetic case without changing lineage", async () => {
+  it("rejects later review that changes the synthetic case payload", async () => {
     const p = ports();
     await acquireEvaluationData(spec, empty, p);
     const generatedTask = await acquireEvaluationData(spec, empty, p);
@@ -81,9 +82,9 @@ describe("evaluation data acquisition", () => {
       verification: generated.cases[0]!.verification!,
     })) });
     const task = await acquireEvaluationData(spec, empty, p);
-    expect(task.state).toBe("ready");
+    expect(task.state).toBe("waiting_for_expert");
     expect(task.cases[0]).toMatchObject({ id: original.id, synthetic: true, generatorId: original.generatorId, input: original.input });
-    expect(task.assessment.approvedAnswerCaseIds).toEqual([original.id]);
+    expect(task.assessment.approvedAnswerCaseIds).toEqual([]);
   });
   it("rejects duplicate provider identities rather than choosing a permissive copy", async () => {
     const p = ports();
