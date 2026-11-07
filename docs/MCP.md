@@ -37,7 +37,7 @@ claude mcp add --transport http autonomous-evals \
   --header "Authorization: Bearer ae_live_..."
 ```
 
-JSON config (Cursor and most other clients use the same shape):
+Cursor (`~/.cursor/mcp.json` or `.cursor/mcp.json` in a project) and most other clients use this shape:
 
 ```json
 {
@@ -69,28 +69,42 @@ Stdio-only clients can bridge with `mcp-remote`:
 
 ## Packages and prices
 
-Prices are fixed. Your agent picks a package, never a price.
+Your agent picks a package and a pricing mode, never an arbitrary price.
 
-| `package` | Price | Input |
-|-----------|-------|-------|
-| `trace_audit` | $5.00 | `trace` (string, up to 200 KB), optional `systemPrompt` |
-| `text_eval` | $5.00 | `endpoint` |
-| `workflow_eval` | $5.00 | `endpoint` |
-| `version_comparison` | $10.00 | `mode` (`"text"` or `"workflow"`), `endpointA`, `endpointB` |
+| `package` | Fixed price | Per-finding cap | Input |
+|-----------|-------------|-----------------|-------|
+| `trace_audit` | $5.00 | $15.00 | `trace` (string, up to 200 KB), optional `systemPrompt` |
+| `text_eval` | $5.00 | $15.00 | `endpoint` |
+| `workflow_eval` | $5.00 | $15.00 | `endpoint` |
+| `version_comparison` | $10.00 | $30.00 | `mode` (`"text"` or `"workflow"`), `endpointA`, `endpointB` |
 
-An `endpoint` object has: `url` (HTTPS only), `model`, optional `apiKey`, `systemPrompt` (default `""`), optional `referenceText`. Call `list_services` for the live list, since it is the source of truth for prices and deliverables.
+Two pricing modes, chosen when you call `accept_quote`:
+
+- `fixed` (default): the flat price above, charged at checkout.
+- `per_finding`: checkout only authorizes the cap on the card. At delivery we capture $3.00 per confirmed finding (never above the cap). If nothing is confirmed, the authorization is released and you pay nothing.
+
+An `endpoint` object has: `url` (HTTPS only), `model`, optional `apiKey`, `systemPrompt` (default `""`), optional `referenceText`. Call `list_packages` for the live list; it is the source of truth.
 
 ## Tools
 
 | Tool | Arguments | Returns |
 |------|-----------|---------|
-| `list_services` | none | Packages, prices, deliverables, input requirements |
-| `request_eval` | `package`, one of `trace` / `endpoint` / `endpointA`+`endpointB`+`mode`, optional `notes`, `authorizedToTest: true`, `idempotencyKey` | `{ jobId, state, jobUrl }` |
-| `get_job` | `jobId` | `state`, latest quote, pending clarification questions, last 10 progress events |
-| `answer_clarification` | `jobId`, `answer` | Updated job state |
-| `accept_quote` | `jobId`, `quoteVersion` | A Stripe Checkout URL (currently the job page URL, where the owner accepts and pays) |
-| `get_report` | `jobId` | Summary, findings (evidence truncated), remediations, download note |
-| `rerun_finding` | `jobId`, `findingId` | Re-check of one finding |
+| `list_packages` | none | Packages, prices, deliverables, required inputs, both pricing modes |
+| `create_job` | `package`, one of `trace` / `endpoint` / `endpointA`+`endpointB`+`mode`, optional `notes`, `authorizedToTest: true`, `idempotencyKey` | `{ jobId, state, jobUrl, replayed }` |
+| `get_job` | `jobId` | `state`, `nextAction`, latest quote with `pricingOptions`, pending clarification questions, payments, last 10 progress events, findings, remediations, `summary` |
+| `answer_clarification` | `jobId`, `answer` | `{ ok, messageId }` |
+| `accept_quote` | `jobId`, `quoteVersion`, optional `pricingMode` (`fixed` or `per_finding`) | `{ checkoutUrl, pricingMode, capCents, pricing }` (a real Stripe Checkout URL) |
+| `get_report` | `jobId` | Summary, findings (with `id`, `findingKey`, truncated evidence), verified remediations, full report markdown |
+| `rerun_finding` | `jobId`, `findingId` (a finding's `id`) | Re-check of one finding (job must be `delivered`, max 3 per finding) |
+| `cancel_job` | `jobId`, optional `reason` | `{ ok }`. Only before work starts; closes any open checkout |
+
+Also exposed over MCP:
+
+| Kind | Name | What it is |
+|------|------|------------|
+| Resource | `autonomous-evals://sample-report` | A finished sample report (fictional agent) as markdown. Read it to see what you get for the price |
+| Prompt | `sample_report` | Loads the sample report into the conversation |
+| Prompt | `hire_eval` (`target`) | Step-by-step playbook for hiring an eval end to end |
 
 `authorizedToTest` must be literally `true`; it is your attestation that you may test the target.
 
@@ -98,13 +112,13 @@ Job states: `draft`, `needs_clarification`, `quoted`, `awaiting_payment`, `plann
 
 ## End-to-end flow
 
-1. `list_services` to confirm packages and input requirements.
-2. `request_eval` with your input and a fresh `idempotencyKey`. You get a `jobId`.
+1. `list_packages` to confirm packages and input requirements.
+2. `create_job` with your input and a fresh `idempotencyKey`. You get a `jobId`.
 3. Poll `get_job` until the state leaves `draft`. If it is `needs_clarification`, read the pending questions and call `answer_clarification`. Keep polling.
-4. When the state is `quoted`, review the quote (package, `priceCents`, scope, deliverables). Call `accept_quote` with the `jobId` and the quote's `version` as `quoteVersion`.
-5. Pay. `accept_quote` returns a Stripe Checkout URL. A human, or an agent with a payment capability, completes it there. Card data is never accepted over MCP.
+4. When the state is `quoted`, review the quote (package, `priceCents`, scope, deliverables). Choose `fixed` or `per_finding` and call `accept_quote` with the `jobId`, the quote's `version` as `quoteVersion`, and `pricingMode`.
+5. Pay. `accept_quote` returns a Stripe Checkout URL (`checkoutUrl`). A human, or an agent with a payment capability, completes it there. Card data is never accepted over MCP.
 6. Poll `get_job` while the job moves through `planning`, `running`, `investigating`. Back off between polls (every 15 to 30 seconds is plenty) to stay inside the rate limit.
-7. At `delivered`, call `get_report`. Optionally call `rerun_finding` to re-check a specific finding after you apply a remediation.
+7. At `delivered`, call `get_report`. Optionally call `rerun_finding` (with the finding `id` from `get_report`) to re-check a specific finding after you apply a remediation.
 
 Example request:
 
@@ -123,13 +137,40 @@ Example request:
 }
 ```
 
+## curl example
+
+```bash
+export AE_KEY=ae_live_...
+MCP=https://autonomous-evals.vercel.app/api/mcp/mcp
+call() { curl -s "$MCP" -H "Authorization: Bearer $AE_KEY" -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" -d "$1"; }
+
+# list tools
+call '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
+# prices and both pricing modes
+call '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_packages","arguments":{}}}'
+
+# hire us
+call '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"create_job","arguments":{"package":"trace_audit","trace":"user: refund me\nassistant: Done, refunded.","authorizedToTest":true,"idempotencyKey":"demo-1"}}}'
+
+# check on it, then accept the quote per finding
+call '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_job","arguments":{"jobId":"<jobId>"}}}'
+call '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"accept_quote","arguments":{"jobId":"<jobId>","quoteVersion":1,"pricingMode":"per_finding"}}}'
+
+# sample report resource
+call '{"jsonrpc":"2.0","id":6,"method":"resources/read","params":{"uri":"autonomous-evals://sample-report"}}'
+```
+
+Responses are Server-Sent-Event framed (`data: {...}`); the JSON-RPC result is in `result`, with tool output in `result.structuredContent`.
+
 ## Idempotency
 
-`request_eval` takes an `idempotencyKey`. Repeating a call with the same key returns the same job instead of creating a second one, so it is safe to retry after a timeout or a dropped connection. Use a new key for each distinct evaluation. Keys are scoped to your customer account.
+`create_job` takes an `idempotencyKey`. Repeating a call with the same key returns the same job instead of creating a second one, so it is safe to retry after a timeout or a dropped connection. Use a new key for each distinct evaluation. Keys are scoped to your customer account.
 
 ## Reports
 
-`get_report` returns the summary, findings, and remediations. Each finding has `id`, `title`, `status` (`confirmed`, `rubric_concern`, `inconclusive`), `severity`, `category`, `description`, and evidence with excerpts truncated for MCP. Each remediation names its `findingId`, a `patch`, a `rationale`, and a `verification` block with before and after pass counts. Artifact downloads (full markdown or HTML report) need a web session; over MCP, use the content the tool returns.
+`get_report` returns the summary, findings, and remediations. Each finding has `id`, `title`, `status` (`confirmed`, `rubric_concern`, `inconclusive`), `severity`, `category`, `description`, and evidence with excerpts truncated for MCP. Each remediation names its `findingId` (which matches a finding's `findingKey`, not its `id`), a `patch`, a `rationale`, and a `verification` block with before and after pass counts. Artifact downloads (full markdown or HTML report) need a web session; over MCP, use the content the tool returns.
 
 ## Error handling
 

@@ -1,7 +1,8 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { verifyApiKey } from "@/server/api-keys";
 import { rateLimit } from "@/server/rate-limit";
-import { TOOLS, type McpCaller } from "@/server/mcp-tools";
+import { z } from "zod";
+import { TOOLS, HIRE_WORKFLOW_PROMPT, SAMPLE_REPORT_URI, sampleReportMarkdown, type McpCaller } from "@/server/mcp-tools";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -31,6 +32,24 @@ const mcp = createMcpHandler((server) => {
       }) as never,
     );
   }
+
+  const origin = () => (process.env.APP_URL ?? "").replace(/\/$/, "");
+  server.registerResource(
+    "sample-report",
+    SAMPLE_REPORT_URI,
+    { title: "Sample report", description: "A finished sample Trace Audit report (fictional agent): findings with evidence, verified fixes, pricing.", mimeType: "text/markdown" },
+    async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: sampleReportMarkdown(origin()) }] }),
+  );
+  server.registerPrompt(
+    "sample_report",
+    { title: "Show a sample report", description: "See what a delivered eval report looks like before hiring." },
+    async () => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: `Here is a sample report from Autonomous Evals. Summarize what an agent would get for its money.\n\n${sampleReportMarkdown(origin())}` } }] }),
+  );
+  server.registerPrompt(
+    "hire_eval",
+    { title: "Hire an eval", description: "Step-by-step workflow for evaluating an agent: package, job, quote, payment, report, rerun.", argsSchema: { target: z.string().max(500).describe("What to evaluate, e.g. 'our support agent endpoint https://...'") } },
+    async ({ target }) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: HIRE_WORKFLOW_PROMPT(target) } }] }),
+  );
 }, { serverInfo: { name: "autonomous-evals", version: "1.0.0" } });
 
 const authed = withMcpAuth(
