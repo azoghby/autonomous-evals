@@ -1,0 +1,89 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-review-dMTc36
+
+ ✓ packages/core/src/evals/data/postgres-store.test.ts (38 tests) 33264ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) (38)
+     ✓ replays from independent service instances with detached input and outputs 1644ms
+     ✓ has one insert and one CAS winner across concurrent callers (PGlite serializes transactions) 912ms
+     ✓ isolates reads, inserts and CAS by both trusted tenant and job 906ms
+     ✓ captures scope values at construction and rejects record job mismatch 1225ms
+     ✓ rejects insert and CAS identity drift: hash 1607ms
+     ✓ rejects insert and CAS identity drift: description 1033ms
+     ✓ rejects insert and CAS identity drift: target 914ms
+     ✓ rejects insert and CAS identity drift: coverage 879ms
+     ✓ rejects insert and CAS identity drift: uses 807ms
+     ✓ rejects insert and CAS identity drift: factual 862ms
+     ✓ compares full spec canonically after jsonb key reordering 767ms
+     ✓ returns null for missing/stale revisions and rejects invalid revisions and history loss 840ms
+     ✓ rejects non-JSON/unsafe text 0 without changing storage 738ms
+     ✓ rejects non-JSON/unsafe text 1 without changing storage 798ms
+     ✓ rejects non-JSON/unsafe text 2 without changing storage 745ms
+     ✓ rejects non-JSON/unsafe text 3 without changing storage 848ms
+     ✓ rejects non-JSON/unsafe text 4 without changing storage 751ms
+     ✓ rejects non-JSON/unsafe text 5 without changing storage 833ms
+     ✓ rejects non-JSON/unsafe text 6 without changing storage 776ms
+     ✓ rejects non-JSON/unsafe text 7 without changing storage 1026ms
+     ✓ rejects accessors, custom serialization, sparse arrays, symbols and cycles 799ms
+     ✓ accepts valid Unicode and SQL-shaped text as bound data 754ms
+     ✓ bounds serialized record bytes 824ms
+     ✓ rejects malformed stored row: nested 749ms
+     ✓ rejects malformed stored row: unknown 763ms
+     ✓ rejects malformed stored row: revision 762ms
+     ✓ rejects malformed stored row: task 878ms
+     ✓ rejects malformed stored row: job 756ms
+     ✓ rejects malformed stored row: enum 756ms
+     ✓ rejects actual database rows with malformed nested JSON on read, insert replay and CAS 831ms
+     ✓ screens current secret policy on reads, conflicting inserts and CAS 818ms
+     ✓ rolls back inserts and CAS when the returned row fails validation 780ms
+     ✓ rolls back when the current secret policy changes before RETURNING is validated 741ms
+     ✓ redacts driver failure text with no transaction retries 764ms
+     ✓ preserves complete bound review evidence and decision history across restart 831ms
+     ✓ resumes acquisition with the same operation key after restart, outside any SQL transaction 845ms
+     ✓ replays only correctly bound ready acquisition data after service restart 854ms
+     ✓ rejects stale ready review bindings and new secret policy before completed replay 845ms
+ ✓ packages/core/src/reporting/chat/postgres-conversations.test.ts (12 tests) 10737ms
+   ✓ PostgreSQL conversations: real PGlite SQL, single session (11)
+     ✓ partitions every operation by both subject and job, with independent sequences 1223ms
+     ✓ keeps the first digest, reply, freshness and sequence across adapter recreation 828ms
+     ✓ integrates with the service and replays without reading current progress 931ms
+     ✓ rejects cross-scope, wrong-ID, unsafe bigint and malformed rows returned by a driver 792ms
+     ✓ paginates an exclusive ascending cursor with bounded pages 827ms
+     ✓ serializes concurrent PGlite transaction callbacks and preserves first-write replay 824ms
+     ✓ uses bound parameters for SQL-looking subjects and never queries outside both scope keys 866ms
+     ✓ rolls back allocator and exchange together after an insert failure 816ms
+     ✓ fails closed with fixed errors for malformed inputs and database failures 759ms
+     ✓ validates persisted replies on lookup, replay and history 837ms
+     ✓ rejects unsafe persisted allocator integers without consuming another sequence 754ms
+   ✓ replays after closing and reopening a persistent PGlite database 1279ms
+ ✓ packages/core/src/evals/integration/checkpoint.test.ts (5 tests) 4767ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) (5)
+     ✓ atomically gives one claimant ownership and rejects changed inputs under the same identity 1168ms
+     ✓ persists full detached output, resumes from a fresh adapter and rejects overwrite 1119ms
+     ✓ never takes over a lost response, and ambiguity cannot be released or completed 913ms
+     ✓ allows explicit safe agent polling release while rejecting stale owners 756ms
+     ✓ refuses lossy/non-PostgreSQL JSON before completion, preserving pending state 810ms
+ ✓ packages/core/src/evals/integration/services.test.ts (12 tests) 1630ms
+ ✓ packages/core/src/reporting/chat/file-conversations.test.ts (5 tests) 221ms
+ ✓ packages/core/src/evals/data/persistence.test.ts (3 tests) 92ms
+ ✓ tests/track-b/progress-projection-review/review.test.ts (13 tests) 86ms
+ ✓ packages/core/src/evals/data/adapters/generation.test.ts (9 tests) 27ms
+ ✓ packages/core/src/reporting/chat/projection/projection.test.ts (30 tests) 26ms
+ ✓ packages/core/src/evals/data/discovery/index.test.ts (24 tests) 25ms
+ ✓ packages/core/src/evals/data/adapters/mapping.test.ts (7 tests) 25ms
+ ✓ packages/core/src/evals/data/acquisition.test.ts (9 tests) 20ms
+ ✓ packages/core/src/evals/data/adapters/sources.test.ts (8 tests) 20ms
+ ✓ packages/core/src/reporting/chat/service.test.ts (10 tests) 18ms
+ ✓ packages/core/src/reporting/chat/projection/negative.test.ts (22 tests) 16ms
+ ✓ packages/core/src/evals/data/quality.test.ts (23 tests) 16ms
+ ✓ packages/core/src/evals/data/expert.test.ts (11 tests) 10ms
+ ✓ packages/core/src/reporting/chat/answers.test.ts (8 tests) 7ms
+ ✓ packages/core/src/evals/data/adapters/expert.test.ts (2 tests) 7ms
+ ✓ packages/core/src/reporting/__tests__/render.test.ts (7 tests) 4ms
+
+ Test Files  20 passed (20)
+      Tests  258 passed (258)
+   Start at  14:27:33
+   Duration  54.46s (tests 97%, import 2%, transform 1%)
+
+JSON report written to /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-review-dMTc36/results.json
+Strict types passed. 258 tests in 20 files; none skipped. Contracts: be522f1e13e697017bac96728748b82cadc08ab9.
