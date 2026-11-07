@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { Pool } from 'pg';
+import { z } from 'zod';
+import { fixtureJob, harness } from './__tests__/fakes';
+import { AgentSessionService } from './session-service';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PostgresAgentTaskStore, PostgresBudgetLedger } from './postgres-ports';
 import type { AgentSqlExecutor, AgentTransactionalSql } from './postgres-ports';
@@ -37,6 +40,23 @@ describe('agent PostgreSQL adapters: PGlite SQL execution (single session, not r
     store = new PostgresAgentTaskStore(db); ledger = new PostgresBudgetLedger(db);
   });
   afterEach(async () => { await engine.close(); });
+
+  it('runs the session service on SQL ports and replays from fresh adapters without provider calls', async () => {
+    const h = harness(() => ({ structuredOutput: { answer: 'ok' } }), { store, ledger });
+    const spec = { job: fixtureJob(), role: 'commercial' as const, purpose: 'sql_integration', message: 'Return JSON.',
+      output: { name: 'sql.v1', schema: z.object({ answer: z.string() }) }, budgetMicroUsd: 100_000 };
+    const first = await h.service.run(spec);
+    expect(first.status).toBe('completed');
+    expect(h.naive.createCalls).toHaveLength(1);
+    const calls = h.naive.getCalls;
+    const restarted = new AgentSessionService({ ...h.deps, workerId: 'restarted', store: new PostgresAgentTaskStore(db), ledger: new PostgresBudgetLedger(db) });
+    expect(await restarted.run(spec)).toEqual(first);
+    expect(h.naive.createCalls).toHaveLength(1);
+    expect(h.naive.getCalls).toBe(calls);
+    const saved = await store.get(first.taskKey);
+    expect(saved).toMatchObject({ state: 'completed', consumedMicroUsd: 12_345 });
+    expect(await ledger.settle(saved!.reservationId, 99_999)).toEqual({ settledMicroUsd: 12_345, replayed: true });
+  });
 
   it('persists exact JSON, returns detached records, and resumes through a fresh adapter', async () => {
     expect(await store.get('missing')).toBeNull();
