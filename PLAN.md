@@ -45,6 +45,8 @@ Test-mode payments are never counted as revenue.
 | Auth | Email magic link (Neon Auth if it sets up in < 30 min) | Job ownership enforced server-side. Operator access by email allowlist. |
 | Validation / tests | Zod, Vitest | Playwright only for the single happy-path smoke test. |
 
+Track A implementation decisions, provisioned resources and frozen API surface: [docs/TRACK_A_PLAN.md](docs/TRACK_A_PLAN.md).
+
 Architecture in one line: browser → Next.js route handlers (Vercel) → `start(jobWorkflow)` → steps call Naïve sessions, AI Gateway, customer endpoints, and the Neon branch → results in Neon + Blob → progress page reads Neon.
 
 ---
