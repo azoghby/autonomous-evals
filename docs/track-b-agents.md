@@ -186,3 +186,14 @@ Cost recording: `ctx.recordCost` receives `meta.idempotencyKey = "naive:<session
 - **Live engine validation:** none, beyond provisioning.
 - **Version comparison and monitoring execution:** not in this slice.
 - **Claim detection limits:** pattern-based and conservative. It misses success claims phrased without the lexicon, or joined to a hedge in the same sentence.
+
+
+## Parent live validation update — 2026-11-07
+
+Run `20261107b` used the current integrated implementation, SDK 0.12.3, existing role agents at version 1, and model `zai-org/GLM-5.2-FP8`. Provisioning was disabled. Per-session maximum was 250,000 micro-USD ($0.25), aggregate diagnostic cap 1,000,000 micro-USD ($1). All four sessions completed with schema-valid outputs. Provider-reported total consumption was **26,023 micro-USD ($0.026023)**. No agents were created or changed, and the CEO agent was untouched.
+
+The sanitized [live result](../tests/track-b/live-evidence/naive-four-roles-2026-11-07.json) records role/session IDs, versions, terminal outcomes, and measured consumption. Private durable state remains outside Git; it is required to resume this exact run without new sessions. The prior 100,000-micro-USD run remains a separate failed-preflight experiment, not a successful live validation.
+
+Commercial returned the fixed Trace Audit quote with no policy warnings. Engineer returned two probe scenarios (this is not the twelve-scenario Text Eval acceptance test). Operator returned a validated summary with one finding note. Investigator completed and proposed confirmation, but two cited quotes were the nonexistent string `Request Body:{tooltipBody}}`. Exact-quote validation rejected the verdict, retaining the candidate as **inconclusive**. This demonstrates that fabricated citations cannot become confirmed findings, but the live false-success trace has **not** yet passed the desired confirmed-finding acceptance gate. No automatic retry was made for the bad citations.
+
+These sessions prove the live SDK path for all four roles on internal fixtures, not production Neon persistence, customer-target evaluation, or Track A's deployed end-to-end workflow.
