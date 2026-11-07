@@ -33,7 +33,12 @@ export function ProgressTimeline({ progress, state }: { progress: ProgressItem[]
   useEffect(() => () => { prevH.current = 0; }, []);
 
   return (
-    <Block title={`Work in progress · ${labelOf(state)}`}>
+    <Block title={`Work in progress · ${labelOf(state)}`} aside={progress.length > 0 ? (
+      <span className="inline-flex items-center gap-2 font-mono text-[11px] text-subtle">
+        <motion.span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" animate={reduce ? undefined : { opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }} />
+        <span className="tabular-nums">{progress.length} step{progress.length === 1 ? "" : "s"}</span> · live
+      </span>
+    ) : undefined}>
       {progress.length === 0 ? (
         <p className="text-sm text-muted">Starting up. Milestones will appear here as they happen.</p>
       ) : (
@@ -44,7 +49,7 @@ export function ProgressTimeline({ progress, state }: { progress: ProgressItem[]
               const current = i === progress.length - 1;
               return (
                 <motion.li key={`${p.createdAt}-${i}`} className="relative"
-                  initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: EASE }}>
+                  initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: EASE }}>
                   <span className="absolute -left-7 top-1.5 flex h-[10px] w-[10px] items-center justify-center">
                     {current && !reduce && (
                       <motion.span aria-hidden className="absolute h-[10px] w-[10px] rounded-full bg-accent"

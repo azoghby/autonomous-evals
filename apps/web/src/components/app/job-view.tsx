@@ -98,7 +98,7 @@ export function JobView({ jobId }: { jobId: string }) {
       {(POLLING_STATES.has(current) || (current === "planning")) && <ProgressTimeline progress={progress} state={current} />}
 
       {current === "delivered" && (
-        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} remediations={data.remediations ?? []} charge={charge} pricingMode={pricingMode} />
+        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} remediations={data.remediations ?? []} charge={charge} pricingMode={pricingMode} quote={quote} />
       )}
 
       {EXPLAIN[current] && (

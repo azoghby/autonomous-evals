@@ -1,9 +1,9 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MONITORING_PRICE_CENTS_MONTHLY, type PricingMode, type Remediation } from "@ae/core/contracts/index";
+import { MONITORING_PRICE_CENTS_MONTHLY, PER_FINDING_CAP_CENTS, PER_FINDING_CENTS, type PricingMode, type Remediation } from "@ae/core/contracts/index";
 import { api, dollars, errMsg } from "@/lib/client/api";
-import { normalizeFinding, type ChargeView, type FindingView, type ProgressItem, type RemediationView } from "@/lib/client/types";
+import { normalizeFinding, type ChargeView, type FindingView, type ProgressItem, type QuoteView, type RemediationView } from "@/lib/client/types";
 import { AnimatePresence, motion } from "motion/react";
 import { Btn, Chip, ErrorBox, Block, Mono } from "./ui";
 import { EASE, SOFT, SPRING, Reveal, Stagger } from "./motion";
@@ -28,6 +28,64 @@ function PassBar({ label, v }: { label: string; v?: { passed: number; total: num
       <span className="h-1 w-24 overflow-hidden rounded-sm bg-line"><span className="block h-full bg-accent" style={{ width: `${pct}%` }} /></span>
       <span className="tabular-nums text-fg">{v ? `${v.passed}/${v.total}` : "n/a"}</span>
     </div>
+  );
+}
+
+function PatchView({ patch }: { patch: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try { await navigator.clipboard.writeText(patch); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* clipboard unavailable */ }
+  }
+  return (
+    <div className="relative mt-2">
+      <Mono>{patch}</Mono>
+      <button type="button" onClick={copy} className="absolute right-2 top-2 rounded-md border border-line-strong bg-bg px-2 py-1 text-[11px] text-muted transition hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">{copied ? "Copied" : "Copy patch"}</button>
+    </div>
+  );
+}
+
+const DOT = { info: "bg-accent-bright", warn: "bg-amber-400", bad: "bg-red-500" } as const;
+
+function ValidatedFixes({ fixes, titleFor }: { fixes: RemediationView[]; titleFor: (r: RemediationView) => string }) {
+  return (
+    <section aria-labelledby="fixes-h">
+      <h2 id="fixes-h" className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">Validated fixes · {fixes.length}</h2>
+      <Stagger as="ul" className="border-t border-line">
+        {fixes.map((r) => {
+          const v = r.verification;
+          const vs = v ? VERIFY[v.status] : undefined;
+          return (
+            <motion.li key={r.id} variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: SOFT } }} className="border-b border-line py-5">
+              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+                <div className="min-w-0">
+                  <h3 className="text-base font-medium">{titleFor(r)}</h3>
+                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">{r.kind.replace(/_/g, " ")}</p>
+                </div>
+                {vs && (
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap text-xs text-muted">
+                    <span aria-hidden className={`h-2 w-2 rounded-full ${DOT[vs.tone]}`} />{vs.label}
+                  </span>
+                )}
+              </div>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-fg/90">{r.summary}</p>
+              {v && (
+                <div className="mt-3 space-y-1.5">
+                  <PassBar label="before" v={v.before} />
+                  <PassBar label="after" v={v.after} />
+                  <div className="font-mono text-xs text-subtle">{v.regressions ?? 0} regression{(v.regressions ?? 0) === 1 ? "" : "s"}</div>
+                </div>
+              )}
+              {r.patch && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-xs text-muted transition hover:text-fg">View patch</summary>
+                  <PatchView patch={r.patch} />
+                </details>
+              )}
+            </motion.li>
+          );
+        })}
+      </Stagger>
+    </section>
   );
 }
 
@@ -129,9 +187,30 @@ function FindingCard({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingVi
   );
 }
 
-export function ReportView({ jobId, report, findings, progress, onReload, remediations = [], charge = null, pricingMode = "fixed" }: {
+const SEVERITIES = ["critical", "high", "medium", "low"] as const;
+const SEV_DOT = { critical: "bg-red-500", high: "bg-red-500", medium: "bg-amber-400", low: "bg-subtle" } as const;
+const DOWNLOADS = [
+  { kind: "report", label: "Report (.md)" },
+  { kind: "suite", label: "Suite (JSON)" },
+  { kind: "evidence", label: "Evidence" },
+] as const;
+
+function chargeSummary(opts: { pricingMode: PricingMode; charge: ChargeView | null; quote: QuoteView | null; confirmed: number }): string | null {
+  const { pricingMode, charge, quote, confirmed } = opts;
+  const captured = charge?.capturedAmountCents ?? 0;
+  if (pricingMode === "per_finding") {
+    if (!charge || charge.status === "authorized") return null;
+    if (charge.status === "released" || !captured) return "Hold released. You paid $0.";
+    const cap = quote?.capCents ?? (quote ? PER_FINDING_CAP_CENTS[quote.package] : undefined);
+    return `Charged ${dollars(captured)}. ${confirmed} confirmed finding${confirmed === 1 ? "" : "s"} × ${dollars(PER_FINDING_CENTS)}${cap ? ` (cap ${dollars(cap)})` : ""}`;
+  }
+  const amount = captured || quote?.priceCents || charge?.amountCents;
+  return amount ? `Charged ${dollars(amount)}. Fixed price for the full ${quote ? "package" : "report"}, regardless of findings.` : null;
+}
+
+export function ReportView({ jobId, report, findings, progress, onReload, remediations = [], charge = null, pricingMode = "fixed", quote = null }: {
   jobId: string; report: { summary: string } | null; findings: FindingView[]; progress: ProgressItem[]; onReload: () => Promise<void>;
-  remediations?: RemediationView[]; charge?: ChargeView | null; pricingMode?: PricingMode;
+  remediations?: RemediationView[]; charge?: ChargeView | null; pricingMode?: PricingMode; quote?: QuoteView | null;
 }) {
   const retestKey = useRef<string>(crypto.randomUUID());
   const router = useRouter();
@@ -140,13 +219,11 @@ export function ReportView({ jobId, report, findings, progress, onReload, remedi
   const [error, setError] = useState<string | null>(null);
   const originals = findings.filter((f) => !f.rerunOf);
   const fixesFor = (f: FindingView) => remediations.filter((r) => r.findingRowId === f.id || r.findingId === f.key);
+  const fixTitle = (r: RemediationView) => originals.find((f) => f.id === r.findingRowId || f.key === r.findingId)?.title ?? "Finding";
   const verified = remediations.filter((r) => r.verification.status === "verified").length;
   const confirmed = originals.filter((f) => f.status === "confirmed").length;
-  const chargeLine = pricingMode === "per_finding" && charge
-    ? (charge.status === "released" || !(charge.capturedAmountCents ?? 0)
-        ? (charge.status === "authorized" ? null : "Hold released. You paid $0.")
-        : `Charged ${dollars(charge.capturedAmountCents ?? 0)} for ${confirmed} confirmed finding${confirmed === 1 ? "" : "s"}.`)
-    : null;
+  const sevCounts = SEVERITIES.map((s) => ({ s, n: originals.filter((f) => f.severity === s).length })).filter((x) => x.n > 0);
+  const chargeLine = chargeSummary({ pricingMode, charge, quote, confirmed });
 
   async function retest() {
     setRetestBusy(true); setError(null);
@@ -165,15 +242,24 @@ export function ReportView({ jobId, report, findings, progress, onReload, remedi
 
   return (
     <Reveal className="space-y-12">
-      <Block title="Report summary" aside={
-        <div className="flex gap-5 text-sm">
-          <a className="text-fg/90 underline decoration-line-strong underline-offset-4 transition hover:text-fg hover:decoration-accent-bright" href={`/api/jobs/${jobId}/artifacts/report`}>Download report</a>
-          <a className="text-fg/90 underline decoration-line-strong underline-offset-4 transition hover:text-fg hover:decoration-accent-bright" href={`/api/jobs/${jobId}/artifacts/suite`}>Download suite</a>
-        </div>}>
+      <Block title="Report summary">
         <p className="max-w-2xl whitespace-pre-wrap text-[15px] leading-relaxed text-fg/90">{report?.summary || "No summary was written for this report."}</p>
-        <p className="mt-4 font-mono text-xs text-muted"><span className="text-accent-bright">{originals.length}</span> findings · <span className="text-accent-bright">{verified}</span> fixes verified</p>
-        {chargeLine && <p className="mt-2 font-mono text-xs text-muted">{chargeLine}</p>}
+        <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-xs text-muted">
+          <span><span className="text-accent-bright">{originals.length}</span> findings</span>
+          {sevCounts.map(({ s, n }) => (
+            <span key={s} className="inline-flex items-center gap-2"><span aria-hidden className={`h-1.5 w-1.5 rounded-full ${SEV_DOT[s]}`} /><span className="tabular-nums text-fg">{n}</span> {s}</span>
+          ))}
+          <span><span className="text-accent-bright">{verified}</span> of {remediations.length} fixes verified</span>
+        </div>
+        {chargeLine && <p className="mt-3 font-mono text-xs text-muted">{chargeLine}</p>}
+        <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-4 text-sm" role="group" aria-label="Downloads">
+          {DOWNLOADS.map((d) => (
+            <a key={d.kind} download className="text-fg/90 underline decoration-line-strong underline-offset-4 transition hover:text-fg hover:decoration-accent-bright focus-visible:outline-2 focus-visible:outline-accent" href={`/api/jobs/${jobId}/artifacts/${d.kind}`}>{d.label}</a>
+          ))}
+        </div>
       </Block>
+
+      {remediations.length > 0 && <ValidatedFixes fixes={remediations} titleFor={fixTitle} />}
 
       <section aria-labelledby="findings-h">
         <h2 id="findings-h" className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">Findings · {originals.length}</h2>
