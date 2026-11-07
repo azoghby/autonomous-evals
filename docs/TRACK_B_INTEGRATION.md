@@ -6,6 +6,10 @@ Status: implementation in progress. This document specifies integration requirem
 
 Track B exports TypeScript services for Track A's Workflow steps. It does not start a second job orchestrator, call public customer routes, send outreach, collect payments, or manage Vercel configuration.
 
+The current app-loader/bootstrap mismatch and concrete wiring sequence are recorded in
+[track-b-bootstrap.md](track-b-bootstrap.md). The unified `@ae/core/evals/index`
+entry exports factories, not an implicitly authorized global service instance.
+
 The first deliverable is Trace Audit. It accepts a bounded transcript plus optional system instructions, returns evidence-linked findings and report artifacts, and does not require a customer endpoint or simulator branch. Text and calendar evaluations follow.
 
 Track A published initial contracts on branch `track-a`, commit `673873d`, at `packages/core/src/contracts/index.ts` and `services.ts`. These define `EvalServices`: qualify, auditTrace, checkTarget, designSuite, runSuite, investigate, renderReport, createJobBranch, deleteJobBranch, and rerunFinding. Their implementation is not yet integrated into main. The agent implementation notes will live in `docs/track-b-agents.md`; target/simulator implementation notes in `docs/track-b-targets.md`.
