@@ -1,12 +1,13 @@
 import { createHook, FatalError } from "workflow";
 import { jobHookToken, type JobEvent, type QualifyResult } from "@ae/core/contracts/index";
 import type { RunResult } from "@ae/core/contracts/services";
-import { decideAfterQualify, decidePayment, isQuoteAcceptance, MAX_CLARIFICATION_ROUNDS } from "./decisions";
+import { connectionFailureMessage, decideAfterQualify, decidePayment, isQuoteAcceptance, MAX_CLARIFICATION_ROUNDS,
+  MAX_CONNECTION_CHECK_ROUNDS, needsConnectionCheck } from "./decisions";
 import {
-  cancelStep, commercialMessageStep, declineStep, deliverStep, failStep, getStateStep, pauseBudgetStep,
+  cancelStep, commercialMessageStep, declineStep, deliverStep, failStep, getStateStep, neonDeliverySafetyStep, pauseBudgetStep,
   progressStep, setStateStep,
 } from "./steps/lifecycle";
-import { createQuoteStep, qualifyStep } from "./steps/quote";
+import { connectionCheckStep, createQuoteStep, qualifyStep } from "./steps/quote";
 import {
   auditTraceStep, createBranchStep, designSuiteStep, investigateStep, persistReportStep, renderReportStep, runSuiteStep,
 } from "./steps/evaluate";
@@ -55,23 +56,35 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     }
     await progressStep(jobId, "received", "Request received.");
 
-    // 1. Qualify, clarifying up to MAX_CLARIFICATION_ROUNDS times.
+    // 1. Qualify, clarifying up to MAX_CLARIFICATION_ROUNDS times. Endpoint packages must also pass a
+    // connection check BEFORE a quote exists; a failed check asks the customer to fix it and re-qualifies.
     const clarifications: string[] = [];
     let qualified: QualifyResult | undefined;
-    for (let round = 0; !qualified; round++) {
+    let clarifyRounds = 0;
+    let checkRounds = 0;
+    while (!qualified) {
       const q = await qualifyStep(jobId, clarifications);
       if (q.status === "budget_exceeded") { await pauseBudgetStep(jobId, q.message); return { jobId, status: "paused_budget" }; }
-      const next = decideAfterQualify(q.data.decision, round);
-      if (next === "quote") { qualified = q.data; break; }
-      if (next === "decline") {
+      const next = decideAfterQualify(q.data.decision, clarifyRounds);
+      if (next === "quote") {
+        if (!needsConnectionCheck(q.data.package)) { qualified = q.data; break; }
+        const check = await connectionCheckStep(jobId);
+        if (check.ok) { qualified = q.data; break; }
+        if (++checkRounds > MAX_CONNECTION_CHECK_ROUNDS) {
+          await declineStep(jobId, "We still could not connect to your endpoint after several attempts. Please verify it is reachable and start a new request.");
+          return { jobId, status: "declined" };
+        }
+        await commercialMessageStep(jobId, connectionFailureMessage(check.failures));
+      } else if (next === "decline") {
         await declineStep(jobId, q.data.declineReason ?? "We are not able to take on this request.");
         return { jobId, status: "declined" };
-      }
-      if (next === "give_up") {
+      } else if (next === "give_up") {
         await declineStep(jobId, `We could not scope this request after ${MAX_CLARIFICATION_ROUNDS} rounds of questions. Please start a new request with more detail.`);
         return { jobId, status: "declined" };
+      } else {
+        clarifyRounds++;
+        await commercialMessageStep(jobId, q.data.questions.map((x, i) => `${i + 1}. ${x}`).join("\n") || "Could you share more detail about what you need?");
       }
-      await commercialMessageStep(jobId, q.data.questions.map((x, i) => `${i + 1}. ${x}`).join("\n") || "Could you share more detail about what you need?");
       if (!(await setStateStep(jobId, "needs_clarification"))) return { jobId, status: "cancelled" };
       const answer = await waitFor((e) => (e.type === "clarification_answer" ? e.answer : undefined));
       if (wasCancelled(answer)) { await cancelStep(jobId, answer.cancelled); return { jobId, status: "cancelled" }; }
@@ -105,7 +118,8 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     if (stopped) return { jobId, status: stopped.stopped };
 
     // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.
-    await deliverStep(jobId);
+    const delivered = await deliverStep(jobId);
+    await neonDeliverySafetyStep(jobId, delivered.deliveredAtIso); // non-fatal: never fails delivery
     await notifyCustomerStep(jobId);
     return { jobId, status: "delivered" };
   }

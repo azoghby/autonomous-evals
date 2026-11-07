@@ -2,7 +2,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { JobState } from "@ae/core/contracts/index";
 import { addMessage, recordProgress, setJobState } from "@/server/job-store";
-import { deliveryDeadlines } from "../decisions";
+import { deliveryDeadlines, sanitizeCheckDetail } from "../decisions";
 
 /** States a customer/operator cancellation or terminal outcome must not be overwritten from. */
 const TERMINAL: readonly JobState[] = ["cancelled", "failed", "delivered"];
@@ -75,4 +75,29 @@ export async function deliverStep(jobId: string): Promise<{ deliveredAtIso: stri
 async function releaseReservations(jobId: string): Promise<void> {
   await db().update(schema.budgetReservations).set({ releasedAt: new Date() })
     .where(and(eq(schema.budgetReservations.jobId, jobId), isNull(schema.budgetReservations.releasedAt)));
+}
+
+/**
+ * Best-effort post-delivery Neon safety net: snapshot the branch and set a 7-day auto-delete TTL.
+ * Never throws; failures become a progress note so delivery is unaffected.
+ */
+export async function neonDeliverySafetyStep(jobId: string, deliveredAtIso: string): Promise<void> {
+  "use step";
+  const notes: string[] = [];
+  try {
+    const { captureDeliverySnapshot } = await import("@ae/core/neon/delivery");
+    await captureDeliverySnapshot(jobId);
+  } catch (err) {
+    notes.push(`snapshot skipped (${sanitizeCheckDetail(err instanceof Error ? err.message : String(err))})`);
+  }
+  try {
+    const [row] = await db().select({ b: schema.jobs.neonBranchId }).from(schema.jobs).where(eq(schema.jobs.id, jobId)).limit(1);
+    if (row?.b) {
+      const { applyBranchTtl } = await import("@ae/core/neon/ttl");
+      await applyBranchTtl(row.b, new Date(deliveredAtIso));
+    }
+  } catch (err) {
+    notes.push(`branch TTL not applied (${sanitizeCheckDetail(err instanceof Error ? err.message : String(err))})`);
+  }
+  if (notes.length) await recordProgress(jobId, "neon_safety_skipped", `Internal note: ${notes.join("; ")}.`).catch(() => undefined);
 }

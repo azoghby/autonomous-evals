@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BRANCH_TTL_MS, CREDENTIALS_TTL_MS, MAX_CLARIFICATION_ROUNDS, budgetCheck, BUDGET_SHARE,
-  decideAfterQualify, decidePayment, deliveryDeadlines, isQuoteAcceptance,
+  decideAfterQualify, decideCancel, decidePayment, deliveryDeadlines, isQuoteAcceptance,
+  connectionFailureMessage, needsConnectionCheck, sanitizeCheckDetail,
 } from "./decisions";
 
 const pay = (quoteVersion: number, paymentId = "11111111-1111-4111-8111-111111111111") =>
@@ -59,5 +60,49 @@ describe("budgetCheck", () => {
     expect(budgetCheck(cap, cap, 0, "commercial").ok).toBe(false);
     expect(budgetCheck(cap, 2_900_000, 0, "engineer").ok).toBe(false);
     expect(budgetCheck(cap, 1_000_000, 1_500_000, "investigator").ok).toBe(false);
+  });
+});
+
+describe("connection check helpers", () => {
+  it("skips trace audit only", () => {
+    expect(needsConnectionCheck("trace_audit")).toBe(false);
+    expect(needsConnectionCheck("text_eval")).toBe(true);
+    expect(needsConnectionCheck("workflow_eval")).toBe(true);
+    expect(needsConnectionCheck("version_comparison")).toBe(true);
+  });
+  it("redacts the api key and bearer tokens and truncates", () => {
+    const d = sanitizeCheckDetail("401 for Bearer abc.def-123 with key supersecretvalue1", ["supersecretvalue1"]);
+    expect(d).not.toContain("supersecretvalue1");
+    expect(d).not.toContain("abc.def-123");
+    expect(sanitizeCheckDetail("x".repeat(1000)).length).toBeLessThan(400);
+  });
+  it("builds a customer message listing each failure", () => {
+    const m = connectionFailureMessage([{ label: "Endpoint A", detail: "timeout" }]);
+    expect(m).toContain("Endpoint A: timeout");
+    expect(m).toContain("not issued a quote");
+  });
+});
+
+describe("decideCancel", () => {
+  const owner = { id: "u1", isOperator: false };
+  const job = (state: any, customerId = "u1") => ({ customerId, state });
+  it("lets owners cancel before planning", () => {
+    for (const s of ["draft", "needs_clarification", "quoted", "awaiting_payment"]) {
+      expect(decideCancel(job(s), owner)).toEqual({ allowed: true, asOperator: false });
+    }
+  });
+  it("refuses owners once work started or finished", () => {
+    for (const s of ["planning", "running", "investigating", "paused_budget"]) {
+      expect(decideCancel(job(s), owner)).toMatchObject({ allowed: false, status: 409 });
+    }
+    expect(decideCancel(job("delivered"), owner)).toMatchObject({ allowed: false, status: 409 });
+  });
+  it("hides jobs from other non-operators", () => {
+    expect(decideCancel(job("quoted", "other"), owner)).toMatchObject({ allowed: false, status: 404 });
+  });
+  it("lets operators cancel any non-terminal job as an intervention", () => {
+    const op = { id: "op", isOperator: true };
+    expect(decideCancel(job("running"), op)).toEqual({ allowed: true, asOperator: true });
+    expect(decideCancel(job("cancelled"), op)).toMatchObject({ allowed: false, status: 409 });
   });
 });

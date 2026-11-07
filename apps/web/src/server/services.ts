@@ -24,7 +24,11 @@ export const mockServices: EvalServices = {
     });
   },
   async auditTrace() { return { findings: [mockFinding("mock-f1")], claimsChecked: 3 }; },
-  async checkTarget() { return { ok: true, detail: `${MOCK} connection check skipped` }; },
+  async checkTarget(_ctx, endpoint) {
+    return endpoint.url.startsWith("https://")
+      ? { ok: true, detail: `${MOCK} connection check skipped` }
+      : { ok: false, detail: `${MOCK} endpoint must use HTTPS` };
+  },
   async designSuite(ctx) {
     return Suite.parse({
       jobId: ctx.jobId, versionLabel: "default", frozenAt: "2026-01-01T00:00:00.000Z",

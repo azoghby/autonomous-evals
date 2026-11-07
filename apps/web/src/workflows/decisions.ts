@@ -1,4 +1,4 @@
-import type { JobEvent, Package } from "@ae/core/contracts/index";
+import type { JobEvent, JobState, Package } from "@ae/core/contracts/index";
 
 /** Pure decision logic for jobWorkflow, kept free of I/O so it is unit-testable. */
 
@@ -55,4 +55,52 @@ export function budgetCheck(cap: number, spent: number, otherReserved: number, a
   const reserve = Math.floor(cap * BUDGET_SHARE[agent]);
   const available = cap - spent - otherReserved;
   return available >= reserve && spent < cap ? { ok: true, reserve } : { ok: false, reserve, available };
+}
+
+/** Connection pre-check applies to every package that runs against a customer endpoint. */
+export const needsConnectionCheck = (pkg: Package) => pkg !== "trace_audit";
+export const MAX_CONNECTION_CHECK_ROUNDS = 5;
+const MAX_DETAIL_CHARS = 300;
+
+/** Strips credentials from a connection-check detail before it reaches the customer. */
+export function sanitizeCheckDetail(detail: string, secrets: readonly string[] = []): string {
+  let out = detail;
+  for (const s of secrets) if (s.length >= 4) out = out.split(s).join("[redacted]");
+  out = out
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [redacted]")
+    .replace(/\b(sk|pk|rk|key|tok|token)[-_][A-Za-z0-9_-]{8,}/gi, "[redacted]")
+    .replace(/\b(api[-_ ]?key|authorization|x-api-key)\s*[:=]\s*\S+/gi, "$1: [redacted]")
+    .replace(/\s+/g, " ").trim();
+  return out.length > MAX_DETAIL_CHARS ? `${out.slice(0, MAX_DETAIL_CHARS)}...` : out;
+}
+
+export interface EndpointCheckFailure { label: string; detail: string }
+
+/** Customer-facing message asking them to fix unreachable endpoints. Contains no secrets. */
+export function connectionFailureMessage(failures: readonly EndpointCheckFailure[]): string {
+  const lines = failures.map((f) => `- ${f.label}: ${f.detail || "connection failed"}`);
+  return [
+    "We could not reach your endpoint with the details provided, so we have not issued a quote yet.",
+    ...lines,
+    "Please check the URL, model name and API key, make sure the endpoint is publicly reachable over HTTPS, then reply here once it is fixed and we will test the connection again.",
+  ].join("\n");
+}
+
+const CANCEL_BEFORE_PLANNING: readonly JobState[] = ["draft", "needs_clarification", "quoted", "awaiting_payment"];
+const TERMINAL_STATES: readonly JobState[] = ["cancelled", "failed", "delivered"];
+
+export type CancelDecision =
+  | { allowed: true; asOperator: boolean }
+  | { allowed: false; status: 403 | 404 | 409; error: string };
+
+/** Owners may cancel only before planning starts; operators may cancel any non-terminal job. */
+export function decideCancel(job: { customerId: string; state: JobState }, viewer: { id: string; isOperator: boolean }): CancelDecision {
+  const isOwner = job.customerId === viewer.id;
+  if (!isOwner && !viewer.isOperator) return { allowed: false, status: 404, error: "Job not found" };
+  if (TERMINAL_STATES.includes(job.state)) return { allowed: false, status: 409, error: "Job is already finished" };
+  if (viewer.isOperator && !isOwner) return { allowed: true, asOperator: true };
+  if (!CANCEL_BEFORE_PLANNING.includes(job.state)) {
+    return { allowed: false, status: 409, error: "Work has already started and can no longer be cancelled here; contact support" };
+  }
+  return { allowed: true, asOperator: viewer.isOperator };
 }
