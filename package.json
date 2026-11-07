@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
-    "typecheck:all": "tsc -p apps/web --noEmit && tsc -p packages/core --noEmit"
+    "typecheck:all": "tsc -p apps/web --noEmit && tsc -p packages/core --noEmit",
+    "deploy": "drizzle-kit migrate && vercel deploy --prod --yes --scope agents-db31"
   },
   "engines": {
     "node": ">=22"
