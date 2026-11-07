@@ -76,8 +76,13 @@ describe('investigation resolution and get-only reader composition', () => {
   });
   it('blocks saved calendar investigation with pending reproductions', async () => {
     const s = setup(); const key = { jobId: 'job', kind: 'calendar_investigation', id: 'op', inputDigest: 'a'.repeat(64) };
-    s.plan.checkpoints = [{ key, phase: 'investigating', format: 'calendar_investigation' }];
-    s.read.checkpoints = [{ key, record: { state: 'completed', value: { findings: [], pendingScenarioIds: ['scenario'], reproductions: [] } } }];
+    s.plan.checkpoints = [{ key, phase: 'investigating', format: 'calendar_investigation', runId: 'run', branchId: 'branch', suiteDigest: 'suite', scenarioIds: ['scenario'] }];
+    const runScope = { jobId: 'job', version: 'v1', runId: 'scenario-run' };
+    s.read.checkpoints = [{ key, record: { state: 'completed', value: {
+      original: { jobId: 'job', runId: 'run', branchId: 'branch', suiteHash: 'suite', versionLabel: 'v1', results: [{ scenarioId: 'scenario', scope: runScope, outcome: 'product_failure' }] },
+      findings: [{ scenarioId: 'scenario', status: 'inconclusive', reproductions: 0, association: { jobId: 'job', branchId: 'branch', suiteHash: 'suite', scope: runScope } }],
+      pendingScenarioIds: ['scenario'], reproductions: [],
+    } } }];
     expect((await s.adapter().project(scope)).phases[0].state).toBe('blocked');
   });
   it('does not infer delivered from a passing run; requires explicit persisted job status', async () => {

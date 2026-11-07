@@ -44,9 +44,9 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
           || !['text_design', 'text_run', 'calendar_run', 'text_investigation', 'calendar_investigation'].includes(p.format)) invalid();
         const kinds = { text_design: 'design', text_run: 'run_result', calendar_run: 'calendar_run', text_investigation: 'investigation', calendar_investigation: 'calendar_investigation' };
         if (p.key.kind !== kinds[p.format]) invalid();
-        if (p.format.endsWith('_run') && (!nonempty(p.runId) || !nonempty(p.suiteDigest) || !p.scenarioIds?.length)) invalid();
+        if ((p.format.endsWith('_run') || p.format === 'calendar_investigation') && (!nonempty(p.runId) || !nonempty(p.suiteDigest) || !p.scenarioIds?.length)) invalid();
         if (p.scenarioIds) unique(p.scenarioIds);
-        if (p.format === 'calendar_run' && !nonempty(p.branchId)) invalid();
+        if ((p.format === 'calendar_run' || p.format === 'calendar_investigation') && !nonempty(p.branchId)) invalid();
       }
       const read = await ports.reader.read(plan);
       if (!sameScope(scope, read.scope) || read.job.jobId !== scope.jobId) invalid();
@@ -111,12 +111,46 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
           } else if (p.format === 'calendar_investigation') {
             const v = object(record.value);
             if (!Array.isArray(v.pendingScenarioIds) || !Array.isArray(v.findings) || !Array.isArray(v.reproductions)) invalid();
+            const original = object(v.original);
+            if (original.jobId !== scope.jobId || original.runId !== p.runId || original.branchId !== p.branchId
+              || original.suiteHash !== p.suiteDigest || !nonempty(original.versionLabel)) invalid();
+            const originals = z.array(calendarResult).parse(original.results);
+            checkScenarios(originals.map(r => r.scenarioId), p.scenarioIds!);
+            unique(originals.map(r => r.scope.runId));
+            if (originals.some(r => r.scope.jobId !== scope.jobId || r.scope.version !== original.versionLabel)) invalid();
+            const pending = z.array(z.string()).parse(v.pendingScenarioIds);
+            unique(pending);
+            if (pending.length + v.reproductions.length > 3 || pending.some(id => !originals.some(r => r.scenarioId === id && r.outcome === 'product_failure'))) invalid();
             if (v.pendingScenarioIds.length) state = 'blocked';
             if (v.findings.some(f => object(f).status === 'inconclusive')) outcomes.push('inconclusive');
+            const reproduced = new Map<string, z.infer<typeof calendarResult>>();
             for (const reproduction of v.reproductions) {
-              const r = calendarResult.parse(object(reproduction).result);
-              if (r.scope.jobId !== scope.jobId) invalid();
+              const entry = object(reproduction);
+              const id = z.string().parse(entry.originalScenarioId);
+              const r = calendarResult.parse(entry.result);
+              if (reproduced.has(id) || pending.includes(id) || r.scenarioId !== id
+                || !originals.some(o => o.scenarioId === id && o.outcome === 'product_failure')
+                || r.scope.jobId !== scope.jobId || r.scope.version !== original.versionLabel
+                || originals.some(o => o.scope.runId === r.scope.runId)) invalid();
+              reproduced.set(id, r);
               outcomes.push(r.outcome);
+            }
+            unique([...reproduced.values()].map(r => r.scope.runId));
+            const findings = v.findings.map(object);
+            checkScenarios(findings.map(f => z.string().parse(f.scenarioId)), originals.filter(r => r.outcome !== 'passed').map(r => r.scenarioId));
+            const sameRunScope = (a: unknown, b: z.infer<typeof calendarResult>['scope']) => {
+              const actual = object(a);
+              return actual.jobId === b.jobId && actual.version === b.version && actual.runId === b.runId;
+            };
+            for (const finding of findings) {
+              const source = originals.find(r => r.scenarioId === finding.scenarioId)!;
+              const association = object(finding.association);
+              const rerun = reproduced.get(source.scenarioId);
+              if (association.jobId !== scope.jobId || association.branchId !== p.branchId || association.suiteHash !== p.suiteDigest
+                || !sameRunScope(association.scope, source.scope) || finding.reproductions !== (rerun ? 1 : 0)
+                || !['confirmed', 'inconclusive'].includes(String(finding.status))
+                || (rerun ? !sameRunScope(association.reproductionScope, rerun.scope) : association.reproductionScope !== undefined)
+                || (finding.status === 'confirmed' && (!rerun || rerun.outcome !== 'product_failure'))) invalid();
             }
           } else if (p.format === 'text_design') {
             const v = object(record.value);
@@ -125,6 +159,7 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
               if (v.status !== 'completed') invalid();
               const suite = verifyFrozenSuite(v.suite);
               if (suite.jobId !== scope.jobId) invalid();
+              if (p.suiteDigest !== undefined && suite.digest !== p.suiteDigest) invalid();
               at(suite.frozenAt);
             }
           }
@@ -141,6 +176,12 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
         validateTask(task, taskId, scope.jobId); at(task.updatedAt);
         for (const d of task.decisions) { at(d.at); if (Date.parse(d.at) > Date.parse(task.updatedAt)) invalid(); }
         if (task.state === 'ready') {
+          const evidenceAt = (time: string) => { at(time); if (Date.parse(time) > Date.parse(task.updatedAt)) invalid(); };
+          for (const source of task.sources) {
+            evidenceAt(source.provenance.retrievedAt);
+            if (source.review.status !== 'pending' || source.review.reviewedAt) evidenceAt(source.review.reviewedAt);
+          }
+          for (const item of task.cases) if (item.verification && (item.verification.status !== 'pending' || item.verification.reviewedAt)) evidenceAt(item.verification.reviewedAt);
           if (task.phase !== 'complete' || reviewDigest(assessDataQuality(task.spec, task.cases, task.sources, { knownSecrets: secrets })) !== reviewDigest(task.assessment) || task.assessment.status !== 'sufficient') invalid();
         } else block('input', evidenceRef);
         milestone('other', evidenceRef, task.updatedAt);

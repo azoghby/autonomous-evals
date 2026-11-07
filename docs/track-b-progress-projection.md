@@ -156,6 +156,7 @@ export function chatForAuthenticatedRequest(deps: {
   });
   return createProgressChatService({
     access: deps.access, progress, conversations: deps.conversations,
+    knownSecrets: deps.knownSecrets,
   });
 }
 // const chat = chatForAuthenticatedRequest(trustedServerDependencies);
@@ -166,6 +167,18 @@ export function chatForAuthenticatedRequest(deps: {
 The constructor accepts no browser identity. Authenticated route validation,
 `Cache-Control: no-store`, owner/operator choices, retention, rate limiting,
 production SQL consistency and evidence endpoints remain application work.
+
+Pass the same current secret-policy supplier to both services. Chat screens
+stored replay/history and atomic append winners as well as fresh replies; a
+policy change refuses unsafe stored content without modifying its evidence.
+Each supplied secret must contain at least four characters.
+
+For calendar investigation inventory, `runId`, `branchId`, `suiteDigest` and
+`scenarioIds` are required and describe the original run. Isolated per-scenario
+run IDs differ from the enclosing run ID; reproduction/finding joins retain their
+own exact scopes. Supply the expected design `suiteDigest` once available so
+same-job suite substitution is rejected. Ready acquisition retrieval/review
+timestamps cannot postdate the task update that saved the assessment.
 
 ## Verification
 

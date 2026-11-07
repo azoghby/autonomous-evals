@@ -1,5 +1,24 @@
 # Independent progress projection review
 
+## Parent fixes
+
+R1–R4 have been addressed in production code and the characterization tests have
+been converted to refusal regressions. Design verifies a supplied expected suite
+digest. Calendar investigation now requires expected original run/branch/suite/scenario
+associations, checks isolated reproduction scopes and validates finding joins.
+Ready acquisition evidence timestamps must precede both the read watermark and
+the saved assessment's task update. Chat accepts a current `knownSecrets` policy
+and screens append winners, replay, history and poll results without rewriting
+stored exchanges. The application must supply that policy to both chat and projection.
+
+The findings below describe the historical reviewed baseline. The archived
+`results.txt` predates the fixes; it is not acceptance evidence for the changed code.
+
+Parent validation: `node tests/track-b/progress-projection-review/run.mjs` passed
+strict TypeScript and **272/272 tests across 21 files**, none skipped. This includes
+the converted regressions, matching-calendar positive control, finding/reproduction
+association mismatches, assessment-update freshness and append-winner policy change.
+
 Reviewed baseline: `27a4044` (including projection introduction `8e1cfab`). No ECC, network, provider, cloud or paid operations. Production code, manifests, contracts and shared harnesses were not edited. Owned artifacts are this report and `tests/track-b/progress-projection-review/**`.
 
 ## Boundary and conclusions

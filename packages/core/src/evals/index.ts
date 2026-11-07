@@ -12,6 +12,7 @@ export { AgentSessionService } from '../agents/session-service';
 export { PostgresAgentTaskStore, PostgresBudgetLedger } from '../agents/postgres-ports';
 export { createPostgresEvaluationDataStore, acquireEvaluationData } from './data';
 export { createMediaWikiDiscovery } from './data/discovery';
+export { createDiscoveryOperations, createPostgresDiscoveryOperations } from './data/discovery/persistence';
 export { createProgressChatService, createPostgresConversationPort } from '../reporting/chat';
 export { createDurableProgressProjection, createDurableProgressReader } from '../reporting/chat/projection';
 export { renderCalendarReport } from '../reporting/calendar';

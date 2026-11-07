@@ -52,45 +52,82 @@ function acquisition() {
   return { ...f, task };
 }
 
-describe('CHARACTERIZATION: passing tests below demonstrate defects, not acceptance criteria', () => {
-  it('R1 accepts a valid same-job frozen suite different from the expected suite digest', async () => {
+describe('REGRESSION: invalid evidence and stale secret policy are refused', () => {
+  it('R1 rejects a valid same-job frozen suite different from the expected suite digest', async () => {
     const f = design(); f.plan.checkpoints[0]!.suiteDigest = 'd'.repeat(64);
-    const p = await f.project();
-    expect(p.snapshot.status).toBe('delivered'); expect(p.snapshot.blockers).toEqual([]);
+    await expect(f.project()).rejects.toMatchObject({ code: 'invalid_snapshot' });
   });
-  it('R2 accepts a calendar investigation whose typed original belongs to another job/run/branch/suite', async () => {
+  it('R2 rejects a calendar investigation whose typed original belongs to another job/run/branch/suite', async () => {
     const f = fixture();
     const investigation: CalendarInvestigation = { original: { jobId: 'foreign-job', runId: 'foreign-run', branchId: 'foreign-branch', suiteHash: 'foreign-suite', versionLabel: 'v1', origin: 'customer', results: [] }, findings: [], reproductions: [], pendingScenarioIds: [] };
     f.checkpoint('calendar_investigation', 'calendar_investigation', investigation);
     Object.assign(f.plan.checkpoints[0]!, { runId: 'expected-run', branchId: 'expected-branch', suiteDigest: 'expected-suite', scenarioIds: ['scenario'] });
-    const p = await f.project();
-    expect(p.snapshot.status).toBe('delivered'); expect(p.snapshot.blockers).toEqual([]);
-    expect(JSON.stringify(p)).not.toContain('foreign-job'); // No cross-tenant body disclosure claimed.
+    await expect(f.project()).rejects.toMatchObject({ code: 'invalid_snapshot' });
   });
-  it.each(['review', 'retrieval'] as const)('R3 accepts ready data with %s after the watermark', async field => {
+  it.each(['review', 'retrieval'] as const)('R3 rejects ready data with %s after the watermark', async field => {
     const f = acquisition();
     if (field === 'review') f.task.sources[0]!.review.reviewedAt = '2027-01-01T00:00:00.000Z';
     else f.task.sources[0]!.provenance.retrievedAt = '2027-01-01T00:00:00.000Z';
     f.task.assessment = assessDataQuality(f.task.spec, f.task.cases, f.task.sources);
     expect(f.task.assessment.status).toBe('sufficient');
-    const p = await f.project();
-    expect(p.snapshot.observedAt).toBe(time); expect(p.acquisition[0]!.state).toBe('ready'); expect(p.snapshot.status).toBe('delivered');
+    await expect(f.project()).rejects.toMatchObject({ code: 'invalid_snapshot' });
   });
-  it('R4 replay/history bypass newly supplied secret policy while a fresh poll refuses', async () => {
+  it('R4 replay/history and fresh polling enforce current secret policy', async () => {
     const f = design(); let secrets: readonly string[] = []; let stored: ChatExchange | null = null;
     f.ports.knownSecrets = () => secrets;
-    const service = createProgressChatService({ access: f.ports.access, progress: createDurableProgressProjection(f.ports), conversations: {
+    const service = createProgressChatService({ access: f.ports.access, progress: createDurableProgressProjection(f.ports), knownSecrets: () => secrets, conversations: {
       get: async () => stored, list: async () => stored ? [stored] : [], append: async (_scope, input) => (stored = { ...input, sequence: 1 }),
     } });
     const first = await service.send({ jobId: 'job', messageId: 'm1', question: 'status' });
     secrets = ['delivered']; // Synthetic policy marker, not a real credential or exploit.
     await expect(service.poll({ jobId: 'job' })).rejects.toMatchObject({ code: 'invalid_snapshot' });
-    expect((await service.send({ jobId: 'job', messageId: 'm1', question: 'status' })).reply.text).toContain('delivered');
+    await expect(service.send({ jobId: 'job', messageId: 'm1', question: 'status' })).rejects.toMatchObject({ code: 'invalid_snapshot' });
+    await expect(service.history({ jobId: 'job' })).rejects.toMatchObject({ code: 'invalid_snapshot' });
+    secrets = [];
     expect((await service.history({ jobId: 'job' })).messages[0]!.reply).toEqual(first.reply);
   });
 });
 
 describe('ACCEPTANCE: meaningful controls which must remain true after fixes', () => {
+  it('accepts a bound calendar investigation without confusing enclosing and scenario run IDs', async () => {
+    const f = fixture();
+    const original: CalendarInvestigation['original'] = { jobId: 'job', runId: 'outer-run', branchId: 'branch', suiteHash: 'suite', versionLabel: 'v1', origin: 'customer', results: [{ scenarioId: 'S01', scope: { jobId: 'job', version: 'v1', runId: 'isolated-scenario-run' }, outcome: 'passed', reason: 'passed' }] };
+    f.checkpoint('calendar_investigation', 'calendar_investigation', { original, findings: [], reproductions: [], pendingScenarioIds: [] });
+    Object.assign(f.plan.checkpoints[0]!, { runId: 'outer-run', branchId: 'branch', suiteDigest: 'suite', scenarioIds: ['S01'] });
+    expect((await f.project()).snapshot.status).toBe('delivered');
+  });
+  it.each(['scenario', 'branch', 'reproductionScope'] as const)('rejects mismatched calendar finding %s association', async field => {
+    const f = fixture();
+    const runScope = { jobId: 'job', version: 'v1', runId: 'isolated-original' };
+    const reproductionScope = { ...runScope, runId: 'isolated-reproduction' };
+    const investigation: CalendarInvestigation = {
+      original: { jobId: 'job', runId: 'outer-run', branchId: 'branch', suiteHash: 'suite', versionLabel: 'v1', origin: 'customer', results: [{ scenarioId: 'S01', scope: runScope, outcome: 'product_failure', reason: 'state_mismatch' }] },
+      pendingScenarioIds: [], reproductions: [{ originalScenarioId: 'S01', result: { scenarioId: 'S01', scope: reproductionScope, outcome: 'passed', reason: 'passed' } }],
+      findings: [{ id: 'f1', scenarioId: 'S01', title: 'Unresolved failure', description: 'Not reproduced', status: 'inconclusive', severity: 'medium', category: 'state_mismatch', reproductions: 1, outcome: 'product_failure', evidence: [], association: { jobId: 'job', branchId: 'branch', suiteHash: 'suite', scope: runScope, reproductionScope } }],
+    };
+    f.read.job.status = 'running';
+    f.checkpoint('calendar_investigation', 'calendar_investigation', investigation);
+    Object.assign(f.plan.checkpoints[0]!, { runId: 'outer-run', branchId: 'branch', suiteDigest: 'suite', scenarioIds: ['S01'] });
+    expect((await f.project()).snapshot.blockers).toHaveLength(1);
+    if (field === 'scenario') investigation.findings[0]!.scenarioId = 'other';
+    else if (field === 'branch') investigation.findings[0]!.association.branchId = 'other';
+    else investigation.findings[0]!.association.reproductionScope = { ...reproductionScope, runId: 'other' };
+    await expect(f.project()).rejects.toMatchObject({ code: 'invalid_snapshot' });
+  });
+  it('rejects reviews newer than the saved assessment even when older than the read watermark', async () => {
+    const f = acquisition();
+    f.read.observedAt = '2026-11-08T20:00:00.000Z';
+    f.task.sources[0]!.review.reviewedAt = '2026-11-08T19:00:00.000Z';
+    f.task.assessment = assessDataQuality(f.task.spec, f.task.cases, f.task.sources);
+    await expect(f.project()).rejects.toMatchObject({ code: 'invalid_snapshot' });
+  });
+  it('screens the append winner under a policy changed during storage', async () => {
+    const f = design(); let secrets: readonly string[] = [];
+    const service = createProgressChatService({ access: f.ports.access, progress: createDurableProgressProjection(f.ports), knownSecrets: () => secrets, conversations: {
+      get: async () => null, list: async () => [], append: async (_scope, input) => { secrets = ['delivered']; return { ...input, sequence: 1 }; },
+    } });
+    await expect(service.send({ jobId: 'job', messageId: 'm1', question: 'status' })).rejects.toMatchObject({ code: 'invalid_snapshot' });
+  });
   it('accepts matching suite and current reviewed acquisition', async () => {
     const f = acquisition(); expect(f.task.assessment.status).toBe('sufficient');
     expect((await f.project()).snapshot.status).toBe('delivered');

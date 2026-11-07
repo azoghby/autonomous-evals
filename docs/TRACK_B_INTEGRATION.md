@@ -93,7 +93,7 @@ deployed routes. Migrations are artifacts and have not been applied to cloud sto
 | Candidate generation/registry | `evals/data/adapters/index.ts` | Durable agent runner, authenticated reviewed source registry and cost upserts |
 | Private progress chat | `reporting/chat/index.ts` | PostgreSQL conversation port, authenticated subject and authorized progress projection |
 | Progress projection | `reporting/chat/projection/index.ts` | Authorized durable inventory and consistent scoped reads; no external calls |
-| Public candidate discovery | `evals/data/discovery/index.ts` | Configured MediaWiki origin/queries and durable operation ledger; candidates require permission and quality review |
+| Public candidate discovery | `evals/data/discovery/index.ts` | Configured MediaWiki origin/queries and `createPostgresDiscoveryOperations` with authenticated scope; candidates require permission and quality review |
 
 Follow each module's handoff document for its separate optional migration. In particular,
 data acquisition uses `evals/data/persistence-migrations/001-evaluation-data.sql` in
