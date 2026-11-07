@@ -116,16 +116,16 @@ describe("idempotency / recovery (agents/session-service.ts)", () => {
     job: fixtureJob(), role: "quality_investigator", purpose: "task", message, output: { name: "o.v1", schema: Out }, budgetMicroUsd: usd(0.5),
   });
 
-  it("DEFECT D4: re-running a task key with a DIFFERENT request silently returns the old session's result", async () => {
+  it("REGRESSION D4: changed task input is blocked without reusing the old result", async () => {
     const h = harness((b) => ({ structuredOutput: { n: b.message.length } }));
     const first = await h.service.run(spec("first request"));
     const second = await h.service.run(spec("a completely different, longer request body"));
     expect(h.naive.createCalls).toHaveLength(1);
     expect(first.status).toBe("completed");
-    expect(second).toEqual(first); // answer was computed for "first request"; no error, no input-changed signal
+    expect(second).toMatchObject({ status: "needs_operator", code: "task_input_changed" });
   });
 
-  it("DEFECT D4b: Trace Audit applies a stored verdict to a different candidate set (positional K-ids, empty-evidence 'confirmed')", async () => {
+  it("REGRESSION D4b: a changed candidate set cannot reuse a stored verdict", async () => {
     // Deploy changes detector output (or the same job id is audited twice) while the investigator row already exists.
     const traceA = JSON.stringify([
       { role: "assistant", tool_calls: [{ id: "c1", type: "function", function: { name: "send_email", arguments: "{}" } }] },
@@ -139,8 +139,7 @@ describe("idempotency / recovery (agents/session-service.ts)", () => {
     const b = await auditTrace({ job: fixtureJob(), trace: traceB }, { runner: h.service });
     expect(h.naive.createCalls).toHaveLength(1); // the second audit never asked the investigator anything
     expect(a.status === "completed" && a.result.findings[0]!.label).toBe("confirmed");
-    expect(b.status === "completed" && b.result.findings.map((f) => f.label)).toEqual(["confirmed"]);
-    expect(b.status === "completed" && b.result.findings[0]!.investigatorNote).toBe("ok"); // rationale written for traceA
+    expect(b).toMatchObject({ status: "needs_operator", code: "task_input_changed" });
   });
 
   it("RISK R1: 409 idempotency-in-flight consumes the bounded replay budget and escalates to an operator", async () => {
@@ -222,7 +221,7 @@ describe("transcript evidence and misleading findings (evals/trace/detect.ts, no
     expect(d.candidates.some((c) => c.category === "unsupported_claim")).toBe(false);
   });
 
-  it("DEFECT D7: relevance is matched against call ARGUMENTS, so an unrelated failed call turns a verified success into an objective, high-severity 'contradicted' claim", () => {
+  it("REGRESSION D7: unrelated analytics failure does not contradict a successful email", () => {
     const d = detectJson([
       { role: "assistant", tool_calls: [{ id: "c1", type: "function", function: { name: "send_email", arguments: '{"to":"a@b.c"}' } }] },
       { role: "tool", tool_call_id: "c1", content: '{"ok":true,"message_id":"m1"}' },
@@ -230,15 +229,16 @@ describe("transcript evidence and misleading findings (evals/trace/detect.ts, no
       { role: "tool", tool_call_id: "c2", content: '{"ok":false,"error":"analytics 503"}' },
       { role: "assistant", content: "I sent the email." },
     ]);
-    expect(d.claims[0]).toMatchObject({ status: "contradicted" });
-    expect(d.candidates[0]).toMatchObject({ basis: "objective", severity: "high", title: "Success claimed after log_analytics reported failure" });
+    expect(d.claims[0]).toMatchObject({ status: "supported" });
+    expect(d.candidates.some(c => c.category === "unsupported_claim")).toBe(false);
+    expect(d.candidates).toEqual([expect.objectContaining({ category: "ignored_error", severity: "medium" })]);
   });
 
-  it("DEFECT D8: a required phrase in a rule sentence is treated as a prohibited term", () => {
+  it("REGRESSION D8: a required phrase is not treated as prohibited", () => {
     const instructions = "Never discuss pricing; always say 'contact sales' instead.";
     const d = detectJson([{ role: "user", content: "How much?" }, { role: "assistant", content: "Please contact sales for that." }], instructions);
     const v = d.candidates.filter((c) => c.category === "instruction_violation");
-    expect(v.map((c) => c.title)).toEqual(["Assistant output contains a term the instructions prohibit (contact sales)"]);
+    expect(v).toEqual([]);
   });
 
   it("LIMITATION L1: with no topic words in the claim, any successful tool call in the turn 'supports' it", () => {
@@ -307,7 +307,7 @@ describe("report claims (agents/operator.ts, reporting/render.ts)", () => {
   });
   const run = (structured: Record<string, unknown>): AgentTaskRunner => harness(() => ({ structuredOutput: structured })).service;
 
-  it("DEFECT D9: the operator summary and notes may call an inconclusive finding 'confirmed'; policy checks do not compare against labels", async () => {
+  it("REGRESSION D9: the operator cannot promote an inconclusive finding to confirmed", async () => {
     const out = await writeReportSummary(
       { job: fixtureJob(), findings: [finding({ label: "inconclusive" })], limitations: [] },
       run({
@@ -317,7 +317,7 @@ describe("report claims (agents/operator.ts, reporting/render.ts)", () => {
         retest_recommended: false,
       }),
     );
-    expect(out.status).toBe("completed");
+    expect(out).toMatchObject({ status: "failed", code: "summary_policy_violation" });
   });
 });
 
