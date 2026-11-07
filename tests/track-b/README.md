@@ -2,9 +2,15 @@
 
 ## Isolated engine checks
 
-Run `npm ci --prefix tests/track-b --workspaces=false`, then `npm --prefix tests/track-b run check`. This harness has its own locked dependencies and does not change Track A's workspace manifests. It copies Track B source directories and shared contracts, if present, to a temporary directory, runs strict TypeScript checking and discovered Vitest tests, and removes the copy afterward. Missing source directories or no discovered tests fail the run. This is an engine check, not a deployed app or live-provider check.
+Run `npm ci --prefix tests/track-b --workspaces=false`, then `npm --prefix tests/track-b run check`. This harness has its own locked dependencies and does not change Track A's workspace manifests. It copies Track B source directories and shared contracts to a temporary directory, runs strict TypeScript checking and Vitest, verifies that every selected test file actually executed with no skipped or todo tests, and removes the copy afterward. Missing source directories, directories without tests, missing contracts, or missing compatibility tests fail the run. This is an engine check, not a deployed app or live-provider check.
 
-For an explicitly partial check, use `npm --prefix tests/track-b run check -- --components targets,simulator,judges,monitoring`. This command passed strict checking and 89 tests after the target/simulator integration. It does not assert completion of agents, evaluation orchestration, or reports.
+For an explicitly partial check, use `npm --prefix tests/track-b run check -- --components targets,simulator,judges,monitoring`. This passed strict checking and 101 tests. It does not assert completion of agents, evaluation orchestration, or reports.
+
+### Track A contract compatibility
+
+Pass `--track-a-ref <git-ref>` (for example `origin/track-a`, fetched beforehand; the check never fetches) to read `packages/core/src/contracts` from that exact local revision. The ref is resolved with git spawn arguments, never a shell, the contract files are staged only in the temporary directory, and the resolved SHA is printed. Without the flag, the check uses `packages/core/src/contracts` if present and otherwise fails.
+
+Compatibility components (`contract-schemas`, `contract-targets`, `contract-branches`, `contract-evidence`, or `contract-checks` for all) live in `tests/track-b/contract-checks/` and are included in the default full check. Example: `npm --prefix tests/track-b run check -- --components targets,simulator,judges,monitoring,contract-checks --track-a-ref origin/track-a`. They assert that `createTargetServices` and `createBranchServices` satisfy the Track A `EvalServices` picks, parse target outputs against shared schemas, and pin documented gaps (UTF-8 byte cap, short suites, richer outcomes, endpoint validation, and others) in tests titled `KNOWN GAP`. See `docs/track-b-contract-compatibility.md` for the gap table, failure rules, and limitations. Their imports resolve only after staging; do not run them in place.
 
 `trace-acceptance.json` is an independent, synthetic behavioral corpus for the Trace Audit integration. It includes positive findings and negative controls: successful actions, successful retries, honest failures, quoted customer claims, incomplete evidence, instruction violations, and malicious instructions embedded in logs.
 
