@@ -6,10 +6,20 @@ import { getWorld } from "workflow/runtime";
 import { reenqueueRun } from "@workflow/core/runtime";
 import { db, schema } from "@ae/core/db/client";
 import { jobHookToken } from "@ae/core/contracts/index";
+import { alertOperators } from "@/server/operator-alerts";
 import { sendJobEvent } from "./events";
 
 /** Payment helpers bound to the workflow's event sender (core must not import the web app). */
-export const resumeJobForPayment = (payment: PaymentRow) => confirmAndResume(payment, sendJobEvent);
+export async function resumeJobForPayment(payment: PaymentRow) {
+  const outcome = await confirmAndResume(payment, sendJobEvent);
+  if (outcome === "needs_review") {
+    await alertOperators({
+      kind: "payment_review", jobId: payment.jobId, title: "Payment needs manual review",
+      detail: `Payment ${payment.id} (${payment.status}) could not resume the job; see interventions for refund/review.`, severity: "critical",
+    });
+  }
+  return outcome;
+}
 export const reconcilePayments = () => reconcile(sendJobEvent);
 
 export type RunLiveness = "alive" | "dead" | "unknown";

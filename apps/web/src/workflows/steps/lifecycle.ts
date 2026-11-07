@@ -2,6 +2,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { JobState } from "@ae/core/contracts/index";
 import { addMessage, recordProgress, setJobState } from "@/server/job-store";
+import { alertOperators } from "@/server/operator-alerts";
 import { deliveryDeadlines, sanitizeCheckDetail } from "../decisions";
 
 /** States a customer/operator cancellation or terminal outcome must not be overwritten from. */
@@ -45,6 +46,7 @@ export async function failStep(jobId: string, error: string): Promise<void> {
   await setJobState(jobId, "failed", { error: error.slice(0, 2000) });
   await recordProgress(jobId, "failed", "The job stopped because of an error. Our team has been notified.");
   await releaseReservations(jobId);
+  await alertOperators({ kind: "job_failed", jobId, title: "Job failed", detail: `State: failed. ${error}`, severity: "critical" });
 }
 
 export async function pauseBudgetStep(jobId: string, message: string): Promise<void> {
@@ -52,6 +54,7 @@ export async function pauseBudgetStep(jobId: string, message: string): Promise<v
   await setJobState(jobId, "paused_budget", { error: message.slice(0, 2000) });
   await recordProgress(jobId, "paused_budget", "Paused: the per-job compute budget was reached. An operator will review before anything continues.");
   await releaseReservations(jobId);
+  await alertOperators({ kind: "paused_budget", jobId, title: "Job paused on budget limit", detail: `State: paused_budget. ${message}`, severity: "warning" });
 }
 
 /** Declined / unresolvable requests end as cancelled with the reason visible to the customer. */

@@ -4,6 +4,7 @@ import {
   CRON_MILESTONES, FLAG_MILESTONE, PAID_NOT_RESUMED_MS, RECOVERY_MILESTONE, WORKING_STALE_MS, WORKING_STATES, BATCH_LIMIT,
   type StaleCandidate, type StaleJobDeps,
 } from "../../../../server/stale-jobs";
+import { alertOperators } from "../../../../server/operator-alerts";
 import { jobRunLiveness, reenqueueJobRun, resumePaymentById } from "../../../../workflows/resume";
 
 const SCAN_LIMIT = BATCH_LIMIT * 4;
@@ -49,6 +50,7 @@ async function escalate(jobId: string, note: string): Promise<void> {
   await db().insert(schema.progressEvents).values({ jobId, milestone: FLAG_MILESTONE, message: `Internal note: ${note}` });
   if (!existing) await db().insert(schema.interventions).values({ jobId, operatorEmail: "system@cron", kind: "other", note });
   console.error("stale-job escalated", jobId, note);
+  await alertOperators({ kind: "stale_job", jobId, title: "Stale job escalated", detail: note, severity: "critical" });
 }
 
 async function recordAttempt(jobId: string, message: string): Promise<void> {
