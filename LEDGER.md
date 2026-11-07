@@ -107,3 +107,4 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - ~16:30: deleted old Neon projects sparkling-frost-08478178 and long-shape-06677281 (owner OK, both empty).
 - ~16:45: Stripe test key, webhook, NEON_API_KEY, COMPANY_ADDRESS configured; redeployed. Prod paid-run test in flight.
 - ~17:10: Gate 3 passed on prod (Stripe test mode): pay → delivered, duplicate + missed webhook recovery. BotID blocks scripted job creation (Playwright detected) — use a real browser or add a bypass for smoke tests. Stale-job recovery cron, MCP hire flow, report page polish merged.
+- ~17:40: prod redeployed (security fixes, MCP hire flow, stale-job recovery, report polish, landing perf 96 / a11y 100, OG/robots/sitemap). UI v4 overhaul (neon.com-inspired precision, keep black/white/blue + rib hero) in flight; brief at docs/DESIGN_V4.md.
