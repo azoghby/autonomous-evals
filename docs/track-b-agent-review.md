@@ -83,3 +83,5 @@ Re-run the live check afterward on a JSON-event fixture: acceptance is a `confir
 - R2 (`session-service.ts:375`): any error from `getSession` (including a definitive 401/404) returns `pending/naive_unreachable` forever; the reservation stays open at full size and no operator state is set. Escalate definitive errors after N attempts.
 - L1 (`detect.ts:152`): a claim with no topic words ("Done!") is supported by any successful tool in the turn: false negatives.
 - Pattern claim detection, scan window of 250 sessions in recovery (a miss falls back to a same-key replay, which is safe), and a compromised investigator that cites any verified quote for any candidate remain as documented in `docs/track-b-agents.md`.
+
+Parent follow-up: prompt-format issue F1 is mitigated with bounded raw-text frames alongside escaped metadata. Exact quote validation is unchanged. A deliberately new live investigator diagnostic produced a confirmed finding with valid quotes; evidence and spend are recorded in docs/track-b-agents.md. The original failed run is retained.

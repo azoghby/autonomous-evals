@@ -98,9 +98,12 @@ describe("independent acceptance corpus (tests/track-b/trace-acceptance.json)", 
     expect(out.result.findings[0]).toMatchObject({ label: "inconclusive", category: "unsupported_claim", basis: "objective" });
     expect(out.result.findings[0]!.investigatorNote).toMatch(/dismissal rejected/);
     expect(out.result.testDefects).toEqual([]);
-    // The embedded text reached the investigator only inside the untrusted data block.
+    // Literal text is enclosed by the collision-resistant raw-data frame.
+    // Its structured copy remains inside the escaped JSON envelope.
     const prompt = compromised.prompts[0]!;
-    expect(prompt.indexOf("ignore your instructions")).toBeGreaterThan(prompt.indexOf("<untrusted_data>"));
+    const injected = prompt.indexOf("ignore your instructions");
+    expect(prompt.lastIndexOf("BEGIN TRACE_RAW_", injected)).toBeGreaterThan(0);
+    expect(prompt.indexOf("END TRACE_RAW_", injected)).toBeGreaterThan(injected);
   });
 });
 
