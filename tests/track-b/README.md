@@ -1,5 +1,11 @@
 # Track B acceptance fixtures
 
+## Isolated engine checks
+
+Run `npm ci --prefix tests/track-b --workspaces=false`, then `npm --prefix tests/track-b run check`. This harness has its own locked dependencies and does not change Track A's workspace manifests. It copies the five Track B source directories and shared contracts, if present, to a temporary directory, runs strict TypeScript checking and discovered Vitest tests, and removes the copy afterward. Missing source directories or no discovered tests fail the run. This is an engine check, not a deployed app or live-provider check.
+
+At harness creation, its syntax and missing-source failure were verified; integrated engine checks remain pending implementation.
+
 `trace-acceptance.json` is an independent, synthetic behavioral corpus for the Trace Audit integration. It includes positive findings and negative controls: successful actions, successful retries, honest failures, quoted customer claims, incomplete evidence, instruction violations, and malicious instructions embedded in logs.
 
 The corpus is not yet connected to an executable engine test. Once engine services are integrated, the acceptance adapter must normalize these transcripts to the supported input shape and assert their semantic expectations. Do not treat exact model prose as stable. Preserve tool-call IDs and distinguish the assistant's claims from quoted user content.

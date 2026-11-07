@@ -1,0 +1,18 @@
+{
+  "name": "@ae/track-b-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node run-checks.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.0.0",
+    "@usenaive-sdk/managed-agents": "0.12.3",
+    "pg": "^8.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "5.1.0",
+    "zod": "4.6.7"
+  }
+}
