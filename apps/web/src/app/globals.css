@@ -1,26 +1,39 @@
 @import "tailwindcss";
 
+/* Design tokens — "Agents build your evals". Navy / Cream / Coral, ribbed-glass gradient. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --navy: #14213d;
+  --navy-deep: #0b1428;
+  --navy-soft: #23345a;
+  --cream: #f4ede0;
+  --cream-dim: #d9d1c2;
+  --coral: #ff6b5b;
+  --coral-deep: #e8513f;
+  --glass: rgb(255 255 255 / 0.08);
+  --glass-strong: rgb(255 255 255 / 0.14);
+  --glass-border: rgb(255 255 255 / 0.16);
+  --ok: #7fd1a8;
+  --warn: #ffc56b;
+  --danger: #ff6b5b;
+  --radius-pill: 999px;
+  --radius-card: 18px;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-navy-soft: var(--navy-soft);
+  --color-cream: var(--cream);
+  --color-cream-dim: var(--cream-dim);
+  --color-coral: var(--coral);
+  --color-coral-deep: var(--coral-deep);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-border: var(--glass-border);
+  --font-sans: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+html, body { background: var(--navy-deep); color: var(--cream); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
