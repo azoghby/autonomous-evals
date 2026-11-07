@@ -1,10 +1,9 @@
 /**
  * Stale-job recovery: pure selection + decision logic (no I/O) and a small orchestrator driven by injected deps.
  *
- * Why not restart: jobWorkflow is NOT resumable from persisted state. It only short-circuits terminal jobs; any other
- * state re-runs qualify -> quote -> wait-for-acceptance from scratch. A fresh start() would therefore re-quote and
- * stall waiting for events that already happened. So a dead run is escalated to an operator, never restarted. A live
- * run whose queue message was dropped is nudged with reenqueueRun (replay is deterministic and steps are durable).
+ * Recovery: a live run whose queue message was dropped is nudged with reenqueueRun (replay is deterministic, steps
+ * durable). A dead run is restarted via restartJobWorkflow, which resumes from persisted DB state (workflows/job.ts +
+ * decideResumePlan); if it refuses (held/inconsistent state) or attempts hit the cap, the job is escalated to an operator.
  */
 
 export const WORKING_STATES = ["planning", "running", "investigating"] as const;
@@ -19,7 +18,7 @@ export const CRON_MILESTONES: readonly string[] = [FLAG_MILESTONE, RECOVERY_MILE
 
 export type StaleKind = "working" | "paid_not_resumed";
 export type Liveness = "alive" | "dead" | "unknown";
-export type RecoveryAction = "skip" | "reenqueue" | "resume_payment" | "escalate";
+export type RecoveryAction = "skip" | "reenqueue" | "resume_payment" | "restart" | "escalate";
 
 export interface StaleCandidate {
   jobId: string;
@@ -78,7 +77,7 @@ export function selectStale(candidates: StaleCandidate[], now: number, limit = B
 export function decideRecovery(kind: StaleKind, liveness: Liveness, attempts: number): RecoveryAction {
   if (kind === "paid_not_resumed") return attempts >= MAX_RECOVERY_ATTEMPTS ? "escalate" : "resume_payment";
   if (liveness === "unknown") return "skip"; // Workflow API hiccup: try again next tick, do not burn an attempt.
-  if (liveness === "dead") return "escalate"; // Not safely restartable (see file header).
+  if (liveness === "dead") return attempts >= MAX_RECOVERY_ATTEMPTS ? "escalate" : "restart"; // job.ts resumes from DB state (workflows/restart.ts).
   return attempts >= MAX_RECOVERY_ATTEMPTS ? "escalate" : "reenqueue";
 }
 
@@ -97,11 +96,14 @@ export interface StaleJobDeps {
   resumePayment(paymentId: string): Promise<void>;
   recordAttempt(jobId: string, message: string): Promise<void>;
   escalate(jobId: string, note: string): Promise<void>;
+  /** Restarts a dead run from persisted state. */
+  restart(jobId: string): Promise<{ status: "restarted" | "alreadyRunning" | "notRestartable"; reason: string }>;
 }
 
 export interface StaleJobsSummary {
   checked: number;
   reenqueued: string[];
+  restarted: string[];
   paymentsResumed: string[];
   escalated: string[];
   skipped: string[];
@@ -110,7 +112,7 @@ export interface StaleJobsSummary {
 
 /** Applies decideRecovery to a bounded batch. One job's failure never blocks the others. */
 export async function processStaleJobs(candidates: StaleCandidate[], now: number, deps: StaleJobDeps): Promise<StaleJobsSummary> {
-  const summary: StaleJobsSummary = { checked: candidates.length, reenqueued: [], paymentsResumed: [], escalated: [], skipped: [], errors: [] };
+  const summary: StaleJobsSummary = { checked: candidates.length, reenqueued: [], restarted: [], paymentsResumed: [], escalated: [], skipped: [], errors: [] };
   for (const { candidate: c, kind } of selectStale(candidates, now)) {
     try {
       const liveness = kind === "working" ? await deps.liveness(c.jobId) : "alive";
@@ -126,6 +128,13 @@ export async function processStaleJobs(candidates: StaleCandidate[], now: number
       // Record the attempt first so a crash mid-action still counts toward the cap.
       await deps.recordAttempt(c.jobId, `Automatic recovery attempt ${attempts + 1}/${MAX_RECOVERY_ATTEMPTS} (${action}, idle ${idleMinutes} min).`);
       if (action === "reenqueue") { await deps.reenqueue(c.jobId); summary.reenqueued.push(c.jobId); }
+      else if (action === "restart") {
+        const r = await deps.restart(c.jobId);
+        if (r.status === "notRestartable") {
+          await deps.escalate(c.jobId, `${escalationNote(kind, liveness, attempts, idleMinutes)} Restart refused: ${r.reason}`);
+          summary.escalated.push(c.jobId);
+        } else summary.restarted.push(c.jobId);
+      }
       else if (c.unresumedPayment) { await deps.resumePayment(c.unresumedPayment.id); summary.paymentsResumed.push(c.jobId); }
     } catch (err) {
       summary.errors.push(`${c.jobId}: ${err instanceof Error ? err.message : String(err)}`);

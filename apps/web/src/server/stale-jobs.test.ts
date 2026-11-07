@@ -58,8 +58,9 @@ describe("decideRecovery", () => {
     expect(decideRecovery("working", "alive", MAX_RECOVERY_ATTEMPTS - 1)).toBe("reenqueue");
     expect(decideRecovery("working", "alive", MAX_RECOVERY_ATTEMPTS)).toBe("escalate");
   });
-  it("escalates dead runs immediately (not restartable) and skips unknown liveness", () => {
-    expect(decideRecovery("working", "dead", 0)).toBe("escalate");
+  it("restarts dead runs up to the cap and skips unknown liveness", () => {
+    expect(decideRecovery("working", "dead", 0)).toBe("restart");
+    expect(decideRecovery("working", "dead", MAX_RECOVERY_ATTEMPTS)).toBe("escalate");
     expect(decideRecovery("working", "unknown", 0)).toBe("skip");
   });
   it("replays unresumed payments up to the cap", () => {
@@ -76,6 +77,7 @@ describe("processStaleJobs", () => {
   const deps = (liveness: "alive" | "dead" | "unknown" = "alive"): StaleJobDeps => ({
     liveness: vi.fn(async () => liveness), reenqueue: vi.fn(async () => {}), resumePayment: vi.fn(async () => {}),
     recordAttempt: vi.fn(async () => {}), escalate: vi.fn(async () => {}),
+    restart: vi.fn(async () => ({ status: "restarted" as const, reason: "ok" })),
   });
   it("records an attempt then re-enqueues a live stale run", async () => {
     const d = deps();
@@ -84,11 +86,20 @@ describe("processStaleJobs", () => {
     expect(d.recordAttempt).toHaveBeenCalledOnce();
     expect(d.escalate).not.toHaveBeenCalled();
   });
-  it("escalates a dead run without restarting it", async () => {
+  it("restarts a dead run from persisted state", async () => {
     const d = deps("dead");
     const s = await processStaleJobs([cand()], NOW, d);
-    expect(s.escalated).toEqual(["j1"]);
+    expect(s.restarted).toEqual(["j1"]);
+    expect(d.recordAttempt).toHaveBeenCalledOnce();
     expect(d.reenqueue).not.toHaveBeenCalled();
+    expect(d.escalate).not.toHaveBeenCalled();
+  });
+  it("escalates when a dead run is not restartable", async () => {
+    const d = deps("dead");
+    (d.restart as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ status: "notRestartable", reason: "held for operator" });
+    const s = await processStaleJobs([cand()], NOW, d);
+    expect(s.escalated).toEqual(["j1"]);
+    expect((d.escalate as ReturnType<typeof vi.fn>).mock.calls[0][1]).toContain("held for operator");
   });
   it("replays a paid-not-resumed payment", async () => {
     const d = deps();

@@ -6,6 +6,7 @@ import {
 } from "../../../../server/stale-jobs";
 import { alertOperators } from "../../../../server/operator-alerts";
 import { jobRunLiveness, reenqueueJobRun, resumePaymentById } from "../../../../workflows/resume";
+import { restartJobWorkflow } from "@/workflows/restart";
 
 const SCAN_LIMIT = BATCH_LIMIT * 4;
 
@@ -59,4 +60,5 @@ async function recordAttempt(jobId: string, message: string): Promise<void> {
 
 export const staleJobDeps: StaleJobDeps = {
   liveness: jobRunLiveness, reenqueue: reenqueueJobRun, resumePayment: resumePaymentById, recordAttempt, escalate,
+  restart: restartJobWorkflow,
 };
