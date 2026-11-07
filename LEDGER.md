@@ -77,7 +77,7 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 
 ## Next steps (priority order)
 
-1. **Stripe test key → paid Trace Audit end to end** (gate 3). Create the webhook endpoint via the API → set `STRIPE_WEBHOOK_SECRET` → test duplicate and missed webhooks.
+1. ~~Gate 3~~ **PASSED on prod (Nov 7 ~17:10)**: real Stripe test-mode paid Trace Audit (job 26afb6a1…), duplicate webhook ignored, missed webhook recovered by reconcile cron (job ce4ba9e4…). Mock eval services. Old text: Create the webhook endpoint via the API → set `STRIPE_WEBHOOK_SECRET` → test duplicate and missed webhooks.
 2. Add the Neon delivery-safety step to the workflow (`captureDeliverySnapshot` + `applyBranchTtl`, non-fatal) and a pre-payment `checkTarget` for Text/Workflow evals; add a cancel route.
 3. Wire `rateLimit()` and `checkBotId()` into request-link, POST jobs and experts signup (snippets come from the Vercel worker report).
 4. Must-pass checks (PLAN §9): redeploy mid-job resumes; bad signature rejected; private-IP target blocked (Track B); exhausted budget pauses the job; other users can't read jobs or artifacts.
@@ -106,3 +106,4 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - ~16:20: adapters + e2e merged, prod redeployed. Open: stale-job recovery check in prod, Playwright happy-path selectors for v3, Stripe test key.
 - ~16:30: deleted old Neon projects sparkling-frost-08478178 and long-shape-06677281 (owner OK, both empty).
 - ~16:45: Stripe test key, webhook, NEON_API_KEY, COMPANY_ADDRESS configured; redeployed. Prod paid-run test in flight.
+- ~17:10: Gate 3 passed on prod (Stripe test mode): pay → delivered, duplicate + missed webhook recovery. BotID blocks scripted job creation (Playwright detected) — use a real browser or add a bypass for smoke tests. Stale-job recovery cron, MCP hire flow, report page polish merged.
