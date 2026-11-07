@@ -50,7 +50,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : "unknown error");
 export async function getInfraReport(opts: { client?: NeonClient } = {}): Promise<InfraReport> {
   const report: InfraReport = { generatedAt: new Date().toISOString(), neon: null, neonError: null, slowQueries: [], slowQueriesError: null };
   const [neon, slow] = await Promise.allSettled([
-    neonSection(opts.client ?? createNeonClient()),
+    // Build the client inside the async section so a missing NEON_API_KEY rejects here (per-section error), not synchronously.
+    (async () => neonSection(opts.client ?? createNeonClient()))(),
     slowQueries(),
   ]);
   if (neon.status === "fulfilled") report.neon = neon.value; else report.neonError = msg(neon.reason);
