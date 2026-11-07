@@ -76,6 +76,7 @@ side exits: paused_budget (reservation exceeded), failed (FatalError), cancelled
 ## 5. Track B integration points
 
 - Implement `EvalServices` (`packages/core/src/contracts/services.ts`) and export it from `packages/core/src/evals/index.ts`. Then set `EVAL_SERVICES=real`.
+- **New (fix, not just find):** implement `proposeAndVerifyFix(ctx, {finding, suite?, intake}) -> Remediation` (contract `Remediation` in `contracts/index.ts`). The workflow calls it once per confirmed finding (max 5, under the `engineer` budget share) after investigate / auditTrace and before `renderReport`; it must verify the patch by re-running the relevant frozen scenario(s) or trace re-check with the patch applied and fill `verification` (before/after pass counts, regressions, up to 5 evidence items). `renderReport` input now also carries `remediations?: Remediation[]` for a "Validated fixes" section. Results persist in the `remediations` table and are returned as `remediations` by `getJobForViewer`.
 - Use the `ServiceContext` passed in to record costs and progress. Don't write to app tables directly.
 - Simulator migrations go under `packages/core/src/simulator/migrations/`. Apply them to `sim-seed` only.
 - Dependencies: ask Track A to install them (one lockfile).
@@ -110,3 +111,16 @@ Job artifacts (report, suite, evidence) are written to a **private bucket `artif
 - Bucket is `private`; the only way in is an S3 credential held server-side (`NEON_STORAGE_ACCESS_KEY_ID` / `NEON_STORAGE_SECRET_ACCESS_KEY`, a dedicated `storage:read`+`storage:write` credential, branch-scoped to main and descendants). Secrets live only in env (local `.env`, Vercel). Revoke or rotate from the Neon Console or CLI.
 - Downloads go through `/api/jobs/:id/artifacts/:kind`: session check, then `getJobForViewer` ownership (404 on mismatch), then the server streams the object. No storage URL is returned to clients. `neonPresignGet` exists (capped at 60s) but is not used by any route.
 - Keys are validated against `jobs/<id>/<file>` before any S3 call, so a stored pathname cannot traverse to other objects.
+
+## Neon Realtime (beta)
+
+The job page and operator console update live over Neon Realtime (project `icy-star-64097833`, branch `main`, database `app`) instead of polling.
+
+**How it is secured.** The browser never gets the signing secret or any way to write SQL.
+- `NEON_REALTIME_SECRET` is only read in `apps/web/src/server/realtime.ts` (`server-only`). The browser gets `NEON_REALTIME_URL` plus *sealed queries*: encrypted and signed capabilities for one fixed SQL statement with its parameters baked in, valid for about 60 seconds.
+- `GET /api/jobs/:jobId/live` runs the same ownership rule as every job read (decision 8): session required (401), then `canViewJob` (owner or operator), otherwise **404** (a foreign job and a missing job look identical). It only then seals two fixed queries: `progress_events WHERE job_id = $1 ORDER BY created_at` and `jobs WHERE id = $1` (id, state, error, updated_at only; intake and credentials are never selected). The job id is the only parameter and is taken from the authorized row.
+- `GET /api/operator/live` is operator-only (401/403) and seals three fixed queries: recent jobs (no intake), payments and interventions, 200 rows each.
+- Because the query is sealed, a client cannot change the SQL, the job id or the database, and cannot subscribe to another job. Sealed queries are bearer tokens, so the routes send `Cache-Control: private, no-store`. Subscriptions are renewed by re-calling the route 10 seconds before expiry, so ownership is re-checked about once a minute. Realtime only accepts browser origins on the branch allowlist (`https://autonomous-evals.vercel.app`, `http://localhost:3000`).
+- Env: `NEON_REALTIME_URL`, `NEON_REALTIME_SECRET`, optional `NEON_REALTIME_DB` (default `app`), set in `.env.local` and in Vercel (production, preview, development).
+
+**Client and fallback.** `use-live-job.ts` and `use-live-operator.ts` (in `apps/web/src/lib/client/`) share `live-connection.ts`. If realtime has not reached `live` within 5 seconds, or any subscription errors, or the live route fails (for example 503 when unconfigured), the hook falls back to the old behavior: polling `GET /api/jobs/:id/progress` every 3 seconds (operator: reloading `/api/operator/overview` every 5 seconds). The hooks expose `mode: 'live' | 'polling'`, and a coral pulsing "Live" chip is shown only in `live` mode. The job page still reloads `GET /api/jobs/:id` when the state changes, and the operator console reloads the overview when live rows change, so aggregates (revenue, costs) stay server-computed.
