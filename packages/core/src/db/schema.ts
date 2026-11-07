@@ -51,6 +51,8 @@ export const jobs = pgTable("jobs", {
   retestOfJobId: uuid("retest_of_job_id"),
   isMock: boolean("is_mock").notNull().default(false),
   neonBranchId: text("neon_branch_id"),
+  /** Neon snapshot of the job branch taken at delivery (reproducibility). */
+  deliverySnapshotId: text("delivery_snapshot_id"),
   reportBlobPath: text("report_blob_path"),
   suiteBlobPath: text("suite_blob_path"),
   budgetReservedMicroUsd: bigint("budget_reserved_micro_usd", { mode: "number" }).notNull().default(0),
@@ -202,4 +204,82 @@ export const monitoringSubscriptions = pgTable("monitoring_subscriptions", {
   environment: envEnum("environment").notNull(),
   lastRunAt: ts("last_run_at"),
   createdAt,
+});
+
+// ---- Expert Network (docs/EXPERT_NETWORK.md) ----
+
+export const experts = pgTable("experts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  organization: text("organization"),
+  domains: text("domains").array().notNull().default(sql`'{}'::text[]`),
+  profileUrl: text("profile_url"),
+  source: text("source").notNull().default("opt_in"), // opt_in | customer_nominated | agent_researched
+  rateCents: integer("rate_cents"),
+  availability: text("availability"),
+  consentFlags: jsonb("consent_flags").notNull().default({}),
+  status: text("status").notNull().default("active"), // active | opted_out
+  createdAt,
+}, (t) => [uniqueIndex("experts_email_uq").on(sql`lower(${t.email})`)]);
+
+export const expertRequests = pgTable("expert_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").references(() => jobs.id),
+  domain: text("domain").notNull(),
+  questions: jsonb("questions").notNull(),
+  purpose: text("purpose").notNull(),
+  maxBudgetCents: integer("max_budget_cents").notNull().default(0),
+  status: text("status").notNull().default("open"), // open | answered | closed
+  requestedByAgentSession: uuid("requested_by_agent_session").references(() => agentSessions.id),
+  createdAt,
+}, (t) => [index("expert_requests_status_idx").on(t.status)]);
+
+export const expertEngagements = pgTable("expert_engagements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requestId: uuid("request_id").notNull().references(() => expertRequests.id),
+  expertId: uuid("expert_id").notNull().references(() => experts.id),
+  mode: text("mode").notNull().default("async"), // async | call
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  scheduledAt: ts("scheduled_at"),
+  calendarEventId: text("calendar_event_id"),
+  recordingConsent: boolean("recording_consent").notNull().default(false),
+  honorariumCents: integer("honorarium_cents").notNull().default(0),
+  paidAt: ts("paid_at"),
+  /** The outreach_drafts row that carries the invite; sending goes through the operator approve route only. */
+  outreachDraftId: uuid("outreach_draft_id").references(() => outreachDrafts.id),
+  status: text("status").notNull().default("invited"), // invited | answered | paid | cancelled
+  answeredAt: ts("answered_at"),
+  createdAt,
+}, (t) => [
+  uniqueIndex("expert_engagements_token_uq").on(t.tokenHash),
+  uniqueIndex("expert_engagements_req_expert_uq").on(t.requestId, t.expertId),
+  index("expert_engagements_expert_idx").on(t.expertId),
+]);
+
+export const expertResponses = pgTable("expert_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  engagementId: uuid("engagement_id").notNull().references(() => expertEngagements.id),
+  answers: jsonb("answers").notNull(),
+  transcriptBlobPath: text("transcript_blob_path"),
+  insights: jsonb("insights"),
+  provenance: text("provenance").notNull().default("expert_sourced"),
+  createdAt,
+}, (t) => [index("expert_responses_engagement_idx").on(t.engagementId)]);
+
+export const contactSuppressions = pgTable("contact_suppressions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Stored lowercased. */
+  email: text("email").notNull(),
+  reason: text("reason").notNull().default("opt_out"),
+  createdAt,
+}, (t) => [uniqueIndex("contact_suppressions_email_uq").on(sql`lower(${t.email})`)]);
+
+/** App-level fixed-window rate limiter (fallback behind Vercel Firewall rules). One row per key. */
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  windowStart: ts("window_start").notNull().defaultNow(),
+  count: integer("count").notNull().default(0),
 });

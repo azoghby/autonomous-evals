@@ -2,12 +2,21 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { sendEmail } from "@ae/core/auth/email";
 import { jsonError, requireOperator, isUuid } from "@/server/http";
+import { guardOutreachSend } from "@/server/experts";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireOperator();
   if (auth.res) return auth.res;
   const { id } = await ctx.params;
   if (!isUuid(id)) return jsonError(404, "Draft not found");
+
+  // Expert Network guardrails: never send to a suppressed address; cap cold expert contacts per day.
+  const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail }).from(schema.outreachDrafts)
+    .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).limit(1);
+  if (pending) {
+    const guard = await guardOutreachSend(id, pending.toEmail);
+    if (!guard.ok) return jsonError(guard.status, guard.error);
+  }
 
   // Atomic claim: only a pending draft can be approved, and only once.
   const [draft] = await db().update(schema.outreachDrafts)

@@ -8,6 +8,27 @@
       "when": 1794084659676,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794085616142,
+      "tag": "0001_expert_network",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794085777771,
+      "tag": "0002_delivery_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794085821334,
+      "tag": "0003_rate_limits",
+      "breakpoints": true
     }
   ]
 }
