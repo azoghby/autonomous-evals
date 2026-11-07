@@ -1,256 +1,220 @@
-# Autonomous Evals Company: Implementation Plan for Tomorrow
+# Autonomous Evals Company: Build Plan
 
-Planning baseline: November 7, 2026. Two builders; $250 in Naïve credits. Target demo: November 8, 2026, before 11 a.m. Pacific judging.
+Hackathon: Naïve Autonomous Company Hackathon, YC SF. Hacking runs Sat Nov 7, 1 PM to Sun Nov 8, 11 AM (judging).
+Team: two builders. Budget: $250 Naïve credits plus sponsor credits.
 
-## 1. Product and stack
+---
 
-Build an agent-operated evaluation company with a broad service offering and two working evaluation modes:
+## 1. Product and success criteria
 
-- **Text evaluation:** assess answers against customer instructions and supplied reference material.
-- **Workflow evaluation:** test a tool-using agent inside our controlled calendar simulator.
-- **Version comparison:** run either evaluation mode against two versions using identical scenarios and initial conditions.
+An agent-operated evaluation company. Customers submit their agent, get an agent-written quote, pay, and receive an evidence-backed report, reproducible findings, and an exportable test suite.
 
-Customers submit a product, receive an agent-prepared quote, pay in USDC, and receive a report, reproducible findings, and an exportable test suite. Agents handle clarification, planning, investigation, delivery, and retest requests.
+Service menu (pilot pricing, clearly labeled):
 
-**Success tomorrow:** an independent hackathon team completes the paid workflow, receives a useful finding, and can reproduce it. Show actual costs and every founder intervention. Testnet transactions are never counted as revenue.
+| Package | Input needed | Price |
+|---|---|---|
+| **Trace Audit** | Paste/upload agent transcript or tool logs (JSON or text, ≤ 200 KB) | $5 |
+| **Text Eval** | OpenAI-compatible endpoint + system prompt + optional reference text | $5 |
+| **Workflow Eval** | Endpoint that supports tool calls; runs in our calendar simulator | $5 |
+| **Version Comparison** | Two configs of either Text or Workflow Eval | $10 |
+| **Monitoring pilot** (upsell) | Nightly re-run of the frozen suite via Vercel Cron, regression alert by email | $49/month (first payment collected via Stripe subscription) |
 
-### Chosen stack
+**Success by Sunday 11 AM:**
 
-| Layer | Choice |
-|---|---|
-| Language/runtime | TypeScript, Node.js 22, npm workspaces |
-| Customer application | Next.js App Router, React, Tailwind CSS, Vercel |
-| Persistent worker | Node.js service on Render; PostgreSQL-backed work queue |
-| Database | Neon PostgreSQL with Drizzle ORM and migrations |
-| Agents | `@usenaive-sdk/managed-agents` |
-| Validation | Zod; JSON Schema for agent outputs |
-| Wallet integration | Wagmi and Viem; injected EVM wallets |
-| Payments | Native USDC on Base and test USDC on Base Sepolia |
-| Reports/artifacts | Markdown and JSON stored in PostgreSQL; authenticated downloads |
-| Testing | Vitest and Playwright |
+1. At least 3 independent teams completed intake (agent-run outreach or walk-up).
+2. At least 1 real Stripe payment, not test mode, and at least 1 delivered report with a finding the customer confirms is real.
+3. Operator console shows every agent decision, every founder intervention, revenue, and Naïve cost per job.
 
-Use one repository with `apps/web`, `apps/worker`, and `packages/core`. Shared contracts, database access, evaluation types, and payment configuration live in `core`.
+Test-mode payments are never counted as revenue.
 
-Vercel handles short requests and UI. Render handles long evaluations, payment reconciliation, and recovery. No evaluation depends on an open browser or a long-running Vercel request.
+---
 
-Naïve's published SDK is TypeScript and ESM-only; use its documented client rather than implementing a separate model-driven agent runtime. [SDK documentation](https://usenaive.ai/docs/sdk/typescript)
+## 2. Stack (Neon + Vercel first)
 
-## 2. Agents and evaluation engine
+| Layer | Choice | Notes |
+|---|---|---|
+| App + API | **Next.js App Router on Vercel** (Fluid compute) | One repo, one deploy. `apps/web` only; shared code in `packages/core`. |
+| Durable execution | **Vercel Workflow DevKit** (`workflow` package) | Workflows orchestrate; steps do I/O. Use `createHook` to pause for payment and clarification answers, `sleep` for timed follow-ups. |
+| Database | **Neon Postgres** + Drizzle + `@neondatabase/serverless` driver | System of record for customers, jobs, quotes, findings, costs, interventions. |
+| Isolation / repro | **Neon branching** via the Neon API | Seed branch `sim-seed` holds calendar fixtures. Each job forks `job-<id>`. Deleted 48 h after delivery. |
+| Artifacts | **Vercel Blob** (private) | Reports (Markdown/HTML), JSON test-suite exports, raw evidence. |
+| Model calls (judges, targets we host) | **Vercel AI Gateway** (OpenRouter as fallback) | One key, per-call cost logged to Neon. |
+| Scheduled work | **Vercel Cron** | Stripe reconciliation every 5 min, stale-job sweep, nightly monitoring re-runs, follow-up nudges. |
+| Agents | **`@usenaive-sdk/managed-agents`** | Required by the hackathon. Structured outputs, per-session budgets. |
+| Payments | **Stripe Checkout + webhooks** | Live mode for the real charge; test mode for development. |
+| Auth | Email magic link (Neon Auth if it sets up in < 30 min) | Job ownership enforced server-side. Operator access by email allowlist. |
+| Validation / tests | Zod, Vitest | Playwright only for the single happy-path smoke test. |
 
-### Four Naïve agents
+Architecture in one line: browser → Next.js route handlers (Vercel) → `start(jobWorkflow)` → steps call Naïve sessions, AI Gateway, customer endpoints, and the Neon branch → results in Neon + Blob → progress page reads Neon.
 
-| Agent | Output and authority |
-|---|---|
-| **Commercial** | Qualifies requests, requests clarification, selects a supported package, and prepares quotes within fixed pricing rules |
-| **Evaluation engineer** | Produces structured scenarios and scoring criteria; revises tests rejected during review |
-| **Quality investigator** | Reviews test validity, investigates evidence, requests bounded reproductions, and classifies findings |
-| **Company operator** | Assesses job readiness, coordinates revisions, prepares the final report, answers follow-up questions, and proposes retests |
+---
 
-For tomorrow, the persistent application orchestrates specialist sessions through the SDK. Do not add nested agent delegation or a second coordination framework.
+## 3. Agents (Naïve)
 
-Each session receives a bounded task and must return schema-valid output. Store agent ID, version, session ID, result, and available usage data. Use `sessions.create`, explicit `budget_micro_usd`, `output_schema`, and `structured_output_required`; read results through `sessions.get`. An idle session is not automatically a successful session. [Session interface](https://usenaive.ai/docs/sdk/sessions)
+Four agents, each with its own budget cap. The app's Workflow orchestrates them; agents propose and code decides.
 
-Use `vetta/auto` for the initial configuration, recording the selected configuration with each run. Keep customer credentials and arbitrary shell/browser tools out of agent sessions.
+| Agent | Does | Cannot |
+|---|---|---|
+| **Commercial** | Drafts outreach invites (sent only after founder approval), qualifies inbound requests, asks clarifying questions, picks a package, writes the quote from the fixed price table, pitches the monitoring upsell in reports | Invent prices or deliverables, send email without approval |
+| **Evaluation engineer** | Writes 12 scenarios plus scoring criteria per version as schema-valid JSON; revises rejected tests | Execute code, touch credentials |
+| **Quality investigator** | Rejects invalid tests before freeze, reviews evidence, requests up to 3 bounded reproductions, classifies findings | Override an objective state check without filing a test-defect record |
+| **Company operator** | Decides job readiness, writes the final report, answers follow-ups, proposes retests, writes a short daily ops log | Change budgets, issue refunds |
 
-**Division of responsibility:** agents propose plans and make bounded decisions; application code validates them and executes state changes, HTTP calls, payments, and scoring rules.
+Every session uses `output_schema` + `structured_output_required` + an explicit `budget_micro_usd`. Store agent ID, version, session ID, result, and usage in Neon immediately; a session ID is persisted in the same step that creates it. An idle session is not a success: always check the result against the schema.
 
-### Target integration contract
+Use Naïve **identity** (email) for the Commercial agent's inbox so customer replies land with the agent, not with you.
 
-Support one protocol tomorrow: **OpenAI-compatible Chat Completions over HTTPS**, with optional bearer authentication.
+**Stretch:** run the four as a Naïve **team** with the operator as coordinator. Only do this if the app-orchestrated version is done by midnight.
 
-Customers supply:
+---
 
-- Endpoint and model identifier.
-- System instructions and evaluation goals.
-- Optional reference text, limited to 100 KB.
-- A second target configuration for comparison.
-- Confirmation that they control or are authorized to test the endpoint.
+## 4. Evaluation modes
 
-A pre-payment connection check makes one minimal request and validates the response. Explain that this request may consume the customer's provider credits.
+### 4.1 Trace Audit (zero integration; build first)
 
-For workflow evaluation, the endpoint must support standard function/tool calls. Provide a sample adapter and two clearly labeled internal fixture agents: one buggy, one corrected. External customers must be identified separately from these fixtures.
+The customer pastes a transcript or tool log. The engine reuses agent-verdict's logic:
 
-### Text evaluation
+- Extract every claim of success ("booked", "sent", "fixed", "tests pass").
+- Match each claim to evidence in the log (a tool call, its result, an error).
+- Flag unsupported claims, ignored tool errors, instruction violations against the stated system prompt, and unsafe actions.
+- Investigator re-checks each flagged item; output is "confirmed", "rubric concern", or "inconclusive".
 
-Generate **12 scenarios** distributed across ordinary use, instruction edge cases, and grounding or ambiguity.
+No outbound calls to the customer, so there is no SSRF risk and no credential handling. This is the fastest path to a paid, delivered job.
 
-- Review and freeze the test suite before full execution.
-- Use code-based checks for explicit constraints.
-- Use rubric-based model judgments for subjective quality, clearly labeled as such.
-- Treat absent references as a limit on factual-correctness assessment.
-- Repeat up to three candidate failures once.
-- Distinguish confirmed failures, rubric-based concerns, infrastructure errors, and inconclusive results.
+### 4.2 Text Eval
 
-Never present a model's confidence score as a calibrated probability.
+- 12 scenarios: ordinary use, instruction edge cases, grounding/ambiguity.
+- Freeze the suite after investigator review, and store it in the job's Neon branch.
+- Code checks for explicit constraints; rubric judges (via AI Gateway) for subjective quality, labeled as such.
+- No reference text means factual correctness is reported as "not assessed".
+- Repeat up to 3 candidate failures once to confirm.
 
-### Calendar workflow evaluation
+### 4.3 Workflow Eval (calendar simulator on Neon)
 
-Implement an isolated calendar environment with these tools:
+- Simulator tables (`events`, `calendars`, `permissions`, `tool_calls`) live in the `sim-seed` branch with fixtures.
+- Each job forks a branch. Each scenario runs inside its own transaction plus `run_id` partition, reset by deleting that `run_id`, so scenarios never see each other's state.
+- Tools: `list_events`, `create_event`, `update_event`, `cancel_event`. Times stored as UTC with explicit IANA zone.
+- Max 6 tool rounds per scenario, 30 s per target request, 2 concurrent target requests.
+- Coverage: booking, conflicts, duplicates, cancellation, rescheduling, time zones, permissions, one injected dependency failure (to catch "false success").
+- Grading is SQL over the resulting state: event counts, owners, times, permitted changes, and whether claimed actions actually happened.
+- Two internal fixture agents (buggy and fixed) are clearly labeled and never counted as customers.
 
-- `list_events`
-- `create_event`
-- `update_event`
-- `cancel_event`
+### 4.4 Version Comparison
 
-Each scenario receives a fresh, private calendar state. Store times as UTC timestamps with explicit IANA time zones.
+Same frozen scenarios, separate `run_id`s per version in the same job branch. Report shows observed differences only, with no significance claims on 12 scenarios.
 
-The worker sends tool definitions to the target, validates returned arguments, executes calls against the simulator, and continues the conversation. Limit each scenario to **six tool rounds**.
+### Reproduction
 
-Cover booking, conflicts, duplicate requests, cancellation, rescheduling, time-zone handling, permissions, and one simulated dependency failure.
+Every finding links to the job's Neon branch and the scenario ID. "Re-run this finding" replays it against the customer's current endpoint; the original result is kept. That's the retest flow, and the hook for the monitoring tier.
 
-Grade against actual resulting state: event counts, ownership, expected times, permitted changes, and whether claimed actions occurred. The investigator may explain evidence but cannot override an objective result without recording a test defect.
+---
 
-Comparison jobs reuse the same frozen scenarios and reset state independently for both versions. Reports describe observed results without claiming statistical significance from a small sample.
+## 5. Customer flow, payments, security
 
-## 3. Customer flow, payments, and durable operation
+Screens (Tailwind, IBM Plex Sans, one teal accent, real loading/empty/error states, no fake logos):
 
-### Customer access and screens
+1. **Intake:** pick a package, paste trace or endpoint config, confirm authorization to test.
+2. **Clarify + quote:** chat with the Commercial agent; quote shown from the fixed table.
+3. **Progress:** live milestones read from Neon (poll every 3 s; SSE if time allows).
+4. **Report:** findings, evidence, export (Blob link), "Re-run finding", monitoring upsell.
+5. **Operator console:** jobs, Stripe payments, Naïve cost per job, agent decisions, intervention log, outreach approval queue.
 
-Use wallet-based sign-in with a single-use, domain-bound, expiring message challenge. Support externally owned EVM wallets for tomorrow; smart-account compatibility is deferred.
+**Payments (Stripe):**
 
-Provide five screens:
+- Accepting a quote freezes scope and creates a Checkout Session with `job_id` and `quote_version` in metadata.
+- The Workflow pauses on a hook. The Stripe webhook (signature verified) resumes it.
+- The webhook handler writes `payments` (unique on Stripe event ID) and resumes the job in one idempotent step, so duplicate webhooks can't double-start a job.
+- Vercel Cron reconciles open Checkout Sessions every 5 min in case a webhook is missed.
+- Refunds are done manually by a founder in the Stripe dashboard and logged as an intervention.
 
-1. **Service/intake:** supported packages and target configuration.
-2. **Clarification/quote:** conversation, scope, limits, price, and payment network.
-3. **Job progress:** real milestones, decisions, and recoverable errors.
-4. **Report:** findings, evidence, test-suite export, and retest request.
-5. **Operator console:** jobs, receipts, costs, session activity, and intervention log.
+**Endpoint connection check** (Text/Workflow): one minimal request before payment, with a note that it may use the customer's provider credits.
 
-Customer authorization is enforced server-side by wallet identity and job ownership. Operator access uses an environment-configured wallet allowlist.
+**Security:**
 
-Use a restrained operational interface: warm neutral surfaces, dark text, one teal accent, IBM Plex Sans typography, compact tables, and a chronological activity feed. Include keyboard navigation and real loading, empty, error, and payment-pending states. No fabricated customer logos or performance metrics.
+- Customer credentials encrypted at rest in Neon, never put in agent prompts or logs, deleted 24 h after delivery.
+- Outbound target calls: HTTPS only, block private/reserved IPs (check at DNS resolution), no redirects, bounded response size.
+- Customer content is untrusted data; generated tests are JSON, never executed code.
+- Every API mutation takes an idempotency key; job reads are checked against owner email.
 
-### Pricing and quote rules
+---
 
-Label pricing as **hackathon pilot pricing**:
+## 6. Durable execution: one Workflow per job
 
-- Text or workflow evaluation: **5 USDC**.
-- Two-version comparison: **10 USDC**.
-- Each includes 12 scenarios per version, bounded reproductions, report, and test-suite export.
-- A retest creates a new scoped quote at the applicable pilot price.
-- Unsupported requirements are declined or clarified before payment.
+```
+jobWorkflow(jobId)            "use workflow"
+  step clarifyAndQuote        → Commercial session(s); hook waits for customer replies
+  hook awaitPayment           → resumed by Stripe webhook or Cron reconciliation
+  step createJobBranch        → Neon API: fork sim-seed → job-<id>
+  step designSuite            → Engineer session → Investigator review → freeze
+  step runScenarios           → per scenario (bounded parallelism 2)
+  step investigate            → Investigator, up to 3 reproductions
+  step writeReport            → Operator session → Blob + Neon
+  step notifyCustomer         → email via Commercial agent identity
+  sleep 24h → step cleanupCredentials ; sleep 48h → step deleteBranch
+```
 
-The commercial agent can select and explain these packages, not invent prices or unlimited deliverables.
+States in Neon: `draft → needs_clarification → quoted → awaiting_payment → planning → running → investigating → delivered`, plus `payment_review`, `paused_budget`, `failed`, `cancelled`. Retest = new linked job.
 
-### Stablecoin payment implementation
+Rules:
 
-Implement **direct ERC-20 wallet transfers**, without escrow, a custom contract, x402, fiat conversion, or server-held spending keys.
+- Each step writes its result to Neon before returning, so the console never depends on Workflow internals.
+- Naïve session creation is its own step. If its result is ambiguous, look the session up by stored ID instead of creating a second one.
+- Budget is reserved in Neon before each session; exhaustion moves the job to `paused_budget` and alerts the operator, with no hidden retries.
 
-Maintain separate Base and Base Sepolia configurations. Resolve native USDC addresses from Circle's official deployment list and pin them in configuration; do not accept arbitrary token addresses or bridged substitutes. [Circle contract addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses)
+---
 
-For each accepted quote, create an immutable invoice containing:
+## 7. Budgets and honest accounting
 
-- Job, customer wallet, quote version, and environment.
-- Chain ID, token address, company recipient address.
-- Exact amount in six-decimal token units.
-- Creation block and 30-minute expiry.
+Naïve agent period caps (total $200, $50 unallocated): Commercial $35, Engineer $65, Investigator $65, Operator $35.
+Per-job caps: $3 for single-version, $5 for comparison, reserved before dispatch.
 
-The browser switches networks, requests the transfer, and submits the transaction hash. Customers need USDC and native gas; show both requirements before checkout.
+The console tracks three columns separately: **revenue** (live Stripe only), **known costs** (Naïve usage plus AI Gateway usage per job), and **unknown costs** (customer's own provider usage, hosting). Never label anything "profit" when costs are incomplete.
 
-The backend independently verifies:
+---
 
-- Correct chain and successful receipt.
-- Direct call to the configured USDC contract.
-- Expected sender, recipient, amount, and matching transfer event.
-- Inclusion after invoice creation and before expiry.
-- Two block confirmations before execution.
-- Unique consumption of the transfer using a database constraint on chain, transaction hash, and log index.
+## 8. Wall-clock schedule (two builders)
 
-Two confirmations are an operational threshold, not a claim of irreversible finality. Recheck receipts during reconciliation; flag a removed payment and pause further work.
-
-Wrong or late payments enter a visible review state. Never silently discard received money or start unbounded work. Refunds require a founder's wallet transaction tomorrow; record the reason and refund reference.
-
-Marking an invoice paid and creating its execution task occur in one database transaction. Repeated submissions cannot create duplicate jobs.
-
-Mainnet is enabled only after successful testnet checks and explicit recipient configuration. Both environments remain visibly labeled and separated.
-
-### Job lifecycle and recovery
-
-Use:
-
-`draft → needs_clarification → quoted → awaiting_payment → planning → running → investigating → delivered`
-
-Additional states: `payment_review`, `paused_budget`, `failed`, and `cancelled`.
-
-A new retest is a linked job, preserving the original report.
-
-Use a PostgreSQL work queue with leases, heartbeats, bounded retries, and an outbox:
-
-- Persist work before external calls.
-- Store Naïve session identifiers immediately.
-- Resume known sessions after restart.
-- Retry transient reads and target transport failures within limits.
-- Do not blindly recreate sessions after an ambiguous creation timeout; reconcile or escalate.
-- Record each phase result before starting the next.
-- Poll sessions for tomorrow's implementation; signed webhooks are not a dependency.
-
-Start with one active job and two concurrent target requests. Each target request has a 30-second timeout and bounded output.
-
-### Budgets and records
-
-Allocate **200 USD-equivalent Naïve credits** across agent period caps:
-
-- Commercial: $35.
-- Evaluation engineer: $65.
-- Quality investigator: $65.
-- Company operator: $35.
-
-Leave $50 unallocated. Enforce aggregate per-job authorization caps of **$3 basic / $5 comparison**, reserving session budgets before dispatch. No automatic budget increases. Naïve also enforces its own session and agent caps. [Budget documentation](https://usenaive.ai/docs/concepts/budgets)
-
-Track customer revenue separately from subsidized credit consumption. Report known costs, estimates, and unknown customer-provider costs separately; incomplete accounting must not be labeled profit. Hosting and RPC expenses are outside the Naïve credit allocation.
-
-### Minimum persistent types and interfaces
-
-Store customers, targets, jobs, messages, quotes, invoices, transfers, agent sessions, scenarios, executions, findings, artifacts, tasks, cost entries, and intervention events.
-
-Expose:
-
-- `POST /api/jobs` — create intake.
-- `POST /api/jobs/:id/messages` — clarification or support.
-- `POST /api/jobs/:id/accept-quote` — freeze scope and issue invoice.
-- `POST /api/jobs/:id/payment` — submit transaction for verification.
-- `GET /api/jobs/:id` — progress and decisions.
-- `GET /api/jobs/:id/report` — authorized report/export.
-- `POST /api/jobs/:id/retest` — create linked inquiry.
-
-All mutations use idempotency keys. The worker shares validated service functions rather than calling public customer routes.
-
-Encrypt stored target credentials, redact secrets from traces, and never expose them to agents. Target calls use a fixed HTTPS destination, block private/reserved addresses and redirects, and validate DNS resolution at connection time. Customer content is untrusted data; generated test plans cannot execute arbitrary code. Delete stored target credentials 24 hours after delivery.
-
-## 4. Build order and two-person ownership
-
-**Build the evaluation-to-report path first. Payment then unlocks that proven path.**
-
-| Time from start | Builder A: application/payments | Builder B: agents/evaluations | Acceptance gate |
+| Time | Builder A (app, Neon, Stripe, Vercel) | Builder B (agents, evals) | Gate |
 |---|---|---|---|
-| **0–1 hour** | Scaffold web/core, Neon schema, wallet access | Validate Naïve credentials, run one structured-output session | Shared contracts compile; one SDK session completes |
-| **1–4 hours** | Intake, ownership, job records, progress screen | Text runner, engineer/investigator sessions, initial report | One fixture produces a reproducible finding |
-| **4–7 hours** | Testnet invoice, transfer verification, transactional task creation | Calendar simulator, tool-call loop, state graders | Paid testnet job runs through delivery |
-| **7–10 hours** | Report exports, console, mainnet configuration | Comparison, recovery, cost accounting, operator delivery | Browser closure/restart does not lose the job |
-| **10–13 hours** | External onboarding and payment support | Adapt authorized customer endpoint; inspect false positives | External team receives useful results |
-| **Remaining time** | Customer fixes, checkout polish, recording | Retest, acceptance checks, demo preparation | Freeze before Nov. 8's 11 a.m. judging |
+| **1–2 PM** | Scaffold Next.js on Vercel, Neon project + Drizzle schema, Blob, auth | Naïve key works; one structured-output session per agent | Deployed URL; 4 agents return valid JSON |
+| **2–2:30 PM** | Both walk the room: tell teams about free first audits; collect emails | Same | 10+ team contacts in Neon |
+| **2:30–5 PM** | Intake, quote, progress screens; `jobWorkflow` skeleton with hooks | **Trace Audit** engine + investigator + report | Unpaid Trace Audit delivered end to end |
+| **5–7 PM** | Stripe Checkout + webhook + Cron reconciliation | Text Eval runner; AI Gateway judges | Test-mode paid job delivered |
+| **7–7:30 PM** | **Switch Stripe to live; run first real customer** | Commercial agent outreach drafts + approval queue | First real payment |
+| **7:30–11 PM** | Operator console: costs, interventions, approvals | Calendar simulator on Neon branches + state graders | Buggy fixture fails, fixed fixture passes |
+| **11 PM–1 AM** | Report page polish, Blob exports, re-run finding | Version comparison; monitoring Cron | Comparison job delivered |
+| **1–5 AM** | Sleep (A) | Customer support shift: watch jobs, fix false positives | No stuck jobs |
+| **5–8 AM** | Customer support shift | Sleep (B) | |
+| **8–9:30 AM** | Bug fixes from real customers | Bug fixes; monitoring upsell pitch in reports | **Feature freeze 9:30 AM** |
+| **9:30–11 AM** | Record backup demo video; final numbers | Rehearse demo twice | Ready for judging |
 
-During the first hour, both founders invite nearby teams to try the service. Agents handle submitted inquiries and follow-up in the application. Automatic outbound messaging, email-domain setup, and public prospect scraping are excluded tomorrow.
+If behind schedule, cut in this order: version comparison → monitoring Cron → calendar simulator (Trace Audit plus Text Eval alone still make a complete company). Never cut real payment, evidence quality, or the intervention log.
 
-If integration runs late, reduce exploratory scenario volume and UI polish. Preserve payment verification, both evaluation paths, evidence quality, recovery, and honest status reporting.
+---
 
-## 5. Verification and demo acceptance
+## 9. Tests and demo
 
-### Required tests
+**Must-pass checks:**
 
-- **Payments:** valid testnet transfer; wrong chain/token/sender/recipient/amount; reverted, expired, duplicate, and unconfirmed transfers; concurrent submissions; restart during reconciliation.
-- **Durability:** restart between every major phase; no duplicate delivery or charge attribution; ambiguous session creation escalates.
-- **Text evals:** known instruction failure detected; unsupported factual judgment marked limited; malformed judge output rejected.
-- **Workflow evals:** duplicate booking, wrong time zone, unauthorized cancellation, false success after tool failure; corrected fixture passes the relevant checks.
-- **Quality:** deliberately invalid generated test rejected; findings preserve evidence and reproduction results.
-- **Access/security:** another customer cannot read jobs or artifacts; credentials stay out of prompts/logs; private-network targets and redirects are blocked.
-- **Budgets:** exhausted session/job budget pauses work without hidden retries.
-- **UI:** desktop and mobile intake-to-report flow, wallet rejection, wrong network, pending payment, failed target, and retest.
+- Payments: valid webhook; bad signature rejected; duplicate webhook doesn't create a second job; missed webhook recovered by Cron.
+- Durability: redeploy mid-job; job resumes from last finished step; no duplicate Naïve sessions.
+- Evals: known instruction failure detected; unsupported success claim caught in a trace; buggy fixture fails, fixed one passes; malformed judge output rejected.
+- Security: other users can't read your job or Blob artifacts; credentials absent from prompts/logs; private-IP target blocked.
+- Budgets: exhausted cap pauses the job.
 
-Perform one small mainnet payment only after testnet acceptance. Live external evaluation and the actual Naïve SDK path must be exercised; mocked tests alone are insufficient.
+Only after these pass do you take money from a real customer.
 
-### Final demonstration
+**Demo script (3 minutes):**
 
-Show an external inquiry, agent-produced scope, customer-authorized USDC payment, automatic execution, evidence-backed delivery, and a retest if available. Display decisions and founder interventions alongside revenue and costs.
+1. Operator console: "Since 1 PM our agents contacted N teams, ran M jobs, made $X real revenue, spent $Y on Naïve, and I stepped in K times, here's each one."
+2. Replay one real customer job: inquiry → agent clarification → quote → Stripe payment → workflow progress → report.
+3. Open one finding, click "Re-run": it reproduces live on its Neon branch.
+4. Close with the monitoring tier and the market: eval platforms sell tools; this company does the work itself.
 
-**Explicit boundaries:** no claims of universal coverage, statistical certification, fully automated refunds, agent-paid model bills, or validated startup economics. Tomorrow proves one working autonomous commercial cycle; repeat demand and scalable margins remain the next experiments.
+Backup: pre-recorded video of the same flow in case the venue Wi-Fi fails.
+
+---
+
+## 10. Out of scope this weekend
+
+USDC payments (stretch only if everything else ships), smart-account wallets, mainnet chain reconciliation, automated refunds, Naïve team-coordinator orchestration, Mobilerun mobile evals, Vercel Sandbox for running customer repos, statistical significance claims, scraping-based prospecting.
