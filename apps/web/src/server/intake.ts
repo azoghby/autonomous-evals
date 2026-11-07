@@ -48,3 +48,37 @@ export function credentialSlotsOf(stored: Json): string[] {
   const v = stored._credentialSlots;
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
+
+export interface IntakeSummary {
+  package: string;
+  notes?: string;
+  hasTrace: boolean;
+  traceBytes?: number;
+  endpointHost?: string;
+  model?: string;
+  mode?: string;
+}
+
+function hostOf(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  try { return new URL(url).host; } catch { return undefined; }
+}
+
+/** Safe, client-facing view of a stored intake: no keys, no trace body. */
+export function summarizeIntake(
+  intake: unknown, jobPackage: string, traceBlobPath?: string | null,
+): IntakeSummary {
+  const i = (intake && typeof intake === "object" ? intake : {}) as Json;
+  const inlineTrace = typeof i.trace === "string" ? i.trace : null;
+  const ep = (i.endpoint ?? i.endpointA) as Json | undefined;
+  const hasTrace = inlineTrace !== null || !!traceBlobPath;
+  return {
+    package: typeof i.package === "string" ? i.package : jobPackage,
+    ...(typeof i.notes === "string" && i.notes ? { notes: i.notes } : {}),
+    hasTrace,
+    ...(inlineTrace !== null ? { traceBytes: Buffer.byteLength(inlineTrace) } : {}),
+    ...(ep && hostOf(ep.url) ? { endpointHost: hostOf(ep.url) } : {}),
+    ...(ep && typeof ep.model === "string" ? { model: ep.model } : {}),
+    ...(typeof i.mode === "string" ? { mode: i.mode } : {}),
+  };
+}

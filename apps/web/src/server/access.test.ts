@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canViewJob } from "./access";
-import { extractLargeTrace, injectCredentials, stripCredentials, credentialSlotsOf } from "./intake";
+import { summarizeIntake, extractLargeTrace, injectCredentials, stripCredentials, credentialSlotsOf } from "./intake";
 import type { IntakeInput } from "@ae/core/contracts/index";
 
 const owner = { id: "c1", email: "o@x.com", isOperator: false };
@@ -34,5 +34,23 @@ describe("intake credential handling", () => {
     const r = extractLargeTrace({ trace: big, package: "trace_audit" });
     expect(r.trace).toBe(big);
     expect(r.intake).toEqual({ package: "trace_audit" });
+  });
+});
+
+describe("summarizeIntake", () => {
+  it("never exposes api keys or the trace body", () => {
+    const big = "T".repeat(5000);
+    const s = summarizeIntake({
+      package: "trace_audit", trace: big, notes: "hi",
+      endpoint: { url: "https://api.example.com/v1", model: "m", apiKey: "sk-secret" },
+    }, "trace_audit");
+    const out = JSON.stringify(s);
+    expect(out).not.toContain("sk-secret");
+    expect(out).not.toContain("TTTT");
+    expect(s).toMatchObject({ package: "trace_audit", hasTrace: true, traceBytes: 5000, endpointHost: "api.example.com", model: "m", notes: "hi" });
+  });
+  it("flags blob-stored traces and tolerates junk", () => {
+    expect(summarizeIntake({}, "text_eval", "blob/x").hasTrace).toBe(true);
+    expect(summarizeIntake(null, "text_eval")).toEqual({ package: "text_eval", hasTrace: false });
   });
 });

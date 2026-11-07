@@ -4,8 +4,16 @@ import { useSearchParams } from "next/navigation";
 import { api, errMsg } from "@/lib/client/api";
 import { Btn, Field, Glass, Input, PageTitle } from "./ui";
 
+const AUTH_ERRORS: Record<string, string> = {
+  invalid: "This sign-in link is invalid. Request a new one below.",
+  used: "This sign-in link was already used. Request a new one below.",
+  expired: "This sign-in link expired. Request a new one below.",
+};
+
 export function SignInForm() {
-  const next = useSearchParams().get("next");
+  const params = useSearchParams();
+  const next = params.get("next");
+  const authError = AUTH_ERRORS[params.get("auth_error") ?? ""];
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +39,9 @@ export function SignInForm() {
   return (
     <div className="mx-auto max-w-md pt-10">
       <PageTitle title="Sign in" sub="No password. We email you a one-time link." />
+      {authError && !sent && (
+        <p role="alert" className="mb-4 rounded-2xl border border-coral/40 bg-navy-deep/50 p-3 text-sm text-coral">{authError}</p>
+      )}
       <Glass>
         {sent ? (
           <div className="space-y-3" aria-live="polite">

@@ -97,3 +97,16 @@ side exits: paused_budget (reservation exceeded), failed (FatalError), cancelled
 | No email provider before customers arrive | Dev links are allowed only behind `AUTH_DEV_LINKS=1`, never on in prod. Get a Resend key first. |
 | Workflow v5 APIs are new | Kept the hook/start pattern in one file (`workflows/events.ts`). Tests cover the decision logic as pure functions. |
 | Contract drift between A and B | All contract edits go through `packages/core/src/contracts/*`, agreed first. |
+
+## Artifacts on Neon storage
+
+Job artifacts (report, suite, evidence) are written to a **private bucket `artifacts` on Neon branchable object storage** (S3-compatible, project `icy-star-64097833`, main branch). Vercel Blob remains as a fallback.
+
+**Why.** Neon buckets branch with the database (copy-on-write). A per-job branch or snapshot therefore captures the evidence files and the database state together, so a finding can be reproduced from one consistent point. Resetting a branch from its parent resets its objects as well.
+
+**How it works.** `packages/core/src/storage/neon-storage.ts` does put/get(stream)/delete for keys `jobs/<jobId>/<kind>-<rand>.<ext>`. `blob.ts` keeps the same exported functions and picks the backend with `ARTIFACT_STORE=neon|blob` (default: neon when all `NEON_STORAGE_*` are set, else blob). Persisted pathnames are prefixed `neon:` or `blob:`; unprefixed legacy values are read as Blob, so old and new artifacts both resolve.
+
+**Security.**
+- Bucket is `private`; the only way in is an S3 credential held server-side (`NEON_STORAGE_ACCESS_KEY_ID` / `NEON_STORAGE_SECRET_ACCESS_KEY`, a dedicated `storage:read`+`storage:write` credential, branch-scoped to main and descendants). Secrets live only in env (local `.env`, Vercel). Revoke or rotate from the Neon Console or CLI.
+- Downloads go through `/api/jobs/:id/artifacts/:kind`: session check, then `getJobForViewer` ownership (404 on mismatch), then the server streams the object. No storage URL is returned to clients. `neonPresignGet` exists (capped at 60s) but is not used by any route.
+- Keys are validated against `jobs/<id>/<file>` before any S3 call, so a stored pathname cannot traverse to other objects.

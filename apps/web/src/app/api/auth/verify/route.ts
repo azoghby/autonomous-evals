@@ -6,8 +6,13 @@ import { SESSION_COOKIE, sessionCookieOptions } from "@/server/session";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
-  const next = safeNextPath(url.searchParams.get("next"));
-  const fail = (reason: string) => NextResponse.redirect(new URL(`/?auth_error=${reason}`, url), 303);
+  const rawNext = url.searchParams.get("next");
+  const next = safeNextPath(rawNext);
+  const fail = (reason: string) => {
+    const qs = new URLSearchParams({ auth_error: reason });
+    if (rawNext && safeNextPath(rawNext, "") !== "") qs.set("next", next);
+    return NextResponse.redirect(new URL(`/signin?${qs}`, url), 303);
+  };
   if (!token || token.length > 200) return fail("invalid");
   const result = await verifyMagicLink(token);
   if (!result.ok) return fail(result.reason);

@@ -5,17 +5,18 @@ import { readJobArtifactText } from "@ae/core/storage/blob";
 import { canViewJob, type Viewer } from "./access";
 import { getCurrentCustomer } from "./session";
 import { getJob, type JobRow } from "./job-store";
+import { summarizeIntake, type IntakeSummary } from "./intake";
 
 export { getCurrentCustomer };
 
 type Job = typeof schema.jobs.$inferSelect;
-/** Job without anything sensitive. (Credentials are in a separate table; intake is already stripped.) */
-export type PublicJob = Omit<Job, "idempotencyKey" | "workflowRunId" | "neonBranchId"> ;
+/** Job without anything sensitive: the raw intake (incl. traces) is replaced by a summary. */
+export type PublicJob = Omit<Job, "idempotencyKey" | "workflowRunId" | "neonBranchId" | "intake"> & { intakeSummary: IntakeSummary };
 
 export function toPublicJob(job: Job): PublicJob {
-  const { idempotencyKey: _i, workflowRunId: _w, neonBranchId: _n, ...rest } = job;
+  const { idempotencyKey: _i, workflowRunId: _w, neonBranchId: _n, intake, ...rest } = job;
   void _i; void _w; void _n;
-  return rest;
+  return { ...rest, intakeSummary: summarizeIntake(intake, job.package, job.traceBlobPath) };
 }
 
 export async function listMyJobs() {
