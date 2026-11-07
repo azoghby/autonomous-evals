@@ -9,10 +9,7 @@ Only this document and `tests/track-b/calendar-integration-review/**` are owned.
 No production code or existing engine tests changed. No ECC, network/provider,
 cloud, spending, outreach, push or PR work was performed.
 
-**The reproduction suite contains tests asserting wrong behavior. Green means
-those defects were reproduced, NOT acceptance.** Tests with `CHARACTERIZATION`,
-`DEFECT` or `DEFENSE GAP` in their names deliberately assert existing undesirable
-behavior. There are no expected-failure, skipped or todo tests.
+**Parent fix update:** the two defects and trusted-projection defense gap below are now fixed. The 20 review tests assert corrected behavior and pass strict compilation, with none skipped. Calendar requests are detached and validated before claims; system-prompt limits are also checked before dispatch. Report timestamps are validated and secret-screened. Confirmations require matching original/reproduction scope, outcomes, reasons and failed checks; missing/inconsistent evidence rejects, and unresolved reproductions remain unresolved even without findings. The original findings below are retained as historical evidence, not open defects. The recorded console files predate these fixes.
 
 ## Findings and proposed minimal fixes
 

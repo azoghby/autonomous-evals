@@ -51,5 +51,5 @@ try {
   const result = JSON.parse(await readFile(join(stage, 'results.json'), 'utf8'));
   const assertions = result.testResults.flatMap(f => f.assertionResults);
   if (result.testResults.length !== tests.length || !assertions.length || assertions.some(t => t.status !== 'passed')) throw new Error('Missing, failed, skipped or todo review tests');
-  console.log(`Strict review: ${tests.length} files, ${assertions.length} passed, none skipped. CHARACTERIZATION tests assert defects; green is not acceptance.`);
+  console.log(`Strict review: ${tests.length} files, ${assertions.length} passed, none skipped. Corrected regression assertions pass; production authorization remains a separate integration gate.`);
 } finally { await rm(stage, { recursive: true, force: true }); }

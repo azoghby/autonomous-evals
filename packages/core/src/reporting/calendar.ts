@@ -2,6 +2,8 @@ import { containsSecret } from '../agents/redact';
 import { FindingSchema, type CostEntry, type JobRef } from '../evals/types';
 import type { createCalendarEvaluationServices } from '../evals/calendar-integration';
 import { renderReport } from './render';
+import { canonicalJson } from '../evals/text/freeze';
+import { z } from 'zod';
 
 type CalendarReport = Awaited<ReturnType<ReturnType<typeof createCalendarEvaluationServices>['reportInput']>>;
 
@@ -15,8 +17,30 @@ export function renderCalendarReport(input: {
   if (job.package !== 'workflow_eval' || report.suite.jobId !== job.jobId || report.run.jobId !== job.jobId
     || report.run.suiteHash !== report.suite.hash || report.investigation.original.runId !== report.run.runId
     || input.costs?.some(cost => cost.jobId !== job.jobId)) throw new Error('calendar_report_identity_mismatch');
-  if (containsSecret(JSON.stringify({ job, report, costs: input.costs }), input.knownSecrets)) throw new Error('calendar_report_unsafe_evidence');
+  if (containsSecret(JSON.stringify({ job, report, costs: input.costs, generatedAt: input.generatedAt }), input.knownSecrets)) throw new Error('calendar_report_unsafe_evidence');
+  if (!z.string().datetime({ offset: true }).safeParse(input.generatedAt).success) throw new Error('calendar_report_invalid_timestamp');
+  const same = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
+  if (!same(report.findings, report.investigation.findings)) throw new Error('calendar_report_evidence_mismatch');
+  for (const reproduction of report.investigation.reproductions) {
+    const original = report.run.results.find(r => r.scenarioId === reproduction.originalScenarioId);
+    if (!original || reproduction.result.scenarioId !== original.scenarioId || reproduction.result.scope.jobId !== job.jobId
+      || reproduction.result.scope.version !== report.run.versionLabel || reproduction.result.scope.runId === original.scope.runId) {
+      throw new Error('calendar_report_evidence_mismatch');
+    }
+  }
   const findings = report.findings.map(finding => {
+    const original = report.run.results.find(r => r.scenarioId === finding.scenarioId);
+    const reproductions = report.investigation.reproductions.filter(r => r.originalScenarioId === finding.scenarioId);
+    const reproduction = reproductions[0]?.result;
+    const failedChecks = (result: NonNullable<typeof original>) => (result.reason === 'false_success' ? result.claimGrade : result.stateGrade)?.results.filter(c => !c.passed).map(c => c.check);
+    if (reproductions.length > 1 || finding.reproductions !== reproductions.length
+      || !same(finding.association.reproductionScope ?? null, reproduction?.scope ?? null)
+      || !same(finding.association.scope, original?.scope)
+      || finding.status === 'confirmed' && (!original || !reproduction || original.outcome !== 'product_failure'
+        || reproduction.outcome !== 'product_failure' || original.reason !== reproduction.reason
+        || !failedChecks(original)?.length || !same(failedChecks(original), failedChecks(reproduction)))) {
+      throw new Error('calendar_report_evidence_mismatch');
+    }
     if (finding.association.jobId !== job.jobId || finding.association.suiteHash !== report.suite.hash
       || finding.association.branchId !== report.run.branchId
       || !report.run.results.some(result => result.scenarioId === finding.scenarioId && result.scope.runId === finding.association.scope.runId)) {
@@ -39,6 +63,7 @@ export function renderCalendarReport(input: {
   // Recompute unresolved state from preserved evidence rather than trusting a caller's label.
   const status = report.investigation.pendingScenarioIds.length ? 'needs_operator'
     : report.run.results.some(r => r.outcome === 'inconclusive' || r.outcome === 'infrastructure_error')
+      || report.investigation.reproductions.some(r => r.result.outcome === 'inconclusive' || r.result.outcome === 'infrastructure_error')
       || findings.some(f => f.label === 'inconclusive') ? 'unresolved' : 'completed';
   return renderReport({ job, generatedAt: input.generatedAt, findings, operatorSummary: null,
     costs: input.costs, limitations: report.limitations, includeHtml: input.includeHtml,

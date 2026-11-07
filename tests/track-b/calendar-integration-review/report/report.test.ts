@@ -1,9 +1,4 @@
-/**
- * REVIEW CHARACTERIZATION: tests named DEFECT / DEFENSE GAP deliberately assert
- * current undesirable behavior. Green means reproduction succeeds, NOT acceptance.
- * DEFENSE GAP cases mutate a detached trusted projection: they are adapter contract
- * probes, not customer authorization exploits or arbitrary database corruption.
- */
+/** Corrected regression checks for report evidence and metadata boundaries. */
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
@@ -116,12 +111,10 @@ describe('calendar report independent review', () => {
     expect(() => render(report, generatedAt, ['Reference complete.'])).toThrow('calendar_report_unsafe_evidence');
   });
 
-  it('DEFECT: generatedAt bypasses known-secret rejection and leaks into all three artifacts', () => {
+  it('REGRESSION: generatedAt is validated and screened for known secrets', () => {
     const secret = 'ReviewKnownCredential4239053';
-    const result = render(report, secret, [secret]);
-    expect(result.json.generatedAt).toBe(secret);
-    expect(result.markdown).toContain(secret);
-    expect(result.html).toContain(secret);
+    expect(() => render(report, secret, [secret])).toThrow('unsafe_evidence');
+    expect(() => render(report, 'not-a-timestamp')).toThrow('invalid_timestamp');
   });
 
   it.each(['inconclusive', 'infrastructure_error'] as const)('zero findings cannot hide original %s execution', outcome => {
@@ -146,44 +139,35 @@ describe('calendar report independent review', () => {
     expect(result.summary).toContain('Operator reconciliation');
   });
 
-  it('DEFENSE GAP: confirmed status hides missing reproduction evidence', () => {
+  it('REGRESSION: confirmed status requires reproduction evidence', () => {
     const projection = clone(report);
     projection.investigation.reproductions = [];
-    const result = render(projection);
-    expect(result.json.evaluationStatus).toBe('completed');
-    expect(result.json.findings.every(f => f.label === 'confirmed' && f.reproduction?.reproduced === true)).toBe(true);
-    expect(result.json.details.calendar).toMatchObject({ investigation: { reproductions: [] } });
+    expect(() => render(projection)).toThrow('evidence_mismatch');
   });
 
-  it('DEFENSE GAP: confirmed label hides infrastructure outcome in actual reproduction evidence', () => {
+  it('REGRESSION: confirmation rejects infrastructure reproduction evidence', () => {
     const projection = clone(report);
     projection.investigation.reproductions[0].result.outcome = 'infrastructure_error';
     projection.investigation.reproductions[0].result.reason = 'execution_unavailable';
-    const result = render(projection);
-    expect(result.json.evaluationStatus).toBe('completed');
-    expect(result.json.findings[0].reproduction?.reproduced).toBe(true);
-    expect(result.json.details.calendar).toMatchObject({ investigation: { reproductions: [
-      { result: { outcome: 'infrastructure_error' } }, {}, {},
-    ] } });
+    expect(() => render(projection)).toThrow('evidence_mismatch');
   });
 
-  it('DEFENSE GAP: claimed reproduction scope can belong to another job', () => {
+  it('REGRESSION: claimed reproduction scope cannot belong to another job', () => {
     const projection = clone(report);
     projection.findings[0].association.reproductionScope = { jobId: 'different-job', runId: 'invented-reproduction', version: 'different-version' };
-    const result = render(projection);
-    expect(result.json.findings[0].reproduction).toMatchObject({ reproduced: true, runId: 'invented-reproduction' });
+    expect(() => render(projection)).toThrow('evidence_mismatch');
   });
 
-  it('DEFENSE GAP: zero findings hides infrastructure reproduction evidence', () => {
+  it('REGRESSION: zero findings cannot hide infrastructure reproduction evidence', () => {
     const projection = clone(report);
     projection.findings = [];
     projection.investigation.findings = [];
     projection.investigation.reproductions[0].result.outcome = 'infrastructure_error';
     projection.investigation.reproductions[0].result.reason = 'execution_unavailable';
     const result = render(projection);
-    expect(result.json.evaluationStatus).toBe('completed');
+    expect(result.json.evaluationStatus).toBe('unresolved');
     expect(result.json.findings).toEqual([]);
-    expect(result.summary).toContain('No problems');
+    expect(result.summary).toContain('No product conclusion');
   });
 
   it('rejects original finding branch mismatch', () => {

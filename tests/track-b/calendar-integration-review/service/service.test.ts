@@ -203,13 +203,13 @@ describe('independent service boundary review (PGlite, advisory locks intercepte
     expect(f.complete).toHaveBeenCalledTimes(calls);
   });
 
-  it('CHARACTERIZATION: invalid version consumes operation ID before any target call, preventing corrected request', async () => {
+  it('REGRESSION: invalid version is rejected before claiming so a corrected request can run', async () => {
     const f = setup();
     await f.api.freezeSuite(f.ctx, request);
-    await expect(f.api.runSuite(f.ctx, { ...request, versionLabel: '' })).rejects.toMatchObject({ code: 'needs_operator' });
+    await expect(f.api.runSuite(f.ctx, { ...request, versionLabel: '' })).rejects.toMatchObject({ code: 'rejected_input' });
     const key = { jobId: f.job.jobId, kind: 'calendar_run', id: request.operationId };
-    expect(await f.checkpoints.get(key)).toEqual({ state: 'ambiguous' });
-    await expect(f.restart().runSuite(f.ctx, request)).rejects.toMatchObject({ code: 'needs_operator' });
+    expect(await f.checkpoints.get(key)).toBeNull();
     expect(f.complete).not.toHaveBeenCalled();
+    expect((await f.restart().runSuite(f.ctx, request)).results).toHaveLength(12);
   });
 });
