@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("../../../server/monitoring", () => ({ runMonitoring: vi.fn(async () => ({ processed: 0, sent: 0, skipped: 0, errors: [] })) }));
+vi.mock("../../../server/follow-ups", () => ({ runFollowUps: vi.fn(async () => ({ processed: 0, sent: 0, skipped: 0, errors: [] })) }));
 import { requireCronAuth } from "./_auth";
 import { GET as monitoring } from "./monitoring/route";
 import { GET as followUps } from "./follow-ups/route";
@@ -19,7 +21,7 @@ describe("cron auth", () => {
   it("accepts the right secret", async () => {
     const res = await monitoring(req("Bearer s3cret"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ skipped: true });
+    expect(await res.json()).toMatchObject({ processed: 0, sent: 0, skipped: 0, errors: [] });
   });
   it("fails closed when CRON_SECRET is unset", () => {
     vi.stubEnv("CRON_SECRET", "");
