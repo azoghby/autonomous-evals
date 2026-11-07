@@ -72,6 +72,33 @@ sent and no contributed dataset has been validated in production.
 | Artifacts | Findings link to scenario/evidence IDs; Markdown/JSON exports are valid, optional HTML is escaped, credentials are absent, and small comparisons make no statistical-significance claims. |
 | Live path | An authorized external endpoint and real Naïve SDK are exercised. Clearly separate external customer evidence from internal fixtures. |
 
+## Available durable service entry points
+
+These are server-side modules for Track A to construct after authorization, not
+deployed routes. Migrations are artifacts and have not been applied to cloud storage.
+
+| Capability | Entry point | Required durable dependency |
+| --- | --- | --- |
+| Agent execution | `agents/session-service.ts` | PostgreSQL task CAS and aggregate job/role budget ledger from `agents/postgres-ports.ts` |
+| Text execution/replay | `evals/integration/index.ts` | `PostgresTextCheckpointStore`, authorized target/judge resolver |
+| Calendar execution/replay | `evals/calendar-integration/index.ts` | Checkpoint store, session-safe journal pool, authorized branch/suite resolver |
+| Calendar reports | `reporting/calendar.ts` | Completed rich `reportInput`; preserves incomplete status and full evidence |
+| Data acquisition | `evals/data/index.ts` | `createPostgresEvaluationDataStore(db, {tenantId, jobId, knownSecrets})`; trusted scope per job |
+| Candidate generation/registry | `evals/data/adapters/index.ts` | Durable agent runner, authenticated reviewed source registry and cost upserts |
+| Private progress chat | `reporting/chat/index.ts` | PostgreSQL conversation port, authenticated subject and authorized progress projection |
+
+Follow each module's handoff document for its separate optional migration. In particular,
+data acquisition uses `evals/data/persistence-migrations/001-evaluation-data.sql` in
+application storage. Factory construction does not authenticate a caller: Track A must
+derive tenant/job/subject from trusted server state and reject cross-job requests before
+injecting closures. No connection strings or target keys belong in artifact metadata.
+
+The data registry is configured discovery, not an implemented public search engine;
+expert requests remain unsent drafts. Text design admission now quarantines unsupported
+literal objectives from the first live fixture. A new live quality check is still required
+before considering suite design accepted; syntactic admission alone does not establish
+semantic coverage or customer suitability.
+
 ## Scope sequencing
 
 1. Trace Audit and real Naïve sessions, integrated with Track A's unpaid job-to-report path.

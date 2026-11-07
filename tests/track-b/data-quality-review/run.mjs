@@ -18,6 +18,7 @@ try {
   await rm(join(staging, 'src/evals/data/adapters'), { recursive: true, force: true });
   await cp(join(repo, 'packages/core/src/evals/types.ts'), join(staging, 'src/evals/types.ts'));
   await cp(join(repo, 'packages/core/src/agents/redact.ts'), join(staging, 'src/agents/redact.ts'));
+  await cp(join(repo, 'packages/core/src/agents/postgres-ports.ts'), join(staging, 'src/agents/postgres-ports.ts'));
   await cp(join(here, 'review.test.ts'), join(staging, 'src/evals/data/review.test.ts'));
   await symlink(deps, join(staging, 'node_modules'), 'dir');
   await writeFile(join(staging, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
