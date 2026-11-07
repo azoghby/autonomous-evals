@@ -5,6 +5,7 @@ import type { Finding, Remediation, Report, Suite } from "@ae/core/contracts/ind
 import type { RunResult } from "@ae/core/contracts/services";
 import { putJobArtifact } from "@ae/core/storage/blob";
 import { findingRowIdByKey, recordProgress, saveFindings, saveRemediation, setJobState } from "@/server/job-store";
+import { resolveBranchConnection } from "@/server/branch-connection";
 import { getEvalServices } from "@/server/services";
 import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
 
@@ -25,17 +26,17 @@ export async function auditTraceStep(jobId: string): Promise<BudgetResult<Findin
 }
 auditTraceStep.maxRetries = 1;
 
-/** Creates the per-job Neon branch. Returns the connection string for the run step only; nothing else persists it. */
-export async function createBranchStep(jobId: string): Promise<{ branchId: string; connectionString: string }> {
+/** Creates the per-job Neon branch. Returns only the branch id: step I/O is persisted in plaintext, so the connection string is never returned. */
+export async function createBranchStep(jobId: string): Promise<{ branchId: string }> {
   "use step";
   const services = await getEvalServices();
   const job = await requireJob(jobId);
-  // A previous attempt that wrote neon_branch_id but lost its result cannot hand back the connection string: recreate.
+  // A previous attempt that wrote neon_branch_id but lost its result is simply recreated.
   if (job.neonBranchId) await services.deleteJobBranch(job.neonBranchId);
   const branch = await services.createJobBranch(jobId);
   await setJobState(jobId, job.state, { neonBranchId: branch.branchId });
   await recordProgress(jobId, "branch_ready", "Isolated test environment created.");
-  return branch;
+  return { branchId: branch.branchId };
 }
 
 export async function designSuiteStep(jobId: string): Promise<BudgetResult<Suite>> {
@@ -64,7 +65,7 @@ function targetFor(intake: Awaited<ReturnType<typeof loadIntake>>, slot: Endpoin
 
 /** Runs the frozen suite against one target version. Credentials are loaded here and never leave the step. */
 export async function runSuiteStep(
-  jobId: string, suite: Suite, slot: EndpointSlot, versionLabel: string, branchConnectionString?: string,
+  jobId: string, suite: Suite, slot: EndpointSlot, versionLabel: string, branchId?: string,
 ): Promise<BudgetResult<RunResult>> {
   "use step";
   const intake = await loadIntake(jobId, true);
@@ -76,6 +77,7 @@ export async function runSuiteStep(
     }
   }
   const services = await getEvalServices();
+  const branchConnectionString = branchId ? await resolveBranchConnection(branchId) : undefined;
   const result = await withBudget(jobId, "judge", async (ctx) => {
     await ctx.recordProgress("running_suite", `Running ${suite.scenarios.length} scenario(s) against ${versionLabel}.`);
     return services.runSuite(ctx, { ...suite, versionLabel }, target, branchConnectionString);

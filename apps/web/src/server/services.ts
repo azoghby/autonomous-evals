@@ -124,6 +124,7 @@ export const mockServices: EvalServices = {
   },
   async createJobBranch(jobId) { return { branchId: `mock-branch-${jobId}`, connectionString: "postgres://mock" }; },
   async deleteJobBranch() {},
+  async getJobBranchConnection() { return "postgres://mock"; },
   async rerunFinding(_ctx: ServiceContext, finding) {
     return Finding.parse({ ...finding, reproductions: Math.min(3, finding.reproductions + 1), description: `${MOCK} rerun: ${finding.description}` });
   },

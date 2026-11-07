@@ -151,7 +151,7 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
       : [{ slot: "endpoint" as const, label: "default" }];
     const runs: RunResult[] = [];
     for (const t of targets) {
-      const r = await runSuiteStep(jobId, suite, t.slot, t.label, branch.connectionString);
+      const r = await runSuiteStep(jobId, suite, t.slot, t.label, branch.branchId);
       if (r.status === "budget_exceeded") { await pauseBudgetStep(jobId, r.message); return { stopped: "paused_budget" }; }
       runs.push(r.data);
     }
