@@ -28,8 +28,18 @@ export const PER_FINDING_CAP_CENTS: Record<Package, number> = {
   workflow_eval: 1500,
   version_comparison: 3000,
 };
-export const PAYMENT_STATUSES = ["paid", "authorized", "captured", "released"] as const;
+export const PAYMENT_STATUSES = ["paid", "authorized", "captured", "released", "needs_refund"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export interface ExpectedPayment { pricingMode: string; priceCents: number; capCents: number | null }
+
+/** Pure: does the paid amount/currency match what the quote asked for? fixed: priceCents, per_finding: capCents. */
+export function paymentMatchesQuote(payment: { amountCents: number; currency: string }, quote: ExpectedPayment): boolean {
+  if (payment.currency.toLowerCase() !== "usd") return false;
+  const expected = quote.pricingMode === "per_finding" ? quote.capCents : quote.priceCents;
+  return expected != null && payment.amountCents === expected;
+}
+
 
 /** Revenue recognised for one payment row: captured amount for per-finding, nothing while held or after release. */
 export function recognizedRevenueCents(p: { status: string; amountCents: number; capturedAmountCents: number | null }): number {

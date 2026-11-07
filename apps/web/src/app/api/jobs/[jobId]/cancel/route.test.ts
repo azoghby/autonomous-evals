@@ -4,10 +4,12 @@ const getCurrentCustomer = vi.fn();
 const selectJob = vi.fn();
 const insertValues = vi.fn(async () => undefined);
 const sendJobEvent = vi.fn(async () => undefined);
+const expireOpenCheckout = vi.fn(async () => "expired");
 const addMessage = vi.fn(async () => "m1");
 
 vi.mock("@/server/queries", () => ({ getCurrentCustomer: () => getCurrentCustomer() }));
 vi.mock("@/server/job-store", () => ({ addMessage: (...a: unknown[]) => addMessage(...a) }));
+vi.mock("@ae/core/payments/checkout", () => ({ expireOpenCheckout: (...a: unknown[]) => expireOpenCheckout(...a) }));
 vi.mock("@/workflows/events", () => ({ sendJobEvent: (...a: unknown[]) => sendJobEvent(...a) }));
 vi.mock("@/server/http", async () => {
   const { z } = await import("zod");
@@ -57,6 +59,23 @@ describe("POST /api/jobs/[jobId]/cancel", () => {
     expect(sendJobEvent).toHaveBeenCalledWith(JOB_ID, { type: "cancel", reason: "changed my mind" });
     expect(addMessage).toHaveBeenCalled();
     expect(insertValues).not.toHaveBeenCalled();
+  });
+  it("expires the open Checkout session before notifying the workflow", async () => {
+    getCurrentCustomer.mockResolvedValue(owner);
+    selectJob.mockReturnValue([{ customerId: "u1", state: "awaiting_payment" }]);
+    const order: string[] = [];
+    expireOpenCheckout.mockImplementationOnce(async () => { order.push("expire"); return "expired"; });
+    sendJobEvent.mockImplementationOnce(async () => { order.push("send"); });
+    expect((await call()).status).toBe(202);
+    expect(expireOpenCheckout).toHaveBeenCalledWith(JOB_ID);
+    expect(order).toEqual(["expire", "send"]);
+  });
+  it("still cancels when session expiry throws", async () => {
+    getCurrentCustomer.mockResolvedValue(owner);
+    selectJob.mockReturnValue([{ customerId: "u1", state: "awaiting_payment" }]);
+    expireOpenCheckout.mockRejectedValueOnce(new Error("stripe down"));
+    expect((await call()).status).toBe(202);
+    expect(sendJobEvent).toHaveBeenCalled();
   });
   it("owner gets 409 once running", async () => {
     getCurrentCustomer.mockResolvedValue(owner);

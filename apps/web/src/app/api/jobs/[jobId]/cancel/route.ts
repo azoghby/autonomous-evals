@@ -5,6 +5,7 @@ import type { JobState } from "@ae/core/contracts/index";
 import { jsonError, readJson, isUuid } from "@/server/http";
 import { getCurrentCustomer } from "@/server/queries";
 import { addMessage } from "@/server/job-store";
+import { expireOpenCheckout } from "@ae/core/payments/checkout";
 import { sendJobEvent } from "@/workflows/events";
 import { decideCancel } from "@/workflows/decisions";
 
@@ -30,6 +31,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ jobId: str
     await db().insert(schema.interventions).values({ jobId, operatorEmail: me.email, kind: "other", note: `Cancelled job: ${reason}` });
   }
   await addMessage(jobId, decision.asOperator ? "operator" : "customer", `Cancellation requested: ${reason}`);
+  // Close the open Checkout session so a cancelled job cannot still be paid (best effort; late payments are handled on arrival).
+  try { await expireOpenCheckout(jobId); } catch (err) {
+    console.error("cancel expireOpenCheckout failed", jobId, err instanceof Error ? err.message : err);
+  }
   try {
     await sendJobEvent(jobId, { type: "cancel", reason });
   } catch (err) {

@@ -8,6 +8,21 @@ import {
 const pay = (quoteVersion: number, paymentId = "11111111-1111-4111-8111-111111111111") =>
   ({ type: "payment_confirmed", paymentId, quoteVersion }) as const;
 
+describe("decidePayment amount check", () => {
+  const fixed = { pricingMode: "fixed", priceCents: 4900, capCents: null };
+  const pf = { pricingMode: "per_finding", priceCents: 4900, capCents: 1500 };
+  it("accepts matching fixed and per_finding amounts", () => {
+    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 4900, currency: "usd" }, quote: fixed })).toEqual({ action: "accept" });
+    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 1500, currency: "usd" }, quote: pf })).toEqual({ action: "accept" });
+  });
+  it("ignores wrong amount, wrong currency, and fixed amount on a per_finding quote", () => {
+    const bad = { action: "ignore", reason: "amount_mismatch" };
+    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 100, currency: "usd" }, quote: fixed })).toEqual(bad);
+    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 4900, currency: "eur" }, quote: fixed })).toEqual(bad);
+    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 4900, currency: "usd" }, quote: pf })).toEqual(bad);
+  });
+});
+
 describe("decidePayment", () => {
   it("accepts a payment for the latest quote version", () => {
     expect(decidePayment(pay(2), 2, [])).toEqual({ action: "accept" });

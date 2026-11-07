@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import type { JobEvent } from "../contracts/index";
-import { MONITORING_PRICE_CENTS_MONTHLY, perFindingCaptureCents, type PricingMode } from "../contracts/index";
+import { MONITORING_PRICE_CENTS_MONTHLY, paymentMatchesQuote, perFindingCaptureCents, type PricingMode } from "../contracts/index";
 import { getStripeMode, stripe } from "./stripe";
 
 /** Delivers an event to a job's workflow. Injected so core never depends on the web app. */
@@ -128,21 +128,104 @@ export async function recordPaymentFromSession(
 
 export type ResumeOutcome = "resumed" | "needs_review" | "not_applicable";
 
+const TERMINAL_JOB_STATES = ["cancelled", "failed", "delivered"];
+
+/**
+ * Expires the open Checkout session of the job's latest quote so a cancelled job cannot still be paid.
+ * Best effort: a missing Stripe key or an already expired/completed session is logged, never thrown
+ * (a payment that still lands is caught by the late-payment handler in confirmAndResume).
+ */
+export async function expireOpenCheckout(jobId: string): Promise<"expired" | "skipped"> {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.warn(`expireOpenCheckout: STRIPE_SECRET_KEY not set, skipping session expiry for job ${jobId}`);
+    return "skipped";
+  }
+  const [quote] = await db().select({ sessionId: schema.quotes.stripeCheckoutSessionId }).from(schema.quotes)
+    .where(eq(schema.quotes.jobId, jobId)).orderBy(desc(schema.quotes.version)).limit(1);
+  if (!quote?.sessionId) return "skipped";
+  try {
+    await stripe().checkout.sessions.expire(quote.sessionId);
+    return "expired";
+  } catch (err) {
+    // Already expired / already complete sessions reject expire(); nothing more to do here.
+    console.warn(`expireOpenCheckout: could not expire ${quote.sessionId}: ${err instanceof Error ? err.message : String(err)}`);
+    return "skipped";
+  }
+}
+
+type StrandedReason = "job_finished" | "stale_quote" | "workflow_gone" | "amount_mismatch";
+
+const STRANDED_NOTE: Record<StrandedReason, string> = {
+  job_finished: "payment arrived after the job was cancelled/failed/delivered",
+  stale_quote: "payment is for a superseded quote version",
+  workflow_gone: "payment arrived but the job workflow is no longer waiting",
+  amount_mismatch: "paid amount/currency does not match the quote; work was NOT started",
+};
+
+/**
+ * A payment that must not start (or resume) work. per_finding holds are released immediately; captured
+ * fixed payments are marked needs_refund with a refund intervention (refunds stay manual). Always stamps
+ * workflow_resumed_at so the reconcile cron stops retrying. Idempotent via the conditional status update.
+ */
+async function handleStrandedPayment(payment: PaymentRow, reason: StrandedReason): Promise<void> {
+  const perFinding = payment.status === "authorized";
+  if (perFinding && reason !== "amount_mismatch" && payment.stripePaymentIntentId) {
+    await stripe().paymentIntents.cancel(payment.stripePaymentIntentId, undefined, { idempotencyKey: `release-late:${payment.id}` });
+  }
+  const releasing = perFinding && reason !== "amount_mismatch";
+  const claimed = await db().update(schema.payments)
+    .set({ status: releasing ? "released" : payment.status === "paid" ? "needs_refund" : payment.status, ...(releasing ? { capturedAmountCents: 0 } : {}) })
+    .where(and(eq(schema.payments.id, payment.id), inArray(schema.payments.status, ["paid", "authorized"])))
+    .returning({ id: schema.payments.id });
+  if (claimed.length > 0 && !releasing) {
+    const amount = `${(payment.amountCents / 100).toFixed(2)} ${payment.currency.toUpperCase()}`;
+    const kind = payment.status === "paid" ? "refund" : "other";
+    await db().insert(schema.interventions).values({
+      jobId: payment.jobId, operatorEmail: "system", kind,
+      note: `${kind === "refund" ? "Refund needed" : "Review needed"}: ${amount} (payment ${payment.id}, PaymentIntent ${payment.stripePaymentIntentId ?? "n/a"}, quote v${payment.quoteVersion}): ${STRANDED_NOTE[reason]}.`,
+    });
+  } else if (claimed.length > 0 && releasing) {
+    await db().insert(schema.interventions).values({
+      jobId: payment.jobId, operatorEmail: "system", kind: "other",
+      note: `Released late authorization of ${(payment.amountCents / 100).toFixed(2)} ${payment.currency.toUpperCase()} (payment ${payment.id}): ${STRANDED_NOTE[reason]}.`,
+    });
+  }
+  if (reason === "workflow_gone") await flagPaymentReview(payment);
+  await db().update(schema.payments).set({ workflowResumedAt: new Date() })
+    .where(and(eq(schema.payments.id, payment.id), isNull(schema.payments.workflowResumedAt)));
+}
+
+/** Why this payment must not resume the workflow, or null if it may. */
+async function strandedReasonFor(payment: PaymentRow): Promise<StrandedReason | null> {
+  const [job] = await db().select({ state: schema.jobs.state }).from(schema.jobs).where(eq(schema.jobs.id, payment.jobId)).limit(1);
+  if (job && TERMINAL_JOB_STATES.includes(job.state)) return "job_finished";
+  const [latest] = await db().select().from(schema.quotes).where(eq(schema.quotes.jobId, payment.jobId))
+    .orderBy(desc(schema.quotes.version)).limit(1);
+  if (latest && latest.version !== payment.quoteVersion) return "stale_quote";
+  if (latest && !paymentMatchesQuote(payment, latest)) return "amount_mismatch";
+  return null;
+}
+
 /**
  * Sends payment_confirmed to the job's workflow, then stamps workflow_resumed_at. If the send throws
- * the stamp stays null so the webhook retry / reconcile cron tries again. A workflow that no longer
- * exists (cancelled / finished) moves the job to payment_review for an operator.
+ * the stamp stays null so the webhook retry / reconcile cron tries again. Payments that cannot start
+ * work (finished job, stale quote, wrong amount, workflow gone) are handled and stamped instead.
  */
 export async function confirmAndResume(payment: PaymentRow, send: SendJobEvent): Promise<ResumeOutcome> {
   if (payment.kind !== "one_time") {
     await db().update(schema.payments).set({ workflowResumedAt: new Date() }).where(eq(schema.payments.id, payment.id));
     return "not_applicable";
   }
+  const reason = await strandedReasonFor(payment);
+  if (reason) {
+    await handleStrandedPayment(payment, reason);
+    return "needs_review";
+  }
   try {
     await send(payment.jobId, { type: "payment_confirmed", paymentId: payment.id, quoteVersion: payment.quoteVersion });
   } catch (err) {
     if (err instanceof Error && err.name === "HookNotFoundError") {
-      await flagPaymentReview(payment);
+      await handleStrandedPayment(payment, "workflow_gone");
       return "needs_review";
     }
     throw err;
@@ -152,6 +235,7 @@ export async function confirmAndResume(payment: PaymentRow, send: SendJobEvent):
   return "resumed";
 }
 
+/** Moves a job still waiting on payment to payment_review so an operator sees it. No-op for any other state. */
 async function flagPaymentReview(payment: PaymentRow): Promise<void> {
   const moved = await db().update(schema.jobs).set({ state: "payment_review", updatedAt: new Date() })
     .where(and(eq(schema.jobs.id, payment.jobId), eq(schema.jobs.state, "awaiting_payment")))

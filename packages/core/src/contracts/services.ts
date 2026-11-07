@@ -26,6 +26,8 @@ export interface EvalServices {
   renderReport(ctx: ServiceContext, input: { intake: IntakeInput; findings: Finding[]; suite?: Suite; remediations?: Remediation[] }): Promise<Report>;
   createJobBranch(jobId: string): Promise<{ branchId: string; connectionString: string }>;
   deleteJobBranch(branchId: string): Promise<void>;
+  /** Resolves a branch's connection string (a secret) from its id. Call only inside steps; never persist or return it from a step. */
+  getJobBranchConnection?(branchId: string): Promise<string>;
   /** Proposes a concrete fix for a confirmed finding and verifies it by re-running the relevant frozen scenario(s) / trace re-check with the patch applied. */
   proposeAndVerifyFix(ctx: ServiceContext, input: { finding: Finding; suite?: Suite; intake: IntakeInput }): Promise<Remediation>;
   rerunFinding(ctx: ServiceContext, finding: Finding, scenario: Scenario | undefined): Promise<Finding>;

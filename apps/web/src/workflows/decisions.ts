@@ -1,4 +1,4 @@
-import type { Finding, JobEvent, JobState, Package } from "@ae/core/contracts/index";
+import { paymentMatchesQuote, type Finding, type JobEvent, type JobState, type Package } from "@ae/core/contracts/index";
 
 /** Pure decision logic for jobWorkflow, kept free of I/O so it is unit-testable. */
 
@@ -8,14 +8,26 @@ export const BRANCH_TTL_MS = 48 * 3600_000;
 
 export type PaymentDecision =
   | { action: "accept" }
-  | { action: "ignore"; reason: "quote_version_mismatch" | "duplicate" };
+  | { action: "ignore"; reason: "quote_version_mismatch" | "duplicate" | "amount_mismatch" };
 
 type PaymentEvent = Extract<JobEvent, { type: "payment_confirmed" }>;
 
-/** A payment unlocks the job only if it is for the latest quote and not a replay of one already seen. */
-export function decidePayment(event: PaymentEvent, latestQuoteVersion: number, seenPaymentIds: readonly string[]): PaymentDecision {
+export interface PaymentAmountCheck {
+  payment: { amountCents: number; currency: string };
+  quote: { pricingMode: string; priceCents: number; capCents: number | null };
+}
+
+/**
+ * A payment unlocks the job only if it is for the latest quote, not a replay, and (when `amountCheck`
+ * is supplied) its amount/currency matches the quote: fixed = priceCents, per_finding = capCents, usd.
+ * confirmAndResume enforces the same rule before the event is ever sent.
+ */
+export function decidePayment(
+  event: PaymentEvent, latestQuoteVersion: number, seenPaymentIds: readonly string[], amountCheck?: PaymentAmountCheck,
+): PaymentDecision {
   if (seenPaymentIds.includes(event.paymentId)) return { action: "ignore", reason: "duplicate" };
   if (event.quoteVersion !== latestQuoteVersion) return { action: "ignore", reason: "quote_version_mismatch" };
+  if (amountCheck && !paymentMatchesQuote(amountCheck.payment, amountCheck.quote)) return { action: "ignore", reason: "amount_mismatch" };
   return { action: "accept" };
 }
 
