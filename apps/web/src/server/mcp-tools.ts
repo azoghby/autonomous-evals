@@ -18,6 +18,7 @@ import { sendJobEvent } from "@/workflows/events";
 import { rerunFindingForJob, submitClarificationAnswer } from "./job-actions";
 import type { Viewer } from "./access";
 import { sampleBundle } from "@/app/sample/sample-report";
+import { x402PayPath } from "@ae/core/payments/x402";
 
 /** Identity of the API key's owner. Always a non-operator viewer: keys never get operator powers. */
 export interface McpCaller { customerId: string; email: string; origin: string }
@@ -241,7 +242,20 @@ export async function acceptQuote(c: McpCaller, jobId: string, quoteVersion: num
     jobId, quoteVersion, pricingMode, capCents, checkoutUrl,
     pricing: pricingOptions(quote.package, quote.priceCents)[pricingMode],
     instructions: "Open checkoutUrl in a browser (a human or payment-capable agent) and pay with Stripe. Card data is never sent over MCP. Poll get_job until state leaves 'quoted'/'awaiting_payment'.",
+    ...x402Option(c, jobId, pricingMode, data.job.environment),
   });
+}
+
+/** Agent-native alternative to Stripe: x402 (HTTP 402 + USDC), Base Sepolia testnet, fixed pricing, test jobs only. */
+function x402Option(c: McpCaller, jobId: string, pricingMode: PricingMode, environment: string) {
+  if (!process.env.X402_PAY_TO || environment !== "test" || pricingMode !== "fixed") return {};
+  return {
+    payWithX402: {
+      url: `${c.origin}${x402PayPath(jobId)}`, method: "POST", network: "eip155:84532 (Base Sepolia testnet)", asset: "USDC",
+      auth: "Authorization: Bearer <same API key as MCP>",
+      howTo: "POST with no payment header -> 402 with PAYMENT-REQUIRED (x402 v2). Sign with an x402 client (e.g. @x402/fetch + @x402/evm ExactEvmScheme) and retry with PAYMENT-SIGNATURE. 200 = settled on-chain; the job resumes automatically. Use either this or checkoutUrl, not both.",
+    },
+  };
 }
 
 export async function cancelJob(c: McpCaller, jobId: string, reason?: string): Promise<McpToolResult> {

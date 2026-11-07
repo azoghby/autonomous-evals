@@ -123,3 +123,32 @@ describe("amount verification", () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
+
+describe("x402 (USDC) payments through confirmAndResume", () => {
+  const x402 = (over: Partial<PaymentRow> = {}) =>
+    payment({ currency: "usdc", stripePaymentIntentId: null, stripeCheckoutSessionId: `x402:eip155:84532:0x${"cd".repeat(32)}`, ...over });
+  it("late x402 payment after cancel is marked needs_refund with a refund intervention, never resumed", async () => {
+    selects = [[{ state: "cancelled" }]];
+    const send = vi.fn();
+    expect(await confirmAndResume(x402(), send)).toBe("needs_review");
+    expect(updates[0]).toMatchObject({ status: "needs_refund" });
+    expect(inserts[0]).toMatchObject({ jobId: "j1", kind: "refund" });
+    expect(String(inserts[0]!.note)).toContain("49.00 USDC");
+    expect(stripeMock.paymentIntents.cancel).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(stamped()).toBe(true);
+  });
+  it("a matching USDC amount resumes the job like a card payment", async () => {
+    selects = [[{ state: "awaiting_payment" }], [quote()]];
+    const send = vi.fn();
+    expect(await confirmAndResume(x402(), send)).toBe("resumed");
+    expect(send).toHaveBeenCalledWith("j1", { type: "payment_confirmed", paymentId: "p1", quoteVersion: 1 });
+  });
+  it("a short USDC amount is an amount_mismatch (needs_refund), never resumed", async () => {
+    selects = [[{ state: "awaiting_payment" }], [quote()]];
+    const send = vi.fn();
+    expect(await confirmAndResume(x402({ amountCents: 4800 }), send)).toBe("needs_review");
+    expect(updates[0]).toMatchObject({ status: "needs_refund" });
+    expect(send).not.toHaveBeenCalled();
+  });
+});
