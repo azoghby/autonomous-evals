@@ -360,3 +360,15 @@ export const apiKeys = pgTable("api_keys", {
   revokedAt: ts("revoked_at"),
   createdAt,
 }, (t) => [uniqueIndex("api_keys_hash_uq").on(t.keyHash), index("api_keys_customer_idx").on(t.customerId)]);
+
+/** Opt-in public share link per job. Only the sha256 hash of the token is stored; plaintext is returned once. */
+export const jobShares = pgTable("job_shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id),
+  tokenHash: text("token_hash").notNull(),
+  createdAt,
+  revokedAt: ts("revoked_at"),
+}, (t) => [
+  uniqueIndex("job_shares_job_uq").on(t.jobId),
+  uniqueIndex("job_shares_token_uq").on(t.tokenHash),
+]);
