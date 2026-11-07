@@ -32,6 +32,21 @@ export async function listMyJobs() {
 
 export interface JobReport { summary: string; markdown: string }
 
+/** Reports are stored as plain markdown; derive the summary from a "Summary" section, else the first paragraph. */
+export function summaryFromMarkdown(md: string): string {
+  const lines = md.split(/\r?\n/);
+  const idx = lines.findIndex((l) => /^#{1,3}\s+(executive\s+)?summary\b/i.test(l.trim()));
+  const start = idx >= 0 ? idx + 1 : 0;
+  const para: string[] = [];
+  for (const line of lines.slice(start)) {
+    const t = line.trim();
+    if (t.startsWith("#")) { if (para.length) break; continue; }
+    if (!t) { if (para.length) break; continue; }
+    para.push(t);
+  }
+  return para.join(" ").slice(0, 1200);
+}
+
 async function loadReport(job: JobRow): Promise<JobReport | undefined> {
   if (!job.reportBlobPath) return undefined;
   try {
@@ -43,7 +58,7 @@ async function loadReport(job: JobRow): Promise<JobReport | undefined> {
         return { summary: typeof parsed.summary === "string" ? parsed.summary : "", markdown: parsed.markdown };
       }
     } catch { /* plain markdown */ }
-    return { summary: "", markdown: raw };
+    return { summary: summaryFromMarkdown(raw), markdown: raw };
   } catch {
     return undefined;
   }

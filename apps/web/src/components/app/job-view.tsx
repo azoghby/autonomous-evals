@@ -34,7 +34,7 @@ export function JobView({ jobId }: { jobId: string }) {
   const lastState = useRef<JobState | null>(null);
 
   const detailState = data?.job.state as JobState | undefined;
-  const shouldPoll = !!detailState && (POLLING_STATES.has(detailState) || (detailState === "awaiting_payment" && paid));
+  const shouldPoll = !!detailState && (POLLING_STATES.has(detailState) || detailState === "draft" || (detailState === "awaiting_payment" && paid));
   // Neon Realtime with automatic fallback to 3s polling of /api/jobs/:id/progress.
   const feed = useLiveJob(jobId, shouldPoll);
   const live = feed.state ? { state: feed.state, progress: feed.progress ?? [] } : null;
