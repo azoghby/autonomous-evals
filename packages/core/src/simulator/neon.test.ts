@@ -1,6 +1,6 @@
 import { it, expect, vi } from 'vitest';
 import { NeonBranchService, type BranchLedger, type BranchOwnership, type NeonApi } from './neon.js';
-import { createBranchServices } from './adapters.js';
+import { BranchCleanupPendingError, createBranchServices } from './adapters.js';
 function fixture() {
   let record: BranchOwnership | undefined;
   const ledger: BranchLedger = { withJobLock: async (_job, fn) => fn(record, async r => { record = structuredClone(r); }) };
@@ -49,5 +49,16 @@ it('contract adapters resolve credentials only for owned branch and reject arbit
   const services = createBranchServices({ service: f.service, findOwnedBranch: async id => f.getRecord()?.branchId === id ? f.getRecord() : undefined, connectionString });
   await expect(services.deleteJobBranch('br-unowned')).rejects.toThrow('branch_not_owned'); expect(f.api.call).not.toHaveBeenCalled();
   expect(await services.createJobBranch('job')).toMatchObject({ branchId: 'br-owned' });
-  expect(connectionString).toHaveBeenCalledTimes(1); await services.deleteJobBranch('br-owned');
+  expect(connectionString).toHaveBeenCalledTimes(1);
+  await expect(services.deleteJobBranch('br-owned')).rejects.toBeInstanceOf(BranchCleanupPendingError);
+  await expect(services.deleteJobBranch('br-owned')).resolves.toBeUndefined();
+  await expect(services.deleteJobBranch('br-owned')).resolves.toBeUndefined();
+  expect(vi.mocked(f.api.call).mock.calls.filter(([method]) => method === 'DELETE')).toHaveLength(1);
+});
+it('keeps adapter cleanup pending while the owned branch remains visible', async () => {
+  const f = fixture(); await f.service.createJobBranch('job');
+  vi.mocked(f.api.call).mockImplementation(async method => method === 'GET' ? { status: 200, body: { branch: f.getBranch() } } : { status: 200 });
+  const services = createBranchServices({ service: f.service, findOwnedBranch: async () => f.getRecord(), connectionString: async () => '' });
+  for (let i = 0; i < 3; i++) await expect(services.deleteJobBranch('br-owned')).rejects.toMatchObject({ code: 'branch_cleanup_pending' });
+  expect(vi.mocked(f.api.call).mock.calls.filter(([method]) => method === 'DELETE')).toHaveLength(1);
 });

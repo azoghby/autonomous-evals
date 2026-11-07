@@ -67,7 +67,7 @@ describe('branch services against Track A signatures', () => {
     expect(calls.deleted).toEqual([jobId]);
   });
 
-  it('KNOWN GAP: delete resolves void, so accepted-versus-confirmed deletion is not reportable to Track A', async () => {
+  it('KNOWN GAP: delete resolves void without a typed pending result (adapter uses a pending error)', async () => {
     const { services } = harness();
     expect(await services.deleteJobBranch('br-job1')).toBeUndefined();
   });

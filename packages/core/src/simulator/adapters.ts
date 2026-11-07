@@ -1,4 +1,9 @@
 import type { BranchOwnership, NeonBranchService } from './neon.js';
+/** Retry this observation in a later Workflow step; the service will not repeat an accepted DELETE. */
+export class BranchCleanupPendingError extends Error {
+  readonly code = 'branch_cleanup_pending';
+  constructor() { super('branch_cleanup_pending'); this.name = 'BranchCleanupPendingError'; }
+}
 /** Track A wires durable ownership lookup and branch-scoped connection URI retrieval. */
 export function createBranchServices(input: {
   service: NeonBranchService;
@@ -18,7 +23,8 @@ export function createBranchServices(input: {
     async deleteJobBranch(branchId: string): Promise<void> {
       const owned = await input.findOwnedBranch(branchId);
       if (!owned || owned.branchId !== branchId) throw new Error('branch_not_owned');
-      await input.service.deleteJobBranch(owned.jobId);
+      const result = await input.service.deleteJobBranch(owned.jobId);
+      if (result.state === 'delete_requested') throw new BranchCleanupPendingError();
     },
   };
 }
