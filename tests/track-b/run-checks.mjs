@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../..');
 const source = join(repo, 'packages/core/src');
-const owned = ['agents', 'evals', 'reporting', 'targets', 'simulator', 'monitoring'];
+const owned = ['agents', 'evals', 'reporting', 'targets', 'simulator', 'monitoring', 'judges'];
 const present = await readdir(source).catch((error) => {
   if (error.code === 'ENOENT') return [];
   throw error;
