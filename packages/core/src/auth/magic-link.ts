@@ -1,6 +1,6 @@
 import { and, eq, isNull, gt, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
-import { sendEmail } from "./email";
+import { sendEmail, isEmailConfigured } from "./email";
 import {
   MAGIC_LINK_TTL_MS, SESSION_TTL_MS, hashToken, newToken, normalizeEmail, checkMagicLink,
 } from "./tokens";
@@ -8,7 +8,7 @@ import {
 export { isOperator } from "./tokens";
 
 const devLinksEnabled = () =>
-  process.env.AUTH_DEV_LINKS === "1" || (!process.env.RESEND_API_KEY && process.env.NODE_ENV !== "production");
+  process.env.AUTH_DEV_LINKS === "1" || (!isEmailConfigured() && process.env.NODE_ENV !== "production");
 
 function appOrigin(): string {
   return process.env.APP_URL
@@ -27,6 +27,7 @@ export async function requestMagicLink(rawEmail: string, next?: string): Promise
   if (devLinksEnabled()) return { devLink: link };
   await sendEmail({
     to: email,
+    purpose: "auth",
     subject: "Your sign-in link",
     text: `Sign in to Autonomous Evals: ${link}\n\nThis link expires in 15 minutes and works once.`,
   });

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { sendEmail } from "@ae/core/auth/email";
 import { recordProgress } from "@/server/job-store";
+import { recordEmailThread } from "@/server/email-threads";
 
 /** Emails the customer. A failed email never fails the job (the report is already delivered); it is logged as progress. */
 export async function notifyCustomerStep(jobId: string): Promise<void> {
@@ -13,11 +14,13 @@ export async function notifyCustomerStep(jobId: string): Promise<void> {
   const base = (process.env.APP_URL ?? "").replace(/\/$/, "");
   const link = `${base}/jobs/${jobId}`;
   try {
-    await sendEmail({
+    const sent = await sendEmail({
+      purpose: "commercial",
       to: row.email,
       subject: row.isMock ? "[MOCK] Your Autonomous Evals report is ready" : "Your Autonomous Evals report is ready",
       text: `Your report is ready. Sign in to view findings and evidence:\n\n${link}\n\nCredentials you provided are deleted 24 hours after delivery.`,
     });
+    await recordEmailThread(sent.threadId, "job", { jobId });
     await recordProgress(jobId, "customer_notified", "Delivery email sent.");
   } catch (err) {
     console.error("notifyCustomerStep email failed", jobId, err instanceof Error ? err.message : err);

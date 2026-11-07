@@ -29,6 +29,13 @@
       "when": 1794085821334,
       "tag": "0003_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794086137760,
+      "tag": "0004_email_threads",
+      "breakpoints": true
     }
   ]
 }

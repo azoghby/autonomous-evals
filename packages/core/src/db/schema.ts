@@ -269,6 +269,15 @@ export const expertResponses = pgTable("expert_responses", {
   createdAt,
 }, (t) => [index("expert_responses_engagement_idx").on(t.engagementId)]);
 
+/** Maps an AgentMail thread to the job / expert engagement it belongs to, so inbound replies can be routed. */
+export const emailThreads = pgTable("email_threads", {
+  threadId: text("thread_id").primaryKey(),
+  jobId: uuid("job_id").references(() => jobs.id),
+  expertEngagementId: uuid("expert_engagement_id").references(() => expertEngagements.id),
+  purpose: text("purpose").notNull(), // auth | commercial | job | expert_outreach
+  createdAt,
+}, (t) => [index("email_threads_job_idx").on(t.jobId), index("email_threads_engagement_idx").on(t.expertEngagementId)]);
+
 export const contactSuppressions = pgTable("contact_suppressions", {
   id: uuid("id").primaryKey().defaultRandom(),
   /** Stored lowercased. */

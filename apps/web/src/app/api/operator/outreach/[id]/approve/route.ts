@@ -1,8 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
-import { sendEmail } from "@ae/core/auth/email";
+import { sendEmail, isEmailConfigured } from "@ae/core/auth/email";
+import { isAgentMailConfigured } from "@ae/core/email/agentmail";
 import { jsonError, requireOperator, isUuid } from "@/server/http";
 import { guardOutreachSend } from "@/server/experts";
+import { recordEmailThread } from "@/server/email-threads";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireOperator();
@@ -32,11 +34,16 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 
   // Founder approval is recorded; send only when email is configured. Failure leaves the draft "approved" (retryable by operator).
   let sent = false, sendError: string | undefined;
-  if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
+  if (isAgentMailConfigured() || (isEmailConfigured() && process.env.EMAIL_FROM)) {
     try {
-      await sendEmail({ to: draft.toEmail, subject: draft.subject, text: draft.body });
+      const sentMail = await sendEmail({ purpose: "commercial", to: draft.toEmail, subject: draft.subject, text: draft.body });
       await db().update(schema.outreachDrafts).set({ status: "sent", sentAt: new Date() }).where(eq(schema.outreachDrafts.id, id));
       sent = true;
+      try {
+        const [engagement] = await db().select({ id: schema.expertEngagements.id }).from(schema.expertEngagements)
+          .where(eq(schema.expertEngagements.outreachDraftId, id)).limit(1);
+        if (engagement) await recordEmailThread(sentMail.threadId, "expert_outreach", { expertEngagementId: engagement.id });
+      } catch (err) { console.error("record outreach thread failed", err); }
     } catch (err) {
       sendError = err instanceof Error ? err.message : "send failed";
       console.error("outreach send failed", err);
