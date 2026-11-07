@@ -120,6 +120,36 @@ export function outputJsonSchema(schema: z.ZodType): Record<string, unknown> {
   return json;
 }
 
+/** Object key order is not identity (notably after a jsonb round trip). Arrays stay ordered. */
+function canonicalJson(value: unknown): string {
+  if (value === undefined) return "undefined";
+  if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : canonicalJson(v))).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    return `{${Object.keys(obj).filter((k) => obj[k] !== undefined).sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** `required` is a set at schema nodes; defaults, examples and tuple arrays remain exact. */
+function stableSchema(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const schema = { ...(value as Record<string, unknown>) };
+  for (const [key, child] of Object.entries(schema)) {
+    if (key === "required" && Array.isArray(child) && child.every((v) => typeof v === "string")) {
+      schema[key] = [...child].sort();
+    } else if (["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"].includes(key) && child && typeof child === "object" && !Array.isArray(child)) {
+      schema[key] = Object.fromEntries(Object.entries(child).map(([name, sub]) => [name, stableSchema(sub)]));
+    } else if (["allOf", "anyOf", "oneOf", "prefixItems"].includes(key) && Array.isArray(child)) {
+      schema[key] = child.map(stableSchema);
+    } else if (["items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems"].includes(key)) {
+      schema[key] = stableSchema(child);
+    }
+  }
+  return schema;
+}
+
 const zodIssues = (error: z.ZodError): string[] =>
   error.issues.slice(0, 20).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`);
 
@@ -191,23 +221,7 @@ export class AgentSessionService {
     }
 
     // 3. Persist intent before any network call.
-    const requestBody: NaiveSessionCreateBody = {
-      agent_id: agent.agentId,
-      message: spec.message,
-      ...(agent.agentVersion !== undefined ? { agent_version: agent.agentVersion } : {}),
-      budget_micro_usd: spec.budgetMicroUsd,
-      output_schema: outputJsonSchema(spec.output.schema),
-      structured_output_required: true,
-      metadata: {
-        ae_task_key: taskKey,
-        ae_job_id: spec.job.jobId,
-        ae_role: spec.role,
-        ae_purpose: spec.purpose,
-        ae_output: spec.output.name,
-        ae_environment: spec.job.environment,
-        ae_fixture: spec.job.isFixture,
-      },
-    };
+    const requestBody = this.requestBodyFor(spec, taskKey);
     const now = this.clock.now();
     const record: AgentTaskRecord = {
       taskKey,
@@ -244,7 +258,69 @@ export class AgentSessionService {
 
   // -------------------------------------------------------------------------
 
+  /** The exact create body for a spec. Also used on resume to prove the stored row answers this request. */
+  private requestBodyFor<T>(spec: AgentTaskSpec<T>, taskKey: string): NaiveSessionCreateBody {
+    const agent = this.deps.directory[spec.role];
+    return {
+      agent_id: agent.agentId,
+      message: spec.message,
+      ...(agent.agentVersion !== undefined ? { agent_version: agent.agentVersion } : {}),
+      budget_micro_usd: spec.budgetMicroUsd,
+      output_schema: outputJsonSchema(spec.output.schema),
+      structured_output_required: true,
+      metadata: {
+        ae_task_key: taskKey,
+        ae_job_id: spec.job.jobId,
+        ae_role: spec.role,
+        ae_purpose: spec.purpose,
+        ae_output: spec.output.name,
+        ae_environment: spec.job.environment,
+        ae_fixture: spec.job.isFixture,
+        ae_package: spec.job.package,
+        ae_job_cap_micro_usd: spec.jobCapMicroUsd ?? PRICE_TABLE[spec.job.package].jobBudgetMicroUsd,
+      },
+    };
+  }
+
+  /**
+   * A task key names a task, not its input. Before any resume, recovery or stored-result reuse, the
+   * durable request body must match the one this spec would send. Otherwise a redeploy with a changed
+   * prompt, schema, agent or budget (or a reused job id) would get another request's answer.
+   * On mismatch nothing is written, reserved, settled or sent: the stored row stays as evidence.
+   */
+  private inputMismatch<T>(rec: AgentTaskRecord, spec: AgentTaskSpec<T>): string[] {
+    const want = this.requestBodyFor(spec, rec.taskKey) as unknown as Record<string, unknown>;
+    const have = (rec.requestBody ?? {}) as unknown as Record<string, unknown>;
+    // Older durable bodies predate these metadata fields. Compare every identity field they
+    // do contain, without changing the stored body (same-key replays must stay byte compatible).
+    const metadata = { ...(want.metadata as Record<string, unknown>) };
+    const storedMetadata = (have.metadata ?? {}) as Record<string, unknown>;
+    for (const key of ["ae_package", "ae_job_cap_micro_usd"]) {
+      if (!(key in storedMetadata)) delete metadata[key];
+    }
+    want.metadata = metadata;
+    const identity = (field: string, body: Record<string, unknown>) =>
+      canonicalJson(field === "output_schema" ? stableSchema(body[field]) : body[field]);
+    const fields = [...new Set([...Object.keys(have), ...Object.keys(want)])].sort();
+    return fields.filter((f) => identity(f, have) !== identity(f, want));
+  }
+
+  private mismatchedOutcome<T>(rec: AgentTaskRecord, spec: AgentTaskSpec<T>): AgentTaskOutcome<T> | null {
+    const changed = this.inputMismatch(rec, spec);
+    if (changed.length === 0) return null;
+    this.log.error("agent_task.input_changed", { taskKey: rec.taskKey, state: rec.state, fields: changed });
+    return {
+      status: "needs_operator",
+      taskKey: rec.taskKey,
+      code: "task_input_changed",
+      message: `stored task was created for a different request (${changed.join(", ")}); bump the attempt to run the new request.`,
+      sessionIds: rec.sessionId ? [rec.sessionId] : [],
+    };
+  }
+
   private async resume<T>(rec: AgentTaskRecord, spec: AgentTaskSpec<T>): Promise<AgentTaskOutcome<T>> {
+    const mismatch = this.mismatchedOutcome(rec, spec);
+    if (mismatch) return mismatch;
     switch (rec.state) {
       case "created":
         return this.poll(rec, spec);
@@ -306,6 +382,10 @@ export class AgentSessionService {
     });
     if (!saved) {
       const latest = await this.deps.store.get(rec.taskKey);
+      if (latest) {
+        const mismatch = this.mismatchedOutcome(latest, spec);
+        if (mismatch) return mismatch;
+      }
       if (latest?.sessionId && latest.sessionId !== snap.id) {
         return this.escalate(latest, spec, "duplicate_sessions", "two sessions exist for one task", [latest.sessionId, snap.id]);
       }
@@ -483,6 +563,8 @@ export class AgentSessionService {
   private async reread<T>(taskKey: string, spec: AgentTaskSpec<T>): Promise<AgentTaskOutcome<T>> {
     const latest = await this.deps.store.get(taskKey);
     if (!latest) throw new Error(`agent task ${taskKey} disappeared`);
+    const mismatch = this.mismatchedOutcome(latest, spec);
+    if (mismatch) return mismatch;
     if (latest.state === "creating" || latest.state === "ambiguous") {
       return { status: "pending", taskKey, reason: "create_in_progress_elsewhere", sessionId: latest.sessionId, retryAfterMs: 5_000 };
     }
