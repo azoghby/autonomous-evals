@@ -7,7 +7,7 @@ export function ErrorState({ title = "Something went wrong", message, action }: 
       <span className="text-danger">
         <TriangleAlert size={22} aria-hidden />
       </span>
-      <h3 className="text-lg font-medium text-fg">{title}</h3>
+      <h3 className="text-lg font-normal text-fg">{title}</h3>
       {message && <p className="max-w-sm text-sm text-muted">{message}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>

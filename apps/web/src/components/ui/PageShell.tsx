@@ -1,16 +1,15 @@
 import type { ReactNode } from "react";
 import { cn } from "./cn";
-import { BlueLight } from "./RibbedGlow";
 import { TopBar, type NavItem } from "./TopBar";
 
 const APP_NAV: NavItem[] = [
-  { label: "Start", href: "/start" },
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "How it works", href: "/#how" },
   { label: "Sample report", href: "/sample" },
   { label: "Pricing", href: "/#pricing" },
+  { label: "Experts", href: "/experts" },
 ];
 
-/** App-page frame: black background, faint blue light, top bar, and a centred <main>. */
+/** App-page frame: black page, sticky TopBar, and <main id="main"> on the shared container (left-aligned; `narrow` caps width at ~760px). */
 export function PageShell({
   children,
   active,
@@ -21,16 +20,15 @@ export function PageShell({
   children: ReactNode;
   active?: string;
   nav?: NavItem[];
-  /** Constrain content to a reading-width column. */
+  /** Cap content at ~760px, still aligned to the container's left edge. */
   narrow?: boolean;
   className?: string;
 }) {
   return (
-    <div className="relative isolate min-h-screen overflow-x-clip bg-bg text-fg">
-      <BlueLight dim className="fixed" />
+    <div className="relative min-h-screen overflow-x-clip bg-bg text-fg">
       <TopBar nav={nav} active={active} />
-      <main id="main" tabIndex={-1} className={cn("outline-none ","relative z-10 mx-auto w-full px-5 pb-24 pt-6 sm:px-8", narrow ? "max-w-2xl" : "max-w-5xl", className)}>
-        {children}
+      <main id="main" tabIndex={-1} className="container-x relative z-10 pb-32 pt-10 outline-none sm:pt-12">
+        <div className={cn("w-full", narrow && "max-w-[760px]", className)}>{children}</div>
       </main>
     </div>
   );

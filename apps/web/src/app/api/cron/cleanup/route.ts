@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { requireCronAuth } from "../_auth";
+const { jobGithubTargets } = schema;
 import { getEvalServices } from "../../../../server/services";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,10 @@ export async function GET(request: Request) {
   const deleted = await db().delete(schema.jobCredentials)
     .where(inArray(schema.jobCredentials.jobId, expiredCreds)).returning({ id: schema.jobCredentials.jobId });
 
+  // GitHub PATs follow the same deadline (expiry is set to the job credential deadline when saved).
+  const githubTokens = await db().delete(jobGithubTargets)
+    .where(lt(jobGithubTargets.tokenExpiresAt, now)).returning({ id: jobGithubTargets.jobId });
+
   let branchesDeleted = 0;
   const due = await db().select({ id: schema.jobs.id, branch: schema.jobs.neonBranchId }).from(schema.jobs)
     .where(and(isNotNull(schema.jobs.neonBranchId), isNotNull(schema.jobs.branchDeleteAfter), lt(schema.jobs.branchDeleteAfter, now)));
@@ -32,5 +37,5 @@ export async function GET(request: Request) {
       }
     }
   }
-  return Response.json({ credentialsDeleted: deleted.length, branchesDeleted, errors }, { status: errors.length ? 500 : 200 });
+  return Response.json({ credentialsDeleted: deleted.length, githubTokensDeleted: githubTokens.length, branchesDeleted, errors }, { status: errors.length ? 500 : 200 });
 }

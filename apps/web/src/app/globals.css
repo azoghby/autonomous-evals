@@ -1,38 +1,60 @@
 @import "tailwindcss";
 
-/* Design system v3 — black / white / lightning blue. Flat, hairline, no glass. */
+/* Design system v4 — Precision Black. See docs/DESIGN_V4.md. Black / white / electric blue, hairlines, 4px radius. */
 :root {
-  --bg: #0a0a0b;
-  --bg-raised: #101012;
+  --bg: #000000;
+  --bg-band: #0b0c0e;
+  --bg-raised: #111214;
+  --bg-hover: #17181b;
   --bg-sunken: #000000;
   --fg: #ffffff;
-  --muted: #a1a1aa;
-  --subtle: #8a8a94; /* >=4.5:1 on #0a0a0b and #101012 */
-  --line: rgb(255 255 255 / 0.1);
-  --line-strong: rgb(255 255 255 / 0.18);
-  --accent: #2f6bff;
-  --accent-bright: #5b8cff;
-  --accent-deep: #1f55e0;
-  --accent-glow: rgb(47 107 255 / 0.35);
-  --ok: #4ade80;
+  --fg-2: #c9cbcf;
+  --muted: #94979e;
+  --subtle: #797d86; /* 4.9:1 on black, 4.6:1 on bg-raised */
+  --faint: #303236; /* decorative only (giant numerals) */
+  --line: #1f2023;
+  --line-2: #2a2c30;
+  --line-3: #45484e;
+  --line-strong: #45484e;
+  --accent: #2a5fff;
+  --accent-hover: #3d6eff;
+  --accent-bright: #6b97ff;
+  --accent-text: #6b97ff;
+  --accent-deep: #1f4de0;
+  --accent-soft: rgb(42 95 255 / 0.12);
+  --accent-glow: rgb(42 95 255 / 0.3);
+  --ok: #3dd68c;
   --warn: #f5b84b;
-  --danger: #f06a5f;
-  --radius-ctl: 8px;
-  --radius-card: 8px;
+  --danger: #ff6b5e;
+  --radius-ctl: 4px;
+  --radius-card: 4px;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-hover: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 150ms;
+  --dur-base: 240ms;
+  --dur-slow: 480ms;
 }
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-bg-band: var(--bg-band);
   --color-bg-raised: var(--bg-raised);
+  --color-bg-hover: var(--bg-hover);
   --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
   --color-muted: var(--muted);
   --color-subtle: var(--subtle);
+  --color-faint: var(--faint);
   --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
+  --color-line-2: var(--line-2);
+  --color-line-3: var(--line-3);
+  --color-line-strong: var(--line-3);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-bright: var(--accent-bright);
+  --color-accent-text: var(--accent-text);
   --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
@@ -41,17 +63,62 @@
 }
 
 html, body { background: var(--bg); color: var(--fg); }
-body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-sans); font-weight: 400; font-size: 15px; line-height: 1.6; letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4, h5, h6, strong, b, th { font-weight: inherit; }
 
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-:focus-visible { outline-color: var(--accent-bright); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 ::selection { background: var(--accent); color: #fff; }
+
+/* ---- Layout ---- */
+.container-x { width: 100%; max-width: 1440px; margin-inline: auto; padding-inline: 20px; }
+@media (min-width: 640px) { .container-x { padding-inline: 32px; } }
+
+/* ---- Type scale (weights 400/500 only) ---- */
+.t-display { font-size: clamp(48px, 8.4vw, 128px); line-height: 0.96; letter-spacing: -0.045em; font-weight: 400; }
+.t-h1 { font-size: clamp(36px, 4.4vw, 56px); line-height: 1.08; letter-spacing: -0.04em; font-weight: 400; }
+.t-h2 { font-size: clamp(28px, 3.2vw, 44px); line-height: 1.12; letter-spacing: -0.04em; font-weight: 400; }
+.t-h3 { font-size: clamp(20px, 1.6vw, 24px); line-height: 1.3; letter-spacing: -0.02em; font-weight: 400; }
+.t-h4 { font-size: 16px; line-height: 1.35; letter-spacing: -0.01em; font-weight: 500; }
+.t-lead { font-size: 18px; line-height: 1.55; letter-spacing: -0.01em; font-weight: 400; color: var(--muted); }
+.t-body { font-size: 15px; line-height: 1.6; letter-spacing: -0.01em; }
+.t-small { font-size: 13px; line-height: 1.45; letter-spacing: 0; }
+.t-eyebrow { font-family: var(--font-mono); font-size: 12px; line-height: 1; letter-spacing: 0; text-transform: uppercase; font-weight: 400; }
+.t-numeral { font-family: var(--font-mono); font-size: clamp(72px, 9vw, 128px); line-height: 1; letter-spacing: -0.04em; font-weight: 400; color: var(--faint); }
+.t-data { font-family: var(--font-mono); font-size: 13px; line-height: 1.45; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+/* ---- Form controls: use on native <input>/<select>/<textarea> ---- */
+.input, .select {
+  width: 100%; height: 40px; padding: 0 12px; border-radius: 4px;
+  background: var(--bg-raised); color: var(--fg);
+  border: 1px solid var(--line-2); font: inherit; font-size: 15px; letter-spacing: -0.01em;
+  transition: border-color var(--dur-fast) var(--ease-hover), box-shadow var(--dur-fast) var(--ease-hover);
+}
+textarea.input { height: auto; min-height: 112px; padding: 10px 12px; resize: vertical; }
+.select { appearance: none; padding-right: 36px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%2394979E' stroke-width='1.5'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; }
+.input::placeholder { color: var(--subtle); }
+.input:hover, .select:hover { border-color: var(--line-3); }
+.input:focus-visible, .select:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgb(42 95 255 / 0.25); }
+.input[aria-invalid="true"], .select[aria-invalid="true"] { border-color: var(--danger); }
+.input:disabled, .select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- Eyebrow marker, Frame ticks ---- */
+.eyebrow-mark { width: 0; height: 0; flex: none; border-left: 6px solid var(--accent); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.frame { position: relative; border: 1px solid var(--line-2); background: var(--bg-raised); border-radius: 0; }
+.frame-tick { position: absolute; width: 8px; height: 8px; pointer-events: none; border-color: var(--line-3); border-style: solid; border-width: 0; transition: border-color var(--dur-fast) var(--ease-hover); }
+.frame-tick[data-c="tl"] { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+.frame-tick[data-c="tr"] { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+.frame-tick[data-c="bl"] { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+.frame-tick[data-c="br"] { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+.frame[data-interactive="true"]:hover .frame-tick, .frame[data-interactive="true"]:focus-within .frame-tick { border-color: var(--accent); }
 
 /* ---- Atmosphere: faint blue light at the top edge + hairline grid (restrained) ---- */
 .blue-light {
   position: absolute; inset: 0;
-  background: radial-gradient(60% 50% at 50% -10%, rgb(47 107 255 / 0.22) 0%, rgb(47 107 255 / 0.06) 45%, transparent 75%);
+  background: radial-gradient(60% 50% at 50% -10%, rgb(42 95 255 / 0.22) 0%, rgb(42 95 255 / 0.06) 45%, transparent 75%);
 }
 .grid-lines {
   position: absolute; inset: 0;
@@ -108,7 +175,7 @@ html { scroll-behavior: smooth; }
   background:
     repeating-linear-gradient(90deg,
       rgb(255 255 255 / 0.05) 0px, rgb(255 255 255 / 0.012) 3px,
-      rgb(0 0 0 / 0.35) 7px, rgb(47 107 255 / 0.025) 9px, rgb(255 255 255 / 0.05) 11px);
+      rgb(0 0 0 / 0.35) 7px, rgb(42 95 255 / 0.025) 9px, rgb(255 255 255 / 0.05) 11px);
   mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
 }

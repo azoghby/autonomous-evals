@@ -24,7 +24,7 @@ test.describe("pipeline", () => {
     expect(devLink).toBeTruthy();
     const token = new URL(devLink as string, base).searchParams.get("token");
     await page.goto(`/signin/confirm?token=${token}`);
-    await page.getByRole("button", { name: /continue to autonomous evals/i }).click();
+    await page.getByRole("button", { name: /continue to (standard|autonomous) evals/i }).click();
     await page.waitForURL((u) => !u.pathname.startsWith("/signin"));
 
     // Warm the Next dev compiler for every page/API the flow touches BEFORE a workflow is in flight: an on-demand

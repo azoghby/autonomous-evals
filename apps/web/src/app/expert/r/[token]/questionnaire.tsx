@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { CircleCheck } from "lucide-react";
-import { Button, Chip, ErrorState, Field, Surface, Spinner } from "@/components/ui";
+import { Button, ErrorState, Eyebrow, Field, Frame, Spinner } from "@/components/ui";
 import { api, ApiError, dollars } from "@/lib/client/api";
 import { useFetch } from "@/lib/client/use-fetch";
 import { MAX_ANSWER_CHARS } from "@ae/core/contracts/experts";
@@ -19,13 +19,13 @@ export function Questionnaire({ token }: { token: string }) {
   if (loading) return <div className="flex justify-center py-24"><Spinner size={28} label="Loading questions" /></div>;
   if (done || error?.status === 409) {
     return (
-      <Surface strong role="status" className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-        <CircleCheck className="text-ok" size={36} aria-hidden />
-        <h1 className="text-2xl font-semibold">Thank you</h1>
-        <p className="max-w-sm text-sm text-muted">
+      <Frame role="status" className="flex flex-col items-start gap-3 p-6 sm:p-8">
+        <CircleCheck className="text-ok" size={28} aria-hidden />
+        <h1 className="t-h1 text-fg">Thank you</h1>
+        <p className="t-lead max-w-[48ch]">
           {done ? "Your answers are in. We will pay your honorarium manually and email you when it is sent." : "These answers were already submitted."}
         </p>
-      </Surface>
+      </Frame>
     );
   }
   if (error || !data) {
@@ -56,43 +56,43 @@ export function Questionnaire({ token }: { token: string }) {
   if (data.mode === "call") {
     return (
       <div className="space-y-6">
-        <header className="space-y-3">
-          <Chip tone="info" dot>{data.domain}</Chip>
-          <h1 className="text-3xl font-semibold tracking-tight">Book a call, {dollars(data.honorariumCents)} honorarium</h1>
-          <p className="text-sm text-muted">{data.purpose}</p>
+        <header className="space-y-5">
+          <Eyebrow>{data.domain}</Eyebrow>
+          <h1 className="t-h1 text-balance">Book a call, {dollars(data.honorariumCents)} honorarium</h1>
+          <p className="t-lead max-w-[60ch]">{data.purpose}</p>
           <Button href={`/expert/book/${encodeURIComponent(token)}`} size="lg">Book a call</Button>
-          <p className="text-xs text-subtle">Link expires {new Date(data.expiresAt).toLocaleDateString()}.</p>
+          <p className="t-small max-w-[68ch] text-subtle">Link expires {new Date(data.expiresAt).toLocaleDateString()}.</p>
         </header>
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="space-y-6">
-      <header className="space-y-3">
-        <Chip tone="info" dot>{data.domain}</Chip>
-        <h1 className="text-3xl font-semibold tracking-tight">A few questions, {dollars(data.honorariumCents)} honorarium</h1>
-        <p className="text-sm text-muted">{data.purpose}</p>
+    <form onSubmit={submit} className="space-y-8">
+      <header className="space-y-5">
+        <Eyebrow>{data.domain}</Eyebrow>
+        <h1 className="t-h1 text-balance">A few questions, {dollars(data.honorariumCents)} honorarium</h1>
+        <p className="t-lead max-w-[60ch]">{data.purpose}</p>
         {data.mode === "call" && (
           <div className="flex flex-wrap items-center gap-3">
             <Button href={`/expert/book/${encodeURIComponent(token)}`} size="lg">Book a call</Button>
-            <span className="text-xs text-subtle">Prefer to talk? Pick a time instead, or answer in writing below.</span>
+            <span className="t-small text-subtle">Prefer to talk? Pick a time instead, or answer in writing below.</span>
           </div>
         )}
-        <p className="text-xs text-subtle">
-          These questions were prepared by an AI agent at Autonomous Evals. Your answers are stored by us, used as reference material for evaluations, and never attributed to you by name without your consent. Skip any you prefer not to answer.
+        <p className="t-small max-w-[68ch] text-subtle">
+          These questions were prepared by an AI agent at Standard Evals. Your answers are stored by us, used as reference material for evaluations, and never attributed to you by name without your consent. Skip any you prefer not to answer.
         </p>
       </header>
       {data.questions.map((q, i) => (
-        <Surface key={i} className="p-5">
+        <Frame key={i} className="p-5 sm:p-6">
           <Field id={`q${i}`} multiline rows={5} label={`${i + 1}. ${q}`} maxLength={MAX_ANSWER_CHARS}
             value={answers[i] ?? ""} onChange={(e) => setAnswers((a) => { const n = [...a]; n[i] = e.target.value; return n; })} />
-        </Surface>
+        </Frame>
       ))}
-      {submitError && <p role="alert" className="text-sm text-danger">{submitError}</p>}
+      {submitError && <p role="alert" className="rounded-[4px] border border-danger/40 px-3 py-2 text-[14px] text-danger">{submitError}</p>}
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" size="lg" disabled={sending}>{sending ? "Submitting..." : "Submit answers"}</Button>
-        <p className="text-xs text-subtle">Link expires {new Date(data.expiresAt).toLocaleDateString()}.</p>
+        <p className="t-small max-w-[68ch] text-subtle">Link expires {new Date(data.expiresAt).toLocaleDateString()}.</p>
       </div>
     </form>
   );

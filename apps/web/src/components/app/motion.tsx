@@ -6,12 +6,13 @@ import { motion, useReducedMotion, type Variants } from "motion/react";
 import { animate } from "animejs";
 
 export const EASE = [0.16, 1, 0.3, 1] as const;
-export const SPRING = { type: "spring", stiffness: 420, damping: 32, mass: 0.7 } as const;
-export const SOFT = { duration: 0.45, ease: EASE } as const;
-export const STAGGER = 0.07; // inside the 0.05-0.10 band
+// Critically damped (damping = 2*sqrt(stiffness*mass)): settles without overshoot.
+export const SPRING = { type: "spring", stiffness: 400, damping: 40, mass: 1 } as const;
+export const SOFT = { duration: 0.24, ease: EASE } as const;
+export const STAGGER = 0.05;
 
 const rise: Variants = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: SOFT },
 };
 
@@ -33,7 +34,7 @@ export function StaggerItem({ children, className, as = "div" }: { children: Rea
 /** Single fade-and-rise on mount. */
 export function Reveal({ children, className, delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   return (
-    <motion.div className={className} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SOFT, delay }}>
+    <motion.div className={className} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SOFT, delay }}>
       {children}
     </motion.div>
   );

@@ -27,7 +27,7 @@ test.describe("happy path", () => {
     expect(devLink, "request-link must return devLink outside production").toBeTruthy();
     const token = new URL(devLink as string, "http://localhost").searchParams.get("token");
     await page.goto(`/signin/confirm?token=${token}`);
-    await page.getByRole("button", { name: /continue to autonomous evals/i }).click();
+    await page.getByRole("button", { name: /continue to (standard|autonomous) evals/i }).click();
     await page.waitForURL((u) => !u.pathname.startsWith("/signin"));
 
     await page.goto("/start");

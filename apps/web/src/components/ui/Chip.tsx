@@ -2,25 +2,26 @@ import type { HTMLAttributes } from "react";
 import { cn } from "./cn";
 
 export type ChipTone = "neutral" | "muted" | "accent" | "ok" | "warn" | "info" | "danger";
-/** "soft" = small filled pill (default for <Chip>); "plain" = dot + text, no fill/border (default for <StatusChip>). */
+/** "soft" = mono uppercase bordered tag (default for <Chip>); "plain" = dot + text, no fill/border (default for <StatusChip>). */
 export type ChipVariant = "soft" | "plain";
 
+// "soft" = 2px-radius mono 11px uppercase tag with a 1px tone border (no fill).
 const soft: Record<ChipTone, string> = {
-  neutral: "bg-white/[0.05] text-fg/80",
-  muted: "bg-white/[0.04] text-muted",
-  accent: "bg-accent/15 text-accent-bright",
-  ok: "bg-ok/10 text-ok",
-  warn: "bg-warn/10 text-warn",
-  info: "bg-accent/15 text-accent-bright",
-  danger: "bg-danger/10 text-danger",
+  neutral: "border-line-3 text-fg-2",
+  muted: "border-line-2 text-muted",
+  accent: "border-accent/60 text-accent-text",
+  ok: "border-ok/40 text-ok",
+  warn: "border-warn/40 text-warn",
+  info: "border-accent/60 text-accent-text",
+  danger: "border-danger/40 text-danger",
 };
 const plain: Record<ChipTone, string> = {
-  neutral: "text-fg/80",
+  neutral: "text-fg-2",
   muted: "text-muted",
-  accent: "text-accent-bright",
+  accent: "text-accent-text",
   ok: "text-ok",
   warn: "text-warn",
-  info: "text-accent-bright",
+  info: "text-accent-text",
   danger: "text-danger",
 };
 
@@ -38,15 +39,15 @@ export function Chip({ tone = "neutral", variant = "soft", dot, pulse, className
     <span
       {...rest}
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs font-medium leading-none",
-        variant === "soft" ? cn("rounded px-2 py-1", soft[tone]) : plain[tone],
+        "inline-flex items-center gap-1.5 leading-none",
+        variant === "soft" ? cn("rounded-[2px] border px-1.5 py-1 font-mono text-[11px] uppercase", soft[tone]) : cn("text-[13px]", plain[tone]),
         className,
       )}
     >
       {dot && (
         <span
           aria-hidden
-          className={cn("size-1.5 rounded-full bg-current", pulse && "motion-safe:animate-pulse")}
+          className={cn("size-1.5 shrink-0 rounded-full bg-current", pulse && "motion-safe:animate-pulse")}
         />
       )}
       {children}
@@ -87,7 +88,7 @@ export function StatusChip({
 }: {
   status: AnyStatus | (string & {});
   className?: string;
-  /** "plain" (default): dot + text. "soft": filled pill. */
+  /** "plain" (default): dot + text. "soft": bordered mono tag. */
   variant?: ChipVariant;
 }) {
   const known = STATUS[status as AnyStatus];

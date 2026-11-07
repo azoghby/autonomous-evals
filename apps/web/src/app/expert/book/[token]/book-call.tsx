@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Button, Chip, ErrorState, Spinner, cn } from "@/components/ui";
+import { Button, Chip, ErrorState, Eyebrow, Frame, Spinner, cn } from "@/components/ui";
 import { api, ApiError } from "@/lib/client/api";
 import { useFetch } from "@/lib/client/use-fetch";
 
@@ -64,28 +64,28 @@ export function BookCall({ token }: { token: string }) {
 
   return (
     <form onSubmit={book} className="space-y-8">
-      <header className="space-y-3">
-        <Chip tone="info" dot>{data.domain}</Chip>
-        <h1 className="text-3xl font-semibold tracking-tight">{rescheduling ? "Pick a new time" : "Book a short call"}</h1>
-        <p className="text-sm text-muted">Times are shown in your timezone ({tz()}). The call happens in your browser over Jitsi Meet, with no account or install.</p>
-        <p className="text-xs text-subtle">
-          Autonomous Evals builds AI agents that evaluate other AI agents. An AI agent prepared this call and its questions; people at Autonomous Evals will run it.
+      <header className="space-y-5">
+        <Eyebrow>{data.domain}</Eyebrow>
+        <h1 className="t-h1 text-balance">{rescheduling ? "Pick a new time" : "Book a short call"}</h1>
+        <p className="t-lead max-w-[60ch]">Times are shown in your timezone ({tz()}). The call happens in your browser over Jitsi Meet, with no account or install.</p>
+        <p className="t-small max-w-[68ch] text-subtle">
+          Standard Evals builds AI agents that evaluate other AI agents. An AI agent prepared this call and its questions; people at Standard Evals will run it.
         </p>
       </header>
 
       {days.length === 0 ? (
-        <p className="border border-line px-5 py-8 text-sm text-muted">No times are open right now. Check back soon, or reply to the invitation email and we will find a time.</p>
+        <p className="rounded-[4px] border border-line-2 px-5 py-8 text-[14px] text-muted">No times are open right now. Check back soon, or reply to the invitation email and we will find a time.</p>
       ) : (
         <div className="space-y-6" role="radiogroup" aria-label="Available times">
           {days.map((group) => (
-            <section key={dayKey(group[0]!.startsAt)} className="space-y-2 border-t border-line pt-4">
-              <h2 className="text-sm font-medium text-fg">{dayLabel(group[0]!.startsAt)}</h2>
+            <section key={dayKey(group[0]!.startsAt)} className="space-y-3 border-t border-line-2 pt-5">
+              <h2 className="t-eyebrow text-fg-2">{dayLabel(group[0]!.startsAt)}</h2>
               <div className="flex flex-wrap gap-2">
                 {group.map((s) => (
                   <button key={s.id} type="button" role="radio" aria-checked={slotId === s.id} onClick={() => setSlotId(s.id)}
                     className={cn(
-                      "h-10 border px-4 text-sm tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-bright",
-                      slotId === s.id ? "border-accent-bright bg-accent text-white" : "border-line-strong text-fg hover:border-accent-bright",
+                      "h-10 rounded-[4px] border px-4 font-mono text-[13px] tabular-nums transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                      slotId === s.id ? "border-accent bg-accent text-white" : "border-line-3 text-fg hover:border-[#5a5e66] hover:bg-bg-hover",
                     )}>
                     {timeLabel(s.startsAt)} <span className="text-xs opacity-70">{s.durationMin} min</span>
                   </button>
@@ -96,16 +96,16 @@ export function BookCall({ token }: { token: string }) {
         </div>
       )}
 
-      <fieldset className="space-y-2 border border-line p-5">
-        <legend className="px-2 text-sm font-medium">Recording</legend>
-        <label className="flex items-start gap-3 text-sm">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-4 accent-[#2F6BFF]" />
+      <fieldset className="space-y-3 rounded-[4px] border border-line-2 bg-bg-raised p-5">
+        <legend className="t-eyebrow px-2 text-subtle">Recording</legend>
+        <label className="flex items-start gap-3 text-[14px] leading-[1.5] text-fg-2">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-[2px] size-4 shrink-0 cursor-pointer accent-[var(--accent)]" />
           <span>I consent to this call being recorded and transcribed. We will ask again at the start of the call.</span>
         </label>
-        <p className="text-xs text-subtle">Leave this unchecked and we will only take written notes. Either choice is fine.</p>
+        <p className="t-small text-subtle">Leave this unchecked and we will only take written notes. Either choice is fine.</p>
       </fieldset>
 
-      {formError && <p role="alert" className="text-sm text-danger">{formError}</p>}
+      {formError && <p role="alert" className="rounded-[4px] border border-danger/40 px-3 py-2 text-[14px] text-danger">{formError}</p>}
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" size="lg" disabled={!slotId || busy}>{busy ? "Booking..." : "Confirm time"}</Button>
         {rescheduling && <Button type="button" variant="quiet" onClick={() => setRescheduling(false)}>Keep current time</Button>}
@@ -128,24 +128,24 @@ function Confirmation({ token, booking, fresh, onReschedule, onCancelled }: {
     finally { setBusy(false); }
   }
   return (
-    <section role="status" className="space-y-6 border border-line-strong p-6">
-      <header className="space-y-2">
+    <Frame as="section" role="status" className="space-y-6 p-6 sm:p-8">
+      <header className="space-y-4">
         <Chip tone="ok" dot>{fresh ? "Booked" : "Scheduled"}</Chip>
-        <h1 className="text-3xl font-semibold tracking-tight">{fullLabel(booking.startsAt)}</h1>
-        <p className="text-sm text-muted">{booking.durationMin} minutes, {tz()}. A calendar invite is on its way to your email.</p>
+        <h1 className="t-h1 text-balance">{fullLabel(booking.startsAt)}</h1>
+        <p className="t-body text-muted">{booking.durationMin} minutes, {tz()}. A calendar invite is on its way to your email.</p>
       </header>
-      <dl className="space-y-3 border-t border-line pt-4 text-sm">
-        <div><dt className="text-subtle">Join link</dt>
-          <dd><a href={booking.meetUrl} className="break-all text-accent-bright underline underline-offset-4" target="_blank" rel="noopener noreferrer">{booking.meetUrl}</a></dd></div>
-        <div><dt className="text-subtle">Recording</dt>
+      <dl className="space-y-4 border-t border-line-2 pt-5 text-[14px]">
+        <div><dt className="t-eyebrow mb-1 text-subtle">Join link</dt>
+          <dd><a href={booking.meetUrl} className="break-all text-accent-text underline underline-offset-4" target="_blank" rel="noopener noreferrer">{booking.meetUrl}</a></dd></div>
+        <div><dt className="t-eyebrow mb-1 text-subtle">Recording</dt>
           <dd>{booking.recordingConsent ? "You consented. We will confirm again at the start of the call." : "Not recorded. We will take written notes only."}</dd></div>
       </dl>
       <div className="flex flex-wrap items-center gap-4">
-        <a href={`${base}/ics`} download="expert-call.ics" className="inline-flex h-11 items-center bg-accent px-6 text-[15px] font-medium text-white hover:bg-accent-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-bright">Add to calendar</a>
+        <a href={`${base}/ics`} download="expert-call.ics" className="inline-flex h-12 items-center rounded-[4px] bg-accent px-5 text-[15px] font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">Add to calendar</a>
         <Button type="button" variant="outline" onClick={onReschedule}>Reschedule</Button>
         <Button type="button" variant="quiet" onClick={() => void cancel()} disabled={busy}>Cancel call</Button>
       </div>
-      {err && <p role="alert" className="text-sm text-danger">{err}</p>}
-    </section>
+      {err && <p role="alert" className="rounded-[4px] border border-danger/40 px-3 py-2 text-[14px] text-danger">{err}</p>}
+    </Frame>
   );
 }

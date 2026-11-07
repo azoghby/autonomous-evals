@@ -372,3 +372,25 @@ export const jobShares = pgTable("job_shares", {
   uniqueIndex("job_shares_job_uq").on(t.jobId),
   uniqueIndex("job_shares_token_uq").on(t.tokenHash),
 ]);
+
+/** Customer's GitHub repo target for shipping verified fixes as PRs. Token is AES-256-GCM encrypted; deleted at tokenExpiresAt. */
+export const jobGithubTargets = pgTable("job_github_targets", {
+  jobId: uuid("job_id").primaryKey().references(() => jobs.id),
+  owner: text("owner").notNull(),
+  repo: text("repo").notNull(),
+  baseBranch: text("base_branch").notNull(),
+  filePath: text("file_path").notNull(),
+  tokenCiphertext: text("token_ciphertext").notNull(),
+  tokenExpiresAt: ts("token_expires_at").notNull(),
+  createdAt,
+});
+
+export const githubPrs = pgTable("github_prs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id),
+  remediationId: uuid("remediation_id").notNull().references(() => remediations.id),
+  branch: text("branch").notNull(),
+  prNumber: integer("pr_number").notNull(),
+  prUrl: text("pr_url").notNull(),
+  createdAt,
+}, (t) => [uniqueIndex("github_prs_remediation_uq").on(t.remediationId), index("github_prs_job_idx").on(t.jobId)]);

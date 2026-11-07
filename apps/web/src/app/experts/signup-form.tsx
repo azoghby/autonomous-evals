@@ -1,16 +1,16 @@
 "use client";
 import { useState } from "react";
 import { CircleCheck } from "lucide-react";
-import { Button, Field, Surface } from "@/components/ui";
+import { Button, Field, Frame } from "@/components/ui";
 import { api, ApiError } from "@/lib/client/api";
 
 type Issues = { fieldErrors?: Record<string, string[] | undefined>; formErrors?: string[] };
 
 function checkbox(id: string, label: string, props: { checked: boolean; onChange: (v: boolean) => void; required?: boolean }) {
   return (
-    <label htmlFor={id} className="flex items-start gap-3 text-sm text-fg">
+    <label htmlFor={id} className="flex items-start gap-3 text-[14px] leading-[1.5] text-fg-2">
       <input id={id} type="checkbox" required={props.required} checked={props.checked}
-        onChange={(e) => props.onChange(e.target.checked)} className="mt-0.5 size-4 accent-[var(--accent)]" />
+        onChange={(e) => props.onChange(e.target.checked)} className="mt-[2px] size-4 shrink-0 cursor-pointer accent-[var(--accent)]" />
       <span>{label}</span>
     </label>
   );
@@ -57,21 +57,21 @@ export function SignupForm() {
 
   if (state === "done") {
     return (
-      <Surface strong role="status" className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-        <CircleCheck className="text-ok" size={36} aria-hidden />
-        <h2 className="text-xl font-semibold">You are on the list</h2>
-        <p className="max-w-sm text-sm text-muted">
+      <Frame role="status" className="flex flex-col items-start gap-3 p-6 sm:p-8">
+        <CircleCheck className="text-ok" size={28} aria-hidden />
+        <h2 className="t-h3 text-fg">You are on the list</h2>
+        <p className="t-body max-w-[48ch] text-muted">
           When a question in your field comes up, we will email you. A founder reviews every message first, and each one has a one-click opt-out.
         </p>
-      </Surface>
+      </Frame>
     );
   }
 
   const err = (k: string) => fields[k]?.[0];
   return (
-    <Surface className="p-6 sm:p-8">
+    <Frame className="p-6 sm:p-8">
       <form onSubmit={onSubmit} noValidate={false} className="space-y-5" aria-describedby={error ? "signup-error" : undefined}>
-        <h2 className="text-2xl font-semibold tracking-tight">Join the expert pool</h2>
+        <h2 className="t-h3 text-fg">Join the expert pool</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field id="name" name="name" label="Full name" required autoComplete="name" error={err("name")} />
           <Field id="email" name="email" type="email" label="Email" required autoComplete="email" error={err("email")} />
@@ -88,17 +88,17 @@ export function SignupForm() {
         <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
           <label>Leave this empty<input name="hp" tabIndex={-1} autoComplete="off" /></label>
         </div>
-        <fieldset className="space-y-3 border-t border-line pt-4">
-          <legend className="pr-2 text-sm font-medium">Consent</legend>
+        <fieldset className="space-y-4 border-t border-line-2 pt-5">
+          <legend className="t-eyebrow pr-2 text-subtle">Consent</legend>
           {checkbox("c1", "You may contact me about paid expert work. I understand some messages are written by AI agents and reviewed by a human.", { checked: contact, onChange: setContact, required: true })}
           {checkbox("c2", "You may record calls with me, if I agree again at the start of each call.", { checked: record, onChange: setRecord })}
           {checkbox("c3", "You may credit me by name in reports. Otherwise I stay anonymous.", { checked: attribute, onChange: setAttribute })}
         </fieldset>
-        {error && <p id="signup-error" role="alert" className="text-sm text-danger">{error}</p>}
-        <Button type="submit" size="lg" disabled={state === "sending"} className="w-full sm:w-auto">
+        {error && <p id="signup-error" role="alert" className="rounded-[4px] border border-danger/40 px-3 py-2 text-[14px] text-danger">{error}</p>}
+        <Button type="submit" size="lg" disabled={state === "sending"} className="w-full sm:w-auto sm:min-w-[160px]">
           {state === "sending" ? "Sending..." : "Join the pool"}
         </Button>
       </form>
-    </Surface>
+    </Frame>
   );
 }

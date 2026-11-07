@@ -59,8 +59,8 @@ export function RibField({ className }: { className?: string }) {
       // soft light following the cursor
       if (strength > 0.01) {
         const g = ctx.createRadialGradient(px, py, 0, px, py, RADIUS * 1.3);
-        g.addColorStop(0, `rgba(47,107,255,${0.2 * strength})`);
-        g.addColorStop(1, "rgba(47,107,255,0)");
+        g.addColorStop(0, `rgba(42,95,255,${0.2 * strength})`);
+        g.addColorStop(1, "rgba(42,95,255,0)");
         ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
       }
 
@@ -79,7 +79,7 @@ export function RibField({ className }: { className?: string }) {
         const a = 0.055 + peak * 0.5;
         ctx.lineWidth = 1.2 + peak * 1.2;
         ctx.strokeStyle = peak > 0.02
-          ? `rgba(${Math.round(255 - 208 * peak)},${Math.round(255 - 148 * peak)},255,${a})`
+          ? `rgba(${Math.round(255 - 148 * peak)},${Math.round(255 - 104 * peak)},255,${a})`
           : "rgba(255,255,255,0.055)";
         ctx.stroke();
       }

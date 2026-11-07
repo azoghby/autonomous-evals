@@ -1,135 +1,130 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, Download } from "lucide-react";
 import { MONITORING_PRICE_CENTS_MONTHLY, PER_FINDING_CAP_CENTS, PER_FINDING_CENTS, type PricingMode, type Remediation } from "@ae/core/contracts/index";
 import { api, dollars, errMsg } from "@/lib/client/api";
 import { normalizeFinding, type ChargeView, type FindingView, type ProgressItem, type QuoteView, type RemediationView } from "@/lib/client/types";
-import { AnimatePresence, motion } from "motion/react";
-import { Btn, Chip, ErrorBox, Block, Mono } from "./ui";
-import { EASE, SOFT, SPRING, Reveal, Stagger } from "./motion";
+import { AnimatePresence } from "motion/react";
+import { Button, Chip, Stat, StatusChip, type ChipTone } from "@/components/ui";
+import { cx, ErrorBox } from "./ui";
+import { Reveal } from "./motion";
+import { Panel, SectionLabel } from "./page-parts";
+import { GithubPrPanel } from "./github-pr-panel";
 
-const STATUS: Record<FindingView["status"], { label: string; tone: "ok" | "warn" | "muted" }> = {
-  confirmed: { label: "Confirmed", tone: "ok" },
-  rubric_concern: { label: "Rubric concern", tone: "warn" },
-  inconclusive: { label: "Inconclusive", tone: "muted" },
-};
 type VerifyStatus = Remediation["verification"]["status"];
-const VERIFY: Record<VerifyStatus, { label: string; tone: "info" | "warn" | "bad" }> = {
-  verified: { label: "Verified", tone: "info" },
+const VERIFY: Record<VerifyStatus, { label: string; tone: ChipTone }> = {
+  verified: { label: "Verified", tone: "ok" },
   partially_verified: { label: "Partially verified", tone: "warn" },
-  not_verified: { label: "Not verified", tone: "bad" },
+  not_verified: { label: "Not verified", tone: "danger" },
 };
+const SEV_DOT = { critical: "bg-danger", high: "bg-danger", medium: "bg-warn", low: "bg-subtle" } as const;
+const SEVERITIES = ["critical", "high", "medium", "low"] as const;
+const DOWNLOADS = [
+  { kind: "report", label: "Report (.md)" },
+  { kind: "suite", label: "Suite (JSON)" },
+  { kind: "evidence", label: "Evidence" },
+] as const;
+
+const kindLabel = (k: string) => k.replace(/_/g, " ");
 
 function PassBar({ label, v }: { label: string; v?: { passed: number; total: number } }) {
   const pct = v && v.total > 0 ? Math.round((v.passed / v.total) * 100) : 0;
+  const good = label === "after";
   return (
-    <div className="flex items-center gap-3 font-mono text-xs text-muted">
-      <span className="w-12 text-subtle">{label}</span>
-      <span className="h-1 w-24 overflow-hidden rounded-sm bg-line"><span className="block h-full bg-accent" style={{ width: `${pct}%` }} /></span>
-      <span className="tabular-nums text-fg">{v ? `${v.passed}/${v.total}` : "n/a"}</span>
+    <div className="grid grid-cols-[48px_1fr_40px] items-center gap-3 t-data">
+      <span className="text-subtle">{label}</span>
+      <span className="h-1 overflow-hidden rounded-[2px] bg-line-2"><span className={cx("block h-full", good ? "bg-accent" : "bg-line-3")} style={{ width: `${pct}%` }} /></span>
+      <span className="text-right text-fg">{v ? `${v.passed}/${v.total}` : "n/a"}</span>
     </div>
   );
 }
 
+/** Unified-diff viewer: +/- lines tinted, @@ hunks in accent, copy button in the header strip. */
 function PatchView({ patch }: { patch: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
     try { await navigator.clipboard.writeText(patch); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* clipboard unavailable */ }
   }
   return (
-    <div className="relative mt-2">
-      <Mono>{patch}</Mono>
-      <button type="button" onClick={copy} className="absolute right-2 top-2 rounded-md border border-line-strong bg-bg px-2 py-1 text-[11px] text-muted transition hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">{copied ? "Copied" : "Copy patch"}</button>
+    <div className="mt-3 overflow-hidden rounded-[4px] border border-line-2 bg-bg">
+      <div className="flex h-9 items-center justify-between border-b border-line px-3">
+        <span className="t-eyebrow text-subtle">Patch</span>
+        <button type="button" onClick={copy} className="t-eyebrow text-fg-2 transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">{copied ? "Copied" : "Copy patch"}</button>
+      </div>
+      <pre className="max-h-64 overflow-auto py-2 t-data leading-[1.6]">
+        {patch.split("\n").map((line, i) => (
+          <span key={i} className={cx("block whitespace-pre px-3",
+            line.startsWith("+") && !line.startsWith("+++") && "bg-ok/10 text-ok",
+            line.startsWith("-") && !line.startsWith("---") && "bg-danger/10 text-danger",
+            line.startsWith("@@") && "text-accent-text",
+            (line.startsWith("+++") || line.startsWith("---")) && "text-subtle",
+            !/^[+\-@]/.test(line) && "text-fg-2")}>{line || " "}</span>
+        ))}
+      </pre>
     </div>
   );
 }
 
-const DOT = { info: "bg-accent-bright", warn: "bg-amber-400", bad: "bg-red-500" } as const;
+function FixBody({ r }: { r: RemediationView }) {
+  const v = r.verification;
+  return (
+    <>
+      <p className="mt-3 max-w-[68ch] text-[15px] leading-relaxed text-fg-2">{r.summary}</p>
+      {v && (
+        <div className="mt-4 max-w-md space-y-2">
+          <PassBar label="before" v={v.before} />
+          <PassBar label="after" v={v.after} />
+          <div className="t-data text-subtle">{v.regressions ?? 0} regression{(v.regressions ?? 0) === 1 ? "" : "s"}</div>
+        </div>
+      )}
+      {r.patch && <PatchView patch={r.patch} />}
+    </>
+  );
+}
 
 function ValidatedFixes({ fixes, titleFor }: { fixes: RemediationView[]; titleFor: (r: RemediationView) => string }) {
   return (
     <section aria-labelledby="fixes-h">
-      <h2 id="fixes-h" className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">Validated fixes · {fixes.length}</h2>
-      <Stagger as="ul" className="border-t border-line">
+      <SectionLabel id="fixes-h">Validated fixes · {fixes.length}</SectionLabel>
+      <ul className="overflow-hidden rounded-[4px] border border-line-2 bg-bg-raised">
         {fixes.map((r) => {
-          const v = r.verification;
-          const vs = v ? VERIFY[v.status] : undefined;
+          const vs = r.verification ? VERIFY[r.verification.status] : undefined;
           return (
-            <motion.li key={r.id} variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: SOFT } }} className="border-b border-line py-5">
-              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-                <div className="min-w-0">
-                  <h3 className="text-base font-medium">{titleFor(r)}</h3>
-                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">{r.kind.replace(/_/g, " ")}</p>
-                </div>
-                {vs && (
-                  <span className="inline-flex items-center gap-2 whitespace-nowrap text-xs text-muted">
-                    <span aria-hidden className={`h-2 w-2 rounded-full ${DOT[vs.tone]}`} />{vs.label}
-                  </span>
-                )}
+            <li key={r.id} className="border-b border-line p-5 last:border-b-0 sm:p-6">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <h3 className="t-h4 text-fg">{titleFor(r)}</h3>
+                <span className="t-eyebrow text-subtle">{kindLabel(r.kind)}</span>
+                {vs && <Chip tone={vs.tone} variant="plain" dot>{vs.label}</Chip>}
               </div>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-fg/90">{r.summary}</p>
-              {v && (
-                <div className="mt-3 space-y-1.5">
-                  <PassBar label="before" v={v.before} />
-                  <PassBar label="after" v={v.after} />
-                  <div className="font-mono text-xs text-subtle">{v.regressions ?? 0} regression{(v.regressions ?? 0) === 1 ? "" : "s"}</div>
-                </div>
-              )}
-              {r.patch && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-xs text-muted transition hover:text-fg">View patch</summary>
-                  <PatchView patch={r.patch} />
-                </details>
-              )}
-            </motion.li>
+              <FixBody r={r} />
+            </li>
           );
         })}
-      </Stagger>
+      </ul>
     </section>
   );
 }
 
 function RemediationBlock({ r }: { r: RemediationView }) {
-  const [copied, setCopied] = useState(false);
-  const v = r.verification;
-  const vs = v ? VERIFY[v.status] : undefined;
-  async function copy() {
-    try { await navigator.clipboard.writeText(r.patch ?? ""); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* clipboard unavailable */ }
-  }
+  const vs = r.verification ? VERIFY[r.verification.status] : undefined;
   return (
-    <div className="mt-6 border-l border-line-strong pl-4">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-        <h4 className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">Fix · {r.kind.replace(/_/g, " ")}</h4>
-        {vs && <Chip tone={vs.tone}>{vs.label}</Chip>}
+    <div className="mt-6 border-l border-line-3 pl-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <h4 className="t-eyebrow text-subtle">Fix · {kindLabel(r.kind)}</h4>
+        {vs && <Chip tone={vs.tone} variant="plain" dot>{vs.label}</Chip>}
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-fg/90">{r.summary}</p>
-      {v && (
-        <div className="mt-3 space-y-1.5">
-          <PassBar label="before" v={v.before} />
-          <PassBar label="after" v={v.after} />
-          <div className="font-mono text-xs text-subtle">{v.regressions ?? 0} regression{(v.regressions ?? 0) === 1 ? "" : "s"}</div>
-        </div>
-      )}
-      {r.patch && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-xs text-muted transition hover:text-fg">View patch</summary>
-          <div className="relative mt-2">
-            <Mono>{r.patch}</Mono>
-            <button type="button" onClick={copy} className="absolute right-2 top-2 rounded-md border border-line-strong bg-bg px-2 py-1 text-[11px] text-muted transition hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">{copied ? "Copied" : "Copy"}</button>
-          </div>
-        </details>
-      )}
+      <FixBody r={r} />
     </div>
   );
 }
 
-const SEV_TONE = { critical: "bad", high: "bad", medium: "warn", low: "muted" } as const;
-
-function FindingCard({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingView; onRerun: () => Promise<void>; fixes: RemediationView[] }) {
+function FindingRow({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingView; onRerun: () => Promise<void>; fixes: RemediationView[] }) {
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const st = STATUS[f.status] ?? STATUS.inconclusive;
+  const bodyId = `finding-${f.id}`;
 
   async function rerun() {
     setBusy(true); setError(null);
@@ -137,63 +132,54 @@ function FindingCard({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingVi
       // Server responds 201 {finding: <findings row>} and expects the row uuid (f.id), not the contract key.
       const r = await api<{ finding: unknown }>(`/api/jobs/${jobId}/findings/${encodeURIComponent(f.id)}/rerun`, { method: "POST" });
       const again = normalizeFinding(r.finding);
-      setResult(`${STATUS[again.status]?.label ?? again.status}${again.reproductions ? ` (${again.reproductions} reproduction${again.reproductions === 1 ? "" : "s"})` : ""}`);
+      setResult(`${STATUS_LABEL[again.status] ?? again.status}${again.reproductions ? ` (${again.reproductions} reproduction${again.reproductions === 1 ? "" : "s"})` : ""}`);
       await onRerun();
     } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
   }
 
-  const [open, setOpen] = useState(false);
   return (
-    <motion.li layout transition={{ layout: { duration: 0.4, ease: EASE } }} variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: SOFT } }}
-      className="overflow-hidden border-b border-line">
-      <motion.button layout="position" type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start justify-between gap-4 py-5 text-left focus-visible:outline-2 focus-visible:outline-accent">
-        <div className="min-w-0">
-          <h3 className="text-base font-medium">{f.title}</h3>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1">
-            <Chip tone={st.tone}>{st.label}</Chip>
-            <Chip tone={SEV_TONE[f.severity] ?? "muted"}>{f.severity}</Chip>
-            <span className="text-xs text-subtle">{f.category.replace(/_/g, " ")}</span>
+    <li className="border-b border-line last:border-b-0">
+      <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((o) => !o)}
+        className="group grid w-full grid-cols-[10px_1fr_16px] items-start gap-x-4 px-5 py-4 text-left transition-colors duration-150 hover:bg-bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:px-6">
+        <span aria-hidden className={cx("mt-[9px] size-[7px] rounded-full", SEV_DOT[f.severity] ?? "bg-subtle")} />
+        <span className="min-w-0">
+          <span className="t-h4 block text-fg">{f.title}</span>
+          <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <StatusChip status={f.status} />
+            <span className="t-eyebrow text-subtle">{f.severity}</span>
+            <span className="t-eyebrow text-subtle">{kindLabel(f.category)}</span>
+          </span>
+        </span>
+        <ChevronDown aria-hidden size={16} className={cx("mt-1 text-subtle transition-transform duration-200", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div id={bodyId} className="border-t border-line bg-bg-band px-5 py-5 pl-[46px] sm:px-6 sm:pl-[50px]">
+          <p className="max-w-[68ch] whitespace-pre-wrap text-[15px] leading-relaxed text-fg-2">{f.description}</p>
+          {f.evidence.length > 0 && (
+            <div className="mt-5 space-y-3">
+              <h4 className="t-eyebrow text-subtle">Evidence</h4>
+              {f.evidence.map((ev, i) => (
+                <div key={i}>
+                  <div className="t-data mb-1.5 text-subtle">{kindLabel(ev.kind)}{ev.location ? ` · ${ev.location}` : ""}</div>
+                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-[4px] border border-line-2 bg-bg p-3 t-data leading-relaxed text-fg-2">{ev.excerpt}</pre>
+                </div>
+              ))}
+            </div>
+          )}
+          {fixes.map((r) => <RemediationBlock key={r.id} r={r} />)}
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {f.rerunOf ? <Chip tone="info">Re-run result</Chip> : <Button variant="outline" size="sm" onClick={rerun} disabled={busy}>{busy ? "Re-running…" : "Re-run this finding"}</Button>}
+            {f.reproductions ? <span className="text-xs text-subtle">{f.reproductions} reproduction(s)</span> : null}
+            {result && <span role="status" className="text-xs text-muted">Re-run: {result}</span>}
+            {error && <span role="alert" className="text-xs text-danger">{error}</span>}
           </div>
         </div>
-        <motion.span aria-hidden animate={{ rotate: open ? 45 : 0 }} transition={SPRING} className="mt-1 font-mono text-xl leading-none text-subtle">+</motion.span>
-      </motion.button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div key="body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="pb-6">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{f.description}</p>
-            {f.evidence.length > 0 && (
-              <div className="mt-5 space-y-3">
-                <h4 className="text-xs uppercase tracking-[0.14em] text-subtle">Evidence</h4>
-                {f.evidence.map((ev, i) => (
-                  <div key={i}>
-                    <div className="mb-1 text-xs text-subtle">{ev.kind.replace(/_/g, " ")}{ev.location ? ` · ${ev.location}` : ""}</div>
-                    <Mono>{ev.excerpt}</Mono>
-                  </div>
-                ))}
-              </div>
-            )}
-            {fixes.map((r) => <RemediationBlock key={r.id} r={r} />)}
-            <div className="mt-5 flex flex-wrap items-center gap-4">
-              {f.rerunOf ? <Chip tone="info">Re-run result</Chip> : <Btn variant="ghost" onClick={rerun} loading={busy}>Re-run this finding</Btn>}
-              {f.reproductions ? <span className="text-xs text-subtle">{f.reproductions} reproduction(s)</span> : null}
-              {result && <span role="status" className="text-xs text-muted">Re-run: {result}</span>}
-              {error && <span role="alert" className="text-xs text-accent-bright">{error}</span>}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.li>
+      )}
+    </li>
   );
 }
 
-const SEVERITIES = ["critical", "high", "medium", "low"] as const;
-const SEV_DOT = { critical: "bg-red-500", high: "bg-red-500", medium: "bg-amber-400", low: "bg-subtle" } as const;
-const DOWNLOADS = [
-  { kind: "report", label: "Report (.md)" },
-  { kind: "suite", label: "Suite (JSON)" },
-  { kind: "evidence", label: "Evidence" },
-] as const;
+const STATUS_LABEL: Record<FindingView["status"], string> = { confirmed: "Confirmed", rubric_concern: "Rubric concern", inconclusive: "Inconclusive" };
 
 function chargeSummary(opts: { pricingMode: PricingMode; charge: ChargeView | null; quote: QuoteView | null; confirmed: number }): string | null {
   const { pricingMode, charge, quote, confirmed } = opts;
@@ -242,53 +228,64 @@ export function ReportView({ jobId, report, findings, progress, onReload, remedi
 
   return (
     <Reveal className="space-y-12">
-      <Block title="Report summary">
-        <p className="max-w-2xl whitespace-pre-wrap text-[15px] leading-relaxed text-fg/90">{report?.summary || "No summary was written for this report."}</p>
-        <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-xs text-muted">
-          <span><span className="text-accent-bright">{originals.length}</span> findings</span>
-          {sevCounts.map(({ s, n }) => (
-            <span key={s} className="inline-flex items-center gap-2"><span aria-hidden className={`h-1.5 w-1.5 rounded-full ${SEV_DOT[s]}`} /><span className="tabular-nums text-fg">{n}</span> {s}</span>
-          ))}
-          <span><span className="text-accent-bright">{verified}</span> of {remediations.length} fixes verified</span>
+      <Panel title="Report summary">
+        <p className="max-w-[68ch] whitespace-pre-wrap text-[16px] leading-relaxed text-fg">{report?.summary || "No summary was written for this report."}</p>
+        <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border border-line-2 bg-line-2 sm:grid-cols-3">
+          <Stat className="bg-bg p-4 sm:p-5" label="Findings" value={originals.length} hint={`${confirmed} confirmed`} />
+          <Stat className="bg-bg p-4 sm:p-5" label="Fixes verified" value={`${verified}/${remediations.length}`} hint={`${verified} of ${remediations.length} fixes verified`} />
+          <Stat className="col-span-2 bg-bg p-4 sm:col-span-1 sm:p-5" label="High severity" value={originals.filter((f) => f.severity === "critical" || f.severity === "high").length} hint="critical + high" />
         </div>
-        {chargeLine && <p className="mt-3 font-mono text-xs text-muted">{chargeLine}</p>}
-        <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-4 text-sm" role="group" aria-label="Downloads">
+        {sevCounts.length > 0 && (
+          <p className="t-data mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-muted">
+            {sevCounts.map(({ s, n }) => (
+              <span key={s} className="inline-flex items-center gap-2"><span aria-hidden className={cx("size-1.5 rounded-full", SEV_DOT[s])} /><span className="text-fg">{n}</span> {s}</span>
+            ))}
+          </p>
+        )}
+        {chargeLine && <p className="t-data mt-3 text-muted">{chargeLine}</p>}
+        <div className="mt-6 flex flex-wrap gap-3 border-t border-line pt-5" role="group" aria-label="Downloads">
           {DOWNLOADS.map((d) => (
-            <a key={d.kind} download className="text-fg/90 underline decoration-line-strong underline-offset-4 transition hover:text-fg hover:decoration-accent-bright focus-visible:outline-2 focus-visible:outline-accent" href={`/api/jobs/${jobId}/artifacts/${d.kind}`}>{d.label}</a>
+            <a key={d.kind} download href={`/api/jobs/${jobId}/artifacts/${d.kind}`}
+              className="inline-flex h-8 items-center gap-2 rounded-[4px] border border-line-3 px-3 text-sm font-medium text-fg transition-colors duration-150 hover:border-[#5a5e66] hover:bg-bg-hover active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              <Download aria-hidden size={14} className="text-subtle" />{d.label}
+            </a>
           ))}
         </div>
-      </Block>
+      </Panel>
 
       {remediations.length > 0 && <ValidatedFixes fixes={remediations} titleFor={fixTitle} />}
+      {remediations.length > 0 && (
+        <GithubPrPanel jobId={jobId} remediations={remediations.map((r) => ({ id: r.id, summary: r.summary, verificationStatus: r.verification.status }))} />
+      )}
 
       <section aria-labelledby="findings-h">
-        <h2 id="findings-h" className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-subtle">Findings · {originals.length}</h2>
+        <SectionLabel id="findings-h">Findings · {originals.length}</SectionLabel>
         {findings.length === 0 ? (
-          <p className="border-t border-line pt-5 text-sm text-muted">No findings were reported. This does not prove the system is correct; it means nothing we checked was confirmed as a problem.</p>
+          <p className="rounded-[4px] border border-line-2 bg-bg-raised p-5 text-[15px] text-muted">No findings were reported. This does not prove the system is correct; it means nothing we checked was confirmed as a problem.</p>
         ) : (
-          <Stagger as="ul" className="border-t border-line">{findings.map((f, i) => <FindingCard key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} fixes={fixesFor(f)} />)}</Stagger>
+          <ul className="overflow-hidden rounded-[4px] border border-line-2 bg-bg-raised">{findings.map((f, i) => <FindingRow key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} fixes={fixesFor(f)} />)}</ul>
         )}
       </section>
 
       <AnimatePresence>{error && <ErrorBox key="e" message={error} />}</AnimatePresence>
 
-      <div className="grid gap-x-12 gap-y-8 border-t border-line pt-6 sm:grid-cols-2">
-        <div>
-          <h3 className="font-medium">Linked retest</h3>
-          <p className="mt-1 text-sm text-muted">Fixed something? Run the same frozen checks again as a new linked job.</p>
-          <Btn className="mt-4" variant="ghost" onClick={retest} loading={retestBusy}>Request linked retest</Btn>
-        </div>
-        <div>
-          <h3 className="font-medium">Monitoring pilot</h3>
-          <p className="mt-1 text-sm text-muted">Nightly re-run of your frozen suite with an email alert on regressions. {dollars(MONITORING_PRICE_CENTS_MONTHLY)}/month.</p>
-          <Btn className="mt-4" onClick={monitor} loading={monBusy}>Start monitoring · {dollars(MONITORING_PRICE_CENTS_MONTHLY)}/mo</Btn>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Panel title="Linked retest" className="flex flex-col" bodyClassName="flex flex-1 flex-col">
+          <p className="text-[15px] text-muted">Fixed something? Run the same frozen checks again as a new linked job.</p>
+          <div className="mt-auto pt-5"><Button variant="outline" onClick={retest} disabled={retestBusy}>{retestBusy ? "Requesting…" : "Request linked retest"}</Button></div>
+        </Panel>
+        <Panel title="Monitoring pilot" className="flex flex-col" bodyClassName="flex flex-1 flex-col">
+          <p className="text-[15px] text-muted">Nightly re-run of your frozen suite with an email alert on regressions. {dollars(MONITORING_PRICE_CENTS_MONTHLY)}/month.</p>
+          <div className="mt-auto pt-5"><Button onClick={monitor} disabled={monBusy}>{monBusy ? "Redirecting…" : `Start monitoring · ${dollars(MONITORING_PRICE_CENTS_MONTHLY)}/mo`}</Button></div>
+        </Panel>
       </div>
 
       {progress.length > 0 && (
         <details className="group border-t border-line pt-5 text-sm">
-          <summary className="cursor-pointer text-muted transition hover:text-fg">How this job ran</summary>
-          <ul className="mt-3 space-y-1 text-muted">{progress.map((p, i) => <li key={i}>{p.message}</li>)}</ul>
+          <summary className="t-eyebrow flex cursor-pointer list-none items-center gap-2 text-subtle transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+            <ChevronDown aria-hidden size={14} className="-rotate-90 transition-transform group-open:rotate-0" />How this job ran
+          </summary>
+          <ul className="mt-4 space-y-1.5 pl-6 text-[13px] text-muted">{progress.map((p, i) => <li key={i}>{p.message}</li>)}</ul>
         </details>
       )}
     </Reveal>

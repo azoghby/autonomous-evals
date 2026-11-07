@@ -6,12 +6,12 @@ export type SurfaceProps = HTMLAttributes<HTMLDivElement> & {
   strong?: boolean;
 };
 
-/** Flat hairline surface on black: 1px border, tiny radius, no blur, no shadow. */
+/** Flat panel: 1px line-2, bg-raised, 4px radius, no shadow. */
 export function Surface({ strong, className, ...rest }: SurfaceProps) {
   return (
     <div
       {...rest}
-      className={cn("rounded-lg border border-line", strong ? "bg-white/[0.04]" : "bg-white/[0.015]", className)}
+      className={cn("rounded-[4px] border border-line-2", strong ? "bg-bg-hover" : "bg-bg-raised", className)}
     />
   );
 }

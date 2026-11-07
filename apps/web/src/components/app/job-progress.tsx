@@ -1,71 +1,44 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { animate } from "animejs";
+import { motion, useReducedMotion } from "motion/react";
 import type { JobState } from "@ae/core/contracts/index";
 import { when } from "@/lib/client/api";
 import type { ProgressItem } from "@/lib/client/types";
-import { Block } from "./ui";
 import { EASE } from "./motion";
+import { Panel } from "./page-parts";
 
 const labelOf = (s: JobState) => s.replace(/_/g, " ");
 
 export function ProgressTimeline({ progress, state }: { progress: ProgressItem[]; state: JobState }) {
   const reduce = useReducedMotion();
-  const listRef = useRef<HTMLOListElement>(null);
-  const lineRef = useRef<HTMLSpanElement>(null);
-  const prevH = useRef(0);
-
-  // The rail draws down (anime.js scaleY, compositor-only) from where it previously ended to the newest milestone.
-  useLayoutEffect(() => {
-    const list = listRef.current;
-    const line = lineRef.current;
-    if (!list || !line) return;
-    const h = Math.max(0, list.offsetHeight - 14);
-    const from = h > 0 ? Math.min(1, prevH.current / h) : 0;
-    prevH.current = h;
-    line.style.height = `${h}px`;
-    if (reduce || progress.length < 2) { line.style.transform = `scaleY(${progress.length < 2 ? 0 : 1})`; return; }
-    const a = animate(line, { scaleY: [from, 1], duration: 900, ease: "outExpo" });
-    return () => { a.pause(); };
-  }, [progress.length, reduce]);
-
-  useEffect(() => () => { prevH.current = 0; }, []);
-
   return (
-    <Block title={`Work in progress · ${labelOf(state)}`} aside={progress.length > 0 ? (
-      <span className="inline-flex items-center gap-2 font-mono text-[11px] text-subtle">
-        <motion.span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" animate={reduce ? undefined : { opacity: [1, 0.3, 1] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }} />
+    <Panel title={`Work in progress · ${labelOf(state)}`} aside={progress.length > 0 ? (
+      <span className="t-data inline-flex items-center gap-2 text-subtle">
+        <span aria-hidden className="size-1.5 rounded-full bg-accent motion-safe:animate-pulse" />
         <span className="tabular-nums">{progress.length} step{progress.length === 1 ? "" : "s"}</span> · live
       </span>
     ) : undefined}>
       {progress.length === 0 ? (
-        <p className="text-sm text-muted">Starting up. Milestones will appear here as they happen.</p>
+        <p className="text-[15px] text-muted">Starting up. Milestones will appear here as they happen.</p>
       ) : (
-        <ol ref={listRef} className="relative space-y-6 pl-7" aria-live="polite">
-          <span ref={lineRef} aria-hidden className="absolute left-[4.5px] top-2 w-px origin-top bg-line-strong" style={{ transform: "scaleY(0)" }} />
-          <AnimatePresence initial={false}>
-            {progress.map((p, i) => {
-              const current = i === progress.length - 1;
-              return (
-                <motion.li key={`${p.createdAt}-${i}`} className="relative"
-                  initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: EASE }}>
-                  <span className="absolute -left-7 top-1.5 flex h-[10px] w-[10px] items-center justify-center">
-                    {current && !reduce && (
-                      <motion.span aria-hidden className="absolute h-[10px] w-[10px] rounded-full bg-accent"
-                        animate={{ scale: [1, 2.6], opacity: [0.5, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }} />
-                    )}
-                    <span className={`relative h-[10px] w-[10px] rounded-full ${current ? "bg-accent" : "bg-subtle"}`} />
-                  </span>
-                  <div className={`text-sm ${current ? "font-medium text-fg" : "text-muted"}`}>{p.message}</div>
-                  <div className="mt-0.5 text-xs text-subtle">{p.milestone.replace(/_/g, " ")} · {when(p.createdAt)}</div>
-                </motion.li>
-              );
-            })}
-          </AnimatePresence>
+        <ol className="m-0 list-none p-0" aria-live="polite">
+          {progress.map((p, i) => {
+            const current = i === progress.length - 1;
+            return (
+              <motion.li key={`${p.createdAt}-${i}`} className="relative pb-6 pl-8 last:pb-0"
+                initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: EASE }}>
+                {!current && <span aria-hidden className="absolute bottom-0 left-[4.5px] top-[18px] w-px bg-line-3" />}
+                <span aria-hidden className="absolute left-0 top-[7px] flex size-[10px] items-center justify-center">
+                  {current && <span className="absolute size-[10px] rounded-full bg-accent opacity-50 motion-safe:animate-ping" />}
+                  <span className={`relative size-[10px] rounded-full border ${current ? "border-accent bg-accent" : "border-line-3 bg-bg-raised"}`} />
+                </span>
+                <div className={`text-[15px] leading-6 ${current ? "text-fg" : "text-muted"}`}>{p.message}</div>
+                <div className="t-data mt-1 text-subtle">{p.milestone.replace(/_/g, " ")} · {when(p.createdAt)}</div>
+              </motion.li>
+            );
+          })}
         </ol>
       )}
-      <p className="mt-8 text-xs text-subtle">You can close this tab; your report will be waiting when you come back.</p>
-    </Block>
+      <p className="mt-8 border-t border-line pt-4 text-xs text-subtle">You can close this tab; your report will be waiting when you come back.</p>
+    </Panel>
   );
 }

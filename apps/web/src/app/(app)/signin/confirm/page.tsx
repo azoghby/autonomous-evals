@@ -3,7 +3,7 @@ import { peekMagicLink } from "@ae/core/auth/magic-link";
 import { safeNextPath } from "@ae/core/auth/tokens";
 import { SignInConfirm } from "@/components/app/signin-confirm";
 
-export const metadata = { title: "Confirm sign-in · Autonomous Evals", robots: { index: false } };
+export const metadata = { title: "Confirm sign-in · Standard Evals", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
 export default async function SignInConfirmPage({ searchParams }: { searchParams: Promise<{ token?: string; next?: string }> }) {

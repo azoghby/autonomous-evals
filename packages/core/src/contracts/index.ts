@@ -35,9 +35,12 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export interface ExpectedPayment { pricingMode: string; priceCents: number; capCents: number | null }
 
+/** Currencies accepted as USD: card payments (usd) and x402 USDC stablecoin payments (usdc, 1:1). */
+const USD_EQUIVALENT_CURRENCIES = ["usd", "usdc"];
+
 /** Pure: does the paid amount/currency match what the quote asked for? fixed: priceCents, per_finding: capCents. */
 export function paymentMatchesQuote(payment: { amountCents: number; currency: string }, quote: ExpectedPayment): boolean {
-  if (payment.currency.toLowerCase() !== "usd") return false;
+  if (!USD_EQUIVALENT_CURRENCIES.includes(payment.currency.toLowerCase())) return false;
   const expected = quote.pricingMode === "per_finding" ? quote.capCents : quote.priceCents;
   return expected != null && payment.amountCents === expected;
 }
@@ -156,7 +159,7 @@ export const Suite = z.object({
   jobId: z.uuid(),
   versionLabel: z.string().default("default"),
   frozenAt: z.iso.datetime(),
-  scenarios: z.array(Scenario).max(12),
+  scenarios: z.array(Scenario).max(32), // 12 designed + red-team pack (rt_*)
 });
 export type Suite = z.infer<typeof Suite>;
 

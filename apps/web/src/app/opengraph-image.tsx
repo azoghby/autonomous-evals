@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Autonomous Evals — Agents build your evals";
+export const alt = "Standard Evals — Agents build your evals";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -26,7 +26,7 @@ export default function OpengraphImage() {
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
               <path d="M2 12c2.5-6 4.5-6 7 0s4.5 6 7 0 3-4 6-2" stroke={BLUE_BRIGHT} strokeWidth="2.2" strokeLinecap="round" />
             </svg>
-            Autonomous Evals
+            Standard Evals
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 128, fontWeight: 600, lineHeight: 0.98, letterSpacing: "-0.05em", flexDirection: "column" }}>

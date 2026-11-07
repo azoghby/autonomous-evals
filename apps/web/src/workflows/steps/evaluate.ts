@@ -3,11 +3,17 @@ import { db, schema } from "@ae/core/db/client";
 import { FatalError } from "workflow";
 import type { Finding, Remediation, Report, Suite } from "@ae/core/contracts/index";
 import type { RunResult } from "@ae/core/contracts/services";
+import { appendRedTeamToSuite } from "@ae/core/redteam/index";
 import { putJobArtifact } from "@ae/core/storage/blob";
 import { findingRowIdByKey, recordProgress, saveFindings, saveRemediation, setJobState } from "@/server/job-store";
 import { resolveBranchConnection } from "@/server/branch-connection";
 import { getEvalServices } from "@/server/services";
 import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+
+/** Feature flag: on by default; REDTEAM_PACK=0|false|off|no disables. */
+function redTeamPackEnabled(): boolean {
+  return !/^(0|false|off|no)$/i.test(process.env.REDTEAM_PACK ?? "");
+}
 
 type EndpointSlot = "endpoint" | "endpointA" | "endpointB";
 
@@ -44,7 +50,9 @@ export async function designSuiteStep(jobId: string): Promise<BudgetResult<Suite
   const intake = await loadIntake(jobId, false);
   const services = await getEvalServices();
   const result = await withBudget(jobId, "engineer", async (ctx) => {
-    const suite = await services.designSuite(ctx, intake);
+    const designed = await services.designSuite(ctx, intake);
+    // Red-team pack (rt_* scenarios): pure + free, so it does not touch the budget. Disable with REDTEAM_PACK=off.
+    const suite = redTeamPackEnabled() ? appendRedTeamToSuite(designed, intake) : designed;
     const path = await putJobArtifact(jobId, "suite", JSON.stringify(suite), "application/json");
     const job = await requireJob(jobId);
     await setJobState(jobId, job.state, { suiteBlobPath: path });

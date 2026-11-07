@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { motionTokens } from "./tokens";
 import { useMotionDuration } from "./useMotionOk";
 
@@ -12,13 +12,15 @@ import { useMotionDuration } from "./useMotionOk";
  */
 export function PageTransition({ children, className }: { children: ReactNode; className?: string }) {
   const pathname = usePathname();
+  // First paint (SSR + hydration) renders visible; only later route changes animate in.
+  const first = useRef(pathname);
   const dur = useMotionDuration(motionTokens.duration.normal);
   return (
     <motion.div
       key={pathname}
       data-reveal
       className={className}
-      initial={{ opacity: 0, y: motionTokens.distance.sm }}
+      initial={pathname === first.current ? false : { opacity: 0, y: motionTokens.distance.sm }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: dur, ease: motionTokens.easing.smooth }}
     >

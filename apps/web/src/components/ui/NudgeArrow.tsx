@@ -7,7 +7,7 @@ export function NudgeArrow({ size = 16, className }: { size?: number; className?
     <ArrowUpRight
       size={size}
       aria-hidden
-      className={cn("transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transform-none", className)}
+      className={cn("transition-transform duration-150 ease-[var(--ease-hover)] group-hover:-translate-y-[2px] group-hover:translate-x-[2px] motion-reduce:transform-none", className)}
     />
   );
 }

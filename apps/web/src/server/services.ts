@@ -4,6 +4,7 @@ import {
 } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext, RunResult } from "@ae/core/contracts/services";
 import { assertPublicTarget } from "./target-url";
+import { mockRedTeamFindings, mockRedTeamResults } from "./redteam-mock";
 
 const MOCK = "[MOCK]";
 const MOCK_CLARIFY_MARKER = "[needs-clarification]";
@@ -122,10 +123,14 @@ export const mockServices: EvalServices = {
       }],
     });
   },
-  async runSuite(): Promise<RunResult> {
-    return { runId: "mock-run", versionLabel: "default", results: [{ scenarioId: "mock-s1", passed: false, detail: `${MOCK} failed` }] };
+  async runSuite(_ctx, suite): Promise<RunResult> {
+    const base = { scenarioId: "mock-s1", passed: false, detail: `${MOCK} failed` };
+    return { runId: "mock-run", versionLabel: suite.versionLabel, results: [base, ...mockRedTeamResults(suite.scenarios)] };
   },
-  async investigate() { return [mockFinding("mock-f1", "mock-s1")]; },
+  async investigate(_ctx, suite, runs) {
+    const failed = new Set(runs.flatMap((r) => r.results.filter((x) => !x.passed).map((x) => x.scenarioId)));
+    return [mockFinding("mock-f1", "mock-s1"), ...mockRedTeamFindings(suite.scenarios, failed)];
+  },
   async proposeAndVerifyFix(_ctx, input) { return mockRemediation(input.finding); },
   async renderReport(ctx, input) {
     const fixes = input.remediations ?? [];
