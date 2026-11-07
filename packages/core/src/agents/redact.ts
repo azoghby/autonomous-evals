@@ -60,6 +60,9 @@ export function redactSecrets(input: string, knownSecrets: readonly string[] = [
     if (!sensitive) continue;
     const start = match.index + match[0].length;
     if (edits.length && start < edits[edits.length - 1]!.end) continue;
+    // A scrubbed assignment may be nested inside JSON-encoded event text. Its
+    // closing quote is then escaped; do not treat that escape as part of a new secret.
+    if (/^\[REDACTED\](?=$|[\s,;}&"']|\\+["'])/.test(text.slice(start))) continue;
     const valuePattern = /^(?:authorization|x-api-key|api-key|cookie|set-cookie)$/i.test(key) && !/^["']/.test(text.slice(start))
       ? /^[^\r\n,}]+/
       : /^("(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^\s,;}&"']+)/;

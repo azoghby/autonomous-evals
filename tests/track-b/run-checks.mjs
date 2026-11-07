@@ -78,7 +78,7 @@ function readContractsFromRef(ref) {
     const match = /^(\d{6}) (\w+) ([0-9a-f]{40}(?:[0-9a-f]{24})?)\t(.+)$/s.exec(entry);
     if (!match) throw new Error('Unrecognized git tree entry.');
     const [, mode, type, object, path] = match;
-    if (!path.endsWith('.ts')) continue;
+    if (!path.endsWith('.ts') || testFile.test(path)) continue;
     const relative = path.slice(contractsRepoPath.length + 1);
     if (!/^(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.ts$/.test(relative) || relative.split('/').includes('..')) {
       throw new Error(`Refusing unsafe contract path ${JSON.stringify(path)}.`);
@@ -169,7 +169,7 @@ async function main() {
         await writeFile(destination, file.content);
       }
     } else if (localContracts) {
-      await cp(join(source, 'contracts'), join(staging, 'src/contracts'), { recursive: true });
+      await cp(join(source, 'contracts'), join(staging, 'src/contracts'), { recursive: true, filter: (path) => !testFile.test(path) });
     }
     if (selectedContract.length) {
       await mkdir(join(staging, 'src/contract-checks'));
@@ -203,7 +203,9 @@ async function main() {
     };
     run(join(here, 'node_modules/typescript/bin/tsc'), ['--project', join(staging, 'tsconfig.json')]);
     const resultsFile = join(staging, 'vitest-results.json');
-    run(join(here, 'node_modules/vitest/vitest.mjs'), ['run', '--root', staging, '--reporter=default', '--reporter=json', `--outputFile.json=${resultsFile}`], {
+    // Bound per-harness workers: several agent checkouts may validate concurrently,
+    // and each PGlite worker starts its own PostgreSQL WASM instance.
+    run(join(here, 'node_modules/vitest/vitest.mjs'), ['run', '--root', staging, '--maxWorkers=2', '--reporter=default', '--reporter=json', `--outputFile.json=${resultsFile}`], {
       TRACK_A_CONTRACT_SHA: contracts?.sha ?? '',
       TRACE_ACCEPTANCE_PATH: join(here, 'trace-acceptance.json'),
     });

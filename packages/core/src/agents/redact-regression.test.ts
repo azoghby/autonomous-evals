@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { containsSecret, redactSecrets, redactValue } from "./redact";
 
 describe("credential redaction regressions (D1)", () => {
+  it('does not flag a redacted assignment again after nested JSON serialization', () => {
+    const scrubbed = redactSecrets('DB_PASSWORD=hunter2hunter2').text;
+    const event = JSON.stringify({ error: scrubbed });
+    const prompt = JSON.stringify({ events: [{ text: event }] });
+    expect(containsSecret(prompt)).toBe(false);
+    expect(redactSecrets(prompt).text).toBe(prompt);
+    expect(containsSecret('DB_PASSWORD=[REDACTED]still-secret')).toBe(true);
+  });
   it.each([
     ["DB_PASSWORD=hunter2hunter2", "DB_PASSWORD=[REDACTED]"],
     ["export STRIPE_SECRET=abcdefgh12345678", "export STRIPE_SECRET=[REDACTED]"],

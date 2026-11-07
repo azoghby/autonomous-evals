@@ -28,8 +28,8 @@ export type ContractShapePins = [
   Assert<Equal<ServiceContext['budgetMicroUsd'], number>>,
   /** Findings carry no typed run/branch association. */
   Assert<Equal<Extract<keyof FindingType, 'runId' | 'branchId' | 'versionLabel'>, never>>,
-  /** The ten service names Track B must provide. */
-  Assert<Equal<keyof EvalServices, 'qualify' | 'auditTrace' | 'checkTarget' | 'designSuite' | 'runSuite' | 'investigate' | 'renderReport' | 'createJobBranch' | 'deleteJobBranch' | 'rerunFinding'>>,
+  /** Current service surface, including remediation and optional private branch resolution. */
+  Assert<Equal<keyof EvalServices, 'qualify' | 'auditTrace' | 'checkTarget' | 'designSuite' | 'runSuite' | 'investigate' | 'renderReport' | 'createJobBranch' | 'deleteJobBranch' | 'rerunFinding' | 'getJobBranchConnection' | 'proposeAndVerifyFix'>>,
 ];
 
 const jobId = '11111111-1111-4111-8111-111111111111';

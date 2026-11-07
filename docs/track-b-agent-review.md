@@ -10,7 +10,7 @@ What held up (checked, no defect found): the ambiguous-create state machine (sam
 
 ## Findings and resolution status
 
-Parent update: D5 is fixed with measured costs recorded before blocked outcomes, including awaiting-input sessions, and schema validation details retained. D3 intake-preview clipping is fixed; event normalization remains assigned separately. Other findings below remain open until their regression fixes are integrated. Original review observations are retained for context.
+Parent update: D1, D2, D3 and D6 are fixed and their reviewer reproducers now assert corrected behavior. Known secrets are passed into decoded event normalization. Redacted assignments inside JSON-escaped text remain accepted by the credential guard. D5 is fixed with measured costs recorded before blocked outcomes, including awaiting-input sessions, and schema validation details retained. Other findings below remain open until their regression fixes are integrated. Original review observations are retained for context.
 
 Severity is my judgment of customer/ops impact.
 

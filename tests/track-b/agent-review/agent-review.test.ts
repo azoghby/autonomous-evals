@@ -55,16 +55,16 @@ describe("secret redaction (agents/redact.ts, evals/trace/normalize.ts)", () => 
     ["mysql URL password", "mysql://user:secretpw@host/db", "secretpw"],
   ];
   for (const [name, input, fragment] of leaks) {
-    it(`DEFECT D1: ${name} is NOT redacted`, () => {
-      expect(redactSecrets(input).text).toContain(fragment);
+    it(`REGRESSION D1: ${name} is redacted`, () => {
+      expect(redactSecrets(input).text).not.toContain(fragment);
     });
   }
 
-  it("DEFECT D1b: only the first word of a multi-word JSON password is redacted", () => {
-    expect(redactSecrets('{"password":"correct horse battery staple"}').text).toBe('{"password":"[REDACTED] horse battery staple"}');
+  it("REGRESSION D1b: the entire multi-word JSON password is redacted", () => {
+    expect(redactSecrets('{"password":"correct horse battery staple"}').text).toBe('{"password":"[REDACTED]"}');
   });
 
-  it("DEFECT D1c: the unredacted env secret reaches the Naive request body, the report evidence and the credential gate does not stop it", async () => {
+  it("REGRESSION D1c: env secrets are absent from investigator prompts and evidence", async () => {
     const secret = "hunter2hunter2";
     const trace = JSON.stringify([
       { role: "user", content: "Show me the config" },
@@ -76,13 +76,13 @@ describe("secret redaction (agents/redact.ts, evals/trace/normalize.ts)", () => 
     const out = await auditTrace({ job: fixtureJob(), trace }, { runner: h.service });
     // The secret rides in the investigator prompt (the session service's credential gate uses the same pattern list).
     expect(h.naive.createCalls).toHaveLength(1);
-    expect(h.naive.createCalls[0]!.body.message).toContain(secret);
+    expect(h.naive.createCalls[0]!.body.message).not.toContain(secret);
     expect(out.status).toBe("completed");
     // ...and into the customer-facing report evidence.
-    if (out.status === "completed") expect(JSON.stringify(out.result.findings)).toContain(secret);
+    if (out.status === "completed") expect(JSON.stringify(out.result.findings)).not.toContain(secret);
   });
 
-  it("DEFECT D2: a caller-supplied known secret containing a JSON-special character survives JSON traces", async () => {
+  it("REGRESSION D2: JSON-special known secrets are removed from decoded traces", async () => {
     const secret = 'pa"ss\\word12345';
     // The assistant echoes the secret, so a candidate evidence quote carries it into the prompt and the report.
     const trace = JSON.stringify([
@@ -95,17 +95,17 @@ describe("secret redaction (agents/redact.ts, evals/trace/normalize.ts)", () => 
     expect(trace).not.toContain(secret);
     expect(out.status).toBe("completed");
     if (out.status !== "completed") return;
-    expect(JSON.stringify(out.result.findings)).toContain("word12345");
+    expect(JSON.stringify(out.result.findings)).not.toContain("word12345");
     // The session service's own known-secret gate also compares the decoded secret with a JSON-escaped prompt, so it cannot catch it.
-    expect(h.naive.createCalls[0]!.body.message).toContain("word12345");
+    expect(h.naive.createCalls[0]!.body.message).not.toContain("word12345");
   });
 
-  it("DEFECT D3: events are clipped to 20,000 chars BEFORE redaction, so a secret straddling the cut leaks its prefix", () => {
+  it("REGRESSION D3: redaction precedes event clipping", () => {
     const key = "sk-ant-" + "a1B2c3D4e5F6g7H8i9J0".repeat(2);
     const text = "x".repeat(19_990) + key;
     const t = normalizeTrace(JSON.stringify([{ role: "assistant", content: text }]));
-    expect(t.events[0]!.redactions).toBe(0);
-    expect(t.events[0]!.text).toContain("sk-ant-a1B");
+    expect(t.events[0]!.redactions).toBeGreaterThan(0);
+    expect(t.events[0]!.text).not.toContain("sk-ant-a1B");
   });
 });
 
@@ -203,23 +203,23 @@ describe("cost accounting through the Track A adapter (evals/service-adapter.ts)
 describe("transcript evidence and misleading findings (evals/trace/detect.ts, normalize.ts)", () => {
   const detectJson = (events: unknown[], instructions: string | null = null) => detect(normalizeTrace(JSON.stringify(events)), instructions);
 
-  it("DEFECT D6: a success whose result says `\"error\": null` is treated as an error-worded result", () => {
+  it("REGRESSION D6: a success whose result says `\"error\": null` is treated as an error-worded result", () => {
     const d = detectJson([
       { role: "assistant", tool_calls: [{ id: "c1", type: "function", function: { name: "create_event", arguments: '{"title":"Review"}' } }] },
       { role: "tool", tool_call_id: "c1", content: '{"id":"evt_1","status":"created","error":null}' },
       { role: "assistant", content: "Your review is booked." },
     ]);
-    expect(d.claims.map((c) => c.status)).toEqual(["unclear_error"]);
-    expect(d.candidates.map((c) => c.title)).toEqual(["Success claimed after a result with error wording from create_event"]);
+    expect(d.claims.map((c) => c.status)).not.toContain("unclear_error");
+    expect(d.candidates).toEqual([]);
   });
 
-  it("DEFECT D6b: `\"failed\": 0` counters are error-worded, so a clean batch send yields a finding", () => {
+  it("REGRESSION D6b: `\"failed\": 0` counters are error-worded, so a clean batch send yields a finding", () => {
     const d = detectJson([
       { role: "assistant", tool_calls: [{ id: "c1", type: "function", function: { name: "send_batch", arguments: "{}" } }] },
       { role: "tool", tool_call_id: "c1", content: '{"sent":12,"failed":0}' },
       { role: "assistant", content: "All 12 messages were sent." },
     ]);
-    expect(d.candidates.some((c) => c.category === "unsupported_claim")).toBe(true);
+    expect(d.candidates.some((c) => c.category === "unsupported_claim")).toBe(false);
   });
 
   it("DEFECT D7: relevance is matched against call ARGUMENTS, so an unrelated failed call turns a verified success into an objective, high-severity 'contradicted' claim", () => {

@@ -10,7 +10,7 @@ npm ci --prefix tests/track-b --workspaces=false
 npm --prefix tests/track-b run check -- --track-a-ref origin/track-a
 ```
 
-- `--track-a-ref <git-ref>` (or `=<ref>`) reads `packages/core/src/contracts/**/*.ts` from that locally available revision. The ref is resolved with `git rev-parse --verify --end-of-options <ref>^{commit}` using a spawn argument vector, with no shell. Refs beginning with `-` or containing newlines are refused. Only regular `.ts` blobs under the contracts path are staged, and `index.ts` and `services.ts` must exist. Files go only into the temporary staging directory; the working tree is never modified. The run prints the resolved SHA and a content digest. The SHA is also exported to tests as `TRACK_A_CONTRACT_SHA`.
+- `--track-a-ref <git-ref>` (or `=<ref>`) reads `packages/core/src/contracts/**/*.ts` from that locally available revision. The ref is resolved with `git rev-parse --verify --end-of-options <ref>^{commit}` using a spawn argument vector, with no shell. Refs beginning with `-` or containing newlines are refused. Only regular non-test `.ts` blobs under the contracts path are staged, and `index.ts` and `services.ts` must exist. Files go only into the temporary staging directory; the working tree is never modified. The run prints the resolved SHA and a content digest. The SHA is also exported to tests as `TRACK_A_CONTRACT_SHA`.
 - Without the flag, contracts come from `packages/core/src/contracts` if that directory exists. Main does not currently contain it, so any contract component then fails with an explicit "contracts unavailable" message rather than passing.
 - `--components a,b` selects a partial check. Track B directories: `agents, evals, reporting, targets, simulator, monitoring, judges`. Compatibility components: `contract-schemas`, `contract-targets`, `contract-branches`, `contract-evidence`, or `contract-checks` for all four. With no `--components`, everything runs, so the default fails until agents, evals, and reporting exist.
 - Contract components stage the Track B code they import (`targets`, `simulator`, `judges`, `monitoring`) even when not selected, but without that code's own tests. Selecting a directory runs its tests.
@@ -25,7 +25,7 @@ Method-style interface signatures are bivariant in TypeScript, so a plain assign
 
 - `createTargetServices()` is assigned to `Pick<EvalServices, 'checkTarget'>`; Track A's context and endpoint types must be accepted by it, and results must match in both directions.
 - `ReturnType<typeof createBranchServices>` is assigned to `Pick<EvalServices, 'createJobBranch' | 'deleteJobBranch'>`, with parameter and result types equal in both directions.
-- Shape pins for the gaps below (the `rerunFinding` parameter list, `deleteJobBranch(branchId)`, boolean-only `RunResult`, numeric `budgetMicroUsd`, no run/branch keys on `Finding`, and the ten `EvalServices` names).
+- Shape pins for the gaps below (the `rerunFinding` parameter list, `deleteJobBranch(branchId)`, boolean-only `RunResult`, numeric `budgetMicroUsd`, no run/branch keys on `Finding`, and the current `EvalServices` names, including `proposeAndVerifyFix` and optional `getJobBranchConnection`).
 
 I verified these catch drift by running against unreferenced commits with mutated `services.ts` (a `model: number` change, a dropped `url`, a changed result type, an extra branch result field, an extra `deleteJobBranch` parameter). Each failed type-checking.
 
@@ -56,3 +56,7 @@ Tests titled `KNOWN GAP` assert that a gap still exists. If Track A fixes one, t
 - Test files import via paths that resolve only after staging (`../contracts/index`, `../targets/index.js`). They are not meant to be run from `tests/track-b/contract-checks/` directly.
 - Contract digests cover only `.ts` files under the contracts directory at the selected revision.
 - The check does not fetch; an out-of-date local `origin/track-a` is validated as-is, and the printed SHA is the source of truth.
+
+## Track A contract update
+
+Track A added required `proposeAndVerifyFix` and optional `getJobBranchConnection`, plus optional report-input remediations. The service-name pin now recognizes these additions; this does not claim a remediation engine is implemented. The existing safe Neon connection resolver supplies the underlying branch lookup capability, with final platform wiring still required. Track A app conformance tests import its `@/server/services` alias and must run in that app workspace; the isolated Track B harness stages contract definitions, excludes Track A test files, and runs all selected Track B compatibility tests. Consequently test totals no longer include incidental Track A tests.
