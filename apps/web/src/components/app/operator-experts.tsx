@@ -10,8 +10,9 @@ interface Request { id: string; domain: string; purpose: string; questions: stri
 interface Expert { id: string; name: string; email: string; title: string; organization: string | null; domains: string[]; source: string; status: string; rateCents: number | null }
 interface Engagement {
   id: string; requestId: string; expertId: string; mode: string; status: string; honorariumCents: number; paidAt: string | null;
-  answeredAt: string | null; draftStatus: string | null; createdAt: string; answers: { questionIndex: number; answer: string }[] | null;
+  answeredAt: string | null; recordingConsent: boolean; scheduledAt: string | null; draftStatus: string | null; createdAt: string; answers: { questionIndex: number; answer: string }[] | null;
 }
+interface Slot { id: string; startsAt: string; durationMin: number; takenByEngagementId: string | null; expertName: string | null }
 interface Overview {
   requests: Request[]; experts: Expert[]; engagements: Engagement[];
   counts: { requests: number; experts: number; engagements: number; responses: number; suppressions: number };
@@ -22,6 +23,87 @@ const tone = (s: string) => (s === "answered" ? "warn" : s === "paid" ? "ok" : s
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="space-y-4 border-t border-line pt-6"><h2 className="text-xs font-medium uppercase tracking-[0.14em] text-subtle">{title}</h2>{children}</section>;
+}
+
+function CallSlots() {
+  const { data, error, loading, reload } = useFetch<{ slots: Slot[] }>("/api/operator/experts/slots");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  async function add(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    const local = String(f.get("startsAt") ?? "");
+    const d = new Date(local);
+    if (!local || Number.isNaN(d.getTime())) { setMsg({ ok: false, text: "Pick a start time." }); return; }
+    setBusy("add"); setMsg(null);
+    try {
+      const r = await api<{ created: number; skippedDuplicates: number }>("/api/operator/experts/slots", {
+        method: "POST", json: { startsAt: d.toISOString(), durationMin: Number(f.get("durationMin") || 15) },
+      });
+      setMsg({ ok: true, text: `Added ${r.created} slot${r.created === 1 ? "" : "s"}${r.skippedDuplicates ? ` (${r.skippedDuplicates} duplicate skipped)` : ""}.` });
+      form.reset(); await reload();
+    } catch (e2) { setMsg({ ok: false, text: errMsg(e2) }); } finally { setBusy(null); }
+  }
+  async function remove(id: string) {
+    setBusy(id); setMsg(null);
+    try { await api(`/api/operator/experts/slots/${id}`, { method: "DELETE" }); await reload(); }
+    catch (e2) { setMsg({ ok: false, text: errMsg(e2) }); } finally { setBusy(null); }
+  }
+  return (
+    <Section title="Call slots">
+      <form onSubmit={add} className="flex flex-wrap items-end gap-4">
+        <Field label="Start (your local time)"><Input name="startsAt" type="datetime-local" required /></Field>
+        <Field label="Minutes"><Input name="durationMin" type="number" min={10} max={120} step={5} defaultValue={15} className="w-24" /></Field>
+        <Btn type="submit" loading={busy === "add"}>Add slot</Btn>
+      </form>
+      {msg && <p role={msg.ok ? "status" : "alert"} className={msg.ok ? "text-sm text-muted" : "text-sm text-accent-bright"}>{msg.text}</p>}
+      {loading ? <Loading label="Loading slots" /> : error || !data ? <ErrorBox message={error?.message ?? "Unknown error"} onRetry={() => void reload()} /> :
+        data.slots.length === 0 ? <p className="text-sm text-muted">No upcoming slots.</p> : (
+          <ul>{data.slots.map((s) => (
+            <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-3 text-sm">
+              <span className="tabular-nums">{when(s.startsAt)} <span className="text-xs text-subtle">· {s.durationMin} min</span></span>
+              {s.takenByEngagementId
+                ? <Chip tone="info">Booked: {s.expertName ?? "expert"}</Chip>
+                : <Btn variant="ghost" loading={busy === s.id} onClick={() => void remove(s.id)}>Delete</Btn>}
+            </li>
+          ))}</ul>
+        )}
+    </Section>
+  );
+}
+
+function EngagementNotes({ engagement, onSaved }: { engagement: Engagement; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    setBusy(true); setMsg(null);
+    try {
+      await api(`/api/operator/experts/engagements/${engagement.id}/notes`, {
+        method: "POST", json: { text: String(f.get("text") ?? "").trim(), kind: String(f.get("kind")) === "transcript" ? "transcript" : "notes" },
+      });
+      form.reset(); setMsg({ ok: true, text: "Saved." }); onSaved();
+    } catch (e2) { setMsg({ ok: false, text: errMsg(e2) }); } finally { setBusy(false); }
+  }
+  return (
+    <details className="text-sm"><summary className="cursor-pointer text-muted">Add call notes</summary>
+      <form onSubmit={submit} className="mt-3 space-y-3">
+        <Textarea name="text" required rows={4} aria-label="Call notes" />
+        <div className="flex flex-wrap items-center gap-4">
+          <select name="kind" defaultValue="notes" aria-label="Kind"
+            className="rounded-md bg-bg-raised px-3 py-2 text-sm text-fg outline-none ring-1 ring-inset ring-line focus:ring-accent">
+            <option value="notes">Notes</option>
+            <option value="transcript" disabled={!engagement.recordingConsent}>Transcript{engagement.recordingConsent ? "" : " (no recording consent)"}</option>
+          </select>
+          <Btn type="submit" loading={busy}>Save</Btn>
+          {msg && <span role={msg.ok ? "status" : "alert"} className={msg.ok ? "text-xs text-muted" : "text-xs text-accent-bright"}>{msg.text}</span>}
+        </div>
+      </form>
+    </details>
+  );
 }
 
 function NewRequest({ onCreated }: { onCreated: () => void }) {
@@ -136,6 +218,8 @@ export function OperatorExperts() {
         )}
       </Section>
 
+      <CallSlots />
+
       <Section title="Engagements">
         {data.engagements.length === 0 ? <Empty title="No engagements" body="Invites appear here once drafted." /> : (
           <Stagger as="ul">{data.engagements.map((e) => (
@@ -145,9 +229,11 @@ export function OperatorExperts() {
                   <strong className="font-medium">{expertName.get(e.expertId) ?? "Expert"}</strong><span className="text-sm text-muted">on {requestDomain.get(e.requestId) ?? "request"}</span>
                   <Chip tone={tone(e.status)}>{e.status}</Chip>{e.draftStatus && <span className="text-xs text-subtle">email {e.draftStatus}</span>}
                   <span className="text-xs text-subtle">{dollars(e.honorariumCents)}</span>
+                  {e.scheduledAt && <span className="text-xs text-subtle">call {when(e.scheduledAt)}</span>}
                 </div>
                 {e.status === "answered" && <Btn variant="ghost" loading={busyId === `p${e.id}`} onClick={() => void markPaid(e.id)}>Mark paid</Btn>}
               </div>
+              <EngagementNotes engagement={e} onSaved={() => void reload()} />
               {e.answers && <details className="text-sm"><summary className="cursor-pointer text-muted">View answers</summary>
                 <ol className="mt-2 space-y-2">{e.answers.map((a) => <li key={a.questionIndex}><span className="text-xs text-subtle">Q{a.questionIndex + 1}</span><p className="whitespace-pre-wrap">{a.answer}</p></li>)}</ol></details>}
             </StaggerItem>

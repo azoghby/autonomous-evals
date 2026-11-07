@@ -249,6 +249,7 @@ export async function getExpertsOverview() {
       answeredAt: schema.expertEngagements.answeredAt, expiresAt: schema.expertEngagements.expiresAt,
       outreachDraftId: schema.expertEngagements.outreachDraftId, draftStatus: schema.outreachDrafts.status,
       createdAt: schema.expertEngagements.createdAt,
+      recordingConsent: schema.expertEngagements.recordingConsent, scheduledAt: schema.expertEngagements.scheduledAt,
     }).from(schema.expertEngagements)
       .leftJoin(schema.outreachDrafts, eq(schema.outreachDrafts.id, schema.expertEngagements.outreachDraftId))
       .orderBy(desc(schema.expertEngagements.createdAt)).limit(500),
