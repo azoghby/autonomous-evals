@@ -69,7 +69,7 @@ export function SignupForm() {
 
   const err = (k: string) => fields[k]?.[0];
   return (
-    <GlassCard strong className="p-6 sm:p-8">
+    <GlassCard className="p-6 sm:p-8">
       <form onSubmit={onSubmit} noValidate={false} className="space-y-5" aria-describedby={error ? "signup-error" : undefined}>
         <h2 className="text-2xl font-semibold tracking-tight">Join the expert pool</h2>
         <div className="grid gap-5 sm:grid-cols-2">
@@ -88,8 +88,8 @@ export function SignupForm() {
         <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
           <label>Leave this empty<input name="hp" tabIndex={-1} autoComplete="off" /></label>
         </div>
-        <fieldset className="space-y-3 rounded-2xl border border-glass-border p-4">
-          <legend className="px-2 text-sm font-medium">Consent</legend>
+        <fieldset className="space-y-3 border-t border-cream/10 pt-4">
+          <legend className="pr-2 text-sm font-medium">Consent</legend>
           {checkbox("c1", "You may contact me about paid expert work. I understand some messages are written by AI agents and reviewed by a human.", { checked: contact, onChange: setContact, required: true })}
           {checkbox("c2", "You may record calls with me, if I agree again at the start of each call.", { checked: record, onChange: setRecord })}
           {checkbox("c3", "You may credit me by name in reports. Otherwise I stay anonymous.", { checked: attribute, onChange: setAttribute })}

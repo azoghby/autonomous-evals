@@ -2,7 +2,7 @@ import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "rea
 import { cn } from "./cn";
 
 const control =
-  "w-full rounded-2xl border border-glass-border bg-glass px-4 py-3 text-[15px] text-cream placeholder:text-cream/40 backdrop-blur-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-coral aria-[invalid=true]:border-danger";
+  "w-full rounded-xl border border-cream/12 bg-cream/[0.04] px-4 py-3 text-[15px] text-cream placeholder:text-cream/35 transition-colors hover:border-cream/25 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-coral aria-[invalid=true]:border-danger";
 
 type FieldBase = {
   label: string;
