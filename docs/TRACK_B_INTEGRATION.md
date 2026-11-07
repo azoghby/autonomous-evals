@@ -64,3 +64,7 @@ These are integration requirements identified from the published contracts, not 
 4. Comparison and monitoring execution when the earlier gates pass.
 
 The plan permits cutting comparison, monitoring, then calendar if necessary, but a cut must be reported explicitly rather than marked implemented. Track B completion claims must distinguish implemented/tested services, live-provider checks, and Track A integration still pending.
+
+### Additive context adapters (Track A 612f5de)
+
+Track A now supplies optional `ctx.sessions`, `ctx.budget` and `ctx.artifacts`. Its session adapter is keyed by an existing provider session ID, while Track B requires a durable task intent before that ID exists, request identity checks and CAS leases. Its budget adapter is per-job reserve/release, while Track B requires idempotent task reservations spanning both job and role-period caps and measured settlement. These interfaces are not interchangeable: construct `AgentSessionService` with the Track B PostgreSQL task/budget ports and map records/costs explicitly. Do not fall back to creating another session when `findResumable` returns null, nor assume `ctx.budgetMicroUsd` authorizes spend. Coordinate stage reservations and task reservations to avoid charging or reserving the same work twice. `ctx.artifacts` can persist frozen suites/evidence only after authorized job binding; retain names/pathnames rather than public URLs.

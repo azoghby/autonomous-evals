@@ -14,7 +14,7 @@ import type { ChatTarget } from '../targets/index.js';
 
 // Compile-time compatibility: the branch factory must satisfy the exact Track A service shapes.
 type BranchServices = ReturnType<typeof createBranchServices>;
-const asTrackA = (services: BranchServices): Pick<EvalServices, 'createJobBranch' | 'deleteJobBranch'> => services;
+const asTrackA = (services: BranchServices): Required<Pick<EvalServices, 'createJobBranch' | 'deleteJobBranch' | 'getJobBranchConnection'>> => services;
 export type BranchServicesCompatible = typeof asTrackA;
 
 // Method-style signatures are bivariant, so pin variance explicitly in both directions.
@@ -25,6 +25,8 @@ export type BranchVariance = [
   Assert<Mutual<Awaited<ReturnType<EvalServices['createJobBranch']>>, Awaited<ReturnType<BranchServices['createJobBranch']>>>>,
   Assert<Mutual<Parameters<EvalServices['deleteJobBranch']>, Parameters<BranchServices['deleteJobBranch']>>>,
   Assert<Mutual<Awaited<ReturnType<EvalServices['deleteJobBranch']>>, Awaited<ReturnType<BranchServices['deleteJobBranch']>>>>,
+  Assert<Mutual<Parameters<NonNullable<EvalServices['getJobBranchConnection']>>, Parameters<BranchServices['getJobBranchConnection']>>>,
+  Assert<Mutual<Awaited<ReturnType<NonNullable<EvalServices['getJobBranchConnection']>>>, Awaited<ReturnType<BranchServices['getJobBranchConnection']>>>>,
 ];
 
 const jobId = '22222222-2222-4222-8222-222222222222';
@@ -46,6 +48,16 @@ function harness(options: { record?: BranchOwnership; uri?: string } = {}) {
 }
 
 describe('branch services against Track A signatures', () => {
+  it('resolves private connections only for recorded ready branches without provisioning new resources', async () => {
+    const { services, calls } = harness();
+    await expect(services.getJobBranchConnection('br-someone-else')).rejects.toThrow('branch_not_owned');
+    await expect(services.getJobBranchConnection('br-job1')).resolves.toContain('postgres://');
+    expect(calls).toEqual({ created: [], deleted: [] });
+    for (const state of ['creating', 'retryable', 'delete_requested', 'deleted'] as const) {
+      await expect(harness({ record: owned({ state }) }).services.getJobBranchConnection('br-job1')).rejects.toThrow('branch_not_ready');
+    }
+    await expect(harness({ uri: 'https://invalid.example' }).services.getJobBranchConnection('br-job1')).rejects.toThrow('invalid_branch_connection');
+  });
   it('returns the exact createJobBranch result shape', async () => {
     const { services, calls } = harness();
     expect(branchResult.parse(await services.createJobBranch(jobId))).toEqual({ branchId: 'br-job1', connectionString: expect.stringContaining('postgres://') });
