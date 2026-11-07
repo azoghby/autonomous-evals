@@ -6,3 +6,4 @@ export * from './fixtures.js';
 export * from './neon.js';
 export * from './adapters.js';
 export * from './pool.js';
+export * from './acceptance-scenarios.js';
