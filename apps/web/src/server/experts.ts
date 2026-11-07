@@ -50,8 +50,14 @@ export async function optOut(target: { token: string } | { email: string }): Pro
   const experts = await db().update(schema.experts).set({ status: "opted_out" })
     .where(sql`lower(${schema.experts.email}) = ${normalizeEmail(email)}`).returning({ id: schema.experts.id });
   if (experts.length > 0) {
-    await db().update(schema.expertEngagements).set({ status: "cancelled" })
-      .where(and(inArray(schema.expertEngagements.expertId, experts.map((e) => e.id)), eq(schema.expertEngagements.status, "invited")));
+    const cancelled = await db().update(schema.expertEngagements).set({ status: "cancelled", scheduledAt: null })
+      .where(and(inArray(schema.expertEngagements.expertId, experts.map((e) => e.id)), eq(schema.expertEngagements.status, "invited")))
+      .returning({ id: schema.expertEngagements.id });
+    // Free any call slots they held so they can be re-offered.
+    if (cancelled.length > 0) {
+      await db().update(schema.callSlots).set({ takenByEngagementId: null })
+        .where(inArray(schema.callSlots.takenByEngagementId, cancelled.map((c) => c.id)));
+    }
   }
   return { ok: true };
 }

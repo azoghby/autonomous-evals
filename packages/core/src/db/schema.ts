@@ -222,6 +222,31 @@ export const monitoringSubscriptions = pgTable("monitoring_subscriptions", {
   createdAt,
 });
 
+/** One nightly re-run of a frozen suite per subscription per UTC day. */
+export const monitoringRuns = pgTable("monitoring_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subscriptionId: uuid("subscription_id").notNull().references(() => monitoringSubscriptions.id),
+  jobId: uuid("job_id").notNull().references(() => jobs.id),
+  /** UTC calendar day this run covers (YYYY-MM-DD); with subscription_id it makes the cron idempotent. */
+  runDate: text("run_date").notNull(),
+  ranAt: ts("ran_at").notNull().defaultNow(),
+  /** [{ scenarioId, passed, detail }] */
+  results: jsonb("results").notNull(),
+  regressions: integer("regressions").notNull().default(0),
+}, (t) => [
+  uniqueIndex("monitoring_runs_sub_day_uq").on(t.subscriptionId, t.runDate),
+  index("monitoring_runs_sub_idx").on(t.subscriptionId),
+]);
+
+/** At most one follow-up email per (subject, kind). subject_type: job | expert_engagement. */
+export const followUps = pgTable("follow_ups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subjectType: text("subject_type").notNull(),
+  subjectId: uuid("subject_id").notNull(),
+  kind: text("kind").notNull(),
+  sentAt: ts("sent_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("follow_ups_subject_kind_uq").on(t.subjectType, t.subjectId, t.kind)]);
+
 // ---- Expert Network (docs/EXPERT_NETWORK.md) ----
 
 export const experts = pgTable("experts", {
@@ -284,6 +309,18 @@ export const expertResponses = pgTable("expert_responses", {
   provenance: text("provenance").notNull().default("expert_sourced"),
   createdAt,
 }, (t) => [index("expert_responses_engagement_idx").on(t.engagementId)]);
+
+/** Operator-published call availability. An expert claims one atomically via taken_by_engagement_id. */
+export const callSlots = pgTable("call_slots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  startsAt: ts("starts_at").notNull(),
+  durationMin: integer("duration_min").notNull().default(15),
+  takenByEngagementId: uuid("taken_by_engagement_id").references(() => expertEngagements.id),
+  createdAt,
+}, (t) => [
+  uniqueIndex("call_slots_starts_at_uq").on(t.startsAt),
+  index("call_slots_engagement_idx").on(t.takenByEngagementId),
+]);
 
 /** Maps an AgentMail thread to the job / expert engagement it belongs to, so inbound replies can be routed. */
 export const emailThreads = pgTable("email_threads", {

@@ -1,4 +1,4 @@
-import type { Environment, JobState, Package } from "@ae/core/contracts/index";
+import type { Environment, JobState, Package, PaymentStatus, PricingMode, Remediation } from "@ae/core/contracts/index";
 
 export interface JobSummary {
   id: string;
@@ -17,6 +17,8 @@ export interface QuoteView {
   deliverables: string[];
   environment?: Environment;
   acceptedAt?: string | null;
+  pricingMode?: PricingMode;
+  capCents?: number | null;
 }
 
 export interface MessageView {
@@ -59,8 +61,16 @@ export interface PaymentView {
   amountCents: number;
   environment: Environment;
   kind: string;
+  /** Payment lifecycle status (payments.status). */
+  status?: PaymentStatus;
+  capturedAmountCents?: number | null;
   createdAt: string;
 }
+
+/** Remediation row as serialized by getJobForViewer: row ids plus the Remediation contract fields. */
+export type RemediationView = Remediation & { id: string; findingRowId: string; createdAt: string };
+
+export type ChargeView = Pick<PaymentView, "status" | "amountCents" | "capturedAmountCents">;
 
 export interface JobDetail {
   job: JobSummary & { error?: string | null; retestOfJobId?: string | null };
@@ -69,6 +79,7 @@ export interface JobDetail {
   progress: ProgressItem[];
   findings: unknown[];
   payments: PaymentView[];
+  remediations: RemediationView[];
   report?: { summary: string; markdown?: string } | null;
 }
 

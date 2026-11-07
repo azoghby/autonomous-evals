@@ -8,7 +8,10 @@ export interface SendFromInboxInput {
   text: string;
   html?: string;
   labels?: string[];
+  /** `content` is base64. */
+  attachments?: EmailAttachment[];
 }
+export interface EmailAttachment { filename: string; contentType: string; content: string }
 export interface SentMessage { messageId: string; threadId: string }
 
 export const isAgentMailConfigured = () => !!process.env.AGENTMAIL_API_KEY;
@@ -36,6 +39,7 @@ export async function sendFromInbox(inboxId: string, input: SendFromInboxInput):
     to: input.to, subject: input.subject, text: input.text,
     ...(input.html ? { html: input.html } : {}),
     ...(input.labels?.length ? { labels: input.labels } : {}),
+    ...(input.attachments?.length ? { attachments: input.attachments } : {}),
   });
   return { messageId: res.messageId, threadId: res.threadId };
 }

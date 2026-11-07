@@ -1,11 +1,13 @@
 import { Resend } from "resend";
-import { inboxIdFor, isAgentMailConfigured, sendFromInbox, type EmailPurpose } from "../email/agentmail";
+import { inboxIdFor, isAgentMailConfigured, sendFromInbox, type EmailAttachment, type EmailPurpose } from "../email/agentmail";
 
 export interface EmailMessage {
   to: string; subject: string; text: string; html?: string;
   /** Which AgentMail inbox sends this. Default "commercial". */
   purpose?: EmailPurpose;
   labels?: string[];
+  /** Optional attachments (content base64), e.g. a calendar .ics. */
+  attachments?: EmailAttachment[];
 }
 export interface SentEmail { id: string | null; threadId?: string | null }
 
@@ -20,7 +22,7 @@ export const isEmailConfigured = () =>
 export async function sendEmail(msg: EmailMessage): Promise<SentEmail> {
   if (isAgentMailConfigured()) {
     const sent = await sendFromInbox(inboxIdFor(msg.purpose ?? "commercial"), {
-      to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, labels: msg.labels,
+      to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, labels: msg.labels, attachments: msg.attachments,
     });
     return { id: sent.messageId, threadId: sent.threadId };
   }
@@ -34,6 +36,7 @@ async function sendViaResend(msg: EmailMessage): Promise<SentEmail> {
   if (!from) throw new Error("EMAIL_FROM is not set");
   const { data, error } = await new Resend(key).emails.send({
     from, to: msg.to, subject: msg.subject, text: msg.text, ...(msg.html ? { html: msg.html } : {}),
+    ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content, "base64") })) } : {}),
   });
   if (error) throw new Error(`Email send failed: ${error.message}`);
   return { id: data?.id ?? null };

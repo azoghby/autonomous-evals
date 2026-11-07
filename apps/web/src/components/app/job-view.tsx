@@ -11,7 +11,7 @@ import { Banner, Chip, ErrorBox, LiveChip, Block, Loading, LinkBtn, PageTitle, S
 import { Clarification } from "./job-clarification";
 import { QuoteCard } from "./job-quote";
 import { ProgressTimeline } from "./job-progress";
-import { ReportView, type RemediationView, type ChargeView } from "./job-report";
+import { ReportView } from "./job-report";
 
 const POLLING_STATES: ReadonlySet<JobState> = new Set(["planning", "running", "investigating"]);
 
@@ -63,9 +63,8 @@ export function JobView({ jobId }: { jobId: string }) {
   const progress = live && live.progress.length >= data.progress.length ? live.progress : data.progress;
   const quote = data.quotes.length ? data.quotes.reduce((a, b) => (b.version > a.version ? b : a)) : null;
   const findings = data.findings.map(normalizeFinding);
-  const extra = data as unknown as { remediations?: RemediationView[]; payments?: Array<ChargeView & { kind?: string }> };
-  const pricingMode = (quote as unknown as { pricingMode?: string } | null)?.pricingMode ?? "fixed";
-  const charge = extra.payments?.length ? extra.payments[extra.payments.length - 1] : null;
+  const pricingMode = quote?.pricingMode ?? "fixed";
+  const charge = data.payments.length ? data.payments[data.payments.length - 1] : null;
 
   return (
     <div className="space-y-10">
@@ -99,7 +98,7 @@ export function JobView({ jobId }: { jobId: string }) {
       {(POLLING_STATES.has(current) || (current === "planning")) && <ProgressTimeline progress={progress} state={current} />}
 
       {current === "delivered" && (
-        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} remediations={extra.remediations ?? []} charge={charge} pricingMode={pricingMode} />
+        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} remediations={data.remediations ?? []} charge={charge} pricingMode={pricingMode} />
       )}
 
       {EXPLAIN[current] && (

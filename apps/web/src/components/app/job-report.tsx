@@ -1,9 +1,9 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MONITORING_PRICE_CENTS_MONTHLY } from "@ae/core/contracts/index";
+import { MONITORING_PRICE_CENTS_MONTHLY, type PricingMode, type Remediation } from "@ae/core/contracts/index";
 import { api, dollars, errMsg } from "@/lib/client/api";
-import { normalizeFinding, type FindingView, type ProgressItem } from "@/lib/client/types";
+import { normalizeFinding, type ChargeView, type FindingView, type ProgressItem, type RemediationView } from "@/lib/client/types";
 import { AnimatePresence, motion } from "motion/react";
 import { Btn, Chip, ErrorBox, Block, Mono } from "./ui";
 import { EASE, SOFT, SPRING, Reveal, Stagger } from "./motion";
@@ -13,13 +13,12 @@ const STATUS: Record<FindingView["status"], { label: string; tone: "ok" | "warn"
   rubric_concern: { label: "Rubric concern", tone: "warn" },
   inconclusive: { label: "Inconclusive", tone: "muted" },
 };
-export interface RemediationView {
-  id: string; findingId?: string; findingRowId?: string; kind: string; summary: string; patch?: string; rationale?: string;
-  verification?: { status?: string; before?: { passed: number; total: number }; after?: { passed: number; total: number }; regressions?: number; evidence?: unknown[] };
-}
-export interface ChargeView { status?: string; amountCents?: number; capturedAmountCents?: number | null }
-
-const VERIFY_TONE: Record<string, "ok" | "warn" | "bad" | "muted"> = { verified: "ok", passed: "ok", failed: "bad", regressed: "bad", partial: "warn", pending: "muted", unverified: "muted" };
+type VerifyStatus = Remediation["verification"]["status"];
+const VERIFY: Record<VerifyStatus, { label: string; tone: "info" | "warn" | "bad" }> = {
+  verified: { label: "Verified", tone: "info" },
+  partially_verified: { label: "Partially verified", tone: "warn" },
+  not_verified: { label: "Not verified", tone: "bad" },
+};
 
 function PassBar({ label, v }: { label: string; v?: { passed: number; total: number } }) {
   const pct = v && v.total > 0 ? Math.round((v.passed / v.total) * 100) : 0;
@@ -35,7 +34,7 @@ function PassBar({ label, v }: { label: string; v?: { passed: number; total: num
 function RemediationBlock({ r }: { r: RemediationView }) {
   const [copied, setCopied] = useState(false);
   const v = r.verification;
-  const status = v?.status ?? "unverified";
+  const vs = v ? VERIFY[v.status] : undefined;
   async function copy() {
     try { await navigator.clipboard.writeText(r.patch ?? ""); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* clipboard unavailable */ }
   }
@@ -43,7 +42,7 @@ function RemediationBlock({ r }: { r: RemediationView }) {
     <div className="mt-6 border-l border-line-strong pl-4">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
         <h4 className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">Fix · {r.kind.replace(/_/g, " ")}</h4>
-        <Chip tone={VERIFY_TONE[status] ?? "muted"}>{status.replace(/_/g, " ")}</Chip>
+        {vs && <Chip tone={vs.tone}>{vs.label}</Chip>}
       </div>
       <p className="mt-2 text-sm leading-relaxed text-fg/90">{r.summary}</p>
       {v && (
@@ -132,7 +131,7 @@ function FindingCard({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingVi
 
 export function ReportView({ jobId, report, findings, progress, onReload, remediations = [], charge = null, pricingMode = "fixed" }: {
   jobId: string; report: { summary: string } | null; findings: FindingView[]; progress: ProgressItem[]; onReload: () => Promise<void>;
-  remediations?: RemediationView[]; charge?: ChargeView | null; pricingMode?: string;
+  remediations?: RemediationView[]; charge?: ChargeView | null; pricingMode?: PricingMode;
 }) {
   const retestKey = useRef<string>(crypto.randomUUID());
   const router = useRouter();
@@ -141,7 +140,7 @@ export function ReportView({ jobId, report, findings, progress, onReload, remedi
   const [error, setError] = useState<string | null>(null);
   const originals = findings.filter((f) => !f.rerunOf);
   const fixesFor = (f: FindingView) => remediations.filter((r) => r.findingRowId === f.id || r.findingId === f.key);
-  const verified = remediations.filter((r) => ["verified", "passed"].includes(r.verification?.status ?? "")).length;
+  const verified = remediations.filter((r) => r.verification.status === "verified").length;
   const confirmed = originals.filter((f) => f.status === "confirmed").length;
   const chargeLine = pricingMode === "per_finding" && charge
     ? (charge.status === "released" || !(charge.capturedAmountCents ?? 0)

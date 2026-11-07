@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "./cn";
 import { springs } from "./motion/tokens";
 import { useMotionOk } from "./motion/useMotionOk";
@@ -25,8 +25,21 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
   const current = active ?? nav.find((n) => n.href === pathname)?.href ?? (pathname === "/" ? nav[0]?.href : undefined);
   const [hover, setHover] = useState<string | null>(null);
   const lit = hover ?? current;
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const wrapRef = useRef<HTMLElement>(null);
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); btnRef.current?.focus(); } };
+    const onDown = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); };
+  }, [open]);
   return (
-    <header className="relative z-20 border-b border-line flex items-center justify-between gap-4 px-5 py-5 sm:px-8">
+    <header ref={wrapRef} className="relative z-20 border-b border-line flex items-center justify-between gap-4 px-5 py-5 sm:px-8">
       <Wordmark />
       <nav aria-label="Main navigation" className="hidden md:block">
         <LayoutGroup id="topbar-nav">
@@ -72,7 +85,41 @@ export function TopBar({ nav = DEFAULT_NAV, active }: { nav?: NavItem[]; active?
         >
           {pathname === "/" ? "Get an eval" : "Home"} <NudgeArrow size={15} />
         </Link>
+        <button
+          ref={btnRef}
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={open ? "Close menu" : "Open menu"}
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex h-9 w-9 items-center justify-center border border-white/10 text-fg transition-colors hover:border-white/25 focus-visible:outline-2 focus-visible:outline-accent-bright md:hidden"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+            {open ? <path d="M3 3l10 10M13 3L3 13" /> : <path d="M2 4.5h12M2 8h12M2 11.5h12" />}
+          </svg>
+        </button>
       </div>
+      {open && (
+        <nav id={panelId} aria-label="Mobile navigation" className="absolute inset-x-0 top-full border-b border-white/10 bg-[#0A0A0B] px-5 py-2 sm:px-8 md:hidden">
+          <ul>
+            {[...nav, { label: "Dashboard", href: "/dashboard" }].map((item) => (
+              <li key={item.href} className="border-b border-white/10 last:border-b-0">
+                <Link
+                  href={item.href}
+                  aria-current={item.href === current ? "page" : undefined}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex h-12 items-center text-sm transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-accent-bright",
+                    item.href === current ? "text-[#5b8cff]" : "text-muted",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </header>
   );
 }
