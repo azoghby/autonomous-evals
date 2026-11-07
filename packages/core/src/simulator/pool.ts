@@ -1,4 +1,4 @@
-import type { QueryExecutor, QueryResult, TransactionalDatabase } from './postgres.js';
+import type { QueryExecutor, QueryResult, TransactionalDatabase } from './postgres';
 
 /** Compatible with a pg-style Pool; a Neon HTTP query function is not sufficient. */
 export interface SqlConnection {

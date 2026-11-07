@@ -1,11 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { ChatTarget } from '../../targets/chat.js';
-import { isPersistableText } from '../../targets/chat.js';
-import { CalendarSimulator, type CalendarState, type RunScope } from '../calendar.js';
-import { gradeCalendarState, stateExpectationSchema } from '../graders.js';
-import type { TransactionalDatabase } from '../postgres.js';
-import { runCalendarScenario, compareCalendar, type CalendarExecution } from '../runner.js';
+import type { ChatTarget } from '../../targets/chat';
+import { isPersistableText } from '../../targets/chat';
+import { CalendarSimulator, type CalendarState, type RunScope } from '../calendar';
+import { gradeCalendarState, stateExpectationSchema } from '../graders';
+import type { TransactionalDatabase } from '../postgres';
+import { runCalendarScenario, compareCalendar, type CalendarExecution } from '../runner';
 
 const id = z.string().min(1).max(128).refine(isPersistableText);
 const text = z.string().min(1).max(20_000).refine(isPersistableText);

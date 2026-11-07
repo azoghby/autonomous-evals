@@ -1,5 +1,5 @@
-import type { CalendarState, CalendarStore, RunScope } from './calendar.js';
-import { scopeKey } from './calendar.js';
+import type { CalendarState, CalendarStore, RunScope } from './calendar';
+import { scopeKey } from './calendar';
 export interface QueryResult<T> { rows: T[] }
 export interface QueryExecutor { query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<QueryResult<T>> }
 export interface TransactionalDatabase extends QueryExecutor {

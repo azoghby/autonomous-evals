@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { BranchLedger, BranchOwnership } from './neon.js';
-import type { SqlPool } from './pool.js';
-import { isPersistableText } from '../targets/chat.js';
+import type { BranchLedger, BranchOwnership } from './neon';
+import type { SqlPool } from './pool';
+import { isPersistableText } from '../targets/chat';
 
 const jobSchema = z.string().min(1).max(128).refine(isPersistableText);
 const branchIdSchema = z.string().regex(/^br-[a-z0-9-]+$/).max(128);

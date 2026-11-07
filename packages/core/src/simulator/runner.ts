@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { assistantSchema, type ChatTarget, type ChatMessage } from '../targets/chat.js';
-import { CalendarSimulator, calendarTools, type CalendarState, type RunScope } from './calendar.js';
+import { assistantSchema, type ChatTarget, type ChatMessage } from '../targets/chat';
+import { CalendarSimulator, calendarTools, type CalendarState, type RunScope } from './calendar';
 export interface CalendarExecution {
   scope: RunScope; scenarioId: string; messages: ChatMessage[]; state: CalendarState;
   stopped: 'complete' | 'round_limit' | 'invalid_response' | 'target_error' | 'simulator_error'; rounds: number;

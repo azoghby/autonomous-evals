@@ -1,6 +1,6 @@
-import { platformTarget, type PlatformTarget } from './adapters.js';
-import type { ChatMessage } from './chat.js';
-import { TargetError, type JsonTransport } from './transport.js';
+import { platformTarget, type PlatformTarget } from './adapters';
+import type { ChatMessage } from './chat';
+import { TargetError, type JsonTransport } from './transport';
 
 export interface TextRequest {
   scenarioId: string;

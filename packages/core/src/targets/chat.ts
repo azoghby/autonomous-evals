@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HttpsJsonTransport, TargetError, type JsonTransport } from './transport.js';
+import { HttpsJsonTransport, TargetError, type JsonTransport } from './transport';
 
 /** PostgreSQL text/jsonb cannot store NUL or unpaired UTF-16 surrogates. */
 export const isPersistableText = (value: string) => !/[\u0000\uD800-\uDFFF]/u.test(value);
