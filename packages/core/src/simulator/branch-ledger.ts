@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import type { BranchLedger, BranchOwnership } from './neon.js';
 import type { SqlPool } from './pool.js';
+import { isPersistableText } from '../targets/chat.js';
 
-const jobSchema = z.string().min(1).max(128).refine((s) => !s.includes('\0'));
+const jobSchema = z.string().min(1).max(128).refine(isPersistableText);
 const branchIdSchema = z.string().regex(/^br-[a-z0-9-]+$/).max(128);
 const ownershipSchema = z.object({
   jobId: jobSchema,
@@ -105,7 +106,7 @@ export class PostgresBranchLedger implements BranchLedger {
                   AND (app_branch_ownership.state = EXCLUDED.state
                     OR (app_branch_ownership.state = 'creating' AND EXCLUDED.state IN ('retryable','ready','delete_requested','deleted'))
                     OR (app_branch_ownership.state = 'ready' AND EXCLUDED.state IN ('delete_requested','deleted'))
-                    OR (app_branch_ownership.state = 'delete_requested' AND EXCLUDED.state = 'deleted'))))
+                    OR (app_branch_ownership.state = 'delete_requested' AND EXCLUDED.state IN ('ready','deleted')))))
             RETURNING ${columns}`, [next.jobId, next.projectId, next.parentId, next.name, next.branchId ?? null, next.state, next.createAttempts ?? null]);
           if (saved.rows.length !== 1) throw new Error('branch_ledger_ownership_conflict');
           parseRow(saved.rows[0]);

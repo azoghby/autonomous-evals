@@ -31,6 +31,28 @@ async function database() {
 }
 
 describe('application branch ledger SQL (PGlite; locks intercepted)', () => {
+  it('integrates service retries with durable creation and deletion transitions', async () => {
+    const s = await database();
+    try {
+      let branch: Record<string, unknown>;
+      let creates = 0; let deletes = 0;
+      const api = { call: vi.fn(async (method: 'GET' | 'POST' | 'DELETE', _path: string, body?: unknown) => {
+        if (method === 'POST') {
+          if (++creates === 1) return { status: 423 };
+          branch = { ...(body as { branch: object }).branch, id: 'br-owned', project_id: 'project-1', default: false };
+          return { status: 201, body: { branch } };
+        }
+        if (method === 'GET') return { status: 200, body: { branch } };
+        return { status: ++deletes === 1 ? 503 : 204 };
+      }) };
+      const service = new NeonBranchService(api, s.ledger, 'project-1', 'br-seed');
+      await expect(service.createJobBranch('job-1')).rejects.toThrow('branch_retryable_response');
+      await expect(service.createJobBranch('job-1')).resolves.toMatchObject({ state: 'ready', createAttempts: 2 });
+      await expect(service.deleteJobBranch('job-1')).rejects.toThrow('branch_retryable_response');
+      await expect(service.deleteJobBranch('job-1')).resolves.toEqual({ state: 'deleted' });
+      expect((await s.ledger.findOwnedBranch('br-owned'))?.state).toBe('deleted');
+    } finally { await s.db.close(); }
+  });
   it('commits intent before cloud POST and preserves it after ambiguous failure and fresh ledger instance', async () => {
     const s = await database();
     try {
