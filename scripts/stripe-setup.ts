@@ -29,7 +29,7 @@ function writeEnv(file: string, vars: Record<string, string>): void {
 
 function vercelEnvAdd(name: string, env: string, value: string): Promise<void> {
   return new Promise((res, rej) => {
-    const p = spawn("vercel", ["env", "add", name, env, "--scope", SCOPE, "--force"], { cwd: resolve(ROOT, "apps/web"), stdio: ["pipe", "ignore", "pipe"] });
+    const p = spawn("vercel", ["env", "add", name, env, "--scope", SCOPE, "--force"], { cwd: ROOT, stdio: ["pipe", "ignore", "pipe"] });
     let err = "";
     p.stderr.on("data", (d) => (err += d));
     p.on("error", rej);
