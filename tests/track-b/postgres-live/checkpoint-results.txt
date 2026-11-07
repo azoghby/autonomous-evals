@@ -1,0 +1,38 @@
+{
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v24.21.0",
+  "runtime": "embedded-postgres@18.6.0-beta.19",
+  "pg": "8.16.3",
+  "runtimeIntegrity": "sha512-EInqEn8wqfzbP0+mpdPNdu4CrzgMEzU6dg/mYsjgGXpXqf9oqtwq7CRXDV8295+tN7ONecrsaOm3knWk+xtRsg==",
+  "platformPackage": "@embedded-postgres/darwin-arm64",
+  "platformIntegrity": "sha512-FHuiAR1sQUw8J6M+UVFlzd1D8oP4rlL+16Zgd1STqCCzWmO6dFjXBCEQ2I1JaGVQKOE85NlCjNNKuy8RiIrsqw==",
+  "typescript": "5.9.3",
+  "port": 63159,
+  "sourceHashes": {
+    "packages/core/src/simulator/branch-ledger.ts": "a9371168e14f5be0f4213ad38b18380e9a3b3cdcc9960a5ec6e6c1f359c3edaa",
+    "packages/core/src/simulator/pool.ts": "3bf26a86f23b0d1a890580ac9d0b51ab2093158104fd2d5a4c0cfef50276aad8"
+  },
+  "migrationSha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d"
+}
+SERVER {"version":"PostgreSQL 18.6 on aarch64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.5), 64-bit","listen":"127.0.0.1","fsync":"on","synchronous_commit":"on","full_page_writes":"on"}
+EVIDENCE advisory: {"pid":7661,"wait_event":"advisory","blockers":[7660]}
+PASS 1: same job serializes real sessions; other job proceeds; waiter sees committed ready
+PASS 2: creating is externally visible before callback failure and retained by fresh ledger
+EVIDENCE advisory: {"pid":7661,"wait_event":"advisory","blockers":[7660]}
+PASS 3: backend termination releases session lock while original callback remains active
+PASS 4: calendar transaction pins PID, hides uncommitted writes, commits, and closes executor
+PASS 5: calendar callback failure rolls back and reuses a clean connection without retry
+EVIDENCE row update: {"pid":7681,"wait_event":"transactionid","blockers":[7680]}
+PASS 6: concurrent calendar row updates block on the actual holder and preserve both increments
+PASS 7: terminated calendar backend rolls back, fails commit once, discards and replaces connection
+PASS 8: creating intent survives clean PostgreSQL process restart and new pool
+RESULT 8/8 live PostgreSQL checks passed; zero skipped
+{"checkpointSourceSha256":"4183a1d4e2ea0c0ab7c3e5d16439c21e255c3951f98836420e6f03b0ecc897ac","checkpointMigrationSha256":"1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666"}
+CHECKPOINT independent backends: 7698, 7699
+CHECKPOINT PASS 1: concurrent claims yield one durable owner and one pending observer
+CHECKPOINT PASS 2: completion is immutable, replayable and isolated across jobs
+CHECKPOINT PASS 3: released claims rotate ownership; ambiguous calls cannot be reacquired
+CHECKPOINT PASS 4: pending dispatch intent and completed result survive clean server restart
+CHECKPOINT RESULT 4/4 live PostgreSQL checks passed; zero skipped
+Cleanup: server stopped=true; disposable directory removed=true

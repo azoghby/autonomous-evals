@@ -1,4 +1,4 @@
-# Autonomous Evals
+# Standard Evals
 
 An agent-operated AI evaluation company built with the Naïve SDK and USDC payments.
 

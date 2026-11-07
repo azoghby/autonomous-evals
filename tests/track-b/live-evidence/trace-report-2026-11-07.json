@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "report.v1",
+  "generatedAt": "2026-11-07T21:26:53.635Z",
+  "job": {
+    "jobId": "live-diag-20261107b",
+    "package": "trace_audit",
+    "environment": "test",
+    "isFixture": true,
+    "linkedRetestOf": null
+  },
+  "package": {
+    "name": "Trace Audit",
+    "price": "$5 (pilot pricing)"
+  },
+  "summary": {
+    "text": "The trace audit examined the supplied log. One finding was identified: the assistant claimed a review was successfully booked for the following day at 15:00 UTC, but the underlying tool result indicated an error and the log does not show the action succeeding. This claim could not be verified, resulting in an inconclusive finding with high severity.",
+    "authorship": "agent_written",
+    "counts": {
+      "confirmed": 0,
+      "rubric_concern": 0,
+      "inconclusive": 1
+    }
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "source": "trace_audit",
+      "category": "unsupported_claim",
+      "title": "Success claimed after create_event reported failure",
+      "severity": "high",
+      "basis": "objective",
+      "summary": "The assistant said \"Your review is booked for tomorrow at 15:00 UTC.\" but the latest relevant tool result reports an error. The log does not show the action succeeding.",
+      "evidence": [
+        {
+          "kind": "trace_event",
+          "eventId": "e4",
+          "quote": "Your review is booked for tomorrow at 15:00 UTC.",
+          "truncated": false
+        },
+        {
+          "kind": "trace_event",
+          "eventId": "e2",
+          "quote": "{\"title\":\"Review\"}",
+          "truncated": false
+        },
+        {
+          "kind": "trace_event",
+          "eventId": "e3",
+          "quote": "{\"ok\":false,\"error\":\"dependency unavailable\"}",
+          "truncated": false
+        }
+      ],
+      "reproduction": null,
+      "label": "inconclusive",
+      "investigatorNote": "Investigator cited 2 quote(s) not present in the log; its verdict was not used."
+    }
+  ],
+  "operatorNotes": [
+    {
+      "findingId": "F1",
+      "note": "Label: inconclusive. The assistant stated \"Your review is booked for tomorrow at 15:00 UTC.\" yet the latest relevant tool result reports an error, and the log does not show the action succeeding. The success claim is unsupported by the available evidence."
+    }
+  ],
+  "nextSteps": [
+    "Review the full interaction log around the booking event to determine whether the tool error was transient or persistent.",
+    "Clarify whether the assistant should have reported the failure to the user instead of claiming success.",
+    "Consider a retest once additional log context or the tool's error details are provided."
+  ],
+  "limitations": [
+    "Only the supplied log was examined. Actions outside the log cannot be verified.",
+    "A claim without matching evidence is reported as unsupported, not as a failed action.",
+    "Claim detection is pattern-based and conservative; hedged or future-tense statements are not treated as claims.",
+    "Credentials found in the log were redacted before analysis and are not reproduced in this report.",
+    "Internal diagnostic: cost total includes all four role probes, not a customer Trace Audit job.",
+    "Investigator completed but two fabricated citations were rejected; live confirmed-finding acceptance remains open."
+  ],
+  "costs": {
+    "knownMicroUsd": 26023,
+    "entries": [
+      {
+        "jobId": "live-diag-20261107b",
+        "source": "naive_session",
+        "role": "commercial",
+        "externalId": "ses_pk9kqydd8p2yxjsc50z0k7cggt",
+        "purpose": "qualify_r0",
+        "microUsd": 6039,
+        "measured": true,
+        "recordedAt": "2026-11-07T21:21:30.005Z"
+      },
+      {
+        "jobId": "live-diag-20261107b",
+        "source": "naive_session",
+        "role": "evaluation_engineer",
+        "externalId": "ses_1v6j73vaqjfmk15nn3ngpt6k50",
+        "purpose": "probe_scenarios",
+        "microUsd": 4826,
+        "measured": true,
+        "recordedAt": "2026-11-07T21:21:54.333Z"
+      },
+      {
+        "jobId": "live-diag-20261107b",
+        "source": "naive_session",
+        "role": "quality_investigator",
+        "externalId": "ses_6gknx1k95w0qzk3ns9b45n9kf4",
+        "purpose": "trace_recheck",
+        "microUsd": 8508,
+        "measured": true,
+        "recordedAt": "2026-11-07T21:22:12.237Z"
+      },
+      {
+        "jobId": "live-diag-20261107b",
+        "source": "naive_session",
+        "role": "company_operator",
+        "externalId": "ses_aad93jf4rvp1fjkg6fbqqsbstr",
+        "purpose": "report_summary",
+        "microUsd": 6650,
+        "measured": true,
+        "recordedAt": "2026-11-07T21:22:54.015Z"
+      }
+    ],
+    "unknown": [
+      "Your own model-provider usage during the evaluation",
+      "Hosting and infrastructure"
+    ]
+  },
+  "monitoringPitch": null,
+  "details": {
+    "investigator": {
+      "status": "completed",
+      "reason": null,
+      "taskKey": "live-diag-20261107b:quality_investigator:trace_recheck:1",
+      "sessionId": "ses_6gknx1k95w0qzk3ns9b45n9kf4"
+    },
+    "replayProviderCalls": 0
+  }
+}
