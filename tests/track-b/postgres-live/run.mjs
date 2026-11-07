@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { randomBytes, createHash } from 'node:crypto';
 import { verify } from './verify.mjs';
+import { verifyCheckpoints } from './checkpoints.mjs';
 
 // Installs only in a disposable directory; no repository dependency changes.
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -84,6 +85,12 @@ try {
     migrationSha256: createHash('sha256').update(migration).digest('hex') }, null, 2));
   await verify({ Pool, config, PostgresBranchLedger, pooledCalendarDatabase, migration,
     restart: async () => { await server.stop(); await server.start(); } });
+  const { PostgresTextCheckpointStore } = await import(pathToFileURL(join(stage, 'src/evals/integration/checkpoints.js')));
+  const checkpointMigration = await readFile(join(repo, 'packages/core/src/evals/integration/migrations/001-text-integration.sql'), 'utf8');
+  console.log(JSON.stringify({ checkpointSourceSha256: hashes['packages/core/src/evals/integration/checkpoints.ts'],
+    checkpointMigrationSha256: createHash('sha256').update(checkpointMigration).digest('hex') }));
+  await verifyCheckpoints({ Pool, config, Store: PostgresTextCheckpointStore, database: pooledCalendarDatabase,
+    migration: checkpointMigration, restart: async () => { await server.stop(); await server.start(); } });
 } catch (error) {
   console.error(logs.slice(-12).join(''));
   throw error;
