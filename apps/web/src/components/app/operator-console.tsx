@@ -4,38 +4,85 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, dollars, errMsg, microUsd, PACKAGE_LABEL, when } from "@/lib/client/api";
 import { useFetch } from "@/lib/client/use-fetch";
+import { useLiveOperator } from "@/lib/client/use-live-operator";
 import type { OperatorOverview } from "@/lib/client/types";
-import { Btn, Chip, Empty, ErrorBox, Field, Glass, Input, Loading, PageTitle, StateChip, Textarea } from "./ui";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { Btn, Chip, Empty, ErrorBox, Field, Input, LiveChip, Loading, PageTitle, StateChip, Textarea } from "./ui";
+import { EASE, SPRING, Stagger, StaggerItem } from "./motion";
+import { OperatorExperts } from "./operator-experts";
+import { OperatorInfra } from "./operator-infra";
 
 const UNKNOWN_COSTS = ["Customer provider usage (their own API credits)", "Hosting (Vercel, Neon)"];
 const KINDS = ["refund", "override", "fix", "approve_outreach", "other"] as const;
 
-function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+const TABS = ["Overview", "Experts", "Infra"] as const;
+type Tab = (typeof TABS)[number];
+
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="space-y-4 border-t border-white/10 pt-6"><h2 className="text-xs font-medium uppercase tracking-[0.14em] text-cream/50">{title}</h2>{children}</section>;
+}
+
+function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-glass-border/60 py-2 last:border-0">
-      <div><div className="text-sm">{label}</div>{note && <div className="text-xs text-cream/50">{note}</div>}</div>
-      <div className="text-lg font-semibold tabular-nums">{value}</div>
+    <div>
+      <div className="text-xs text-cream/45">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{value}</div>
+      {note && <div className="mt-0.5 text-xs text-cream/40">{note}</div>}
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="space-y-3"><h2 className="text-lg font-semibold">{title}</h2>{children}</section>;
+const th = "px-0 py-2 pr-6 text-left text-xs font-normal text-cream/40";
+const td = "py-3 pr-6";
+
+function Tabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <LayoutGroup id="op-tabs">
+      <div role="tablist" aria-label="Operator sections" className="mb-10 flex gap-8 border-b border-white/10">
+        {TABS.map((t) => (
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => onChange(t)}
+            className={`relative pb-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-cream ${tab === t ? "text-cream" : "text-cream/45 hover:text-cream/75"}`}>
+            {t}
+            {tab === t && <motion.span layoutId="op-tab-underline" transition={SPRING} className="absolute inset-x-0 -bottom-px h-px bg-cream" />}
+          </button>
+        ))}
+      </div>
+    </LayoutGroup>
+  );
 }
 
 export function OperatorConsole() {
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>("Overview");
   const { data, error, loading, reload } = useFetch<OperatorOverview>("/api/operator/overview");
   useEffect(() => { if (error?.status === 401) router.replace("/signin?next=/operator"); }, [error, router]);
+  // Neon Realtime: reload the overview when live rows change; polls every 5s if realtime is unavailable.
+  const liveOp = useLiveOperator(reload);
+  useEffect(() => { if (liveOp.version > 0) void reload(); }, [liveOp.version, reload]);
 
   if (loading) return <Loading label="Loading operator console" />;
   if (error?.status === 401) return <Loading label="Redirecting to sign in" />;
   if (error?.status === 403) return <Empty title="Operators only" body="Your account is not on the operator allowlist." />;
   if (error || !data) return <ErrorBox message={error?.message ?? "Unknown error"} onRetry={reload} />;
 
+  return (
+    <div>
+      <PageTitle title="Operator" sub="Revenue, known costs, and unknown costs are kept separate on purpose. Nothing here is profit." right={liveOp.mode === "live" ? <LiveChip /> : undefined} />
+      <Tabs tab={tab} onChange={setTab} />
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.28, ease: EASE }}>
+          {tab === "Overview" && <Overview data={data} reload={reload} />}
+          {tab === "Experts" && <OperatorExperts />}
+          {tab === "Infra" && <OperatorInfra />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Overview({ data, reload }: { data: OperatorOverview; reload: () => Promise<void> }) {
   const naive = data.knownCostBySourceMicroUsd?.naive ?? 0;
   const gw = data.knownCostBySourceMicroUsd?.ai_gateway ?? 0;
-  const unknown = UNKNOWN_COSTS;
   const jobs = data.jobs ?? [];
   // Revenue per job counts live-mode payments on non-mock jobs only, matching the server's headline total.
   const revenueByJob = new Map<string, number>();
@@ -45,73 +92,66 @@ export function OperatorConsole() {
   }
 
   return (
-    <div className="space-y-10">
-      <PageTitle title="Operator console" sub="Revenue, known costs, and unknown costs are kept separate on purpose. Nothing here is profit." />
+    <Stagger className="space-y-12">
+      <StaggerItem>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-4">
+          <Metric label="Live revenue" value={dollars(data.liveRevenueCents ?? 0)} note="Test-mode payments never count" />
+          <Metric label="Naive agents" value={microUsd(naive)} />
+          <Metric label="AI Gateway" value={microUsd(gw)} />
+          <Metric label="Total known cost" value={microUsd(data.knownCostMicroUsd ?? naive + gw)} />
+        </div>
+        <p className="mt-6 text-xs text-cream/40">Unknown, not included: {UNKNOWN_COSTS.join("; ")}.</p>
+      </StaggerItem>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Glass><h2 className="mb-2 text-sm font-semibold text-[#7fd1a8]">Revenue</h2>
-          <Stat label="Live Stripe" value={dollars(data.liveRevenueCents ?? 0)} note="Test-mode payments never count" />
-        </Glass>
-        <Glass><h2 className="mb-2 text-sm font-semibold text-[#ffc56b]">Known costs</h2>
-          <Stat label="Naïve agents" value={microUsd(naive)} />
-          <Stat label="AI Gateway" value={microUsd(gw)} />
-          <Stat label="Total known" value={microUsd(data.knownCostMicroUsd ?? naive + gw)} />
-        </Glass>
-        <Glass><h2 className="mb-2 text-sm font-semibold text-coral">Unknown costs</h2>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-cream/80">{unknown.map((u) => <li key={u}>{u}: <span className="text-cream/60">unknown</span></li>)}</ul>
-        </Glass>
-      </div>
-
-      <Section title="Jobs">
+      <StaggerItem><Section title="Jobs">
         {jobs.length === 0 ? <Empty title="No jobs yet" body="Jobs appear here as customers submit requests." /> : (
-          <div className="overflow-x-auto rounded-[18px] border border-glass-border bg-glass backdrop-blur-xl">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="text-xs uppercase text-cream/50"><tr>
-                {["Customer", "Package", "State", "Env", "Revenue", "Known cost"].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
-              </tr></thead>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead><tr>{["Customer", "Package", "State", "Env", "Revenue", "Known cost"].map((h) => <th key={h} className={th}>{h}</th>)}</tr></thead>
               <tbody>{jobs.map((j) => (
-                <tr key={j.id} className="border-t border-glass-border/60">
-                  <td className="px-4 py-2.5"><Link className="underline decoration-cream/30 hover:text-coral" href={`/jobs/${j.id}`}>{j.customerEmail ?? j.id.slice(0, 8)}</Link></td>
-                  <td className="px-4 py-2.5">{PACKAGE_LABEL[j.package] ?? j.package}</td>
-                  <td className="px-4 py-2.5"><StateChip state={j.state} /></td>
-                  <td className="px-4 py-2.5"><Chip tone={j.environment === "live" ? "ok" : "warn"}>{j.environment}</Chip></td>
-                  <td className="px-4 py-2.5 tabular-nums">{j.environment === "live" ? dollars(revenueByJob.get(j.id) ?? 0) : <span className="text-cream/40">not counted</span>}</td>
-                  <td className="px-4 py-2.5 tabular-nums">{microUsd(j.knownCostMicroUsd ?? 0)}</td>
+                <tr key={j.id} className="border-t border-white/[0.07] transition-colors hover:bg-white/[0.03]">
+                  <td className={td}><Link className="text-cream/90 underline decoration-cream/20 underline-offset-4 hover:decoration-cream" href={`/jobs/${j.id}`}>{j.customerEmail ?? j.id.slice(0, 8)}</Link></td>
+                  <td className={`${td} text-cream/70`}>{PACKAGE_LABEL[j.package] ?? j.package}</td>
+                  <td className={td}><StateChip state={j.state} /></td>
+                  <td className={td}><Chip tone={j.environment === "live" ? "ok" : "warn"}>{j.environment}</Chip></td>
+                  <td className={`${td} tabular-nums`}>{j.environment === "live" ? dollars(revenueByJob.get(j.id) ?? 0) : <span className="text-cream/35">not counted</span>}</td>
+                  <td className={`${td} tabular-nums text-cream/70`}>{microUsd(j.knownCostMicroUsd ?? 0)}</td>
                 </tr>))}</tbody>
             </table>
           </div>
         )}
-      </Section>
+      </Section></StaggerItem>
 
-      <Section title="Payments">
-        {(data.payments ?? []).length === 0 ? <p className="text-sm text-cream/60">No payments recorded.</p> : (
-          <ul className="divide-y divide-glass-border/60 rounded-[18px] border border-glass-border bg-glass backdrop-blur-xl">
+      <StaggerItem><Section title="Payments">
+        {(data.payments ?? []).length === 0 ? <p className="text-sm text-cream/50">No payments recorded.</p> : (
+          <table className="w-full text-sm"><tbody>
             {data.payments!.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
-                <span>{dollars(p.amountCents)} {p.kind && <span className="text-cream/50">· {p.kind}</span>}</span>
-                <span className="flex items-center gap-3"><Chip tone={p.environment === "live" ? "ok" : "warn"}>{p.environment}</Chip><span className="text-xs text-cream/50">{when(p.createdAt)}</span></span>
-              </li>))}
-          </ul>
+              <tr key={p.id} className="border-t border-white/[0.07]">
+                <td className={`${td} tabular-nums`}>{dollars(p.amountCents)}</td>
+                <td className={`${td} text-cream/50`}>{p.kind ?? ""}</td>
+                <td className={td}><Chip tone={p.environment === "live" ? "ok" : "warn"}>{p.environment}</Chip></td>
+                <td className="py-3 text-right text-xs text-cream/45">{when(p.createdAt)}</td>
+              </tr>))}
+          </tbody></table>
         )}
-      </Section>
+      </Section></StaggerItem>
 
-      <Section title="Agent decisions">
-        {(data.agentSessions ?? []).length === 0 ? <p className="text-sm text-cream/60">No agent decisions yet.</p> : (
-          <ul className="space-y-2">
+      <StaggerItem><Section title="Agent decisions">
+        {(data.agentSessions ?? []).length === 0 ? <p className="text-sm text-cream/50">No agent decisions yet.</p> : (
+          <table className="w-full text-sm"><tbody>
             {data.agentSessions.map((d) => (
-              <li key={d.id} className="rounded-2xl border border-glass-border bg-glass px-4 py-2.5 text-sm backdrop-blur-xl">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span><Chip tone="info">{d.agent}</Chip> <span className="ml-2">{d.decision ?? d.status ?? "-"}</span></span>
-                  <span className="text-xs text-cream/50">{d.usageMicroUsd != null ? `${microUsd(d.usageMicroUsd)} · ` : ""}{when(d.createdAt)}</span>
-                </div>
-              </li>))}
-          </ul>
+              <tr key={d.id} className="border-t border-white/[0.07]">
+                <td className={`${td} text-cream/60`}>{d.agent}</td>
+                <td className={td}>{d.decision ?? d.status ?? "-"}</td>
+                <td className="py-3 text-right text-xs text-cream/45">{d.usageMicroUsd != null ? `${microUsd(d.usageMicroUsd)} · ` : ""}{when(d.createdAt)}</td>
+              </tr>))}
+          </tbody></table>
         )}
-      </Section>
+      </Section></StaggerItem>
 
-      <InterventionSection items={data.interventions ?? []} jobs={jobs.map((j) => j.id)} onAdded={reload} />
-      <OutreachSection items={data.outreachDrafts ?? []} onChanged={reload} />
-    </div>
+      <StaggerItem><InterventionSection items={data.interventions ?? []} jobs={jobs.map((j) => j.id)} onAdded={reload} /></StaggerItem>
+      <StaggerItem><OutreachSection items={data.outreachDrafts ?? []} onChanged={reload} /></StaggerItem>
+    </Stagger>
   );
 }
 
@@ -134,20 +174,20 @@ function InterventionSection({ items, jobs, onAdded }: { items: OperatorOverview
 
   return (
     <Section title="Intervention log">
-      {items.length === 0 ? <p className="text-sm text-cream/60">No founder interventions logged.</p> : (
-        <ul className="space-y-2">{items.map((i) => (
-          <li key={i.id} className="rounded-2xl border border-glass-border bg-glass px-4 py-2.5 text-sm backdrop-blur-xl">
-            <div className="flex flex-wrap items-center gap-2"><Chip tone="warn">{i.kind}</Chip><span className="text-xs text-cream/50">{i.operatorEmail} · {when(i.createdAt)}{i.jobId ? ` · job ${i.jobId.slice(0, 8)}` : ""}</span></div>
+      {items.length === 0 ? <p className="text-sm text-cream/50">No founder interventions logged.</p> : (
+        <ul>{items.map((i) => (
+          <li key={i.id} className="border-t border-white/[0.07] py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-4"><Chip tone="warn">{i.kind}</Chip><span className="text-xs text-cream/45">{i.operatorEmail} · {when(i.createdAt)}{i.jobId ? ` · job ${i.jobId.slice(0, 8)}` : ""}</span></div>
             <p className="mt-1 whitespace-pre-wrap text-cream/85">{i.note}</p>
           </li>))}
         </ul>
       )}
-      <Glass>
-        <form onSubmit={add} className="space-y-3">
-          <h3 className="text-sm font-semibold">Log an intervention</h3>
+      <div className="pt-4">
+        <form onSubmit={add} className="space-y-4">
+          <h3 className="text-sm font-medium">Log an intervention</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Kind">
-              <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="w-full rounded-full border border-glass-border bg-navy-deep/60 px-4 py-2.5 text-sm">
+              <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="w-full rounded-xl bg-white/[0.05] px-4 py-2.5 text-sm text-cream outline-none ring-1 ring-inset ring-white/10 focus:ring-cream/40">
                 {KINDS.map((k) => <option key={k}>{k}</option>)}
               </select>
             </Field>
@@ -155,9 +195,9 @@ function InterventionSection({ items, jobs, onAdded }: { items: OperatorOverview
               <datalist id="job-ids">{jobs.map((j) => <option key={j} value={j} />)}</datalist></Field>
           </div>
           <Field label="Note" error={error ?? undefined}><Textarea className="min-h-20" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-          <Btn type="submit" loading={busy}>Add to log</Btn>
+          <Btn type="submit" variant="ghost" loading={busy}>Add to log</Btn>
         </form>
-      </Glass>
+      </div>
     </Section>
   );
 }
@@ -176,9 +216,9 @@ function OutreachSection({ items, onChanged }: { items: OperatorOverview["outrea
   return (
     <Section title="Outreach approval queue">
       {error && <ErrorBox message={error} />}
-      {pending.length === 0 ? <p className="text-sm text-cream/60">Nothing waiting for approval. Nothing is sent without it.</p> : (
-        <ul className="space-y-3">{pending.map((o) => (
-          <li key={o.id}><Glass>
+      {pending.length === 0 ? <p className="text-sm text-cream/50">Nothing waiting for approval. Nothing is sent without it.</p> : (
+        <ul>{pending.map((o) => (
+          <li key={o.id} className="border-t border-white/[0.07] py-5">
             <div className="text-xs text-cream/50">To {o.toEmail}</div>
             <div className="font-semibold">{o.subject}</div>
             <p className="mt-2 whitespace-pre-wrap text-sm text-cream/80">{o.body}</p>
@@ -186,7 +226,7 @@ function OutreachSection({ items, onChanged }: { items: OperatorOverview["outrea
               <Btn onClick={() => act(o.id, "approve")} loading={busyId === o.id + "approve"} disabled={busyId !== null}>Approve &amp; send</Btn>
               <Btn variant="danger" onClick={() => act(o.id, "reject")} loading={busyId === o.id + "reject"} disabled={busyId !== null}>Reject</Btn>
             </div>
-          </Glass></li>))}
+          </li>))}
         </ul>
       )}
       {items.length > pending.length && <p className="text-xs text-cream/50">{items.length - pending.length} already decided or sent.</p>}

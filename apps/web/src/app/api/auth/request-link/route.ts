@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { requestMagicLink } from "@ae/core/auth/magic-link";
 import { jsonError, readJson } from "@/server/http";
+import { rateLimit, clientIp } from "@/server/rate-limit";
+import { assertHuman } from "@/server/bot";
 
 const Body = z.object({ email: z.email().max(320), next: z.string().max(500).optional() });
 
 export async function POST(req: Request) {
+  const blocked = await assertHuman(); if (blocked) return blocked;
+  const rl = await rateLimit(`request-link:${clientIp(req)}`, 5, 600);
+  if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   const body = await readJson(req, Body);
   if (!body.ok) return body.res;
   try {

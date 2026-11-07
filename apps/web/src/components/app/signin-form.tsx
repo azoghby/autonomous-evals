@@ -2,7 +2,11 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api, errMsg } from "@/lib/client/api";
-import { Btn, Field, Glass, Input, PageTitle } from "./ui";
+import { AnimatePresence, motion } from "motion/react";
+import { Banner, Btn, Field, Input, PageTitle } from "./ui";
+import { EASE } from "./motion";
+
+const swap = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 }, transition: { duration: 0.3, ease: EASE } } as const;
 
 const AUTH_ERRORS: Record<string, string> = {
   invalid: "This sign-in link is invalid. Request a new one below.",
@@ -37,32 +41,30 @@ export function SignInForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md pt-10">
+    <div className="mx-auto max-w-md pt-16">
       <PageTitle title="Sign in" sub="No password. We email you a one-time link." />
-      {authError && !sent && (
-        <p role="alert" className="mb-4 rounded-2xl border border-coral/40 bg-navy-deep/50 p-3 text-sm text-coral">{authError}</p>
-      )}
-      <Glass>
+      <AnimatePresence>{authError && !sent && <div className="mb-6"><Banner key="ae" tone="bad">{authError}</Banner></div>}</AnimatePresence>
+      <AnimatePresence mode="wait" initial={false}>
         {sent ? (
-          <div className="space-y-3" aria-live="polite">
-            <h2 className="text-lg font-semibold">Check your email</h2>
-            <p className="text-sm text-cream/75">We sent a sign-in link to <span className="font-medium text-cream">{email}</span>. It expires shortly.</p>
+          <motion.div key="sent" {...swap} className="space-y-4" aria-live="polite">
+            <h2 className="text-lg font-medium">Check your email</h2>
+            <p className="text-sm text-cream/65">We sent a sign-in link to <span className="text-cream">{email}</span>. It expires shortly.</p>
             {sent.devLink && (
-              <p className="rounded-2xl border border-glass-border bg-navy-deep/50 p-3 text-xs">
-                Dev mode: <a className="break-all text-coral underline" href={sent.devLink}>{sent.devLink}</a>
+              <p className="border-l border-white/20 pl-4 text-xs text-cream/60">
+                Dev mode: <a className="break-all text-cream underline decoration-cream/30 underline-offset-4" href={sent.devLink}>{sent.devLink}</a>
               </p>
             )}
             <Btn variant="ghost" onClick={() => setSent(null)}>Use a different email</Btn>
-          </div>
+          </motion.div>
         ) : (
-          <form onSubmit={submit} className="space-y-4" noValidate>
+          <motion.form key="form" {...swap} onSubmit={submit} className="space-y-5" noValidate>
             <Field label="Email" error={error ?? undefined}>
               <Input type="email" autoComplete="email" required placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
             <Btn type="submit" loading={busy} className="w-full">Email me a link</Btn>
-          </form>
+          </motion.form>
         )}
-      </Glass>
+      </AnimatePresence>
     </div>
   );
 }

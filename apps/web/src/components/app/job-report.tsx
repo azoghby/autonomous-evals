@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { MONITORING_PRICE_CENTS_MONTHLY } from "@ae/core/contracts/index";
 import { api, dollars, errMsg } from "@/lib/client/api";
 import { normalizeFinding, type FindingView, type ProgressItem } from "@/lib/client/types";
-import { Btn, Chip, ErrorBox, Glass, Mono } from "./ui";
+import { AnimatePresence, motion } from "motion/react";
+import { Btn, Chip, ErrorBox, Block, Mono } from "./ui";
+import { EASE, SOFT, SPRING, Reveal, Stagger } from "./motion";
 
 const STATUS: Record<FindingView["status"], { label: string; tone: "ok" | "warn" | "muted" }> = {
   confirmed: { label: "Confirmed", tone: "ok" },
@@ -30,37 +32,47 @@ function FindingCard({ jobId, f, onRerun }: { jobId: string; f: FindingView; onR
     } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
   }
 
+  const [open, setOpen] = useState(false);
   return (
-    <li>
-      <Glass as="article">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h3 className="max-w-xl text-base font-semibold">{f.title}</h3>
-          <div className="flex flex-wrap gap-2">
+    <motion.li layout transition={{ layout: { duration: 0.4, ease: EASE } }} variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: SOFT } }}
+      className="overflow-hidden border-b border-white/10">
+      <motion.button layout="position" type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-start justify-between gap-4 py-5 text-left focus-visible:outline-2 focus-visible:outline-cream">
+        <div className="min-w-0">
+          <h3 className="text-base font-medium">{f.title}</h3>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-1">
             <Chip tone={st.tone}>{st.label}</Chip>
             <Chip tone={SEV_TONE[f.severity] ?? "muted"}>{f.severity}</Chip>
-            <Chip tone="muted">{f.category.replace(/_/g, " ")}</Chip>
+            <span className="text-xs text-cream/40">{f.category.replace(/_/g, " ")}</span>
           </div>
         </div>
-        <p className="mt-3 whitespace-pre-wrap text-sm text-cream/80">{f.description}</p>
-        {f.evidence.length > 0 && (
-          <div className="mt-4 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-cream/50">Evidence</h4>
-            {f.evidence.map((ev, i) => (
-              <div key={i}>
-                <div className="mb-1 text-xs text-cream/50">{ev.kind.replace(/_/g, " ")}{ev.location ? ` · ${ev.location}` : ""}</div>
-                <Mono>{ev.excerpt}</Mono>
+        <motion.span aria-hidden animate={{ rotate: open ? 45 : 0 }} transition={SPRING} className="mt-1 text-xl leading-none text-cream/50">+</motion.span>
+      </motion.button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div key="body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }} className="pb-6">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-cream/75">{f.description}</p>
+            {f.evidence.length > 0 && (
+              <div className="mt-5 space-y-3">
+                <h4 className="text-xs uppercase tracking-[0.14em] text-cream/40">Evidence</h4>
+                {f.evidence.map((ev, i) => (
+                  <div key={i}>
+                    <div className="mb-1 text-xs text-cream/45">{ev.kind.replace(/_/g, " ")}{ev.location ? ` · ${ev.location}` : ""}</div>
+                    <Mono>{ev.excerpt}</Mono>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              {f.rerunOf ? <Chip tone="info">Re-run result</Chip> : <Btn variant="ghost" onClick={rerun} loading={busy}>Re-run this finding</Btn>}
+              {f.reproductions ? <span className="text-xs text-cream/45">{f.reproductions} reproduction(s)</span> : null}
+              {result && <span role="status" className="text-xs text-cream/70">Re-run: {result}</span>}
+              {error && <span role="alert" className="text-xs text-coral">{error}</span>}
+            </div>
+          </motion.div>
         )}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          {f.rerunOf ? <Chip tone="info">Re-run result</Chip> : <Btn variant="ghost" onClick={rerun} loading={busy}>Re-run this finding</Btn>}
-          {f.reproductions ? <span className="text-xs text-cream/50">{f.reproductions} reproduction(s)</span> : null}
-          {result && <span role="status" className="text-xs text-[#7fd1a8]">Re-run: {result}</span>}
-          {error && <span role="alert" className="text-xs text-coral">{error}</span>}
-        </div>
-      </Glass>
-    </li>
+      </AnimatePresence>
+    </motion.li>
   );
 }
 
@@ -90,48 +102,45 @@ export function ReportView({ jobId, report, findings, progress, onReload }: {
   }
 
   return (
-    <div className="space-y-6">
-      <Glass>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold">Report summary</h2>
-          <div className="flex flex-wrap gap-2">
-            <a className="rounded-full border border-glass-border bg-glass px-4 py-2 text-sm font-semibold hover:bg-glass-strong" href={`/api/jobs/${jobId}/artifacts/report`}>Download report</a>
-            <a className="rounded-full border border-glass-border bg-glass px-4 py-2 text-sm font-semibold hover:bg-glass-strong" href={`/api/jobs/${jobId}/artifacts/suite`}>Download test suite</a>
-          </div>
-        </div>
-        <p className="mt-3 whitespace-pre-wrap text-sm text-cream/85">{report?.summary || "No summary was written for this report."}</p>
-      </Glass>
+    <Reveal className="space-y-12">
+      <Block title="Report summary" aside={
+        <div className="flex gap-5 text-sm">
+          <a className="text-cream/80 underline decoration-cream/20 underline-offset-4 transition hover:text-cream hover:decoration-cream" href={`/api/jobs/${jobId}/artifacts/report`}>Download report</a>
+          <a className="text-cream/80 underline decoration-cream/20 underline-offset-4 transition hover:text-cream hover:decoration-cream" href={`/api/jobs/${jobId}/artifacts/suite`}>Download suite</a>
+        </div>}>
+        <p className="max-w-2xl whitespace-pre-wrap text-[15px] leading-relaxed text-cream/85">{report?.summary || "No summary was written for this report."}</p>
+      </Block>
 
       <section aria-labelledby="findings-h">
-        <h2 id="findings-h" className="mb-3 text-lg font-semibold">Findings ({originals.length})</h2>
+        <h2 id="findings-h" className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-cream/50">Findings · {originals.length}</h2>
         {findings.length === 0 ? (
-          <Glass><p className="text-sm text-cream/75">No findings were reported. This does not prove the system is correct; it means nothing we checked was confirmed as a problem.</p></Glass>
+          <p className="border-t border-white/10 pt-5 text-sm text-cream/65">No findings were reported. This does not prove the system is correct; it means nothing we checked was confirmed as a problem.</p>
         ) : (
-          <ul className="space-y-4">{findings.map((f, i) => <FindingCard key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} />)}</ul>
+          <Stagger as="ul" className="border-t border-white/10">{findings.map((f, i) => <FindingCard key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} />)}</Stagger>
         )}
       </section>
 
-      {error && <ErrorBox message={error} />}
+      <AnimatePresence>{error && <ErrorBox key="e" message={error} />}</AnimatePresence>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Glass>
-          <h3 className="font-semibold">Linked retest</h3>
-          <p className="mt-1 text-sm text-cream/70">Fixed something? Run the same frozen checks again as a new linked job.</p>
+      <div className="grid gap-x-12 gap-y-8 border-t border-white/10 pt-6 sm:grid-cols-2">
+        <div>
+          <h3 className="font-medium">Linked retest</h3>
+          <p className="mt-1 text-sm text-cream/60">Fixed something? Run the same frozen checks again as a new linked job.</p>
           <Btn className="mt-4" variant="ghost" onClick={retest} loading={retestBusy}>Request linked retest</Btn>
-        </Glass>
-        <Glass className="border-coral/40">
-          <div className="flex items-center gap-2"><h3 className="font-semibold">Monitoring pilot</h3><Chip tone="info">Pilot pricing</Chip></div>
-          <p className="mt-1 text-sm text-cream/70">Nightly re-run of your frozen suite with an email alert on regressions. {dollars(MONITORING_PRICE_CENTS_MONTHLY)}/month.</p>
+        </div>
+        <div>
+          <h3 className="font-medium">Monitoring pilot</h3>
+          <p className="mt-1 text-sm text-cream/60">Nightly re-run of your frozen suite with an email alert on regressions. {dollars(MONITORING_PRICE_CENTS_MONTHLY)}/month.</p>
           <Btn className="mt-4" onClick={monitor} loading={monBusy}>Start monitoring · {dollars(MONITORING_PRICE_CENTS_MONTHLY)}/mo</Btn>
-        </Glass>
+        </div>
       </div>
 
       {progress.length > 0 && (
-        <details className="rounded-[18px] border border-glass-border bg-glass px-5 py-3 text-sm backdrop-blur-xl">
-          <summary className="cursor-pointer font-medium">How this job ran</summary>
-          <ul className="mt-3 space-y-1 text-cream/75">{progress.map((p, i) => <li key={i}>{p.message}</li>)}</ul>
+        <details className="group border-t border-white/10 pt-5 text-sm">
+          <summary className="cursor-pointer text-cream/70 transition hover:text-cream">How this job ran</summary>
+          <ul className="mt-3 space-y-1 text-cream/55">{progress.map((p, i) => <li key={i}>{p.message}</li>)}</ul>
         </details>
       )}
-    </div>
+    </Reveal>
   );
 }

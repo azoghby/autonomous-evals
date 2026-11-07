@@ -2,19 +2,20 @@
 import type { ReactNode } from "react";
 import { useFetch } from "@/lib/client/use-fetch";
 import type { InfraReport } from "@/server/infra";
-import { Chip, ErrorState, GlassCard, Spinner } from "@/components/ui";
+import { Banner, Btn, Chip, Spinner } from "./ui";
+import { Stagger, StaggerItem } from "./motion";
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "none");
 
 function Panel({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
   return (
-    <GlassCard className="p-5">
+    <StaggerItem className="border-t border-white/10 pt-5">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-semibold text-coral">{title}</h3>
-        {note && <span className="text-xs text-cream/50">{note}</span>}
+        <h3 className="text-xs font-medium uppercase tracking-[0.14em] text-cream/50">{title}</h3>
+        {note && <span className="text-xs text-cream/35">{note}</span>}
       </div>
       {children}
-    </GlassCard>
+    </StaggerItem>
   );
 }
 
@@ -24,25 +25,23 @@ const Muted = ({ children }: { children: ReactNode }) => <p className="text-sm t
 export function OperatorInfra() {
   const { data, error, loading, reload } = useFetch<InfraReport>("/api/operator/infra");
 
-  if (loading) return <div className="flex items-center gap-2 text-cream/70"><Spinner label="Loading infrastructure" /> Loading infrastructure</div>;
+  if (loading) return <div className="flex items-center gap-2 text-cream/70"><Spinner size={14} /> Loading infrastructure</div>;
   if (error?.status === 403) return null;
   if (error || !data) {
-    return <ErrorState title="Could not load infrastructure" message={error?.message}
-      action={<button type="button" onClick={() => void reload()} className="rounded-full border border-glass-border px-4 py-1.5 text-sm text-cream hover:bg-glass">Retry</button>} />;
+    return <Banner tone="bad"><span className="block text-cream">Could not load infrastructure</span><span className="block text-cream/60">{error?.message}</span><Btn variant="ghost" className="mt-3" onClick={() => void reload()}>Retry</Btn></Banner>;
   }
 
   const { neon } = data;
   return (
-    <section aria-labelledby="infra-heading" className="space-y-4">
-      <h2 id="infra-heading" className="text-lg font-semibold">Infrastructure</h2>
-      <div className="grid gap-4 lg:grid-cols-2">
+    <section aria-label="Infrastructure">
+      <Stagger className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
         <Panel title="Neon project">
           {neon ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Chip tone="info">{neon.region ?? "unknown region"}</Chip>
-              <Chip>PG {neon.pgVersion ?? "?"}</Chip>
-              <Chip tone="coral">{neon.branchCount} branches</Chip>
-              <code className="text-xs text-cream/50">{neon.projectId}</code>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <Chip tone="muted">{neon.region ?? "unknown region"}</Chip>
+              <Chip tone="muted">PG {neon.pgVersion ?? "?"}</Chip>
+              <Chip tone="muted">{neon.branchCount} branches</Chip>
+              <code className="text-xs text-cream/40">{neon.projectId}</code>
             </div>
           ) : <Muted>{data.neonError ?? "Neon API unavailable"}</Muted>}
         </Panel>
@@ -85,7 +84,7 @@ export function OperatorInfra() {
             </ul>
           )}
         </Panel>
-      </div>
+      </Stagger>
     </section>
   );
 }

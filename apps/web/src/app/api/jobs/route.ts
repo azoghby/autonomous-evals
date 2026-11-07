@@ -3,6 +3,8 @@ import { jsonError, readJson, requireViewer } from "@/server/http";
 import { withIdempotency, IdempotencyInProgressError } from "@/server/idempotency";
 import { createJob } from "@/server/create-job";
 import { listMyJobs } from "@/server/queries";
+import { rateLimit, clientIp } from "@/server/rate-limit";
+import { assertHuman } from "@/server/bot";
 
 export async function GET() {
   const jobs = await listMyJobs();
@@ -11,6 +13,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const blocked = await assertHuman(); if (blocked) return blocked;
+  const rl = await rateLimit(`jobs:${clientIp(req)}`, 20, 600);
+  if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   const auth = await requireViewer();
   if (auth.res) return auth.res;
   const key = req.headers.get("idempotency-key")?.trim();
