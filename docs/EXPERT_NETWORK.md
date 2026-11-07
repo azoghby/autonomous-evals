@@ -60,6 +60,18 @@ A Neon trigger or app code moves `expert_requests.status` forward when a respons
 - `/expert/r/[token]`: the questionnaire or booking page for a single engagement.
 - Operator console tab **Experts**: requests, approval queue (it reuses `outreach_drafts`), engagements, honoraria owed and paid, and opt-outs.
 
+## Contact research via Monid (verified Nov 7)
+
+`MONID_API_KEY` is set on Vercel and in local env, and the account balance is $20. These are the relevant endpoints, found with `monid discover`:
+
+| Provider | Endpoint | Use | Price |
+|---|---|---|---|
+| contactout | `/v1/people/search/work-email` | Find professionals by title, company or skills, with a work email | from $0.02 per result |
+| contactout | `/v1/people/enrich/work-email` | Enrich one known profile | from $0.02 per call |
+| tendata | `/v2/contact` | People at a company, filtered by role | $0.08 per result |
+
+Rules: work emails only, never personal ones. Search for at most 10 candidates per expert request. Every candidate becomes an approval-queue draft, never an automatic send. Each Monid run's cost is recorded in `costs` with source `monid`.
+
 ## Ownership
 
 - **Track A:** tables and migrations, opt-in and questionnaire pages, approval queue, email transport, calendar booking, suppression list, rate limits, operator UI, honorarium logging.
