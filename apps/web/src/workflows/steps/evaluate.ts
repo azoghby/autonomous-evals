@@ -1,0 +1,120 @@
+import { eq } from "drizzle-orm";
+import { db, schema } from "@ae/core/db/client";
+import { FatalError } from "workflow";
+import type { Finding, Report, Suite } from "@ae/core/contracts/index";
+import type { RunResult } from "@ae/core/contracts/services";
+import { putJobArtifact } from "@ae/core/storage/blob";
+import { recordProgress, saveFindings, setJobState } from "@/server/job-store";
+import { getEvalServices } from "@/server/services";
+import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+
+type EndpointSlot = "endpoint" | "endpointA" | "endpointB";
+
+export async function auditTraceStep(jobId: string): Promise<BudgetResult<Finding[]>> {
+  "use step";
+  const intake = await loadIntake(jobId, false);
+  if (intake.package !== "trace_audit") throw new FatalError("auditTrace requires a trace_audit job");
+  const services = await getEvalServices();
+  const result = await withBudget(jobId, "investigator", async (ctx) => {
+    await ctx.recordProgress("auditing_trace", "Checking the trace for unsupported claims, ignored errors, and instruction violations.");
+    const audit = await services.auditTrace(ctx, intake.trace, intake.systemPrompt);
+    return audit.findings;
+  });
+  if (result.status === "ok") await recordProgress(jobId, "trace_audited", `Trace audit found ${result.data.length} finding(s).`);
+  return result;
+}
+auditTraceStep.maxRetries = 1;
+
+/** Creates the per-job Neon branch. Returns the connection string for the run step only; nothing else persists it. */
+export async function createBranchStep(jobId: string): Promise<{ branchId: string; connectionString: string }> {
+  "use step";
+  const services = await getEvalServices();
+  const job = await requireJob(jobId);
+  // A previous attempt that wrote neon_branch_id but lost its result cannot hand back the connection string: recreate.
+  if (job.neonBranchId) await services.deleteJobBranch(job.neonBranchId);
+  const branch = await services.createJobBranch(jobId);
+  await setJobState(jobId, job.state, { neonBranchId: branch.branchId });
+  await recordProgress(jobId, "branch_ready", "Isolated test environment created.");
+  return branch;
+}
+
+export async function designSuiteStep(jobId: string): Promise<BudgetResult<Suite>> {
+  "use step";
+  const intake = await loadIntake(jobId, false);
+  const services = await getEvalServices();
+  const result = await withBudget(jobId, "engineer", async (ctx) => {
+    const suite = await services.designSuite(ctx, intake);
+    const path = await putJobArtifact(jobId, "suite", JSON.stringify(suite), "application/json");
+    const job = await requireJob(jobId);
+    await setJobState(jobId, job.state, { suiteBlobPath: path });
+    return suite;
+  });
+  if (result.status === "ok") {
+    await recordProgress(jobId, "suite_frozen", `Test suite frozen: ${result.data.scenarios.length} scenario(s).`);
+  }
+  return result;
+}
+designSuiteStep.maxRetries = 1;
+
+function targetFor(intake: Awaited<ReturnType<typeof loadIntake>>, slot: EndpointSlot) {
+  const ep = (intake as unknown as Record<string, { url: string; model: string; apiKey?: string; systemPrompt?: string } | undefined>)[slot];
+  if (!ep) throw new FatalError(`Job intake has no ${slot}`);
+  return { url: ep.url, model: ep.model, apiKey: ep.apiKey, systemPrompt: ep.systemPrompt ?? "" };
+}
+
+/** Runs the frozen suite against one target version. Credentials are loaded here and never leave the step. */
+export async function runSuiteStep(
+  jobId: string, suite: Suite, slot: EndpointSlot, versionLabel: string, branchConnectionString?: string,
+): Promise<BudgetResult<RunResult>> {
+  "use step";
+  const intake = await loadIntake(jobId, true);
+  const target = targetFor(intake, slot);
+  if (!target.apiKey) {
+    const [cred] = await db().select({ id: schema.jobCredentials.jobId }).from(schema.jobCredentials).where(eq(schema.jobCredentials.jobId, jobId)).limit(1);
+    if (!cred && Array.isArray((intake as unknown as { _credentialSlots?: unknown })._credentialSlots)) {
+      throw new FatalError("Target credentials were deleted before the run");
+    }
+  }
+  const services = await getEvalServices();
+  const result = await withBudget(jobId, "judge", async (ctx) => {
+    await ctx.recordProgress("running_suite", `Running ${suite.scenarios.length} scenario(s) against ${versionLabel}.`);
+    return services.runSuite(ctx, { ...suite, versionLabel }, target, branchConnectionString);
+  });
+  if (result.status === "ok") {
+    const failed = result.data.results.filter((r) => !r.passed).length;
+    await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${failed} of ${result.data.results.length} scenario(s) failed.`);
+  }
+  return result;
+}
+runSuiteStep.maxRetries = 1;
+
+export async function investigateStep(jobId: string, suite: Suite, runs: RunResult[]): Promise<BudgetResult<Finding[]>> {
+  "use step";
+  const services = await getEvalServices();
+  const result = await withBudget(jobId, "investigator", (ctx) => services.investigate(ctx, suite, runs));
+  if (result.status === "ok") await recordProgress(jobId, "investigated", `Investigation produced ${result.data.length} finding(s).`);
+  return result;
+}
+investigateStep.maxRetries = 1;
+
+export async function renderReportStep(jobId: string, findings: Finding[], suite?: Suite): Promise<BudgetResult<Report>> {
+  "use step";
+  const intake = await loadIntake(jobId, false);
+  const services = await getEvalServices();
+  return withBudget(jobId, "operator", (ctx) => services.renderReport(ctx, { intake, findings, suite }));
+}
+renderReportStep.maxRetries = 1;
+
+/** Writes report, evidence, and findings to Blob + Neon. Safe to retry: findings are keyed, blobs get random suffixes. */
+export async function persistReportStep(jobId: string, report: Report, suite?: Suite): Promise<void> {
+  "use step";
+  const markdownPath = await putJobArtifact(jobId, "report", report.markdown, "text/markdown");
+  await putJobArtifact(jobId, "report-html", report.html, "text/html");
+  await putJobArtifact(jobId, "evidence", JSON.stringify(report.findings.map((f) => ({ id: f.id, evidence: f.evidence }))), "application/json");
+  const extra: { reportBlobPath: string; suiteBlobPath?: string } = { reportBlobPath: markdownPath };
+  if (suite) extra.suiteBlobPath = await putJobArtifact(jobId, "suite", JSON.stringify(suite), "application/json");
+  await saveFindings(jobId, report.findings);
+  const job = await requireJob(jobId);
+  await setJobState(jobId, job.state, extra);
+  await recordProgress(jobId, "report_stored", "Report and evidence stored.");
+}

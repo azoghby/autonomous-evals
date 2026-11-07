@@ -1,0 +1,176 @@
+import type Stripe from "stripe";
+import { and, eq, gte, isNull } from "drizzle-orm";
+import { db, schema } from "../db/client";
+import type { JobEvent } from "../contracts/index";
+import { MONITORING_PRICE_CENTS_MONTHLY } from "../contracts/index";
+import { getStripeMode, stripe } from "./stripe";
+
+/** Delivers an event to a job's workflow. Injected so core never depends on the web app. */
+export type SendJobEvent = (jobId: string, event: JobEvent) => Promise<void>;
+export type PaymentRow = typeof schema.payments.$inferSelect;
+
+export interface CheckoutArgs {
+  jobId: string;
+  quoteVersion: number;
+  priceCents: number;
+  customerEmail: string;
+  successUrl: string;
+  cancelUrl: string;
+  productName?: string;
+  /** Only set after the previous session for this quote expired (Stripe replays cached responses per idempotency key). */
+  retryAfterSessionId?: string;
+}
+
+export const checkoutIdempotencyKey = (jobId: string, quoteVersion: number, retryAfterSessionId?: string) =>
+  `checkout:${jobId}:${quoteVersion}${retryAfterSessionId ? `:after:${retryAfterSessionId}` : ""}`;
+
+export async function createCheckoutForQuote(a: CheckoutArgs): Promise<{ sessionId: string; url: string }> {
+  if (!Number.isInteger(a.priceCents) || a.priceCents <= 0) throw new Error("priceCents must be a positive integer");
+  const metadata = { job_id: a.jobId, quote_version: String(a.quoteVersion), environment: getStripeMode() };
+  const session = await stripe().checkout.sessions.create({
+    mode: "payment",
+    customer_email: a.customerEmail,
+    client_reference_id: a.jobId,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: "usd", unit_amount: a.priceCents,
+        product_data: { name: a.productName ?? "Autonomous Evals report" },
+      },
+    }],
+    metadata,
+    payment_intent_data: { metadata },
+    success_url: a.successUrl,
+    cancel_url: a.cancelUrl,
+  }, { idempotencyKey: checkoutIdempotencyKey(a.jobId, a.quoteVersion, a.retryAfterSessionId) });
+  if (!session.url) throw new Error("Stripe returned a checkout session without a URL");
+  return { sessionId: session.id, url: session.url };
+}
+
+/** $49/month monitoring subscription for a delivered job. */
+export async function createMonitoringCheckout(
+  jobId: string,
+  opts: { customerEmail: string; successUrl: string; cancelUrl: string },
+): Promise<{ sessionId: string; url: string }> {
+  const metadata = { job_id: jobId, quote_version: "0", kind: "monitoring", environment: getStripeMode() };
+  const session = await stripe().checkout.sessions.create({
+    mode: "subscription",
+    customer_email: opts.customerEmail,
+    client_reference_id: jobId,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: "usd", unit_amount: MONITORING_PRICE_CENTS_MONTHLY, recurring: { interval: "month" },
+        product_data: { name: "Autonomous Evals monitoring" },
+      },
+    }],
+    metadata,
+    subscription_data: { metadata },
+    success_url: opts.successUrl,
+    cancel_url: opts.cancelUrl,
+  }, { idempotencyKey: `monitoring:${jobId}:${new Date().toISOString().slice(0, 10)}` });
+  if (!session.url) throw new Error("Stripe returned a checkout session without a URL");
+  return { sessionId: session.id, url: session.url };
+}
+
+const idOf = (v: string | { id: string } | null | undefined) => (typeof v === "string" ? v : v?.id ?? null);
+
+/**
+ * Persists a paid session as a payment row. Idempotent: the unique session id (and event id) make a
+ * second call a no-op that returns the existing row with inserted=false.
+ */
+export async function recordPaymentFromSession(
+  session: Stripe.Checkout.Session, eventId: string | null,
+): Promise<{ payment: PaymentRow; inserted: boolean }> {
+  if (session.payment_status !== "paid") throw new Error(`Session ${session.id} is not paid (${session.payment_status})`);
+  const jobId = session.metadata?.job_id;
+  const quoteVersion = Number(session.metadata?.quote_version);
+  if (!jobId || !Number.isInteger(quoteVersion) || quoteVersion < 0) {
+    throw new Error(`Session ${session.id} is missing job_id/quote_version metadata`);
+  }
+  const rows = await db().insert(schema.payments).values({
+    jobId, quoteVersion,
+    stripeEventId: eventId,
+    stripeCheckoutSessionId: session.id,
+    stripePaymentIntentId: idOf(session.payment_intent),
+    amountCents: session.amount_total ?? 0,
+    currency: session.currency ?? "usd",
+    environment: session.livemode ? "live" : "test",
+    kind: session.mode === "subscription" ? "subscription" : "one_time",
+  }).onConflictDoNothing().returning();
+  if (rows[0]) return { payment: rows[0], inserted: true };
+  const [existing] = await db().select().from(schema.payments)
+    .where(eq(schema.payments.stripeCheckoutSessionId, session.id)).limit(1);
+  if (!existing) throw new Error(`Payment for session ${session.id} conflicted but could not be found`);
+  return { payment: existing, inserted: false };
+}
+
+export type ResumeOutcome = "resumed" | "needs_review" | "not_applicable";
+
+/**
+ * Sends payment_confirmed to the job's workflow, then stamps workflow_resumed_at. If the send throws
+ * the stamp stays null so the webhook retry / reconcile cron tries again. A workflow that no longer
+ * exists (cancelled / finished) moves the job to payment_review for an operator.
+ */
+export async function confirmAndResume(payment: PaymentRow, send: SendJobEvent): Promise<ResumeOutcome> {
+  if (payment.kind !== "one_time") {
+    await db().update(schema.payments).set({ workflowResumedAt: new Date() }).where(eq(schema.payments.id, payment.id));
+    return "not_applicable";
+  }
+  try {
+    await send(payment.jobId, { type: "payment_confirmed", paymentId: payment.id, quoteVersion: payment.quoteVersion });
+  } catch (err) {
+    if (err instanceof Error && err.name === "HookNotFoundError") {
+      await flagPaymentReview(payment);
+      return "needs_review";
+    }
+    throw err;
+  }
+  await db().update(schema.payments).set({ workflowResumedAt: new Date() })
+    .where(and(eq(schema.payments.id, payment.id), isNull(schema.payments.workflowResumedAt)));
+  return "resumed";
+}
+
+async function flagPaymentReview(payment: PaymentRow): Promise<void> {
+  const moved = await db().update(schema.jobs).set({ state: "payment_review", updatedAt: new Date() })
+    .where(and(eq(schema.jobs.id, payment.jobId), eq(schema.jobs.state, "awaiting_payment")))
+    .returning({ id: schema.jobs.id });
+  if (moved.length > 0) {
+    await db().insert(schema.progressEvents).values({
+      jobId: payment.jobId, milestone: "payment_review",
+      message: "Payment received but the job workflow is no longer waiting. An operator will review.",
+    });
+  }
+}
+
+export interface ReconcileSummary { sessionsChecked: number; recorded: number; resumed: number; needsReview: number; errors: string[] }
+
+/** Safety net for missed webhooks: record any paid sessions from the last 24h, then resume every unresumed payment. */
+export async function reconcile(send: SendJobEvent, now: Date = new Date()): Promise<ReconcileSummary> {
+  const summary: ReconcileSummary = { sessionsChecked: 0, recorded: 0, resumed: 0, needsReview: 0, errors: [] };
+  const since = Math.floor((now.getTime() - 24 * 3600_000) / 1000);
+  const sessions = stripe().checkout.sessions.list({ created: { gte: since }, limit: 100 });
+  for await (const s of sessions) {
+    summary.sessionsChecked++;
+    if (summary.sessionsChecked > 1000) break;
+    if (s.payment_status !== "paid" || !s.metadata?.job_id) continue;
+    try {
+      const { inserted } = await recordPaymentFromSession(s, null);
+      if (inserted) summary.recorded++;
+    } catch (err) {
+      summary.errors.push(`${s.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  const pending = await db().select().from(schema.payments)
+    .where(and(isNull(schema.payments.workflowResumedAt), gte(schema.payments.createdAt, new Date(now.getTime() - 7 * 86400_000))));
+  for (const p of pending) {
+    try {
+      const outcome = await confirmAndResume(p, send);
+      if (outcome === "resumed") summary.resumed++;
+      else if (outcome === "needs_review") summary.needsReview++;
+    } catch (err) {
+      summary.errors.push(`payment ${p.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return summary;
+}
