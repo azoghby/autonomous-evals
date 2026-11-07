@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { FunctionTool, ToolCall } from '../targets/chat.js';
+import { isPersistableText, toolCallSchema } from '../targets/chat.js';
 
 export interface RunScope { jobId: string; runId: string; version: string }
 export interface Calendar { id: string; ownerId: string }
@@ -42,12 +43,12 @@ export class MemoryCalendarStore implements CalendarStore {
   }
   async reset(scope: RunScope) { this.states.delete(scopeKey(scope)); }
 }
-const id = z.string().min(1).max(128);
+const id = z.string().min(1).max(128).refine(isPersistableText);
 const instant = z.string().datetime({ offset: false }).transform(s => new Date(s).toISOString());
-const zone = z.string().max(100).refine(s => {
+const zone = z.string().max(100).refine(isPersistableText).refine(s => {
   try { new Intl.DateTimeFormat('en', { timeZone: s }); return s === 'UTC' || s.includes('/'); } catch { return false; }
 });
-const eventFields = { title: z.string().min(1).max(200), startUtc: instant, endUtc: instant, timeZone: zone };
+const eventFields = { title: z.string().min(1).max(200).refine(isPersistableText), startUtc: instant, endUtc: instant, timeZone: zone };
 const schemas = {
   list_events: z.object({ calendarId: id }).strict(),
   create_event: z.object({ calendarId: id, ...eventFields }).strict(),
@@ -71,7 +72,7 @@ export const calendarTools: FunctionTool[] = (Object.keys(schemas) as CalendarTo
 export class CalendarSimulator {
   constructor(readonly store: CalendarStore) {}
   async execute(scope: RunScope, actorId: string, call: ToolCall): Promise<ToolResult> {
-    if (!actorId || actorId.length > 128 || !call.id || call.id.length > 128 || call.function.arguments.length > 32_000) return { ok: false, code: 'invalid_arguments' };
+    if (!id.safeParse(actorId).success || !toolCallSchema.safeParse(call).success) return { ok: false, code: 'invalid_arguments' };
     return this.store.transact(scope, state => {
       const previous = state.calls.find(c => c.id === call.id);
       if (previous) return previous.actorId === actorId && previous.name === call.function.name && previous.arguments === call.function.arguments

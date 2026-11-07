@@ -26,9 +26,23 @@ it('never retries an ambiguous branch creation', async () => {
   await expect(f.service.createJobBranch('job')).rejects.toThrow('reconciliation'); expect(f.api.call).toHaveBeenCalledTimes(1);
   await expect(f.service.deleteJobBranch('job')).rejects.toThrow('reconciliation');
 });
+it.each([423, 503])('bounds documented-safe %s create retries to three attempts', async status => {
+  const f = fixture(); vi.mocked(f.api.call).mockResolvedValue({ status });
+  for (let i = 0; i < 3; i++) await expect(f.service.createJobBranch('job')).rejects.toThrow('branch_retryable_response');
+  expect(f.getRecord()).toMatchObject({ state: 'retryable', createAttempts: 3 });
+  await expect(f.service.createJobBranch('job')).rejects.toThrow('branch_retry_exhausted');
+  expect(f.api.call).toHaveBeenCalledTimes(3);
+});
 it.each(['default', 'protected', 'parent_id', 'name', 'project_id', 'id'])('refuses changed ownership %s before deletion', async field => {
   const f = fixture(); await f.service.createJobBranch('job'); f.getBranch()[field] = ['default','protected'].includes(field) ? true : 'other';
   await expect(f.service.deleteJobBranch('job')).rejects.toThrow(); expect(vi.mocked(f.api.call).mock.calls.some(c => c[0] === 'DELETE')).toBe(false);
+});
+it('observes a pending deletion without issuing another ambiguous DELETE', async () => {
+  const f = fixture(); await f.service.createJobBranch('job');
+  vi.mocked(f.api.call).mockImplementation(async method => method === 'GET' ? { status: 200, body: { branch: f.getBranch() } } : { status: 200 });
+  expect(await f.service.deleteJobBranch('job')).toEqual({ state: 'delete_requested' });
+  expect(await f.service.deleteJobBranch('job')).toEqual({ state: 'delete_requested' });
+  expect(vi.mocked(f.api.call).mock.calls.filter(([method]) => method === 'DELETE')).toHaveLength(1);
 });
 it('contract adapters resolve credentials only for owned branch and reject arbitrary deletion', async () => {
   const f = fixture(); const connectionString = vi.fn().mockResolvedValue('postgresql://user:password@branch.example/db?sslmode=require');

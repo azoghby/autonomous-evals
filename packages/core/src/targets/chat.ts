@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import { HttpsJsonTransport, TargetError, type JsonTransport } from './transport.js';
 
+/** PostgreSQL text/jsonb cannot store NUL or unpaired UTF-16 surrogates. */
+export const isPersistableText = (value: string) => !/[\u0000\uD800-\uDFFF]/u.test(value);
 export const toolCallSchema = z.object({
-  id: z.string().min(1).max(128), type: z.literal('function'),
-  function: z.object({ name: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/), arguments: z.string().max(32_000) }),
+  id: z.string().min(1).max(128).refine(isPersistableText), type: z.literal('function'),
+  function: z.object({ name: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/), arguments: z.string().max(32_000).refine(isPersistableText) }),
 });
 export const assistantSchema = z.object({
-  role: z.literal('assistant'), content: z.string().max(128_000).nullable().optional(),
+  role: z.literal('assistant'), content: z.string().max(128_000).refine(isPersistableText).nullable().optional(),
   tool_calls: z.array(toolCallSchema).max(8).optional(),
 }).superRefine((m, ctx) => {
   if (!m.content && !m.tool_calls?.length) ctx.addIssue({ code: 'custom', message: 'empty assistant response' });

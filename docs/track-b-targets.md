@@ -80,6 +80,10 @@ Focused tests cover SSRF URL/address bypasses, mixed DNS answers, pinned HTTPS o
 
 ### Parent integration verification
 
+Independent review identified and parent regression tests fixed PostgreSQL-hostile NUL/lone-surrogate tool text. The boundary rejects unsafe call identifiers/raw arguments; decoded tool fields are validated before storage. Invalid target responses retain bounded JSON-escaped evidence, and unexpected tool-execution failures return a safe `simulator_error` stop with the partial transcript when state remains readable.
+
+Neon create responses 423/503 now persist `retryable` with an attempt count and allow at most three caller-dispatched attempts. Timeouts/network failures remain ambiguous and require reconciliation. This follows the [Neon create-branch retry rules](https://api-docs.neon.tech/reference/createprojectbranch). Pending/ambiguous deletion is observed with GET until absent, without another DELETE; explicit 423/503 deletion responses permit a later retry. Track A should back off retryable responses and preserve the new ownership state/count in its durable ledger.
+
 After integration, strict TypeScript and 100 tests passed across target, simulator, judge, monitoring, and pooled-transaction components using the repository's isolated harness (Vitest 5.1.0).
 
 On November 7, the parent also exercised `HttpsJsonTransport` over a real connection to `https://postman-echo.com/post`, with a 10-second timeout and 16 KB response cap. A synthetic fixture payload was echoed correctly. No credentials were sent. This verifies the real DNS-pinned TLS/HTTP path against that public echo service; it is not a model completion, authorized customer evaluation, or Neon control-plane test. The mocked bypass/deadline tests remain necessary alongside this one successful connection.
