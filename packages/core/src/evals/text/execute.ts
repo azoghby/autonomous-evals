@@ -144,7 +144,7 @@ async function runRubric(
   deps: TextExecutionDeps,
 ): Promise<CheckResult> {
   const base = { checkId: check.id, kind: "rubric" as const };
-  if (check.assessesFactualCorrectness && suite.referenceText === null) {
+  if (check.assessesFactualCorrectness && !suite.referenceText?.trim()) {
     return {
       ...base,
       status: "not_assessed",
@@ -176,6 +176,9 @@ async function runRubric(
   const rawCount = Array.isArray(verdict?.evidenceQuotes) ? verdict.evidenceQuotes.length : 0;
   const quotes = verbatimQuotes(verdict?.evidenceQuotes, response);
 
+  if ((outcome === "passed" || outcome === "rubric_concern") && quotes.length !== rawCount) {
+    return { ...base, status: "inconclusive", detail: "rubric judgment contains unverified response evidence", evidenceQuotes: [], reason: "judge_inconclusive" };
+  }
   if (outcome === "passed") {
     return { ...base, status: "pass", detail: clipDetail(`Rubric judgment (passed): ${explanation}`), evidenceQuotes: quotes, reason: null };
   }

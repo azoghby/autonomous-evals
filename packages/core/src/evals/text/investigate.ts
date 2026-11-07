@@ -29,7 +29,7 @@ export async function investigateTextRun(input: { job: JobRef; suite: FrozenText
   assertRunMatches(suite, run);
   if (input.job.jobId !== suite.jobId) throw new Error('job identity mismatch');
   const result: TextInvestigation = { findings: [], testDefects: [], reproductions: [], costs: [], investigatorStatus: 'skipped', limitations: ['Rubric concerns are subjective judgments.', 'Customer provider costs are unknown.'] };
-  if (suite.referenceText === null) result.limitations.push('Factual correctness not assessed: no reference text supplied.');
+  if (!suite.referenceText?.trim()) result.limitations.push('Factual correctness not assessed: no reference text supplied.');
   for (const execution of run.executions) {
     const scenario = suite.scenarios.find(s => s.id === execution.scenarioId)!;
     for (const check of execution.checks.filter(c => c.status === 'fail' || c.status === 'concern')) {
@@ -64,18 +64,21 @@ export async function investigateTextRun(input: { job: JobRef; suite: FrozenText
   for (const finding of result.findings) {
     const original = run.executions.find(e => finding.id === `text:${e.scenarioId}:${finding.evidence[0]?.kind === 'check' ? finding.evidence[0].checkId : ''}`)!;
     const verdict = output.verdicts.find(v => v.candidateId === finding.id);
-    if (!verdict || !original.responseText?.includes(verdict.quote)) continue;
-    finding.investigatorNote = verdict.rationale;
     const checkId = finding.evidence[0]?.kind === 'check' ? finding.evidence[0].checkId : '';
     const repro = result.reproductions.find(e => e.scenarioId === original.scenarioId);
     const reproduced = repro?.checks.find(c => c.checkId === checkId);
     if (repro) finding.reproduction = { attempted: true, runId: repro.runId, reproduced: reproduced?.status === 'fail' || reproduced?.status === 'concern' ? true : reproduced?.status === 'pass' ? false : null };
+    if (repro && reproduced) finding.evidence.push({ kind: 'check', checkId, detail: `Reproduction ${repro.runId}: ${reproduced.status}; ${reproduced.detail}` });
+    // Check evidence was grounded against the complete response before storage clipping.
+    // Use only this candidate's trusted stored quotes, never investigator-provided text.
+    const originalCheck = original.checks.find(c => c.checkId === checkId);
+    if (!verdict || !(original.responseText?.includes(verdict.quote) || originalCheck?.evidenceQuotes.some(q => q.includes(verdict.quote)))) continue;
+    finding.investigatorNote = verdict.rationale;
     if (verdict.verdict === 'dismissed' && finding.basis === 'objective') {
       result.testDefects.push({ candidateId: finding.id, category: finding.category, note: verdict.defectNote ?? 'Objective dismissal lacked a defect note; objective result retained.', recordedBy: 'quality_investigator' });
     } else if (finding.basis === 'objective' && verdict.verdict === 'confirmed' && reproduced?.status === 'fail') finding.label = 'confirmed';
     else if (finding.basis === 'judge' && ['confirmed', 'rubric_concern'].includes(verdict.verdict)) finding.label = 'rubric_concern';
     finding.evidence.push({ kind: 'scenario_response', scenarioId: original.scenarioId, runId: original.runId, quote: verdict.quote, truncated: false });
-    if (repro && reproduced) finding.evidence.push({ kind: 'check', checkId, detail: `Reproduction ${repro.runId}: ${reproduced.status}; ${reproduced.detail}` });
   }
   return result;
 }

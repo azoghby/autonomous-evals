@@ -3,7 +3,7 @@ import { containsSecret } from '../../agents/redact';
 import type { AgentTaskOutcome, AgentTaskRunner } from '../../agents/session-service';
 import type { CostEntry, JobRef } from '../types';
 import { canonicalJson, freezeSuite, suiteDigest } from './freeze';
-import { FrozenTextSuiteBodySchema, TextScenarioSchema, type FrozenTextSuite, type SuiteReviewRecord } from './schema';
+import { FrozenTextSuiteBodySchema, normalizeReferenceText, TextScenarioSchema, type FrozenTextSuite, type SuiteReviewRecord } from './schema';
 import { createHash } from 'node:crypto';
 
 export const TextDesignOutput = z.object({ scenarios: z.array(TextScenarioSchema).length(12) }).strict();
@@ -26,6 +26,7 @@ const identity = (value: unknown): string => createHash('sha256').update(canonic
 
 /** At most two engineer drafts and two investigator reviews. Same input resumes the same task keys. */
 export async function designTextSuite(input: TextDesignInput, deps: { runner: AgentTaskRunner; budgetMicroUsd?: number; now?: () => Date }): Promise<TextDesignOutcome> {
+  input = { ...input, referenceText: normalizeReferenceText(input.referenceText) };
   const costs: CostEntry[] = [];
   const { knownSecrets = [], ...safe } = input;
   if (containsSecret(JSON.stringify(safe), knownSecrets)) return { status: 'blocked', reason: 'credential_in_input', costs };

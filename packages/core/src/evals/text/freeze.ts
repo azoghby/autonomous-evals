@@ -5,7 +5,7 @@
  */
 import { containsSecret } from "../../agents/redact";
 import { createHash } from "node:crypto";
-import { type FrozenTextSuite, type FrozenTextSuiteBody, FrozenTextSuiteBodySchema, FrozenTextSuiteSchema } from "./schema";
+import { type FrozenTextSuite, type FrozenTextSuiteBody, FrozenTextSuiteBodySchema, FrozenTextSuiteSchema, normalizeReferenceText } from "./schema";
 
 /** Deterministic JSON: object keys sorted, no whitespace. Arrays keep their order. */
 export function canonicalJson(value: unknown): string {
@@ -26,7 +26,7 @@ export function suiteDigest(body: FrozenTextSuiteBody): string {
 }
 
 export function freezeSuite(body: FrozenTextSuiteBody): FrozenTextSuite {
-  const parsed = FrozenTextSuiteBodySchema.parse(body);
+  const parsed = FrozenTextSuiteBodySchema.parse({ ...body, referenceText: normalizeReferenceText(body.referenceText) });
   if (containsSecret(JSON.stringify(parsed))) throw new FrozenSuiteIntegrityError("suite contains credential content");
   return FrozenTextSuiteSchema.parse({ ...parsed, digest: suiteDigest(parsed) });
 }

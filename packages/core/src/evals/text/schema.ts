@@ -24,6 +24,11 @@ export const MAX_EVIDENCE_QUOTE_CHARS = 500;
 export const MAX_SYSTEM_PROMPT_CHARS = 20_000;
 export const MAX_REFERENCE_CHARS = 50_000;
 
+/** Normalize absence for new inputs only; never normalize a stored frozen body. */
+export function normalizeReferenceText(reference: string | null): string | null {
+  return reference?.trim() ? reference : null;
+}
+
 export const ScenarioCategorySchema = z.enum(["ordinary", "instruction_edge", "grounding_ambiguity"]);
 export type ScenarioCategory = z.infer<typeof ScenarioCategorySchema>;
 
@@ -136,7 +141,7 @@ export const FrozenTextSuiteBodySchema = z
     frozenAt: z.string(),
     /** Authoritative system prompt for every run of this suite, including explicit null. */
     systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_CHARS).nullable(),
-    /** Customer reference text, if supplied. Null means factual correctness is not assessed. */
+    /** Customer reference text, if supplied. Null or legacy blank means factual correctness is not assessed. */
     referenceText: z.string().max(MAX_REFERENCE_CHARS).nullable(),
     scenarios: z.array(TextScenarioSchema).length(SUITE_SIZE),
     review: SuiteReviewRecordSchema,
