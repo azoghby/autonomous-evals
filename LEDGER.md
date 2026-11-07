@@ -66,11 +66,9 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - [ ] Security review (opus, read-only); findings get fixed after
 
 - [ ] E2E pipeline test (`scripts/e2e-pipeline.ts`, dev-only simulated payment)
-- [ ] Crons for real: monitoring re-runs + regression emails, follow-up nudges
-- [ ] Expert call booking (slots, Jitsi link, .ics via AgentMail, consent-gated transcripts)
-- [ ] Client types + remediation status mapping + mobile nav
 
 ### Merged since last update
+- Expert call booking (`call_slots`, Jitsi, .ics, `/expert/book/[token]`, operator slots + notes), real monitoring + follow-up crons (migration 0008/0009 applied), typed remediations, mobile nav. **Deployed to prod** (/, /sample, /experts 200; crons 401 without secret)
 - UI v3 retheme (black/white/#2F6BFF, cursor-reactive ribbed lines), `/sample` public report, AI gateway (`@ae/core/ai/gateway`: Vercel primary, Neon fallback, cost logging, credential guard), Track B conformance harness (`npm run conformance`-style `scripts/conformance.ts`, docs/INTEGRATION.md)
 - Pay per confirmed finding (Stripe manual capture), fix-not-just-find (remediations), MCP server (`/api/mcp/mcp` + `/settings/keys`), Neon Realtime live progress, security batches 1+2 + M4 (all HIGH/MEDIUM fixed), infra 500 fix, `npm run deploy` (migrate then deploy)
 
@@ -101,3 +99,4 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - ~14:30: AgentMail (`ae-commercial@agentmail.to`, inbound webhook `ep_3LnO5TpiMamhUvPG3Kik5WKeN8n`), Vercel Firewall rate-limit rules (3, live), BotID/analytics/headers, Stripe setup script merged. Differentiators dispatched.
 - ~14:15: Neon storage, Neon ops, client/server reconciliation merged. AgentMail key received. UI v2 (calmer + Motion/anime.js) started.
 - ~15:35: v3 retheme, /sample, AI gateway, conformance harness merged and pushed. Waiting on e2e pipeline, expert call booking, follow-ups/monitoring crons.
+- ~15:55: booking, crons, UI hooks merged; `npm run deploy` → prod Ready. Remaining in flight: e2e pipeline test.
