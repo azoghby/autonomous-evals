@@ -11,13 +11,19 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "playwright test",
+    "typecheck:all": "tsc -p apps/web --noEmit && tsc -p packages/core --noEmit"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
     "dotenv": "^18.0.9",
     "drizzle-kit": "^0.31.11",
     "typescript": "^6.0.3",
