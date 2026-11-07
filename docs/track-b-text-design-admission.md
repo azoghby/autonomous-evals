@@ -9,7 +9,22 @@
 
 The conditional fallback remains rubric-only. Reference facts (3/12 projects, weekdays, fictional status) never justify literal output checks. The correct response “The basic plan permits three projects.” passes both admitted objectives. Injected first-draft and revised-draft design tests retain the original scenario questions and system prompt, execute all twelve scenarios, and fail the relevant checks for 51 words and for the banned token. Rubrics without a judge remain visibly inconclusive; passing objectives do not imply factual correctness.
 
-This is offline validation, not a new live acceptance claim. The [first live suite](../tests/track-b/live-evidence/text-design-2026-11-07.json) was unsound; the [second live diagnostic](../tests/track-b/live-evidence/text-design-admission-2026-11-07.json) blocked after both drafts under v1. Neither historical outcome is rewritten. The parent owns the next bounded live diagnostic; this implementation made no provider/cloud calls or spend.
+The [third live diagnostic](../tests/track-b/live-evidence/text-design-natural-language-2026-11-07.json)
+used the unchanged brief with v2. Engineer and investigator completed twelve scenarios
+on their first attempt, costing 93,367 micro-USD ($0.093367). Every scenario retained
+both code checks; deterministic probes of the actual frozen suite accepted the basic-plan
+paraphrase and rejected 51 words and the forbidden token. These are code-constraint
+probes, not factual acceptance for all twelve questions or live target execution.
+
+Full suite acceptance remains **failed**: S06/S07/S11/S12 have reference-dependent
+rubrics marked non-factual, and relax the quoted conditional fallback to variable wording.
+The live investigator accepted those defects. Conditional applicability needs judgment;
+it does not justify weakening the required response. The diagnostic suite is evidence,
+not approved customer evaluation data. No target or rubric judge was dispatched.
+
+The [first live suite](../tests/track-b/live-evidence/text-design-2026-11-07.json) was unsound;
+the [second live diagnostic](../tests/track-b/live-evidence/text-design-admission-2026-11-07.json)
+blocked after both drafts under v1. Historical outcomes remain unchanged.
 
 ## Deterministic boundary
 

@@ -37,7 +37,9 @@ the service-name compatibility test. Trace rechecking alone cannot prove that a 
 agent's behavior has changed.
 
 Private progress chat now has a PostgreSQL conversation adapter and a separate migration
-artifact; the app must still supply authenticated routes and an authorized progress projection.
+artifact, plus a [durable progress projection](track-b-progress-projection.md).
+The app must still supply authenticated routes, authorized job inventories and consistent
+storage reads for that projection.
 The UI patch under `docs/progress-chat-ui/` is not a deployed interface. Evaluation-data
 acquisition has quality/provenance gates and expert drafts, but no expert outreach has been
 sent and no contributed dataset has been validated in production.
@@ -90,6 +92,8 @@ deployed routes. Migrations are artifacts and have not been applied to cloud sto
 | Data acquisition | `evals/data/index.ts` | `createPostgresEvaluationDataStore(db, {tenantId, jobId, knownSecrets})`; trusted scope per job |
 | Candidate generation/registry | `evals/data/adapters/index.ts` | Durable agent runner, authenticated reviewed source registry and cost upserts |
 | Private progress chat | `reporting/chat/index.ts` | PostgreSQL conversation port, authenticated subject and authorized progress projection |
+| Progress projection | `reporting/chat/projection/index.ts` | Authorized durable inventory and consistent scoped reads; no external calls |
+| Public candidate discovery | `evals/data/discovery/index.ts` | Configured MediaWiki origin/queries and durable operation ledger; candidates require permission and quality review |
 
 Follow each module's handoff document for its separate optional migration. In particular,
 data acquisition uses `evals/data/persistence-migrations/001-evaluation-data.sql` in
@@ -97,8 +101,9 @@ application storage. Factory construction does not authenticate a caller: Track 
 derive tenant/job/subject from trusted server state and reject cross-job requests before
 injecting closures. No connection strings or target keys belong in artifact metadata.
 
-The data registry is configured discovery, not an implemented public search engine;
-expert requests remain unsent drafts. Text design admission now quarantines unsupported
+The data registry remains configured discovery. A separate bounded MediaWiki retrieval
+adapter supplies public candidates with revision provenance; it has not yet been validated
+against a live public service. Expert requests remain unsent drafts. Text design admission now quarantines unsupported
 literal objectives from the first live fixture. A new live quality check is still required
 before considering suite design accepted; syntactic admission alone does not establish
 semantic coverage or customer suitability.

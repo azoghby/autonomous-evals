@@ -13,4 +13,5 @@ export { PostgresAgentTaskStore, PostgresBudgetLedger } from '../agents/postgres
 export { createPostgresEvaluationDataStore, acquireEvaluationData } from './data';
 export { createMediaWikiDiscovery } from './data/discovery';
 export { createProgressChatService, createPostgresConversationPort } from '../reporting/chat';
+export { createDurableProgressProjection, createDurableProgressReader } from '../reporting/chat/projection';
 export { renderCalendarReport } from '../reporting/calendar';
