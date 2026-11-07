@@ -8,7 +8,19 @@ Track B exports TypeScript services for Track A's Workflow steps. It does not st
 
 The first deliverable is Trace Audit. It accepts a bounded transcript plus optional system instructions, returns evidence-linked findings and report artifacts, and does not require a customer endpoint or simulator branch. Text and calendar evaluations follow.
 
-Service names and exact imports will be recorded here after integration. Do not implement against speculative signatures. The agent implementation notes will live in `docs/track-b-agents.md`; target/simulator implementation notes in `docs/track-b-targets.md`.
+Track A published initial contracts on branch `track-a`, commit `673873d`, at `packages/core/src/contracts/index.ts` and `services.ts`. These define `EvalServices`: qualify, auditTrace, checkTarget, designSuite, runSuite, investigate, renderReport, createJobBranch, deleteJobBranch, and rerunFinding. Their implementation is not yet integrated into main. The agent implementation notes will live in `docs/track-b-agents.md`; target/simulator implementation notes in `docs/track-b-targets.md`.
+
+### Contract gaps to resolve before wiring production execution
+
+- `ServiceContext.budgetMicroUsd` is a number, not an atomic reservation. Engine construction must also receive durable budget/session persistence adapters; concurrent invocations cannot authorize spending from this number alone.
+- `RunResult.results` currently has only `passed: boolean` plus text. Preserve richer execution outcomes internally and extend the integration contract before displaying infrastructure errors or inconclusive checks as product failures.
+- `Suite.scenarios.max(12)` permits empty/short suites. The engine must enforce the planned twelve reviewed scenarios for ordinary full evaluation jobs; deliberate scope reductions must be recorded.
+- Intake trace `.max(MAX_TRACE_BYTES)` measures string length rather than UTF-8 bytes. The engine must independently enforce the 200 KB byte cap, including multibyte input.
+- `rerunFinding` receives a finding/scenario but no target credentials or frozen initial state. Resolve these from authorized durable job storage; never infer a target or state from untrusted finding text.
+- `deleteJobBranch(branchId)` must use a stored job-to-branch association and verify ownership; an arbitrary branch ID is insufficient authority to delete.
+- Findings currently have evidence excerpts and scenario IDs but no typed branch/run association. Persist those associations separately and expose safe reproduction identifiers without database connection strings.
+
+These are integration requirements identified from the published contracts, not changes made to Track A's files.
 
 ### Persistence supplied by Track A
 
