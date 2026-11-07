@@ -11,7 +11,7 @@ const source = join(repo, 'packages/core/src');
 const contractsRepoPath = 'packages/core/src/contracts';
 const owned = ['agents', 'evals', 'reporting', 'targets', 'simulator', 'monitoring', 'judges'];
 /** Track B source directories each directory imports at type/runtime level (staged without their tests when unselected). */
-const sourceDependencies = { simulator: ['targets'], agents: ['evals', 'reporting'], evals: ['agents', 'reporting'], reporting: ['agents', 'evals'] };
+const sourceDependencies = { simulator: ['targets'], agents: ['evals', 'reporting'], evals: ['agents', 'reporting', 'simulator'], reporting: ['agents', 'evals'] };
 /** Compatibility components: tests live in tests/track-b/contract-checks and are staged to src/contract-checks. */
 const contractComponents = {
   'contract-schemas': { files: ['schema-compat.test.ts'], needs: [] },
@@ -116,10 +116,17 @@ async function main() {
   const selected = selectComponents(spec);
   const selectedSource = selected.filter((name) => owned.includes(name));
   const selectedContract = selected.filter((name) => allContract.includes(name));
-  const support = [...new Set([
-    ...selectedSource.flatMap((name) => sourceDependencies[name] ?? []),
-    ...selectedContract.flatMap((name) => contractComponents[name].needs.flatMap((dep) => [dep, ...(sourceDependencies[dep] ?? [])])),
-  ])].filter((name) => !selectedSource.includes(name));
+  // Follow transitive imports; cycles among agents/evals/reporting are intentional.
+  const required = new Set(selectedSource);
+  const pending = [...selectedSource, ...selectedContract.flatMap(name => contractComponents[name].needs)];
+  const visited = new Set();
+  while (pending.length) {
+    const name = pending.pop();
+    if (visited.has(name)) continue;
+    visited.add(name); required.add(name);
+    pending.push(...(sourceDependencies[name] ?? []));
+  }
+  const support = [...required].filter(name => !selectedSource.includes(name));
 
   // Fail before staging when any required input is absent. Nothing is skipped silently.
   const problems = [];

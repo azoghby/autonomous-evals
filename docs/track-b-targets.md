@@ -90,6 +90,16 @@ After integration, strict TypeScript and 100 tests passed across target, simulat
 
 On November 7, the parent also exercised `HttpsJsonTransport` over a real connection to `https://postman-echo.com/post`, with a 10-second timeout and 16 KB response cap. A synthetic fixture payload was echoed correctly. No credentials were sent. This verifies the real DNS-pinned TLS/HTTP path against that public echo service; it is not a model completion, authorized customer evaluation, or Neon control-plane test. The mocked bypass/deadline tests remain necessary alongside this one successful connection.
 
+The additional `targets/tls.test.ts` tests use real local Node HTTPS/TLS sockets and a fresh
+one-day test certificate generated with OpenSSL (required on the test host). A test-only
+request wrapper redirects the validated public destination to a loopback ephemeral port
+and supplies that certificate as a trusted root. Production transport options and code
+remain unchanged. The tests exercise original-host certificate identity, SNI/Host,
+untrusted issuer rejection, streamed response caps, redirect/encoding rejection and total
+deadline abort. They assert the original pinned public destination before substitution;
+they do not prove real network routing to that public address or DNS rebinding resistance
+by themselves. Test keys and server state are temporary and removed afterward.
+
 Official references checked during implementation: [Node HTTPS request options](https://nodejs.org/api/https.html), [OpenAI Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), [ipaddr.js APIs](https://github.com/whitequark/ipaddr.js), [Zod APIs](https://zod.dev/api), [PGlite query/transactions](https://pglite.dev/docs/api), [Neon create branch](https://neon.com/docs/reference/api/branches/create-project-branch), [Neon delete branch](https://neon.com/docs/reference/api/branches/delete-project-branch).
 
 ## Text evaluation bridge
