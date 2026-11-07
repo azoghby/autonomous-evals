@@ -39,6 +39,31 @@ const confirmAll = (body: { message: string }) => {
 };
 
 describe("Track B services over the Track A contract", () => {
+  it.each(['budget_paused', 'awaiting_user'])("records measured %s investigator spend before raising the blocked state", async stopReason => {
+    const h = harness(() => ({ status: 'idle', stopReason, structuredOutput: null }));
+    const svc = createTrackBServices({ runner: h.service, resolveJob });
+    const { c, costs } = ctx();
+    await expect(svc.auditTrace(c, FALSE_SUCCESS)).rejects.toBeInstanceOf(TrackBBlockedError);
+    expect(costs).toEqual([expect.objectContaining({ microUsd: 12_345, meta: expect.objectContaining({ measured: true }) })]);
+  });
+
+  it('records qualification schema-failure cost and preserves validation details', async () => {
+    const h = harness(() => ({ structuredOutput: { malformed: true } }));
+    const svc = createTrackBServices({ runner: h.service, resolveJob });
+    const { c, costs } = ctx();
+    const error = await svc.qualify(c, { package: 'trace_audit', trace: FALSE_SUCCESS, authorizedToTest: true }, []).catch(e => e);
+    expect(error).toBeInstanceOf(TrackBBlockedError);
+    expect(error.message).toMatch(/^schema_failed: .+/);
+    expect(costs).toEqual([expect.objectContaining({ microUsd: 12_345 })]);
+  });
+
+  it('records operator budget-pause cost before blocking report generation', async () => {
+    const h = harness(() => ({ status: 'idle', stopReason: 'budget_paused', structuredOutput: null }));
+    const svc = createTrackBServices({ runner: h.service, resolveJob });
+    const { c, costs } = ctx();
+    await expect(svc.renderReport(c, { intake: { package: 'trace_audit', trace: FALSE_SUCCESS, authorizedToTest: true }, findings: [] })).rejects.toBeInstanceOf(TrackBBlockedError);
+    expect(costs).toEqual([expect.objectContaining({ microUsd: 12_345 })]);
+  });
   it("auditTrace returns contract-valid findings and records each session cost once per call", async () => {
     const h = harness(confirmAll);
     const svc = createTrackBServices({ runner: h.service, resolveJob });

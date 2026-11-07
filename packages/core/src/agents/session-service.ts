@@ -79,7 +79,7 @@ export type AgentTaskOutcome<T> =
   | { status: "budget_paused"; taskKey: string; session: SessionInfo; cost: CostEntry }
   | { status: "schema_failed"; taskKey: string; session: SessionInfo; cost: CostEntry; issues: string[] }
   | { status: "failed"; taskKey: string; code: string; message: string; session: SessionInfo | null; cost: CostEntry | null }
-  | { status: "needs_operator"; taskKey: string; code: string; message: string; sessionIds: string[] };
+  | { status: "needs_operator"; taskKey: string; code: string; message: string; sessionIds: string[]; cost?: CostEntry | null };
 
 export interface AgentSessionServiceDeps {
   naive: NaiveSessionsPort;
@@ -467,7 +467,7 @@ export class AgentSessionService {
       case "budget_paused":
         return { status: "budget_paused", taskKey: rec.taskKey, session: session!, cost: cost! };
       case "needs_operator":
-        return { status: "needs_operator", taskKey: rec.taskKey, code, message, sessionIds: rec.sessionId ? [rec.sessionId] : [] };
+        return { status: "needs_operator", taskKey: rec.taskKey, code, message, sessionIds: rec.sessionId ? [rec.sessionId] : [], cost: rec.consumedMicroUsd === null ? null : cost };
       case "failed":
         return { status: "failed", taskKey: rec.taskKey, code, message, session, cost };
       default:

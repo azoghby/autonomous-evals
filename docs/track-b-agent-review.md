@@ -8,7 +8,9 @@ Reproducers: `node tests/track-b/agent-review/run.mjs` (after `npm ci --prefix t
 
 What held up (checked, no defect found): the ambiguous-create state machine (same key, same stored body, lookup before replay, lease expiry, duplicate-session escalation, 429 not counting as replay), reserve-before-send and settle-after-record ordering, citation verification (exact, whitespace-insensitive, fabricated quotes cannot become `confirmed`), the report renderer (Markdown/HTML escaping, no revenue/profit), and the 4xx path (settled to 0).
 
-## Defects (open)
+## Findings and resolution status
+
+Parent update: D5 is fixed with measured costs recorded before blocked outcomes, including awaiting-input sessions, and schema validation details retained. D3 intake-preview clipping is fixed; event normalization remains assigned separately. Other findings below remain open until their regression fixes are integrated. Original review observations are retained for context.
 
 Severity is my judgment of customer/ops impact.
 

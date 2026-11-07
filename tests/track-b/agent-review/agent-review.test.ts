@@ -176,7 +176,7 @@ describe("cost accounting through the Track A adapter (evals/service-adapter.ts)
     { role: "assistant", content: "The email was sent." },
   ]);
 
-  it("DEFECT D5: spend from a budget_paused session is settled in the ledger but never reported through ctx.recordCost", async () => {
+  it("REGRESSION D5: budget-paused spend reaches ctx.recordCost before blocking", async () => {
     const h = harness(pausedBudget);
     const svc = createTrackBServices({ runner: h.service, resolveJob });
     const { c, costs } = ctxOf();
@@ -184,18 +184,18 @@ describe("cost accounting through the Track A adapter (evals/service-adapter.ts)
     expect(e).toBeInstanceOf(TrackBBlockedError);
     expect(e.code).toBe("paused_budget");
     expect(h.ledger.committed(`job:${JOB_UUID}`)).toBe(250_000); // ledger knows the spend
-    expect(costs).toEqual([]); // the operator console (fed by recordCost) does not
+    expect(costs).toEqual([expect.objectContaining({ microUsd: 250_000 })]);
   });
 
-  it("DEFECT D5b: qualify() drops the cost of a session whose output failed the schema", async () => {
+  it("REGRESSION D5b: qualification schema failure preserves cost and validation issues", async () => {
     const h = harness(() => ({ structuredOutput: { decision: "not-a-decision" } }));
     const svc = createTrackBServices({ runner: h.service, resolveJob });
     const { c, costs } = ctxOf();
     const e = await svc.qualify(c, { package: "trace_audit", trace: "x", authorizedToTest: true } as never, []).catch((x) => x);
     expect(e).toBeInstanceOf(TrackBBlockedError);
     expect(h.ledger.committed(`job:${JOB_UUID}`)).toBe(12_345);
-    expect(costs).toEqual([]);
-    expect(e.message).toBe("schema_failed: "); // the validation issues are dropped as well
+    expect(costs).toEqual([expect.objectContaining({ microUsd: 12_345 })]);
+    expect(e.message).toMatch(/^schema_failed: .+/);
   });
 });
 

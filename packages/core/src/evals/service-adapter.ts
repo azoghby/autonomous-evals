@@ -16,6 +16,7 @@ import type { ServiceContext, TraceAuditResult as ContractTraceAuditResult } fro
 import { type IntakeSummary, qualifyRequest } from "../agents/commercial";
 import { type OperatorSummary, writeReportSummary } from "../agents/operator";
 import { ROLE_DEFINITIONS } from "../agents/roles";
+import { redactSecrets } from "../agents/redact";
 import type { AgentTaskRunner } from "../agents/session-service";
 import { renderReport as renderArtifacts } from "../reporting/render";
 import { auditTrace as runTraceAudit, type TraceAuditOutcome, type TraceAuditResult } from "./trace/audit";
@@ -134,7 +135,7 @@ function intakeSummary(intake: IntakeInput, clarifications: string[]): { summary
   switch (intake.package) {
     case "trace_audit":
       return {
-        summary: { requestedPackage: "trace_audit", notes: intake.notes ?? null, systemPromptExcerpt: intake.systemPrompt ?? null, trace: { bytes: byteLength(intake.trace), preview: intake.trace.slice(0, 1_500) }, endpointHost: null, clarifications },
+        summary: { requestedPackage: "trace_audit", notes: intake.notes ?? null, systemPromptExcerpt: intake.systemPrompt ?? null, trace: { bytes: byteLength(intake.trace), preview: redactSecrets(intake.trace).text.slice(0, 1_500) }, endpointHost: null, clarifications },
         secrets: [],
       };
     case "text_eval":
@@ -170,6 +171,8 @@ function throwForNonCompleted(o: { status: string } & Record<string, unknown>): 
       throw new TrackBBlockedError("needs_operator", String(o.message ?? o.code), (o.sessionIds as string[]) ?? []);
     case "rejected_input":
       throw new TrackBBlockedError("rejected_input", String(o.message));
+    case "schema_failed":
+      throw new TrackBBlockedError("agent_failed", `schema_failed: ${Array.isArray(o.issues) ? o.issues.slice(0, 3).join('; ') : 'structured output did not match the required schema'}`);
     default:
       throw new TrackBBlockedError("agent_failed", `${String(o.code ?? o.status)}: ${String(o.message ?? "")}`);
   }
@@ -182,6 +185,7 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
     const job = await jobOf(deps, ctx);
     await ctx.recordProgress("investigating", "Checking claims against the log");
     const outcome: TraceAuditOutcome = await runTraceAudit({ job, trace, systemPrompt: systemPrompt ?? null }, { runner: deps.runner, clock });
+    if ("costs" in outcome) for (const c of outcome.costs ?? []) await ctx.recordCost(toContractCost(c));
     if (outcome.status !== "completed") throwForNonCompleted(outcome as never);
     for (const c of outcome.result.costs) await ctx.recordCost(toContractCost(c));
     return outcome.result;
@@ -192,8 +196,8 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
       const job = await jobOf(deps, ctx);
       const { summary, secrets } = intakeSummary(intake, clarifications);
       const outcome = await qualifyRequest({ job, intake: summary, round: clarifications.length, knownSecrets: secrets }, deps.runner);
+      if ("cost" in outcome && outcome.cost) await ctx.recordCost(toContractCost(outcome.cost));
       if (outcome.status !== "completed") throwForNonCompleted(outcome as never);
-      await ctx.recordCost(toContractCost(outcome.cost));
       const q = outcome.value;
       return {
         decision: q.decision,
@@ -222,10 +226,10 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
       let operatorSummary: OperatorSummary | null = null;
       if (deps.operatorSummary ?? true) {
         const s = await writeReportSummary({ job, findings, limitations }, deps.runner);
-        if (s.status === "pending") throw new TrackBPendingError(s.retryAfterMs, s.reason);
-        if (s.status === "budget_exhausted" || s.status === "budget_paused") throwForNonCompleted(s as never);
         const cost = "cost" in s ? s.cost : null;
         if (cost) await ctx.recordCost(toContractCost(cost));
+        if (s.status === "pending") throw new TrackBPendingError(s.retryAfterMs, s.reason);
+        if (s.status === "budget_exhausted" || s.status === "budget_paused") throwForNonCompleted(s as never);
         // Any other failure: the report uses the code-generated summary (labeled as such).
         if (s.status === "completed") operatorSummary = s.value;
       }

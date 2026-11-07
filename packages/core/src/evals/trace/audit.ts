@@ -98,7 +98,7 @@ export type TraceAuditOutcome =
   | { status: "completed"; result: TraceAuditResult }
   | { status: "pending"; taskKey: string; retryAfterMs: number; reason: string }
   | { status: "paused_budget"; detail: string; costs: CostEntry[] }
-  | { status: "needs_operator"; code: string; message: string; sessionIds: string[] }
+  | { status: "needs_operator"; code: string; message: string; sessionIds: string[]; costs?: CostEntry[] }
   | { status: "rejected_input"; code: TraceInputError["code"]; message: string };
 
 export interface TraceAuditInput {
@@ -337,7 +337,7 @@ export async function auditTrace(input: TraceAuditInput, deps: TraceAuditDeps): 
       case "budget_paused":
         return { status: "paused_budget", detail: `investigator session ${outcome.session.sessionId} reached its budget cap`, costs: [outcome.cost] };
       case "needs_operator":
-        return { status: "needs_operator", code: outcome.code, message: outcome.message, sessionIds: outcome.sessionIds };
+        return { status: "needs_operator", code: outcome.code, message: outcome.message, sessionIds: outcome.sessionIds, costs: outcome.cost ? [outcome.cost] : [] };
       case "completed":
         recheck = outcome.output;
         costs.push(outcome.cost);
