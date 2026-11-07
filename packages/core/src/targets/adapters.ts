@@ -1,9 +1,9 @@
 import { ChatCompletionsClient, type TargetConfig } from './chat.js';
 import { HttpsJsonTransport, TargetError, type JsonTransport } from './transport.js';
 /** Structurally compatible with Track A endpoint contracts; no contract import required. */
-export interface PlatformTarget { url: string; model: string; apiKey?: string; systemPrompt?: string }
+export interface PlatformTarget { url: string; model: string; apiKey?: string; systemPrompt?: string; maxCompletionTokens?: number }
 export function targetConfig(input: PlatformTarget): TargetConfig {
-  return { endpoint: input.url, model: input.model, bearer: input.apiKey };
+  return { endpoint: input.url, model: input.model, bearer: input.apiKey, maxCompletionTokens: input.maxCompletionTokens };
 }
 export function platformTarget(input: PlatformTarget, transport?: JsonTransport) {
   return new ChatCompletionsClient(targetConfig(input), transport);

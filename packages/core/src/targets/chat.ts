@@ -21,28 +21,39 @@ export type AssistantMessage = z.infer<typeof assistantSchema>;
 export type ToolCall = z.infer<typeof toolCallSchema>;
 export type ChatMessage = { role: 'system' | 'user'; content: string } | AssistantMessage | { role: 'tool'; tool_call_id: string; content: string };
 export interface FunctionTool { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }
-export interface TargetConfig { endpoint: string; model: string; bearer?: string }
+export interface TargetConfig { endpoint: string; model: string; bearer?: string; maxCompletionTokens?: number }
 export interface ChatTarget { complete(messages: ChatMessage[], tools?: FunctionTool[]): Promise<AssistantMessage> }
 export class ChatCompletionsClient implements ChatTarget {
   constructor(private readonly config: TargetConfig, private readonly transport: JsonTransport = new HttpsJsonTransport()) {
     if (!config.model || config.model.length > 200) throw new TargetError('invalid_model');
+    if (config.maxCompletionTokens !== undefined && (!Number.isInteger(config.maxCompletionTokens) || config.maxCompletionTokens < 16 || config.maxCompletionTokens > 32_768)) throw new TargetError('invalid_token_limit');
   }
   async complete(messages: ChatMessage[], tools?: FunctionTool[]): Promise<AssistantMessage> {
-    return this.send(messages, tools, 1024);
+    return this.send(messages, tools, this.config.maxCompletionTokens ?? 1024);
   }
-  private async send(messages: ChatMessage[], tools: FunctionTool[] | undefined, maxCompletionTokens: number): Promise<AssistantMessage> {
+  private async send(messages: ChatMessage[], tools: FunctionTool[] | undefined, maxCompletionTokens: number, connectivityOnly = false): Promise<AssistantMessage> {
     const raw = await this.transport.post(this.config.endpoint, {
       model: this.config.model, messages, max_completion_tokens: maxCompletionTokens, store: false,
       ...(tools?.length ? { tools, tool_choice: 'auto', parallel_tool_calls: false } : {}),
     }, this.config.bearer);
+    // Reasoning may consume the tiny probe cap before producing text. This proves
+    // protocol connectivity only; never accept truncation for actual evaluation.
+    if (connectivityOnly) {
+      const truncated = z.object({ choices: z.array(z.object({
+        finish_reason: z.literal('length'),
+        message: z.object({ role: z.literal('assistant'), content: z.string().max(128_000).refine(isPersistableText).nullable().optional(), tool_calls: z.array(toolCallSchema).max(0).optional() }),
+      })).length(1) }).safeParse(raw);
+      if (truncated.success) return { role: 'assistant', content: truncated.data.choices[0].message.content ?? '' };
+    }
     const result = completionSchema.safeParse(raw);
     if (!result.success) throw new TargetError('invalid_completion');
     const choice = result.data.choices[0]!;
+    if (connectivityOnly && choice.message.tool_calls?.length) throw new TargetError('unexpected_tool_calls');
     if (choice.finish_reason !== (choice.message.tool_calls?.length ? 'tool_calls' : 'stop')) throw new TargetError('incomplete_completion');
     return choice.message;
   }
   async checkTarget(): Promise<{ connected: true }> {
-    await this.send([{ role: 'user', content: 'Reply OK.' }], undefined, 16);
+    await this.send([{ role: 'user', content: 'Reply OK.' }], undefined, 16, true);
     return { connected: true };
   }
 }
