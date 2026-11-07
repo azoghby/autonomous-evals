@@ -39,6 +39,60 @@ const confirmAll = (body: { message: string }) => {
 };
 
 describe("Track B services over the Track A contract", () => {
+  it('resolves current secrets only after authorization and removes JSON-escaped values from audit evidence', async () => {
+    const secret = 'opaque-"value\\with-escapes';
+    const order: string[] = [];
+    const h = harness(confirmAll);
+    const svc = createTrackBServices({ runner: h.service,
+      resolveJob: async () => { order.push('authorize'); return resolveJob(); },
+      resolveKnownSecrets: async () => { order.push('secrets'); return [secret]; },
+    });
+    // Build proper nested JSON: the provider must never see either representation.
+    const events = JSON.parse(FALSE_SUCCESS);
+    events[1].content = JSON.stringify({ ok: false, error: secret });
+    const result = await svc.auditTraceDetailed(ctx().c, JSON.stringify(events));
+    expect(order).toEqual(['authorize', 'secrets']);
+    expect(JSON.stringify(result)).not.toContain(JSON.stringify(secret).slice(1, -1));
+    expect(h.naive.createCalls[0]!.body.message).toContain('[REDACTED]');
+    expect(h.naive.createCalls[0]!.body.message).not.toContain('with-escapes');
+  });
+
+  it('redacts a known secret spanning the qualification preview/notes clipping boundary', async () => {
+    const secret = 'opaque-value-with-no-keyword';
+    const h = harness(() => ({ structuredOutput: { decision: 'clarify', recommended_package: 'trace_audit', questions: ['What should be checked?'], scope_summary: 'Trace review.', decline_reason: null } }));
+    const svc = createTrackBServices({ runner: h.service, resolveJob, resolveKnownSecrets: async () => [secret] });
+    await svc.qualify(ctx().c, { package: 'trace_audit', trace: 'x'.repeat(1490) + secret, notes: 'y'.repeat(2990) + secret, authorizedToTest: true }, []);
+    expect(h.naive.createCalls[0]!.body.message).not.toContain('opaque-val');
+  });
+
+  it.each([true, false])('rechecks rotated report secrets before dispatch with operator enabled=%s', async operatorSummary => {
+    const secret = 'unlabeled-credential-xyz';
+    let current: string[] = [];
+    const h = harness(confirmAll);
+    const svc = createTrackBServices({ runner: h.service, resolveJob, operatorSummary, resolveKnownSecrets: async () => current });
+    const result = await svc.auditTraceDetailed(ctx().c, FALSE_SUCCESS);
+    const calls = h.naive.createCalls.length;
+    current = [secret];
+    await expect(svc.renderReport(ctx().c, { intake: { package: 'trace_audit', trace: FALSE_SUCCESS, authorizedToTest: true }, findings: [], richFindings: result.findings, limitations: [secret] })).rejects.toMatchObject({ code: 'rejected_input', message: 'Credential content refused' });
+    expect(h.naive.createCalls).toHaveLength(calls);
+  });
+
+  it('refuses leaked operator output after recording its measured cost', async () => {
+    const secret = 'unlabeled-credential-xyz';
+    const h = harness(() => ({ structuredOutput: { executive_summary: secret, finding_notes: [], recommended_next_steps: [], retest_recommended: false } }));
+    const svc = createTrackBServices({ runner: h.service, resolveJob, resolveKnownSecrets: async () => [secret] });
+    const { c, costs } = ctx();
+    await expect(svc.renderReport(c, { intake: { package: 'trace_audit', trace: FALSE_SUCCESS, authorizedToTest: true }, findings: [] })).rejects.toMatchObject({ code: 'rejected_input' });
+    expect(costs).toHaveLength(1);
+  });
+
+  it('fails closed on unavailable secret policy without exposing its error or dispatching', async () => {
+    const h = harness(confirmAll);
+    const svc = createTrackBServices({ runner: h.service, resolveJob, resolveKnownSecrets: async () => { throw new Error('private resolver credential'); } });
+    await expect(svc.auditTrace(ctx().c, FALSE_SUCCESS)).rejects.toMatchObject({ code: 'needs_operator', message: 'Secret policy unavailable' });
+    expect(h.naive.createCalls).toHaveLength(0);
+  });
+
   it.each(['budget_paused', 'awaiting_user'])("records measured %s investigator spend before raising the blocked state", async stopReason => {
     const h = harness(() => ({ status: 'idle', stopReason, structuredOutput: null }));
     const svc = createTrackBServices({ runner: h.service, resolveJob });

@@ -16,7 +16,7 @@ import type { ServiceContext, TraceAuditResult as ContractTraceAuditResult } fro
 import { type IntakeSummary, qualifyRequest } from "../agents/commercial";
 import { type OperatorSummary, writeReportSummary } from "../agents/operator";
 import { ROLE_DEFINITIONS } from "../agents/roles";
-import { redactSecrets } from "../agents/redact";
+import { containsSecret, redactSecrets } from "../agents/redact";
 import type { AgentTaskRunner } from "../agents/session-service";
 import { renderReport as renderArtifacts } from "../reporting/render";
 import { auditTrace as runTraceAudit, type TraceAuditOutcome, type TraceAuditResult } from "./trace/audit";
@@ -53,6 +53,8 @@ export interface TrackBServiceDeps {
   runner: AgentTaskRunner;
   /** Authorized job facts the ServiceContext does not carry. Track A must check ownership first. */
   resolveJob(ctx: ServiceContext): Promise<Pick<JobRef, "customerId" | "package" | "isFixture" | "linkedRetestOf" | "quoteVersion">>;
+  /** Server-only policy, resolved after job authorization on every invocation/replay. Never put these values in prompts or metadata. */
+  resolveKnownSecrets?(ctx: ServiceContext): Promise<readonly string[]>;
   /** Full measured cost list for the report, if available. */
   listJobCosts?(jobId: string): Promise<CostEntry[]>;
   clock?: Clock;
@@ -63,6 +65,22 @@ export interface TrackBServiceDeps {
 async function jobOf(deps: TrackBServiceDeps, ctx: ServiceContext): Promise<JobRef> {
   const j = await deps.resolveJob(ctx);
   return { jobId: ctx.jobId, environment: ctx.environment, ...j };
+}
+
+async function secretsOf(deps: TrackBServiceDeps, ctx: ServiceContext): Promise<readonly string[]> {
+  try {
+    const secrets = await deps.resolveKnownSecrets?.(ctx) ?? [];
+    if (!Array.isArray(secrets) || secrets.some(s => typeof s !== 'string' || s.length < 4)) throw new Error();
+    return [...secrets];
+  } catch {
+    throw new TrackBBlockedError('needs_operator', 'Secret policy unavailable');
+  }
+}
+
+function assertSafeContent(value: unknown, knownSecrets: readonly string[]): void {
+  if (containsSecret(JSON.stringify(value), knownSecrets)) {
+    throw new TrackBBlockedError('rejected_input', 'Credential content refused');
+  }
 }
 
 /** Cost rows for ctx.recordCost. `meta.idempotencyKey` is unique per session: record it at most once. */
@@ -124,7 +142,7 @@ export function fromContractFinding(f: ContractFinding): Finding {
   };
 }
 
-function intakeSummary(intake: IntakeInput, clarifications: string[]): { summary: IntakeSummary; secrets: string[] } {
+function intakeSummary(intake: IntakeInput, clarifications: string[], knownSecrets: readonly string[] = []): { summary: IntakeSummary; secrets: string[] } {
   const host = (url: string) => {
     try {
       return new URL(url).host;
@@ -135,7 +153,7 @@ function intakeSummary(intake: IntakeInput, clarifications: string[]): { summary
   switch (intake.package) {
     case "trace_audit":
       return {
-        summary: { requestedPackage: "trace_audit", notes: intake.notes ?? null, systemPromptExcerpt: intake.systemPrompt ?? null, trace: { bytes: byteLength(intake.trace), preview: redactSecrets(intake.trace).text.slice(0, 1_500) }, endpointHost: null, clarifications },
+        summary: { requestedPackage: "trace_audit", notes: intake.notes ?? null, systemPromptExcerpt: intake.systemPrompt ?? null, trace: { bytes: byteLength(intake.trace), preview: redactSecrets(intake.trace, knownSecrets).text.slice(0, 1_500) }, endpointHost: null, clarifications },
         secrets: [],
       };
     case "text_eval":
@@ -183,22 +201,26 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
 
   async function auditTraceDetailed(ctx: ServiceContext, trace: string, systemPrompt?: string): Promise<TraceAuditResult> {
     const job = await jobOf(deps, ctx);
+    const knownSecrets = await secretsOf(deps, ctx);
     await ctx.recordProgress("investigating", "Checking claims against the log");
-    const outcome: TraceAuditOutcome = await runTraceAudit({ job, trace, systemPrompt: systemPrompt ?? null }, { runner: deps.runner, clock });
+    const outcome: TraceAuditOutcome = await runTraceAudit({ job, trace, systemPrompt: systemPrompt ?? null, knownSecrets }, { runner: deps.runner, clock });
     if ("costs" in outcome) for (const c of outcome.costs ?? []) await ctx.recordCost(toContractCost(c));
     if (outcome.status !== "completed") throwForNonCompleted(outcome as never);
     for (const c of outcome.result.costs) await ctx.recordCost(toContractCost(c));
+    assertSafeContent(outcome.result, knownSecrets);
     return outcome.result;
   }
 
   return {
     async qualify(ctx: ServiceContext, intake: IntakeInput, clarifications: string[]): Promise<QualifyResult> {
       const job = await jobOf(deps, ctx);
-      const { summary, secrets } = intakeSummary(intake, clarifications);
-      const outcome = await qualifyRequest({ job, intake: summary, round: clarifications.length, knownSecrets: secrets }, deps.runner);
+      const knownSecrets = await secretsOf(deps, ctx);
+      const { summary, secrets } = intakeSummary(intake, clarifications, knownSecrets);
+      const outcome = await qualifyRequest({ job, intake: summary, round: clarifications.length, knownSecrets: [...knownSecrets, ...secrets] }, deps.runner);
       if ("cost" in outcome && outcome.cost) await ctx.recordCost(toContractCost(outcome.cost));
       if (outcome.status !== "completed") throwForNonCompleted(outcome as never);
       const q = outcome.value;
+      assertSafeContent(q, knownSecrets);
       return {
         decision: q.decision,
         package: q.package,
@@ -221,11 +243,15 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
       input: { intake: IntakeInput; findings: ContractFinding[]; limitations?: string[]; richFindings?: Finding[] },
     ): Promise<Report> {
       const job = await jobOf(deps, ctx);
+      const knownSecrets = await secretsOf(deps, ctx);
       const findings = input.richFindings ?? input.findings.map(fromContractFinding);
       const limitations = input.limitations ?? ["Only the supplied material was examined."];
+      assertSafeContent({ job, findings, limitations }, knownSecrets);
       let operatorSummary: OperatorSummary | null = null;
       if (deps.operatorSummary ?? true) {
-        const s = await writeReportSummary({ job, findings, limitations }, deps.runner);
+        const s = await writeReportSummary({ job, findings, limitations }, {
+          run: spec => deps.runner.run({ ...spec, knownSecrets }),
+        });
         const cost = "cost" in s ? s.cost : null;
         if (cost) await ctx.recordCost(toContractCost(cost));
         if (s.status === "pending") throw new TrackBPendingError(s.retryAfterMs, s.reason);
@@ -243,6 +269,7 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
         includeMonitoringPitch: true,
         includeHtml: true,
       });
+      assertSafeContent(rendered.json, knownSecrets);
       return {
         jobId: ctx.jobId,
         summary: rendered.summary.slice(0, 10_000),

@@ -84,7 +84,7 @@ function fallbackSummary(pkg: QuotablePackage): string {
 
 /** Sanitize an intake summary before it reaches a prompt. */
 export function sanitizeIntake(intake: IntakeSummary, knownSecrets: readonly string[] = []): IntakeSummary {
-  const r = (s: string | null, n: number) => (s ? redactSecrets(s.slice(0, n), knownSecrets).text : null);
+  const r = (s: string | null, n: number) => (s ? redactSecrets(s, knownSecrets).text.slice(0, n) : null);
   return {
     requestedPackage: intake.requestedPackage,
     notes: r(intake.notes, 3_000),

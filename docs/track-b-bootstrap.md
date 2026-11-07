@@ -27,6 +27,14 @@ closed; this is not a production bootstrap or a completed app integration.
    budget period and worker identity. Build `createTrackBServices` with authorized
    `resolveJob` and deduplicated measured-cost persistence. This provides the
    Commercial, Trace Audit and existing report operations.
+   Supply `resolveKnownSecrets(ctx)` from authorized server secret storage. It is
+   called after `resolveJob` on every invocation, including report replay, and
+   must return a detached string list (each secret at least four characters).
+   An unavailable policy blocks without provider dispatch. Trace evidence is
+   redacted; credential-bearing report inputs/outputs are refused without
+   rewriting evidence. Qualification redacts before clipping. Secrets never
+   become prompt metadata. Omitting the hook retains generic-pattern screening
+   but cannot protect unknown opaque credentials.
 4. Construct target and branch services, plus rich text/calendar factories using
    authorized dependency resolvers. Keep stable Workflow operation IDs and complete
    frozen evidence. Do not let request bodies select tenant IDs, branch connections,
