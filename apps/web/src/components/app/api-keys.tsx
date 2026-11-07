@@ -22,7 +22,7 @@ function useOrigin(): string {
   return useSyncExternalStore(subscribe, () => window.location.origin, () => FALLBACK_ORIGIN);
 }
 
-function CopyButton({ text, label, variant = "glass" }: { text: string; label: string; variant?: "glass" | "quiet" }) {
+function CopyButton({ text, label, variant = "outline" }: { text: string; label: string; variant?: "outline" | "quiet" }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   async function copy() {
     try {
@@ -44,10 +44,10 @@ function CodeBlock({ label, code }: { label: string; code: string }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-4 pb-2">
-        <h3 className="text-sm font-medium text-cream">{label}</h3>
+        <h3 className="text-sm font-medium text-fg">{label}</h3>
         <CopyButton text={code} label={label} />
       </div>
-      <pre tabIndex={0} className="overflow-x-auto border-y border-cream/10 py-4 font-mono text-[13px] leading-relaxed text-cream/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream">
+      <pre tabIndex={0} className="overflow-x-auto border-y border-line py-4 font-mono text-[13px] leading-relaxed text-fg/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
         {code}
       </pre>
     </div>
@@ -85,21 +85,21 @@ function KeyRow({ k, onChanged }: { k: ApiKeyRow; onChanged: () => void }) {
   }
   const revoked = k.revokedAt !== null;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-cream/10 py-5">
+    <li className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line py-5">
       <div className="min-w-0">
-        <div className={revoked ? "font-medium text-cream/50 line-through decoration-cream/30" : "font-medium text-cream"}>{k.name}</div>
-        <div className="mt-0.5 text-xs text-cream/50">
+        <div className={revoked ? "font-medium text-subtle line-through decoration-line-strong" : "font-medium text-fg"}>{k.name}</div>
+        <div className="mt-0.5 text-xs text-subtle">
           <span className="font-mono">{k.prefix}…</span> · Created {when(k.createdAt)} · {k.lastUsedAt ? `Last used ${when(k.lastUsedAt)}` : "Never used"}
         </div>
-        {error && <p role="alert" className="mt-1 text-xs text-[#ff8e81]">{error}</p>}
+        {error && <p role="alert" className="mt-1 text-xs text-danger">{error}</p>}
       </div>
       <div className="flex items-center gap-2">
         {revoked ? (
           <Chip tone="muted" variant="plain">Revoked</Chip>
         ) : confirming ? (
           <>
-            <span className="text-sm text-cream/70">Revoke this key?</span>
-            <Button variant="glass" size="sm" onClick={revoke} disabled={busy} aria-label={`Confirm revoke ${k.name}`}>{busy ? "Revoking…" : "Revoke"}</Button>
+            <span className="text-sm text-muted">Revoke this key?</span>
+            <Button variant="outline" size="sm" onClick={revoke} disabled={busy} aria-label={`Confirm revoke ${k.name}`}>{busy ? "Revoking…" : "Revoke"}</Button>
             <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={busy}>Cancel</Button>
           </>
         ) : (
@@ -142,18 +142,18 @@ export function ApiKeys() {
   return (
     <div className="space-y-12">
       <header>
-        <h1 className="font-display text-3xl tracking-tight text-cream md:text-4xl">API keys</h1>
-        <p className="mt-2 max-w-xl text-cream/65">Let AI agents hire Autonomous Evals over MCP.</p>
+        <h1 className="font-display text-3xl tracking-tight text-fg md:text-4xl">API keys</h1>
+        <p className="mt-2 max-w-xl text-muted">Let AI agents hire Autonomous Evals over MCP.</p>
       </header>
 
       {signedOut ? (
-        <p className="border-t border-cream/10 pt-6 text-cream/75">
-          You are signed out. <a className="text-cream underline decoration-cream/40 underline-offset-4 hover:decoration-cream" href="/signin?next=/settings/keys">Sign in</a> to manage API keys.
+        <p className="border-t border-line pt-6 text-muted">
+          You are signed out. <a className="text-fg underline decoration-line-strong underline-offset-4 hover:decoration-accent-bright" href="/signin?next=/settings/keys">Sign in</a> to manage API keys.
         </p>
       ) : (
         <>
-          <section aria-labelledby="create-key" className="border-t border-cream/10 pt-8">
-            <h2 id="create-key" className="mb-4 text-lg font-medium text-cream">Create a key</h2>
+          <section aria-labelledby="create-key" className="border-t border-line pt-8">
+            <h2 id="create-key" className="mb-4 text-lg font-medium text-fg">Create a key</h2>
             <form onSubmit={create} noValidate className="flex max-w-xl flex-col gap-4 sm:flex-row sm:items-start">
               <Field
                 id="key-name" label="Name" className="flex-1" placeholder="Claude Code on my laptop" maxLength={80}
@@ -164,12 +164,12 @@ export function ApiKeys() {
           </section>
 
           {created && (
-            <section aria-labelledby="new-key" className="space-y-8 border-y border-cream/20 py-8">
+            <section aria-labelledby="new-key" className="space-y-8 border-y border-line-strong py-8">
               <div>
-                <h2 id="new-key" className="text-lg font-medium text-cream">Your new key: {created.name}</h2>
-                <p role="status" className="mt-1 text-sm text-[#ffc27a]">Copy it now. This key will not be shown again.</p>
+                <h2 id="new-key" className="text-lg font-medium text-fg">Your new key: {created.name}</h2>
+                <p role="status" className="mt-1 text-sm text-warn">Copy it now. This key will not be shown again.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <code className="min-w-0 flex-1 break-all rounded-xl border border-cream/15 bg-cream/[0.04] px-4 py-3 font-mono text-sm text-cream select-all">{created.key}</code>
+                  <code className="min-w-0 flex-1 break-all rounded-md border border-line bg-bg-raised px-4 py-3 font-mono text-sm text-fg select-all">{created.key}</code>
                   <CopyButton text={created.key} label="API key" />
                 </div>
               </div>
@@ -180,21 +180,21 @@ export function ApiKeys() {
 
           {!created && (
             <section aria-labelledby="connect" className="space-y-6">
-              <h2 id="connect" className="text-lg font-medium text-cream">Connect an agent</h2>
+              <h2 id="connect" className="text-lg font-medium text-fg">Connect an agent</h2>
               <McpSnippets origin={origin} apiKey={PLACEHOLDER_KEY} />
             </section>
           )}
 
           <section aria-labelledby="your-keys">
-            <h2 id="your-keys" className="mb-2 text-lg font-medium text-cream">Your keys</h2>
+            <h2 id="your-keys" className="mb-2 text-lg font-medium text-fg">Your keys</h2>
             {loading ? (
-              <div className="flex items-center gap-3 border-t border-cream/10 py-8 text-sm text-cream/60"><Spinner size={16} /> Loading keys…</div>
+              <div className="flex items-center gap-3 border-t border-line py-8 text-sm text-muted"><Spinner size={16} /> Loading keys…</div>
             ) : error ? (
-              <ErrorState title="Could not load keys" message={error.message} action={<Button variant="glass" size="sm" onClick={() => void reload()}>Try again</Button>} />
+              <ErrorState title="Could not load keys" message={error.message} action={<Button variant="outline" size="sm" onClick={() => void reload()}>Try again</Button>} />
             ) : keys.length === 0 ? (
               <EmptyState title="No keys yet" description="Create a key above to connect your first agent." />
             ) : (
-              <ul className="border-t border-cream/10">
+              <ul className="border-t border-line">
                 {keys.map((k) => <KeyRow key={k.id} k={k} onChanged={() => void reload()} />)}
               </ul>
             )}

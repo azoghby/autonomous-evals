@@ -114,7 +114,7 @@ export const payments = pgTable("payments", {
   kind: text("kind").notNull().default("one_time"), // one_time | subscription
   /** Set once the workflow hook accepted payment_confirmed; null rows are retried by cron. */
   workflowResumedAt: ts("workflow_resumed_at"),
-  /** paid (fixed) | authorized (per_finding hold) | captured | released. */
+  /** paid (fixed) | authorized (per_finding hold) | captured | released | needs_refund (late/mismatched fixed payment; refund is manual). */
   status: text("status").notNull().default("paid"),
   capturedAmountCents: integer("captured_amount_cents"),
   createdAt,
