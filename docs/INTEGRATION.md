@@ -77,3 +77,38 @@ const art = await ctx.artifacts!.get(pathname);                          // { bo
 ```
 
 Rules: persist the returned `pathname`, never a URL. Do not put secrets (api keys, branch connection strings) in session `result`, artifacts, or anything a workflow step returns: step I/O is stored in plaintext. Neon HTTP has no interactive transactions, so each adapter method is one atomic statement (or an idempotent insert-then-read); do not rely on multi-statement atomicity.
+
+## Real services wiring (branch `integrate-b`)
+
+Track B did not ship a single `evalServices` export, so Track A glue composes one in
+`packages/core/src/integration/` (outside Track B's owned dirs):
+
+| Contract method | Implementation | Needs |
+| --- | --- | --- |
+| `qualify`, `auditTrace`, `renderReport` | `evals/service-adapter.ts` (`createTrackBServices`) on `AgentSessionService` with `PostgresAgentTaskStore`/`PostgresBudgetLedger` | `NAIVE_API_KEY`, `NAIVE_AGENT_COMMERCIAL`, `NAIVE_AGENT_EVALUATION_ENGINEER`, `NAIVE_AGENT_QUALITY_INVESTIGATOR`, `NAIVE_AGENT_COMPANY_OPERATOR` (`<agentId>[@<version>]`), optional `NAIVE_BASE_URL`, `NAIVE_BUDGET_PERIOD_ID` (default `YYYY-MM`); `DATABASE_URL`; migration `agents/persistence-migrations/001-agent-persistence.sql` |
+| `checkTarget` | `targets/adapters.ts` (`createTargetServices`, SSRF-safe HTTPS transport) | nothing |
+| `createJobBranch`, `deleteJobBranch`, `getJobBranchConnection` | `simulator/adapters.ts` + `NeonBranchService` + `PostgresBranchLedger` + `createNeonConnectionResolver` | `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_SIM_SEED_BRANCH_ID`, `DATABASE_URL` (optional `NEON_SIM_DATABASE_NAME`/`NEON_SIM_ROLE_NAME`, default from `DATABASE_URL`); migration `simulator/ledger-migrations/001_branch_ownership.sql`; seed branch must have `simulator/migrations/001_calendar.sql` |
+| `designSuite`, `runSuite`, `investigate` | not mapped: throw `EvalServiceUnavailableError` | contract mapping for `evals/integration` (digest-addressed `FrozenTextSuite`/`SuiteRun`) + `evals/integration/migrations/001-text-integration.sql` + a judge (`judges/gateway.ts`) |
+| `proposeAndVerifyFix`, `rerunFinding` | not implemented by Track B: throw `EvalServiceUnavailableError` | Track B work |
+
+`getEvalServices()` statically imports `@ae/core/integration/eval-services` and maps Track B errors to
+Workflow semantics: `TrackBPendingError` -> `RetryableError(retryAfter)`; `TrackBBlockedError`,
+`EvalServiceUnavailableError`, `EvalServiceConfigError` -> `FatalError`. Nothing reads env or opens a
+connection until a method is called. `missingRealServiceEnv()` lists missing var names.
+
+### Track B migrations (not applied)
+
+None are applied to the shared database. They are plain SQL (not in the Drizzle journal); apply each
+once with `psql "$DATABASE_URL_UNPOOLED" -v ON_ERROR_STOP=1 -f <file>` after review, on a Neon branch first:
+
+| File (under `packages/core/src/`) | Creates | Target DB |
+| --- | --- | --- |
+| `agents/persistence-migrations/001-agent-persistence.sql` | schema `agent_persistence` (tasks, reservations, scopes) | app DB — required for any real agent call |
+| `simulator/ledger-migrations/001_branch_ownership.sql` | `app_branch_ownership` | app DB — required for branching |
+| `simulator/migrations/001_calendar.sql` | `sim_*` tables | **simulator seed branch** (`NEON_SIM_SEED_BRANCH_ID`), not the app DB |
+| `evals/integration/migrations/001-text-integration.sql` | schema `text_integration` | app DB — when text eval is mapped |
+| `simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql` | `app_workflow_investigation_journals` | app DB — calendar investigation |
+| `evals/data/persistence-migrations/001-evaluation-data.sql` | schema `evaluation_data_persistence` | app DB — data acquisition (optional) |
+| `reporting/chat/persistence-migrations/001-conversations.sql` | `reporting_chat_*` | app DB — progress chat (optional) |
+
+`drizzle-kit push` would treat these non-Drizzle tables as drift; run `drizzle-kit generate`/`migrate` only.

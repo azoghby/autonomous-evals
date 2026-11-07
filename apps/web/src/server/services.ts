@@ -3,6 +3,10 @@ import {
   Finding, QualifyResult, Remediation, Report, Suite, type IntakeInput,
 } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext, RunResult } from "@ae/core/contracts/services";
+import {
+  evalServices as trackBServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
+} from "@ae/core/integration/eval-services";
+import { FatalError, RetryableError } from "workflow";
 import { rejectTargetUrl } from "./target-url";
 
 const MOCK = "[MOCK]";
@@ -152,13 +156,33 @@ export function isMockServices(): boolean {
 
 let real: EvalServices | undefined;
 
+/** Maps Track B's typed errors onto Workflow semantics: pending -> RetryableError; blocked/unavailable/unconfigured -> FatalError. */
+export function toWorkflowError(error: unknown): unknown {
+  if (error instanceof TrackBPendingError) return new RetryableError(error.message, { retryAfter: error.retryAfterMs });
+  if (error instanceof TrackBBlockedError || error instanceof EvalServiceUnavailableError || error instanceof EvalServiceConfigError) {
+    return new FatalError(error.message);
+  }
+  return error;
+}
+
+function withWorkflowErrors(services: EvalServices): EvalServices {
+  const wrapped: Record<string, unknown> = {};
+  for (const [name, fn] of Object.entries(services)) {
+    if (typeof fn !== "function") continue;
+    wrapped[name] = async (...args: unknown[]) => {
+      try {
+        return await (fn as (...a: unknown[]) => Promise<unknown>).apply(services, args);
+      } catch (error) {
+        throw toWorkflowError(error);
+      }
+    };
+  }
+  return wrapped as unknown as EvalServices;
+}
+
+/** EVAL_SERVICES=real -> Track B engine composed in @ae/core/integration/eval-services (lazy; no I/O until first call). */
 export async function getEvalServices(): Promise<EvalServices> {
   if (isMockServices()) return mockServices;
-  if (real) return real;
-  // TODO(Track B): "@ae/core/evals/index" must export `evalServices: EvalServices`.
-  const modPath = "@ae/core/evals/index";
-  const mod = (await import(/* webpackIgnore: true */ modPath).catch(() => null)) as { evalServices?: EvalServices } | null;
-  if (!mod?.evalServices) throw new Error("EVAL_SERVICES=real but @ae/core/evals/index (evalServices) is not available");
-  real = mod.evalServices;
+  real ??= withWorkflowErrors(trackBServices);
   return real;
 }
