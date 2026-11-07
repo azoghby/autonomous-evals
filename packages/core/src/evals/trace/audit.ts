@@ -304,7 +304,7 @@ export async function auditTrace(input: TraceAuditInput, deps: TraceAuditDeps): 
 
   let trace: NormalizedTrace;
   try {
-    trace = normalizeTrace(content, input.format ?? "auto");
+    trace = normalizeTrace(content, input.format ?? "auto", known);
   } catch (e) {
     if (e instanceof TraceInputError) return { status: "rejected_input", code: e.code, message: e.message };
     throw e;
