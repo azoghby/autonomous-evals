@@ -27,7 +27,7 @@ Severity is my judgment of customer/ops impact.
 - Fix: pass `known` into `normalizeTrace` and redact each decoded event text (and also the system prompt, already done); gate on both the plain and `JSON.stringify` forms.
 
 ### D3. Events are clipped before redaction (low)
-`evals/trace/normalize.ts:320-322` (same pattern in `service-adapter.ts` `intake.trace.slice(0, 1_500)` before `sanitizeIntake`).
+`evals/trace/normalize.ts:320-322` (same pattern in `service-adapter.ts:137` `intake.trace.slice(0, 1_500)` before `sanitizeIntake`).
 - Trigger: a key crosses the 20,000-character cut. `sk-ant-` + 15 chars is below the 16-char minimum, so ~10 characters of the key survive.
 - Fix: redact, then clip.
 
@@ -38,9 +38,9 @@ Severity is my judgment of customer/ops impact.
 - Fix: store a digest of the request (`sha256` of `message`+schema name) in the row/metadata; on resume with a different digest return `needs_operator` (`task_input_changed`) unless the attempt is bumped. In Trace Audit, also drop verdicts whose candidate title/evidence differ from the current candidate (carry a candidate digest in the prompt and require it in the verdict).
 
 ### D5. Spend is lost from `ctx.recordCost` on non-completed outcomes (medium)
-`evals/service-adapter.ts:161-179` (`throwForNonCompleted`), `:185`, `:195-196`, `:226-231`.
+`evals/service-adapter.ts:161-179` (`throwForNonCompleted`), `:185`, `:195-196`, `:224-228`.
 - Trigger: investigator session ends `budget_paused` or `awaiting_*`, or `qualify` returns `schema_failed`/`failed`/`budget_paused`.
-- Impact: the ledger settled the measured spend (`session-service.ts:~420`) but the Workflow never records it, and the step then fails fatally, so no retry will. Console "known costs" under-reports exactly the sessions that blew budget (tests D5, D5b). Also the thrown message is `"schema_failed: "`: the validation issues are discarded.
+- Impact: the ledger settled the measured spend (`session-service.ts:416`) but the Workflow never records it, and the step then fails fatally, so no retry will. Console "known costs" under-reports exactly the sessions that blew budget (tests D5, D5b). Also the thrown message is `"schema_failed: "`: the validation issues are discarded.
 - Fix: record `outcome.cost` (or `costs[]`) before throwing, and include `issues`/`code` in the error. Dedupe is already by `naive:<sessionId>`.
 
 ### D6. `"error": null` / `"failed": 0` read as error wording (medium, precision)
