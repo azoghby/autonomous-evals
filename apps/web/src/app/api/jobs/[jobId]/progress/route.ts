@@ -1,4 +1,5 @@
 import { jsonError } from "@/server/http";
+import { publicJobError } from "@/server/public-error";
 import { getJobForViewer, getCurrentCustomer } from "@/server/queries";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ jobId: string }> }) {
@@ -9,7 +10,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ jobId: string 
   if (!data) return jsonError(404, "Job not found");
   return Response.json({
     state: data.job.state,
-    error: data.job.error,
+    error: publicJobError(data.job.error, me.isOperator),
     progress: data.progress.map((p) => ({ milestone: p.milestone, message: p.message, createdAt: p.createdAt })),
     updatedAt: data.job.updatedAt,
   }, { headers: { "Cache-Control": "no-store" } });

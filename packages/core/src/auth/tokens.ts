@@ -39,3 +39,10 @@ export function operatorEmails(env = process.env.OPERATOR_EMAILS): Set<string> {
 export function isOperator(email: string, env?: string): boolean {
   return operatorEmails(env ?? process.env.OPERATOR_EMAILS).has(normalizeEmail(email));
 }
+
+/** "alice@example.com" -> "a***e@example.com" (never reveals the full local part). */
+export function maskEmail(email: string): string {
+  const [local = "", domain = ""] = normalizeEmail(email).split("@");
+  const masked = local.length <= 2 ? `${local[0] ?? ""}***` : `${local[0]}***${local[local.length - 1]}`;
+  return domain ? `${masked}@${domain}` : masked;
+}

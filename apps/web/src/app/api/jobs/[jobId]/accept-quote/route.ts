@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
+import { PER_FINDING_CAP_CENTS, PricingMode } from "@ae/core/contracts/index";
 import { createCheckoutForQuote } from "@ae/core/payments/checkout";
 import { stripe } from "@ae/core/payments/stripe";
 import { jsonError, readJson, isUuid } from "@/server/http";
@@ -9,7 +10,7 @@ import { latestQuote } from "@/server/job-store";
 import { sendJobEvent } from "@/workflows/events";
 
 export const dynamic = "force-dynamic";
-const Body = z.object({ quoteVersion: z.int().positive() });
+const Body = z.object({ quoteVersion: z.int().positive(), pricingMode: PricingMode.optional() });
 
 export async function POST(request: Request, ctx: { params: Promise<{ jobId: string }> }) {
   const me = await getCurrentCustomer();
@@ -29,6 +30,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ jobId: str
     return jsonError(409, "That quote is out of date", { latestVersion: quote?.version ?? null });
   }
 
+  // Omitted mode keeps the quote's current mode (default fixed). A different mode replaces an open session.
+  const pricingMode: PricingMode = body.data.pricingMode ?? (quote.pricingMode as PricingMode);
+  const modeChanged = pricingMode !== quote.pricingMode;
+  const capCents = pricingMode === "per_finding" ? PER_FINDING_CAP_CENTS[quote.package] : null;
+  const chargeCents = pricingMode === "per_finding" ? capCents! : quote.priceCents;
+
   await db().update(schema.quotes).set({ acceptedAt: sql`coalesce(${schema.quotes.acceptedAt}, now())` })
     .where(eq(schema.quotes.id, quote.id));
 
@@ -38,17 +45,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ jobId: str
     let retryAfterSessionId: string | undefined;
     if (quote.stripeCheckoutSessionId) {
       const existing = await stripe().checkout.sessions.retrieve(quote.stripeCheckoutSessionId);
-      if (existing.status === "open" && existing.url) checkoutUrl = existing.url;
-      else retryAfterSessionId = existing.id; // expired: a fresh idempotency key is required
-      if (existing.payment_status === "paid") return jsonError(409, "This quote is already paid");
+      if (existing.payment_status === "paid" || existing.status === "complete") return jsonError(409, "This quote is already paid");
+      if (existing.status === "open" && existing.url && !modeChanged) checkoutUrl = existing.url;
+      else {
+        if (existing.status === "open") await stripe().checkout.sessions.expire(existing.id);
+        retryAfterSessionId = existing.id; // expired: a fresh idempotency key is required
+      }
     }
     if (!checkoutUrl) {
       const created = await createCheckoutForQuote({
-        jobId, quoteVersion: quote.version, priceCents: quote.priceCents, customerEmail: me.email,
+        jobId, quoteVersion: quote.version, priceCents: chargeCents, pricingMode, customerEmail: me.email,
         successUrl: `${origin}/jobs/${jobId}?checkout=success`, cancelUrl: `${origin}/jobs/${jobId}?checkout=cancelled`,
         productName: `Autonomous Evals: ${quote.package.replace(/_/g, " ")}`, retryAfterSessionId,
       });
-      await db().update(schema.quotes).set({ stripeCheckoutSessionId: created.sessionId })
+      await db().update(schema.quotes).set({ stripeCheckoutSessionId: created.sessionId, pricingMode, capCents })
         .where(and(eq(schema.quotes.id, quote.id), quote.stripeCheckoutSessionId ? eq(schema.quotes.stripeCheckoutSessionId, quote.stripeCheckoutSessionId) : isNull(schema.quotes.stripeCheckoutSessionId)));
       checkoutUrl = created.url;
     }
@@ -65,5 +75,5 @@ export async function POST(request: Request, ctx: { params: Promise<{ jobId: str
       return jsonError(502, "Checkout was created but the job could not be notified; please retry");
     }
   }
-  return Response.json({ checkoutUrl });
+  return Response.json({ checkoutUrl, pricingMode, capCents });
 }

@@ -2,13 +2,25 @@ import { and, eq, isNull, gt, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { sendEmail, isEmailConfigured } from "./email";
 import {
-  MAGIC_LINK_TTL_MS, SESSION_TTL_MS, hashToken, newToken, normalizeEmail, checkMagicLink,
+  MAGIC_LINK_TTL_MS, SESSION_TTL_MS, hashToken, newToken, normalizeEmail, checkMagicLink, maskEmail,
 } from "./tokens";
 
 export { isOperator } from "./tokens";
 
-const devLinksEnabled = () =>
-  process.env.AUTH_DEV_LINKS === "1" || (!isEmailConfigured() && process.env.NODE_ENV !== "production");
+let warnedDevLinks = false;
+/** Dev links must be impossible on Vercel production/preview, whatever AUTH_DEV_LINKS says. */
+export function devLinksEnabled(env: NodeJS.ProcessEnv = process.env, emailConfigured = isEmailConfigured()): boolean {
+  const wanted = env.AUTH_DEV_LINKS === "1" || (!emailConfigured && env.NODE_ENV !== "production");
+  if (!wanted) return false;
+  if (env.VERCEL_ENV === "production" || env.VERCEL_ENV === "preview") {
+    if (env.AUTH_DEV_LINKS === "1" && !warnedDevLinks) {
+      warnedDevLinks = true;
+      console.error(`[SECURITY] AUTH_DEV_LINKS=1 is set on VERCEL_ENV=${env.VERCEL_ENV}; ignoring it. Dev sign-in links are disabled here. Remove AUTH_DEV_LINKS.`);
+    }
+    return false;
+  }
+  return true;
+}
 
 function appOrigin(): string {
   return process.env.APP_URL
@@ -23,7 +35,7 @@ export async function requestMagicLink(rawEmail: string, next?: string): Promise
   });
   const qs = new URLSearchParams({ token });
   if (next) qs.set("next", next);
-  const link = `${appOrigin()}/api/auth/verify?${qs}`;
+  const link = `${appOrigin()}/signin/confirm?${qs}`;
   if (devLinksEnabled()) return { devLink: link };
   await sendEmail({
     to: email,
@@ -37,6 +49,15 @@ export async function requestMagicLink(rawEmail: string, next?: string): Promise
 export type VerifyResult =
   | { ok: true; sessionToken: string; expiresAt: Date; customerId: string; email: string }
   | { ok: false; reason: "invalid" | "used" | "expired" };
+
+/** Read-only: does not consume the token. Returns a masked email for a valid, unexpired, unused link. */
+export async function peekMagicLink(token: string): Promise<{ ok: true; maskedEmail: string } | { ok: false; reason: "invalid" | "used" | "expired" }> {
+  const [row] = await db().select().from(schema.magicLinks).where(eq(schema.magicLinks.tokenHash, hashToken(token))).limit(1);
+  if (!row) return { ok: false, reason: "invalid" };
+  const check = checkMagicLink(row);
+  if (check !== "ok") return { ok: false, reason: check };
+  return { ok: true, maskedEmail: maskEmail(row.email) };
+}
 
 export async function verifyMagicLink(token: string): Promise<VerifyResult> {
   const hash = hashToken(token);

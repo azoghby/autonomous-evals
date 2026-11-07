@@ -28,7 +28,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ jobId: string 
       // Re-encrypted copy (fresh IV) so deleting one job's credentials never affects the other.
       const credentials = credRow ? decryptJson<CredentialMap>(credRow.ciphertext) : {};
       const { jobId: newId } = await createJob({
-        customerId: src.customerId, idempotencyKey: `retest:${key}`, retestOfJobId: jobId,
+        customerId: src.customerId, idempotencyKey: `retest:${jobId}:${key}`, retestOfJobId: jobId,
         prepared: { sanitized: stored, credentials, traceBlobPath: src.traceBlobPath },
       });
       return { status: 201, body: { jobId: newId } };
