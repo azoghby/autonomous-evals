@@ -13,7 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["packages/core/src/**/*.test.ts", "apps/web/src/**/*.test.ts"],
+    include: ["packages/core/src/**/*.test.ts", "apps/web/src/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["**/node_modules/**", "e2e/**"],
     setupFiles: [p("./test/setup.ts")],
     coverage: {
