@@ -74,3 +74,26 @@ The unmodified selected harness passes strict TypeScript and **211 tests across 
 Initial attempts without a dependency override failed because this isolated checkout has no installed harness dependencies; the selected harness without `--track-a-ref` failed because shared contracts are absent from this checkout. Both were resolved using existing local inputs. A first review compile caught a new test parameter typing issue, corrected before successful validation. The full repository/all-component harness was not run in this fix; earlier reported broader checks are historical and are not evidence for this commit.
 
 Remaining parent work includes authorized durable job/target/evidence routing, report/monitoring wiring, deployment and live customer validation. The selected integration fixtures exercise local injected services and PGlite SQL only; they do not prove live providers, Neon recovery or production authorization. The shared boolean `RunResult.results[].passed` cannot represent richer unknown states: persist the rich run/check objects and preserve the integration adapter's gap handling. No integration/data source, contracts, manifests or Track A app files were changed.
+# Live design diagnostic: quality gate still open
+
+On November 7, 2026, a synthetic fictional-service diagnostic exercised the real Naïve
+engineer and investigator through `designTextSuite`. Both sessions completed (version 1),
+and the engine produced twelve reviewed/frozen scenarios. Measured usage was 38,120 and
+28,361 micro-USD, totaling **$0.066481**, within a $1 diagnostic job ceiling and $0.25
+per-session caps. No customer target was called.
+
+Manual inspection found an unsound objective constraint: S01.o1 requires the digit `3`,
+although the supplied instructions do not require numeric notation. The actual objective
+evaluator rejects the correct answer “The basic plan permits three projects.” Both agents
+accepted that check. Similar literal factual checks exist elsewhere in this fixture.
+Therefore this is **not** successful semantic suite acceptance; this frozen fixture must
+not be used for customer evaluation. The code evaluator correctly executes the supplied
+check, but design/review failed to distinguish an explicit literal constraint from factual
+meaning. A deterministic design-admission safeguard and another bounded live validation
+remain required. Preserve factual meaning in reference-grounded rubrics, not arbitrary
+literal checks on paraphrasable facts.
+
+[Full fixture evidence and reproducer result](../tests/track-b/live-evidence/text-design-2026-11-07.json)
+include input, frozen suite, review session IDs, measured costs, and the rejected valid answer.
+The diagnostic used the source snapshot preceding the T1–T3 fixes; those fixes concern
+execution/investigation boundaries and do not address this newly observed design defect.
