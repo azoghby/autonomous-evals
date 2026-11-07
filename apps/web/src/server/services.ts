@@ -82,6 +82,22 @@ const mockFinding = (id: string, scenarioId?: string): Finding => Finding.parse(
   reproductions: 0,
 });
 
+/** Mock-only URL guard (no DNS, no network): HTTPS only; rejects localhost and private/link-local IP literals. */
+function rejectTargetUrl(raw: string): string | null {
+  let u: URL;
+  try { u = new URL(raw); } catch { return "invalid URL"; }
+  if (u.protocol !== "https:") return "endpoint must use HTTPS";
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) return "private host not allowed";
+  const m = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return "private address not allowed";
+  }
+  if (host.includes(":") && (host === "::1" || host === "::" || /^(fc|fd|fe80)/.test(host) || host.startsWith("::ffff:"))) return "private address not allowed";
+  return null;
+}
+
 /** Deterministic MOCK services. Jobs served by these must carry jobs.is_mock = true and never count as revenue. */
 export const mockServices: EvalServices = {
   async qualify(_ctx, intake: IntakeInput, clarifications) {
@@ -91,11 +107,14 @@ export const mockServices: EvalServices = {
       deliverables: ["Findings report", "Evidence appendix"],
     });
   },
-  async auditTrace() { return { findings: [mockFinding("mock-f1")], claimsChecked: 3 }; },
+  async auditTrace(_ctx, trace) {
+    // Deterministic heuristic: a failed tool result in the trace means the fixture finding applies; clean traces have none.
+    const hasFailedTool = /\\"error\\"|"error"\s*:/i.test(trace);
+    return { findings: hasFailedTool ? [mockFinding("mock-f1")] : [], claimsChecked: 3 };
+  },
   async checkTarget(_ctx, endpoint) {
-    return endpoint.url.startsWith("https://")
-      ? { ok: true, detail: `${MOCK} connection check skipped` }
-      : { ok: false, detail: `${MOCK} endpoint must use HTTPS` };
+    const reason = rejectTargetUrl(endpoint.url);
+    return reason ? { ok: false, detail: `${MOCK} ${reason}` } : { ok: true, detail: `${MOCK} connection check skipped` };
   },
   async designSuite(ctx) {
     return Suite.parse({

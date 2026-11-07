@@ -16,6 +16,8 @@ export const PRICE_CENTS: Record<Package, number> = {
   version_comparison: 1000,
 };
 export const MONITORING_PRICE_CENTS_MONTHLY = 4900;
+/** Per-run Naive budget for one nightly monitoring re-run, in micro-USD. */
+export const MONITORING_RUN_BUDGET_MICRO_USD = 1_000_000;
 
 /** Pricing modes: 'fixed' (default, PRICE_CENTS) or 'per_finding' (authorize the cap, capture per confirmed finding). */
 export const PRICING_MODES = ["fixed", "per_finding"] as const;
