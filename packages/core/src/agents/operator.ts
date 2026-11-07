@@ -24,6 +24,42 @@ export interface OperatorSummary extends ReportSummaryOutput {
 
 const FORBIDDEN = /\b(profit|revenue|statistically significant|p-value|guarantee[ds]?)\b/i;
 
+/** Conservative wording check, not a semantic verifier of arbitrary report prose. */
+function assertsConfirmed(text: string): boolean {
+  for (const match of text.matchAll(/\bconfirmed\b/gi)) {
+    const prefix = text.slice(0, match.index);
+    // Negative labels and counts are ordinary ways to explain the limitations.
+    // Keep the allowed intervening words narrow: "not only confirmed" is affirmative.
+    if (/\b(?:not|never)(?:\s+(?:yet|been|be|being|independently|objectively|fully)){0,3}\s*$/i.test(prefix)) continue;
+    if (/\b(?:no|zero|0)\s*$/i.test(prefix)) continue;
+    if (/\b(?:cannot|can't|couldn't|could\s+not|can\s+not)(?:\s+(?:yet|be|been|independently|objectively|fully)){0,3}\s*$/i.test(prefix)) continue;
+    return true;
+  }
+  return false;
+}
+
+function namesUnconfirmedFinding(text: string, findings: Finding[]): boolean {
+  // Bound the association to a clause so mixed reports can describe F1 as
+  // confirmed and F2 as inconclusive without promoting F2's label.
+  const clauses = text.split(/[.!?;,\n]|\b(?:but|while|whereas)\b/i).flatMap((clause) => {
+    const parts = clause.split(/\band\b/i);
+    const grouped: string[] = [];
+    let current = parts[0] ?? "";
+    for (const part of parts.slice(1)) {
+      // Keep coordinated subjects together ("F2 and F1 are confirmed").
+      // Start a new clause after a label ("F1 confirmed and F2 inconclusive").
+      if (/\b(?:confirmed|inconclusive|rubric[_ ]concern)\b/i.test(current)) {
+        grouped.push(current);
+        current = part;
+      } else current += ` and ${part}`;
+    }
+    return [...grouped, current];
+  });
+  return clauses.some((clause) => assertsConfirmed(clause) && findings.some((finding) =>
+    finding.label !== "confirmed" && clause.split(/[^A-Za-z0-9_-]+/).includes(finding.id),
+  ));
+}
+
 export async function writeReportSummary(
   args: { job: JobRef; findings: Finding[]; limitations: string[]; budgetMicroUsd?: number },
   runner: AgentTaskRunner,
@@ -48,10 +84,16 @@ ${JSON.stringify(data, null, 1).replace(/</g, "\\u003c")}
   if (outcome.status !== "completed") return outcome;
   const o = outcome.output;
   const ids = new Set(args.findings.map((f) => f.id));
+  const labels = new Map(args.findings.map((f) => [f.id, f.label]));
   const unknown = o.finding_notes.filter((n) => !ids.has(n.finding_id)).map((n) => n.finding_id);
+  const mislabeledNotes = o.finding_notes.filter((n) => labels.has(n.finding_id) && labels.get(n.finding_id) !== "confirmed" && assertsConfirmed(n.note));
   const allText = [o.executive_summary, ...o.finding_notes.map((n) => n.note), ...o.recommended_next_steps].join("\n");
+  const summaryText = [o.executive_summary, ...o.recommended_next_steps];
   const problems = [
     ...(unknown.length ? [`references unknown findings ${unknown.join(", ")}`] : []),
+    ...(!args.findings.some((f) => f.label === "confirmed") && summaryText.some(assertsConfirmed) ? ["claims confirmed findings when none are confirmed"] : []),
+    ...(summaryText.some((text) => namesUnconfirmedFinding(text, args.findings)) ? ["calls a non-confirmed finding confirmed in the summary or next steps"] : []),
+    ...(mislabeledNotes.length ? [`claims confirmation for non-confirmed findings ${mislabeledNotes.map((n) => n.finding_id).join(", ")}`] : []),
     ...(findInventedPrices(allText).length ? ["mentions prices not on the menu"] : []),
     ...(FORBIDDEN.test(allText) ? ["uses a forbidden claim (profit/revenue/significance/guarantee)"] : []),
   ];

@@ -149,11 +149,21 @@ function actionsIn(events: TraceEvent[]): Action[] {
   return actions;
 }
 
+/** Generic executors whose arguments ARE the action (a shell command), so the arguments say what the call does. */
+const GENERIC_EXECUTOR = /^(?:bash|sh|zsh|shell|exec|execute|run|run_command|run_shell|terminal|command|cmd|python|code_interpreter)$/i;
+
+/**
+ * An action is relevant to a claim topic by what the TOOL is (its name), never by what its arguments mention:
+ * `log_analytics {"event":"email sent"}` is not an email action. Exceptions where the arguments identify the action:
+ * a generic shell executor (`bash {"cmd":"pytest"}`), a call with no tool name, and a result with no call.
+ */
 function relevant(action: Action, topics: string[]): boolean {
   if (topics.length === 0) return true;
-  const haystack = [action.call?.toolName, action.call?.text, action.result?.toolName, action.call ? "" : action.result?.text]
-    .filter(Boolean)
-    .join(" ");
+  const name = action.call?.toolName ?? action.result?.toolName ?? null;
+  const parts: Array<string | null | undefined> = [action.call?.toolName, action.result?.toolName];
+  if (action.call && (!name || GENERIC_EXECUTOR.test(name))) parts.push(action.call.text);
+  if (!action.call) parts.push(action.result?.text);
+  const haystack = parts.filter(Boolean).join(" ");
   return TOPICS.some((t) => topics.includes(t.topic) && t.tool.test(haystack));
 }
 
@@ -354,17 +364,55 @@ function unsafeActions(trace: NormalizedTrace): Candidate[] {
 
 const COMMON_CAPS = new Set(["API", "JSON", "UTC", "URL", "HTTP", "HTTPS", "USD", "PII", "SQL", "AI", "ID", "IDS", "NOT", "NEVER", "DO", "MUST", "ONLY", "ALL", "AND", "OR", "THE", "FAQ", "CEO", "PDF", "CSV", "UI", "OK"]);
 
+const PROHIBITION = /\b(?:never|do not|don't|must not|mustn't|should not|shouldn't|avoid|under no circumstances)\b/i;
+/** A clause that tells the assistant what to do or say ("always say 'X'", "say 'X' instead"); its quoted phrases are REQUIRED, not prohibited. */
+const REQUIREMENT = /\b(?:always|instead|(?:must|should|shall|needs? to|has to|have to)\s+(?:say|use|reply|respond|answer|tell|include|direct|refer|offer|mention|state))\b|^\s*(?:please\s+)?(?:say|reply|respond|answer|use|tell|direct|refer|offer)\b/i;
+/** Boundaries between clauses: punctuation, instruction conjunctions, and explicit required speech. */
+const CLAUSE_BOUNDARY = /,|\s[—–-]\s|[—–]|\b(?:and|but|then|while)\b(?=\s+(?:always|never|do not|don't|must|should|avoid|under no|please|say|reply|respond|use)\b)|(?=\b(?:always|must|should|shall)\s+(?:say|use|reply|respond|answer|tell|include|direct|refer|offer|mention|state)\b)/gi;
+const QUOTED_TERM = /"([^"]{2,60})"|'([^']{2,60})'|`([^`]{2,60})`|“([^”]{2,60})”/g;
+
+/** Same length as `text`, with quoted spans blanked, so boundaries and keywords inside quotes never split or classify a clause. */
+function blankQuotes(text: string): string {
+  return text.replace(/"[^"\n]*"|'[^'\n]*'|`[^`\n]*`|“[^”\n]*”/g, (m) => "_".repeat(m.length));
+}
+
+/** Terms that sit in prohibition clauses of one rule sentence. Quoted/ALL-CAPS terms in "always say X" clauses are excluded. */
+function prohibitedTerms(sentence: string): string[] {
+  const masked = blankQuotes(sentence);
+  const bounds = [0];
+  for (const b of masked.matchAll(CLAUSE_BOUNDARY)) bounds.push(b.index!, b.index! + b[0].length);
+  bounds.push(sentence.length);
+  const clauses: Array<{ start: number; end: number; mode: "prohibit" | "require" | null }> = [];
+  for (let i = 0; i + 1 < bounds.length; i += 2) {
+    const [start, end] = [bounds[i]!, bounds[i + 1]!];
+    const piece = masked.slice(start, end);
+    clauses.push({ start, end, mode: PROHIBITION.test(piece) ? "prohibit" : REQUIREMENT.test(piece) ? "require" : null });
+  }
+  // Unmarked clauses continue the previous clause's mode ("never mention 'a', 'b' or 'c'"); a leading unmarked one stays prohibited.
+  let mode: "prohibit" | "require" = "prohibit";
+  for (const c of clauses) {
+    mode = c.mode ?? mode;
+    c.mode = mode;
+  }
+  const terms = new Set<string>();
+  for (const c of clauses) {
+    if (c.mode !== "prohibit") continue;
+    const text = sentence.slice(c.start, c.end);
+    for (const q of text.matchAll(QUOTED_TERM)) terms.add((q[1] ?? q[2] ?? q[3] ?? q[4])!);
+    for (const w of text.matchAll(/\b[A-Z][A-Z0-9_-]{2,}\b/g)) if (!COMMON_CAPS.has(w[0])) terms.add(w[0]);
+  }
+  return [...terms];
+}
+
 export function extractInstructionRules(instructions: string | null): InstructionRule[] {
   if (!instructions) return [];
   const rules: InstructionRule[] = [];
-  const re = /[^.!?\n]*\b(?:never|do not|don't|must not|mustn't|should not|shouldn't|avoid|under no circumstances)\b[^.!?\n]*[.!?]?/gi;
+  // Rule sentences end at . ! ? newline or ; ("Never discuss pricing; always say 'contact sales'" is two sentences).
+  const re = /[^.!?\n;]*\b(?:never|do not|don't|must not|mustn't|should not|shouldn't|avoid|under no circumstances)\b[^.!?\n;]*[.!?;]?/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(instructions)) && rules.length < 25) {
     const text = m[0].trim();
-    const terms = new Set<string>();
-    for (const q of text.matchAll(/"([^"]{2,60})"|'([^']{2,60})'|`([^`]{2,60})`|“([^”]{2,60})”/g)) terms.add((q[1] ?? q[2] ?? q[3] ?? q[4])!);
-    for (const w of text.matchAll(/\b[A-Z][A-Z0-9_-]{2,}\b/g)) if (!COMMON_CAPS.has(w[0])) terms.add(w[0]);
-    rules.push({ id: `r${rules.length + 1}`, text: text.slice(0, 500), protectedTerms: [...terms].slice(0, 10) });
+    rules.push({ id: `r${rules.length + 1}`, text: text.slice(0, 500), protectedTerms: prohibitedTerms(text).slice(0, 10) });
   }
   return rules;
 }
