@@ -65,6 +65,17 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - [ ] Wire `rateLimit` + `assertHuman` into request-link, POST jobs, expert signup
 - [ ] Security review (opus, read-only); findings get fixed after
 
+- [ ] UI v3 retheme: black / white / electric blue, full-bleed hero, ribbed lines kept, cursor-reactive line animation, original text layout; pricing choice + "Validated fixes" UI
+- [ ] AI Gateway: Vercel AI Gateway primary + Neon AI Gateway fallback, `packages/core/src/ai/gateway.ts`, cost logging
+- [ ] Track B conformance harness (`scripts/conformance.ts`, docs/INTEGRATION.md)
+- [ ] E2E pipeline test (`scripts/e2e-pipeline.ts`, dev-only simulated payment)
+- [ ] Crons for real: monitoring re-runs + regression emails, follow-up nudges
+- [ ] Expert call booking (slots, Jitsi link, .ics via AgentMail, consent-gated transcripts)
+- [ ] Public sample report page `/sample`
+
+### Merged since last update
+- Pay per confirmed finding (Stripe manual capture), fix-not-just-find (remediations), MCP server (`/api/mcp/mcp` + `/settings/keys`), Neon Realtime live progress, security batches 1+2 + M4 (all HIGH/MEDIUM fixed), infra 500 fix, `npm run deploy` (migrate then deploy)
+
 ## Next steps (priority order)
 
 1. **Stripe test key → paid Trace Audit end to end** (gate 3). Create the webhook endpoint via the API → set `STRIPE_WEBHOOK_SECRET` → test duplicate and missed webhooks.
