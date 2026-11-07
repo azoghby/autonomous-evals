@@ -1,5 +1,17 @@
 # Track B objective design admission
 
+## Live recheck: useful design acceptance remains open
+
+The same ordinary-language fictional-service brief was rerun against this gate on
+November 7. Both allowed engineer drafts were rejected; no investigator or target
+was dispatched and no suite was admitted. Measured costs were 75,142 and 133,118
+micro-USD (total **$0.208260**), within the $1 diagnostic job ceiling. This is evidence
+of bounded refusal, not successful suite-design acceptance. The grammar also refuses
+legitimate constraints expressed in mixed prose, so replacing useful objective coverage
+with unconditional refusal is not the finished product. Further work must preserve
+explicit natural-language constraints without reintroducing literal factual checks.
+[Recorded fixture outcome](../tests/track-b/live-evidence/text-design-admission-2026-11-07.json).
+
 The November 7 live diagnostic approved `S01.o1 contains "3"` even though “The basic plan permits three projects.” correctly conveys the reference fact. Engineer and investigator agreement is insufficient for objective admission. `admission.ts` now rejects that actual suite before execution; reference text never supplies objective constraints.
 
 ## Deterministic boundary
