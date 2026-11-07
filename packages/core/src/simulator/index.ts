@@ -10,3 +10,4 @@ export * from './acceptance-scenarios.js';
 export * from './branch-ledger.js';
 export * from './connection.js';
 export * from './workflow/index.js';
+export * from './workflow/postgres-journal.js';
