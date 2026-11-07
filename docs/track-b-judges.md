@@ -8,4 +8,6 @@ Return values distinguish `passed`, `rubric_concern`, and `inconclusive`. Factua
 
 `authorize(operationId)` must durably reserve/authorize a unique invocation and reject duplicate or ambiguous replays. `recordUsage` receives known token counts when available and explicitly unknown monetary cost. Reconcile gateway billing separately; never convert absent price data into zero dollars. A failed usage write blocks successful return. The production adapter must retain authorization on ambiguous failures and persist successful judgments before Workflow advancement.
 
-Validation: nine injected-transport cases and strict TypeScript checks pass. No live Gateway request has been made; live configuration and end-to-end Text Eval wiring remain unverified.
+Provider response IDs and token counts are retained even when verdict validation rejects a truncated or malformed result. Missing token counts stay unknown, not zero. Refusals are rejected even if content resembles a valid verdict.
+
+Validation: fifteen injected-transport cases and strict TypeScript checks pass. No live Gateway request has been made; live configuration and end-to-end Text Eval wiring remain unverified.

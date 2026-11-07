@@ -17,6 +17,7 @@ export interface JudgeUsage {
   operationId: string;
   source: 'ai_gateway';
   model: string;
+  providerResponseId: string | null;
   promptTokens: number | null;
   completionTokens: number | null;
   /** Token counts are not a monetary cost. Reconcile provider billing separately. */
@@ -66,6 +67,13 @@ const Envelope = z.object({
     completion_tokens: z.number().int().nonnegative(),
   }).optional(),
 });
+const UsageEnvelope = z.object({
+  id: z.string().min(1).max(200).optional(),
+  usage: z.object({
+    prompt_tokens: z.number().int().nonnegative(),
+    completion_tokens: z.number().int().nonnegative(),
+  }).optional(),
+});
 
 export function createGatewayJudge(deps: JudgeDependencies) {
   if (!deps.model.trim()) throw new Error('Configure an explicit judge model');
@@ -79,7 +87,7 @@ export function createGatewayJudge(deps: JudgeDependencies) {
     const token = await deps.token();
     if (!token || /[\r\n]/.test(token)) throw new Error('Judge authentication is not configured');
     await deps.authorize(input.operationId);
-    let usage: JudgeUsage = { operationId: input.operationId, source: 'ai_gateway', model: deps.model, promptTokens: null, completionTokens: null, costMicroUsd: null, result: 'unknown' };
+    let usage: JudgeUsage = { operationId: input.operationId, source: 'ai_gateway', model: deps.model, providerResponseId: null, promptTokens: null, completionTokens: null, costMicroUsd: null, result: 'unknown' };
     let verdict: RubricVerdict | undefined;
     try {
       const response = await (deps.fetch ?? fetch)('https://ai-gateway.vercel.sh/v1/chat/completions', {
@@ -98,8 +106,12 @@ export function createGatewayJudge(deps: JudgeDependencies) {
           } } },
         }),
       });
-      const envelope = Envelope.parse(await bounded(response));
-      usage = { ...usage, promptTokens: envelope.usage?.prompt_tokens ?? null, completionTokens: envelope.usage?.completion_tokens ?? null, result: 'received' };
+      const raw = await bounded(response);
+      // Billing evidence remains useful even when the verdict is unusable.
+      const accounting = UsageEnvelope.safeParse(raw);
+      usage = { ...usage, result: 'received' };
+      if (accounting.success) usage = { ...usage, providerResponseId: accounting.data.id ?? null, promptTokens: accounting.data.usage?.prompt_tokens ?? null, completionTokens: accounting.data.usage?.completion_tokens ?? null };
+      const envelope = Envelope.parse(raw);
       const message = envelope.choices[0].message;
       if (message.refusal) throw new JudgeUnavailableError();
       verdict = Verdict.parse(JSON.parse(message.content));

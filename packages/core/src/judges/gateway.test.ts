@@ -42,4 +42,26 @@ describe('Gateway rubric judge', () => {
     const s = setup(); s.request.mockResolvedValueOnce(new Response('x'.repeat(65 * 1024)));
     await expect(s.judge(input)).rejects.toBeInstanceOf(JudgeUnavailableError);
   });
+  it.each(['length', 'content_filter', 'tool_calls'])('retains usage for a rejected %s completion', async (reason) => {
+    const s = setup();
+    s.request.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'gen-test-1', choices: [{ finish_reason: reason, message: { content: JSON.stringify(verdict) } }], usage: { prompt_tokens: 12, completion_tokens: 6 } })));
+    await expect(s.judge(input)).rejects.toBeInstanceOf(JudgeUnavailableError);
+    expect(s.recordUsage).toHaveBeenCalledWith(expect.objectContaining({ providerResponseId: 'gen-test-1', promptTokens: 12, completionTokens: 6, result: 'received', costMicroUsd: null }));
+  });
+  it('rejects refusals even when structured content looks valid', async () => {
+    const s = setup();
+    s.request.mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(verdict), refusal: 'refused' } }] })));
+    await expect(s.judge(input)).rejects.toBeInstanceOf(JudgeUnavailableError);
+  });
+  it('does not return a verdict when recording usage fails', async () => {
+    const s = setup(); s.recordUsage.mockRejectedValueOnce(new Error('storage unavailable'));
+    await expect(s.judge(input)).rejects.toThrow('storage unavailable');
+    expect(s.request).toHaveBeenCalledTimes(1);
+  });
+  it('records absent token usage as unknown rather than zero', async () => {
+    const s = setup();
+    s.request.mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(verdict) } }] })));
+    await s.judge(input);
+    expect(s.recordUsage).toHaveBeenCalledWith(expect.objectContaining({ promptTokens: null, completionTokens: null, costMicroUsd: null }));
+  });
 });
