@@ -25,7 +25,8 @@
     "react-dom": "19.3.0",
     "resend": "^6.37.0",
     "server-only": "^0.0.1",
-    "workflow": "^5.4.0"
+    "workflow": "^5.4.0",
+    "@workflow/core": "5.4.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
