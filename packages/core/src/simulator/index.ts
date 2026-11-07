@@ -8,3 +8,4 @@ export * from './adapters.js';
 export * from './pool.js';
 export * from './acceptance-scenarios.js';
 export * from './branch-ledger.js';
+export * from './connection.js';
