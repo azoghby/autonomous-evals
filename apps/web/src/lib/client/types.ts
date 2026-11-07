@@ -39,7 +39,10 @@ export interface EvidenceView {
 }
 
 export interface FindingView {
+  /** Findings row uuid: this is what the rerun route expects. */
   id: string;
+  /** Contract-level finding id (data.id / findingKey). */
+  key: string;
   title: string;
   status: "confirmed" | "rubric_concern" | "inconclusive";
   severity: "critical" | "high" | "medium" | "low";
@@ -74,12 +77,13 @@ export interface ProgressResponse {
   progress: ProgressItem[];
 }
 
-/** Server returns findings rows ({findingKey, data}) or flat findings; normalize both. */
+/** Server returns findings rows ({id(uuid), findingKey, data, rerunOfFindingId}); normalize to a view. */
 export function normalizeFinding(raw: unknown): FindingView {
   const r = raw as Record<string, unknown>;
   const d = ((r.data as Record<string, unknown> | undefined) ?? r) as Record<string, unknown>;
   return {
-    id: String(r.findingKey ?? d.id ?? r.id),
+    id: String(r.id ?? r.findingKey ?? d.id),
+    key: String(r.findingKey ?? d.id ?? r.id),
     title: String(d.title ?? "Finding"),
     status: (d.status as FindingView["status"]) ?? "inconclusive",
     severity: (d.severity as FindingView["severity"]) ?? "low",
@@ -92,26 +96,31 @@ export function normalizeFinding(raw: unknown): FindingView {
   };
 }
 
+/** Mirrors getOperatorOverview() in apps/web/src/server/queries.ts. */
 export interface OperatorOverview {
-  revenue?: { liveCents?: number; testCents?: number };
-  knownCosts?: { naiveMicroUsd?: number; aiGatewayMicroUsd?: number };
-  unknownCosts?: string[];
-  jobs?: Array<{
-    id: string; customerEmail?: string; package: Package; state: JobState;
-    environment: Environment; revenueCents?: number; knownCostMicroUsd?: number;
+  liveRevenueCents: number;
+  knownCostMicroUsd: number;
+  /** Additive: known cost split by costs.source. */
+  knownCostBySourceMicroUsd?: { naive?: number; ai_gateway?: number };
+  costByJobMicroUsd: Record<string, number>;
+  jobs: Array<{
+    id: string; package: Package; state: JobState; environment: Environment;
+    isMock: boolean; createdAt: string; knownCostMicroUsd: number;
+    /** Additive: joined from customers. */
+    customerEmail?: string;
   }>;
-  payments?: Array<{
-    id: string; jobId?: string; amountCents: number; environment: Environment;
-    kind?: string; createdAt: string;
+  payments: Array<{
+    id: string; jobId: string; amountCents: number; environment: Environment;
+    kind: string; createdAt: string;
   }>;
-  decisions?: Array<{
-    id: string; jobId?: string | null; agent: string; decision?: string | null;
-    status?: string; usageMicroUsd?: number; createdAt: string;
+  agentSessions: Array<{
+    id: string; jobId: string | null; agent: string; decision: string | null;
+    status: string; usageMicroUsd: number | null; createdAt: string;
   }>;
-  interventions?: Array<{
-    id: string; jobId?: string | null; operatorEmail?: string; kind: string; note: string; createdAt: string;
+  interventions: Array<{
+    id: string; jobId: string | null; operatorEmail: string; kind: string; note: string; createdAt: string;
   }>;
-  outreach?: Array<{
-    id: string; toEmail: string; subject: string; body: string; status: string; createdAt?: string;
+  outreachDrafts: Array<{
+    id: string; toEmail: string; subject: string; body: string; status: string; createdAt: string;
   }>;
 }

@@ -24,7 +24,11 @@ const EXPLAIN: Partial<Record<JobState, { title: string; body: string }>> = {
 
 export function JobView({ jobId }: { jobId: string }) {
   const router = useRouter();
-  const paid = useSearchParams().get("paid") === "1";
+  const params = useSearchParams();
+  // Stripe return URLs: ?checkout=success|cancelled and ?monitoring=success.
+  const paid = params.get("checkout") === "success";
+  const checkoutCancelled = params.get("checkout") === "cancelled";
+  const monitoringStarted = params.get("monitoring") === "success";
   const { data, error, loading, reload } = useFetch<JobDetail>(`/api/jobs/${jobId}`);
   const [live, setLive] = useState<{ state: JobState; progress: ProgressItem[] } | null>(null);
   const lastState = useRef<JobState | null>(null);
@@ -74,6 +78,12 @@ export function JobView({ jobId }: { jobId: string }) {
         sub={`Created ${when(job.createdAt)} · ${dollars(quote?.priceCents ?? PRICE_CENTS[job.package])}`}
         right={<div className="flex items-center gap-2">{job.environment === "test" && <Chip tone="warn">TEST MODE</Chip>}<StateChip state={current} /></div>}
       />
+      {checkoutCancelled && (current === "quoted" || current === "awaiting_payment") && (
+        <p role="status" className="rounded-2xl border border-[#ffc56b]/40 bg-[#ffc56b]/10 px-4 py-3 text-sm text-[#ffc56b]">Checkout was cancelled. You have not been charged. You can accept the quote again below.</p>
+      )}
+      {monitoringStarted && (
+        <p role="status" className="rounded-2xl border border-[#7fd1a8]/40 bg-[#7fd1a8]/10 px-4 py-3 text-sm text-[#7fd1a8]">Monitoring pilot started. Your frozen suite will re-run nightly.</p>
+      )}
       {job.retestOfJobId && (
         <p className="text-sm text-cream/70">Linked retest of <a className="text-coral underline" href={`/jobs/${job.retestOfJobId}`}>an earlier job</a>.</p>
       )}
@@ -93,7 +103,7 @@ export function JobView({ jobId }: { jobId: string }) {
       {(POLLING_STATES.has(current) || (current === "planning")) && <ProgressTimeline progress={progress} state={current} />}
 
       {current === "delivered" && (
-        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} />
+        <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} />
       )}
 
       {EXPLAIN[current] && (

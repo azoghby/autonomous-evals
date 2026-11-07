@@ -7,6 +7,7 @@ import { useFetch } from "@/lib/client/use-fetch";
 import type { OperatorOverview } from "@/lib/client/types";
 import { Btn, Chip, Empty, ErrorBox, Field, Glass, Input, Loading, PageTitle, StateChip, Textarea } from "./ui";
 
+const UNKNOWN_COSTS = ["Customer provider usage (their own API credits)", "Hosting (Vercel, Neon)"];
 const KINDS = ["refund", "override", "fix", "approve_outreach", "other"] as const;
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -32,10 +33,16 @@ export function OperatorConsole() {
   if (error?.status === 403) return <Empty title="Operators only" body="Your account is not on the operator allowlist." />;
   if (error || !data) return <ErrorBox message={error?.message ?? "Unknown error"} onRetry={reload} />;
 
-  const naive = data.knownCosts?.naiveMicroUsd ?? 0;
-  const gw = data.knownCosts?.aiGatewayMicroUsd ?? 0;
-  const unknown = data.unknownCosts?.length ? data.unknownCosts : ["Customer provider usage (their own API credits)", "Hosting (Vercel, Neon)"];
+  const naive = data.knownCostBySourceMicroUsd?.naive ?? 0;
+  const gw = data.knownCostBySourceMicroUsd?.ai_gateway ?? 0;
+  const unknown = UNKNOWN_COSTS;
   const jobs = data.jobs ?? [];
+  // Revenue per job counts live-mode payments on non-mock jobs only, matching the server's headline total.
+  const revenueByJob = new Map<string, number>();
+  for (const p of data.payments ?? []) {
+    if (p.environment !== "live") continue;
+    revenueByJob.set(p.jobId, (revenueByJob.get(p.jobId) ?? 0) + p.amountCents);
+  }
 
   return (
     <div className="space-y-10">
@@ -43,12 +50,12 @@ export function OperatorConsole() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Glass><h2 className="mb-2 text-sm font-semibold text-[#7fd1a8]">Revenue</h2>
-          <Stat label="Live Stripe" value={dollars(data.revenue?.liveCents ?? 0)} note="Test-mode payments never count" />
+          <Stat label="Live Stripe" value={dollars(data.liveRevenueCents ?? 0)} note="Test-mode payments never count" />
         </Glass>
         <Glass><h2 className="mb-2 text-sm font-semibold text-[#ffc56b]">Known costs</h2>
           <Stat label="Naïve agents" value={microUsd(naive)} />
           <Stat label="AI Gateway" value={microUsd(gw)} />
-          <Stat label="Total known" value={microUsd(naive + gw)} />
+          <Stat label="Total known" value={microUsd(data.knownCostMicroUsd ?? naive + gw)} />
         </Glass>
         <Glass><h2 className="mb-2 text-sm font-semibold text-coral">Unknown costs</h2>
           <ul className="list-disc space-y-1 pl-5 text-sm text-cream/80">{unknown.map((u) => <li key={u}>{u}: <span className="text-cream/60">unknown</span></li>)}</ul>
@@ -68,7 +75,7 @@ export function OperatorConsole() {
                   <td className="px-4 py-2.5">{PACKAGE_LABEL[j.package] ?? j.package}</td>
                   <td className="px-4 py-2.5"><StateChip state={j.state} /></td>
                   <td className="px-4 py-2.5"><Chip tone={j.environment === "live" ? "ok" : "warn"}>{j.environment}</Chip></td>
-                  <td className="px-4 py-2.5 tabular-nums">{j.environment === "live" ? dollars(j.revenueCents ?? 0) : <span className="text-cream/40">not counted</span>}</td>
+                  <td className="px-4 py-2.5 tabular-nums">{j.environment === "live" ? dollars(revenueByJob.get(j.id) ?? 0) : <span className="text-cream/40">not counted</span>}</td>
                   <td className="px-4 py-2.5 tabular-nums">{microUsd(j.knownCostMicroUsd ?? 0)}</td>
                 </tr>))}</tbody>
             </table>
@@ -89,9 +96,9 @@ export function OperatorConsole() {
       </Section>
 
       <Section title="Agent decisions">
-        {(data.decisions ?? []).length === 0 ? <p className="text-sm text-cream/60">No agent decisions yet.</p> : (
+        {(data.agentSessions ?? []).length === 0 ? <p className="text-sm text-cream/60">No agent decisions yet.</p> : (
           <ul className="space-y-2">
-            {data.decisions!.map((d) => (
+            {data.agentSessions.map((d) => (
               <li key={d.id} className="rounded-2xl border border-glass-border bg-glass px-4 py-2.5 text-sm backdrop-blur-xl">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span><Chip tone="info">{d.agent}</Chip> <span className="ml-2">{d.decision ?? d.status ?? "-"}</span></span>
@@ -103,12 +110,12 @@ export function OperatorConsole() {
       </Section>
 
       <InterventionSection items={data.interventions ?? []} jobs={jobs.map((j) => j.id)} onAdded={reload} />
-      <OutreachSection items={data.outreach ?? []} onChanged={reload} />
+      <OutreachSection items={data.outreachDrafts ?? []} onChanged={reload} />
     </div>
   );
 }
 
-function InterventionSection({ items, jobs, onAdded }: { items: NonNullable<OperatorOverview["interventions"]>; jobs: string[]; onAdded: () => Promise<void> }) {
+function InterventionSection({ items, jobs, onAdded }: { items: OperatorOverview["interventions"]; jobs: string[]; onAdded: () => Promise<void> }) {
   const [kind, setKind] = useState<(typeof KINDS)[number]>("other");
   const [jobId, setJobId] = useState("");
   const [note, setNote] = useState("");
@@ -155,7 +162,7 @@ function InterventionSection({ items, jobs, onAdded }: { items: NonNullable<Oper
   );
 }
 
-function OutreachSection({ items, onChanged }: { items: NonNullable<OperatorOverview["outreach"]>; onChanged: () => Promise<void> }) {
+function OutreachSection({ items, onChanged }: { items: OperatorOverview["outreachDrafts"]; onChanged: () => Promise<void> }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

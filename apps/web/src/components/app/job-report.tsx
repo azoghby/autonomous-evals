@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MONITORING_PRICE_CENTS_MONTHLY } from "@ae/core/contracts/index";
 import { api, dollars, errMsg } from "@/lib/client/api";
-import type { FindingView, ProgressItem } from "@/lib/client/types";
+import { normalizeFinding, type FindingView, type ProgressItem } from "@/lib/client/types";
 import { Btn, Chip, ErrorBox, Glass, Mono } from "./ui";
 
 const STATUS: Record<FindingView["status"], { label: string; tone: "ok" | "warn" | "muted" }> = {
@@ -13,7 +13,7 @@ const STATUS: Record<FindingView["status"], { label: string; tone: "ok" | "warn"
 };
 const SEV_TONE = { critical: "bad", high: "bad", medium: "warn", low: "muted" } as const;
 
-function FindingCard({ jobId, f }: { jobId: string; f: FindingView }) {
+function FindingCard({ jobId, f, onRerun }: { jobId: string; f: FindingView; onRerun: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +22,11 @@ function FindingCard({ jobId, f }: { jobId: string; f: FindingView }) {
   async function rerun() {
     setBusy(true); setError(null);
     try {
-      const r = await api<{ state?: string; status?: string } | undefined>(`/api/jobs/${jobId}/findings/${encodeURIComponent(f.id)}/rerun`, { method: "POST" });
-      setResult(r?.status ?? r?.state ?? "Re-run requested");
+      // Server responds 201 {finding: <findings row>} and expects the row uuid (f.id), not the contract key.
+      const r = await api<{ finding: unknown }>(`/api/jobs/${jobId}/findings/${encodeURIComponent(f.id)}/rerun`, { method: "POST" });
+      const again = normalizeFinding(r.finding);
+      setResult(`${STATUS[again.status]?.label ?? again.status}${again.reproductions ? ` (${again.reproductions} reproduction${again.reproductions === 1 ? "" : "s"})` : ""}`);
+      await onRerun();
     } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
   }
 
@@ -51,7 +54,7 @@ function FindingCard({ jobId, f }: { jobId: string; f: FindingView }) {
           </div>
         )}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Btn variant="ghost" onClick={rerun} loading={busy}>Re-run this finding</Btn>
+          {f.rerunOf ? <Chip tone="info">Re-run result</Chip> : <Btn variant="ghost" onClick={rerun} loading={busy}>Re-run this finding</Btn>}
           {f.reproductions ? <span className="text-xs text-cream/50">{f.reproductions} reproduction(s)</span> : null}
           {result && <span role="status" className="text-xs text-[#7fd1a8]">Re-run: {result}</span>}
           {error && <span role="alert" className="text-xs text-coral">{error}</span>}
@@ -61,9 +64,10 @@ function FindingCard({ jobId, f }: { jobId: string; f: FindingView }) {
   );
 }
 
-export function ReportView({ jobId, report, findings, progress }: {
-  jobId: string; report: { summary: string } | null; findings: FindingView[]; progress: ProgressItem[];
+export function ReportView({ jobId, report, findings, progress, onReload }: {
+  jobId: string; report: { summary: string } | null; findings: FindingView[]; progress: ProgressItem[]; onReload: () => Promise<void>;
 }) {
+  const retestKey = useRef<string>(crypto.randomUUID());
   const router = useRouter();
   const [retestBusy, setRetestBusy] = useState(false);
   const [monBusy, setMonBusy] = useState(false);
@@ -73,7 +77,7 @@ export function ReportView({ jobId, report, findings, progress }: {
   async function retest() {
     setRetestBusy(true); setError(null);
     try {
-      const r = await api<{ jobId: string }>(`/api/jobs/${jobId}/retest`, { method: "POST" });
+      const r = await api<{ jobId: string }>(`/api/jobs/${jobId}/retest`, { method: "POST", headers: { "Idempotency-Key": retestKey.current } });
       router.push(`/jobs/${r.jobId}`);
     } catch (e) { setError(errMsg(e)); setRetestBusy(false); }
   }
@@ -103,7 +107,7 @@ export function ReportView({ jobId, report, findings, progress }: {
         {findings.length === 0 ? (
           <Glass><p className="text-sm text-cream/75">No findings were reported. This does not prove the system is correct; it means nothing we checked was confirmed as a problem.</p></Glass>
         ) : (
-          <ul className="space-y-4">{findings.map((f, i) => <FindingCard key={`${f.id}-${i}`} jobId={jobId} f={f} />)}</ul>
+          <ul className="space-y-4">{findings.map((f, i) => <FindingCard key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} />)}</ul>
         )}
       </section>
 

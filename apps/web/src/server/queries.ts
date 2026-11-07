@@ -69,7 +69,7 @@ export async function getOperatorOverview() {
   const me = await getCurrentCustomer();
   if (!me?.isOperator) return null;
   const d = db();
-  const [jobs, payments, sessions, interventions, outreach, perJobCost, totals] = await Promise.all([
+  const [jobs, payments, sessions, interventions, outreach, perJobCost, totals, bySource, emailRows] = await Promise.all([
     d.select().from(schema.jobs).orderBy(desc(schema.jobs.createdAt)).limit(200),
     d.select().from(schema.payments).orderBy(desc(schema.payments.createdAt)).limit(200),
     d.select({
@@ -87,14 +87,21 @@ export async function getOperatorOverview() {
         .where(and(eq(schema.payments.environment, "live"), eq(schema.jobs.isMock, false))),
       d.select({ s: sql<number>`coalesce(sum(${schema.costs.microUsd}), 0)::bigint` }).from(schema.costs),
     ]),
+    d.select({ source: schema.costs.source, microUsd: sql<number>`sum(${schema.costs.microUsd})::bigint` })
+      .from(schema.costs).groupBy(schema.costs.source),
+    d.select({ id: schema.customers.id, email: schema.customers.email }).from(schema.customers),
   ]);
+  const emailById = new Map(emailRows.map((c) => [c.id, c.email]));
+  const knownCostBySourceMicroUsd: Record<string, number> = {};
+  for (const r of bySource) knownCostBySourceMicroUsd[r.source] = Number(r.microUsd);
   const costByJob: Record<string, number> = {};
   for (const r of perJobCost) if (r.jobId) costByJob[r.jobId] = Number(r.microUsd);
   return {
     liveRevenueCents: Number(totals[0][0]?.s ?? 0),
     knownCostMicroUsd: Number(totals[1][0]?.s ?? 0),
+    knownCostBySourceMicroUsd,
     costByJobMicroUsd: costByJob,
-    jobs: jobs.map((j) => ({ ...toPublicJob(j), knownCostMicroUsd: costByJob[j.id] ?? 0 })),
+    jobs: jobs.map((j) => ({ ...toPublicJob(j), knownCostMicroUsd: costByJob[j.id] ?? 0, customerEmail: emailById.get(j.customerId) })),
     payments, agentSessions: sessions, interventions, outreachDrafts: outreach,
   };
 }
