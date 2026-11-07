@@ -1,4 +1,5 @@
 import { FatalError } from "workflow";
+import { releaseStatement } from "@ae/core/adapters/budget";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { JOB_BUDGET_MICRO_USD } from "@ae/core/contracts/index";
@@ -46,7 +47,8 @@ export async function withBudget<T>(
   }
   const ctx = await makeServiceContext(jobId);
   const data = await run(ctx);
-  await db().update(schema.budgetReservations).set({ releasedAt: new Date() }).where(eq(schema.budgetReservations.id, reservationId));
+  // Releases the row and decrements jobs.budget_reserved_micro_usd in one statement (same rule as the BudgetReserver).
+  await db().execute(releaseStatement(jobId, reservationId));
   return { status: "ok", data };
 }
 

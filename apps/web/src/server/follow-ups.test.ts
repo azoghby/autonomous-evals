@@ -14,7 +14,7 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("server-only", () => ({}));
-vi.mock("drizzle-orm", () => ({ and: () => ({}), asc: () => ({}), eq: () => ({}), inArray: () => ({}), lt: () => ({}), ne: () => ({}), sql: () => ({}) }));
+vi.mock("drizzle-orm", () => ({ and: () => ({}), asc: () => ({}), eq: () => ({}), inArray: () => ({}), isNull: () => ({}), lt: () => ({}), ne: () => ({}), sql: () => ({}) }));
 vi.mock("@ae/core/db/client", () => {
   const schema = Object.fromEntries(["jobs", "customers", "messages", "quotes", "followUps", "monitoringSubscriptions",
     "expertEngagements", "expertRequests", "experts", "outreachDrafts", "contactSuppressions"].map((n) => [n, h.table(n)]));

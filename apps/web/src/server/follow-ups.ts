@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { isEmailConfigured, sendEmail, type SentEmail } from "@ae/core/auth/email";
 import { newToken, hashToken } from "@ae/core/auth/tokens";
@@ -274,6 +274,8 @@ async function expertCandidates(now: Date): Promise<ExpertCandidate[]> {
     .innerJoin(r, eq(r.id, e.requestId)).innerJoin(x, eq(x.id, e.expertId)).innerJoin(d, eq(d.id, e.outreachDraftId))
     .where(and(
       eq(e.status, "invited"), eq(r.status, "open"), ne(x.status, "opted_out"),
+      // Call-mode / booked engagements keep their original token: booking, .ics and cancel links must not die.
+      eq(e.mode, "async"), isNull(e.scheduledAt),
       eq(d.status, "sent"), // never remind an invite a founder has not approved and sent
       sql`${e.expiresAt} > ${iso(now)}::timestamptz`,
       sql`${invitedAt} < ${iso(new Date(now.getTime() - EXPERT_REMINDER_DELAY_MS))}::timestamptz`,
@@ -327,14 +329,20 @@ async function runExpertRule(now: Date, deadline: number, r: FollowUpResult) {
         // Tokens are stored hashed, so links cannot be rebuilt: rotate to a fresh token (undone if the send fails).
         compose: async () => {
           const token = newToken();
-          const rotated = await db().update(e).set({ tokenHash: hashToken(token) })
-            .where(and(eq(e.id, c.id), eq(e.status, "invited"), eq(e.tokenHash, c.tokenHash))).returning({ id: e.id });
+          // The old hash is kept so the ORIGINAL invite's opt-out link keeps working (CAN-SPAM).
+          const rotated = await db().update(e)
+            .set({ tokenHash: hashToken(token), previousTokenHashes: sql`array_append(${e.previousTokenHashes}, ${c.tokenHash})` })
+            .where(and(eq(e.id, c.id), eq(e.status, "invited"), eq(e.tokenHash, c.tokenHash), eq(e.mode, "async"), isNull(e.scheduledAt)))
+            .returning({ id: e.id });
           if (rotated.length === 0) return null; // answered/cancelled/changed meanwhile
           const mail = buildExpertReminder({
             name: c.expertName, domain: c.domain, companyAddress: companyAddress(),
             questionnaireUrl: `${appUrl()}/expert/r/${token}`, optOutUrl: `${appUrl()}/expert/opt-out/${token}`,
           });
-          return { ...mail, undo: async () => { await db().update(e).set({ tokenHash: c.tokenHash }).where(eq(e.id, c.id)); } };
+          return { ...mail, undo: async () => {
+            await db().update(e).set({ tokenHash: c.tokenHash, previousTokenHashes: sql`array_remove(${e.previousTokenHashes}, ${c.tokenHash})` })
+              .where(eq(e.id, c.id));
+          }};
         },
         afterSend: async (sent) => { await recordEmailThread(sent.threadId, "expert_outreach", { expertEngagementId: c.id }); },
       }, r);

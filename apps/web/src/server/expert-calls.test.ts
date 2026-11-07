@@ -6,20 +6,34 @@ import {
   BOOKING_BLOCK_STATUS, BookBody, NotesBody, SlotsBody, bookingBlock, buildCallEmail, checkNoteStorage, icsDescription,
   newMeetUrl, slotStartError,
 } from "./expert-calls-logic";
-import { claimSlotStatement } from "./expert-calls";
+import { PgDialect } from "drizzle-orm/pg-core";
+import { bookSlotStatement, lockEngagementStatement } from "./expert-calls";
 
 const future = new Date(Date.now() + 86_400_000);
 const okEngagement = { status: "invited", expiresAt: future, mode: "call" };
 
+const dialect = new PgDialect();
+const SLOT = "11111111-1111-4111-8111-111111111111";
+const ENG = "22222222-2222-4222-8222-222222222222";
+
 describe("slot claim (race safety)", () => {
-  it("is ONE conditional UPDATE ... RETURNING, so concurrent claimers serialize on the row lock", () => {
-    const { sql, params } = claimSlotStatement("11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222").toSQL();
-    expect(sql).toMatch(/^update "call_slots" set "taken_by_engagement_id" = \$1 where \(/);
-    expect(sql).toContain('"call_slots"."taken_by_engagement_id" is null');
-    expect(sql).toContain('"call_slots"."starts_at" >');
-    expect(sql).toMatch(/returning /);
-    expect(sql).not.toMatch(/select/i);
-    expect(params).toContain("22222222-2222-4222-8222-222222222222");
+  it("is ONE statement: conditional claim, release-others and engagement update gated on the claim", () => {
+    const q = dialect.sqlToQuery(bookSlotStatement(SLOT, ENG, null, "https://meet.example/x", true));
+    expect(q.sql).toMatch(/update call_slots set taken_by_engagement_id = \$\d+\s+where id = \$\d+ and taken_by_engagement_id is null and starts_at > /);
+    // Optimistic check: the engagement must still hold the slot this request saw, otherwise the claim yields no row (409).
+    expect(q.sql).toMatch(/is not distinct from \$\d+::uuid/);
+    expect(q.sql).toMatch(/id <> \$\d+ and exists \(select 1 from claim\)/);
+    expect(q.sql).toMatch(/update expert_engagements[\s\S]*exists \(select 1 from claim\)/);
+    expect(q.params).toEqual(expect.arrayContaining([SLOT, ENG, "https://meet.example/x", true]));
+  });
+  it("carries the prior slot id for reschedules", () => {
+    const prior = "33333333-3333-4333-8333-333333333333";
+    expect(dialect.sqlToQuery(bookSlotStatement(SLOT, ENG, prior, "u", false)).params).toContain(prior);
+  });
+  it("is preceded by a per-engagement advisory xact lock", () => {
+    const q = dialect.sqlToQuery(lockEngagementStatement(ENG));
+    expect(q.sql).toMatch(/pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
+    expect(q.params).toEqual([ENG]);
   });
 });
 

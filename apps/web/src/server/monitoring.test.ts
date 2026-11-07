@@ -126,6 +126,16 @@ describe("runMonitoring selection", () => {
     expect(out.processed).toBe(1);
   });
 
+  it("skips targets that fail the URL guard without running the suite", async () => {
+    h.subs = [sub("s1")];
+    for (const url of ["http://x.test/v1", "https://localhost/v1", "https://10.0.0.5/v1", "https://169.254.169.254/latest"]) {
+      h.jobs.set(JOB_ID, { ...job(), intake: { package: "text_eval", endpoint: { url, model: "m", apiKey: "k", systemPrompt: "" } } });
+      const out = await runMonitoring();
+      expect(out.skippedDetail[0]?.reason).toBe("target_rejected");
+    }
+    expect(h.runSuite).not.toHaveBeenCalled();
+  });
+
   it("runs the suite with the monitoring budget and stores the baseline without emailing", async () => {
     h.subs = [sub("s1")];
     const out = await runMonitoring();

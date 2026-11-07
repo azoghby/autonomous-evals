@@ -283,6 +283,8 @@ export const expertEngagements = pgTable("expert_engagements", {
   expertId: uuid("expert_id").notNull().references(() => experts.id),
   mode: text("mode").notNull().default("async"), // async | call
   tokenHash: text("token_hash").notNull(),
+  /** Hashes of rotated-out tokens. Only opt-out (CAN-SPAM) still honors these; everything else needs the current token. */
+  previousTokenHashes: text("previous_token_hashes").array().notNull().default(sql`'{}'::text[]`),
   expiresAt: ts("expires_at").notNull(),
   scheduledAt: ts("scheduled_at"),
   calendarEventId: text("calendar_event_id"),

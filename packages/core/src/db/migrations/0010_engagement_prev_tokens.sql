@@ -1,0 +1,1 @@
+ALTER TABLE "expert_engagements" ADD COLUMN "previous_token_hashes" text[] DEFAULT '{}'::text[] NOT NULL;

@@ -23,7 +23,7 @@ export const icsDate = (d: Date) =>
 
 /** TEXT value escaping per RFC 5545 section 3.3.11. */
 export const icsEscape = (s: string) =>
-  s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
+  s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 
 /** Fold at 75 octets (not splitting multi-byte characters); continuation lines start with a space. */
 export function foldLine(line: string): string {

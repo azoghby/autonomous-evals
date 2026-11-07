@@ -33,19 +33,38 @@ export function reserveStatement(jobId: string, agent: string, microUsd: number)
     select (select id from ins) as reservation_id, (select remaining from room) as remaining`;
 }
 
+/** Per-job transaction-scoped advisory lock; the next statement in the same batch sees a fresh snapshot after acquiring it. */
+export const lockJobStatement = (jobId: string) => sql`select pg_advisory_xact_lock(hashtext(${jobId}))`;
+
+/**
+ * Marks the reservation released and, only if that transition actually happened, decrements the job's
+ * reserved counter by the released amount (never below zero).
+ */
+export function releaseStatement(jobId: string, reservationId: string) {
+  return sql`
+    with rel as (
+      update budget_reservations set released_at = now()
+      where id = ${reservationId} and job_id = ${jobId} and released_at is null
+      returning job_id, micro_usd
+    )
+    update jobs set budget_reserved_micro_usd = greatest(0, budget_reserved_micro_usd - (select sum(micro_usd) from rel))
+    where id in (select job_id from rel)`;
+}
+
 export function createBudgetReserver(jobId: string): BudgetReserver {
   return {
     async reserve(agent, microUsd): Promise<ReserveResult> {
       if (!Number.isSafeInteger(microUsd) || microUsd <= 0) throw new Error("microUsd must be a positive integer");
-      const res = await db().execute(reserveStatement(jobId, agent, microUsd));
+      // Non-interactive transaction: the xact lock serializes concurrent reservers of this job, and the
+      // reserve statement then reads a snapshot taken after the lock was granted (READ COMMITTED).
+      const d = db();
+      const [, res] = await d.batch([d.execute(lockJobStatement(jobId)), d.execute(reserveStatement(jobId, agent, microUsd))]);
       const row = res.rows[0] as { reservation_id: string | null; remaining: string | number | null } | undefined;
       if (row?.reservation_id) return { ok: true, reservationId: row.reservation_id };
       return { ok: false, remainingMicroUsd: Math.max(0, Number(row?.remaining ?? 0)) };
     },
     async release(reservationId) {
-      await db().execute(sql`
-        update budget_reservations set released_at = now()
-        where id = ${reservationId} and job_id = ${jobId} and released_at is null`);
+      await db().execute(releaseStatement(jobId, reservationId));
     },
   };
 }

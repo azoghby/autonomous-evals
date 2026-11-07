@@ -26,7 +26,7 @@ describe("buildIcs", () => {
     expect(lines.at(-2)).toBe("END:VCALENDAR");
   });
   it("escapes text and keeps lines within 75 octets", () => {
-    expect(ics).toContain("SUMMARY:Call\\, with\; Evals");
+    expect(ics).toContain("SUMMARY:Call\\, with\\; Evals");
     expect(ics).toContain("\\n");
     for (const l of lines) expect(Buffer.byteLength(l)).toBeLessThanOrEqual(75);
   });
@@ -39,6 +39,7 @@ describe("buildIcs", () => {
 
 describe("helpers", () => {
   it("formats UTC dates", () => expect(icsDate(new Date("2026-01-02T03:04:05Z"))).toBe("20260102T030405Z"));
+  it("escapes semicolons with a backslash", () => expect(icsEscape("a;b")).toBe("a\\;b"));
   it("escapes backslashes", () => expect(icsEscape("a\\b")).toBe("a\\\\b"));
   it("folds without splitting multibyte characters", () => {
     const folded = foldLine("X:" + "é".repeat(80));

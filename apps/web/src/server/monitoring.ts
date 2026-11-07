@@ -1,4 +1,5 @@
 import "server-only";
+import { rejectTargetUrl } from "./target-url";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { MONITORING_RUN_BUDGET_MICRO_USD, Suite } from "@ae/core/contracts/index";
@@ -113,6 +114,7 @@ async function processSubscription(
 
   const target = targetFromIntake(intake);
   if (!target) return { kind: "skipped", reason: "intake_has_no_endpoint" };
+  if (rejectTargetUrl(target.url)) return { kind: "skipped", reason: "target_rejected" };
   const needsKey = Array.isArray((intake as unknown as { _credentialSlots?: unknown })._credentialSlots);
   if (!target.apiKey && !full.credentialsPresent && needsKey) {
     // Credentials are deleted after delivery; a target that needed a key cannot be re-run.

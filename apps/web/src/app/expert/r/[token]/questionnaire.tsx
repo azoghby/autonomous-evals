@@ -53,6 +53,20 @@ export function Questionnaire({ token }: { token: string }) {
     } finally { setSending(false); }
   }
 
+  if (data.mode === "call") {
+    return (
+      <div className="space-y-6">
+        <header className="space-y-3">
+          <Chip tone="info" dot>{data.domain}</Chip>
+          <h1 className="text-3xl font-semibold tracking-tight">Book a call, {dollars(data.honorariumCents)} honorarium</h1>
+          <p className="text-sm text-muted">{data.purpose}</p>
+          <Button href={`/expert/book/${encodeURIComponent(token)}`} size="lg">Book a call</Button>
+          <p className="text-xs text-subtle">Link expires {new Date(data.expiresAt).toLocaleDateString()}.</p>
+        </header>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={submit} className="space-y-6">
       <header className="space-y-3">

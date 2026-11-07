@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gt, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { hashToken, operatorEmails } from "@ae/core/auth/tokens";
 import { sendEmail } from "@ae/core/auth/email";
@@ -18,19 +18,39 @@ const ICS_TYPE = "text/calendar; charset=utf-8";
 // ---- the atomic claim ---------------------------------------------------------------------------
 
 /**
- * The ONE statement that books a slot: UPDATE ... WHERE taken_by_engagement_id IS NULL AND starts_at > cutoff
- * RETURNING. Postgres row-locks serialize concurrent claimers, so exactly one gets a row back.
+ * The ONE statement that books (or reschedules to) a slot, atomically with the engagement update:
+ *  - claims the slot only if it is free, in the future, AND the engagement still holds `priorSlotId` (optimistic
+ *    check: a concurrent booking of the same engagement makes this one lose instead of releasing the other's slot),
+ *  - frees any other slot the engagement holds, and writes scheduled_at / calendar_event_id / recording_consent,
+ *  - all gated on the claim having succeeded (zero rows back = lost).
+ * Run it after lockEngagementStatement in one db().batch so it reads a snapshot taken after the lock.
  * Exported (unexecuted) so tests can assert the SQL shape.
  */
-export function claimSlotStatement(slotId: string, engagementId: string, now = new Date()) {
-  return db().update(schema.callSlots).set({ takenByEngagementId: engagementId })
-    .where(and(
-      eq(schema.callSlots.id, slotId),
-      isNull(schema.callSlots.takenByEngagementId),
-      gt(schema.callSlots.startsAt, new Date(now.getTime() + MIN_SLOT_LEAD_MS)),
-    ))
-    .returning();
+export function bookSlotStatement(
+  slotId: string, engagementId: string, priorSlotId: string | null, meetUrl: string, recordingConsent: boolean, now = new Date(),
+) {
+  const cutoff = new Date(now.getTime() + MIN_SLOT_LEAD_MS).toISOString();
+  return sql`
+    with claim as (
+      update call_slots set taken_by_engagement_id = ${engagementId}
+      where id = ${slotId} and taken_by_engagement_id is null and starts_at > ${cutoff}::timestamptz
+        and (select id from call_slots where taken_by_engagement_id = ${engagementId} limit 1) is not distinct from ${priorSlotId}::uuid
+      returning id, starts_at, duration_min
+    ), freed as (
+      update call_slots set taken_by_engagement_id = null
+      where taken_by_engagement_id = ${engagementId} and id <> ${slotId} and exists (select 1 from claim)
+      returning id
+    ), eng as (
+      update expert_engagements
+      set scheduled_at = (select starts_at from claim), calendar_event_id = ${meetUrl}, recording_consent = ${recordingConsent}
+      where id = ${engagementId} and exists (select 1 from claim)
+      returning id
+    )
+    select id, starts_at, duration_min from claim`;
 }
+
+/** Per-engagement transaction-scoped advisory lock: serializes concurrent book requests for one engagement. */
+export const lockEngagementStatement = (engagementId: string) => sql`select pg_advisory_xact_lock(hashtext(${engagementId}))`;
 
 // ---- loading ------------------------------------------------------------------------------------
 
@@ -101,22 +121,14 @@ export async function bookSlot(token: string, slotId: string, recordingConsent: 
   const prior = await currentSlot(engagementId);
   if (prior?.id === slotId) throw new ExpertError(409, "You already booked this slot.");
 
-  const [slot] = await claimSlotStatement(slotId, engagementId);
-  if (!slot) throw new ExpertError(409, "That time was just taken or is no longer available. Please pick another.");
-
-  // Release any other slot this engagement holds (reschedule, or a parallel double-submit).
-  await d.update(schema.callSlots).set({ takenByEngagementId: null })
-    .where(and(eq(schema.callSlots.takenByEngagementId, engagementId), ne(schema.callSlots.id, slot.id)));
-
   const meetUrl = row.engagement.calendarEventId || newMeetUrl();
-  try {
-    await d.update(schema.expertEngagements)
-      .set({ scheduledAt: slot.startsAt, calendarEventId: meetUrl, recordingConsent })
-      .where(eq(schema.expertEngagements.id, engagementId));
-  } catch (err) {
-    await d.update(schema.callSlots).set({ takenByEngagementId: null }).where(eq(schema.callSlots.id, slot.id));
-    throw err;
-  }
+  const [, res] = await d.batch([
+    d.execute(lockEngagementStatement(engagementId)),
+    d.execute(bookSlotStatement(slotId, engagementId, prior?.id ?? null, meetUrl, recordingConsent)),
+  ]);
+  const claimed = res.rows[0] as { id: string; starts_at: string | Date; duration_min: number } | undefined;
+  if (!claimed) throw new ExpertError(409, "That time was just taken, or your booking changed in another request. Please reload and pick again.");
+  const slot = { id: claimed.id, startsAt: new Date(claimed.starts_at), durationMin: Number(claimed.duration_min) };
 
   const emailed = await sendInvites(row, token, slot, meetUrl, recordingConsent, !!prior);
   return { ...toBooking(slot, { calendarEventId: meetUrl, recordingConsent }), emailed };

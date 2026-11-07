@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { hashToken, newToken } from "@ae/core/auth/tokens";
 import {
@@ -40,7 +40,11 @@ export async function optOut(target: { token: string } | { email: string }): Pro
     const [row] = await db().select({ email: schema.experts.email })
       .from(schema.expertEngagements)
       .innerJoin(schema.experts, eq(schema.experts.id, schema.expertEngagements.expertId))
-      .where(eq(schema.expertEngagements.tokenHash, hashToken(target.token))).limit(1);
+      .where(or(
+        eq(schema.expertEngagements.tokenHash, hashToken(target.token)),
+        // Opt-out only: tokens rotated out by a reminder must keep working (CAN-SPAM).
+        sql`${hashToken(target.token)} = any(${schema.expertEngagements.previousTokenHashes})`,
+      )).limit(1);
     if (!row) return { ok: false, error: "This opt-out link is not valid." };
     email = row.email;
   } else {
@@ -195,6 +199,10 @@ export async function getQuestionnaire(token: string): Promise<QuestionnaireResu
   const row = await findEngagement(token);
   const check = checkEngagementToken(row?.engagement, new Date());
   if (check !== "ok" || !row) return { check: check === "ok" ? "not_found" : check };
+  // Call-mode engagements only get the booking page: no written questions are exposed.
+  if (row.engagement.mode !== "async") {
+    return { check: "ok", questionnaire: { ...toPublicQuestionnaire(row.request, row.engagement), questions: [] } };
+  }
   return { check: "ok", questionnaire: toPublicQuestionnaire(row.request, row.engagement) };
 }
 
@@ -207,6 +215,7 @@ export async function submitAnswers(token: string, answers: QuestionnaireAnswers
   if (check === "expired") return { ok: false, status: 410, error: "This link has expired." };
   if (check === "used") return { ok: false, status: 409, error: "These answers were already submitted." };
   if (check === "cancelled") return { ok: false, status: 410, error: "This invitation was cancelled." };
+  if (row.engagement.mode !== "async") return { ok: false, status: 409, error: "This invitation is for a call. Please book a time instead." };
 
   const questions = Array.isArray(row.request.questions) ? row.request.questions : [];
   const valid = validateAnswerIndexes(questions.length, answers);
