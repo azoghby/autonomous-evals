@@ -91,6 +91,20 @@ function parseMaybeJson(value: unknown): unknown {
   }
 }
 
+/** JSON field names are not evidence of failure; inspect decoded values only. */
+function hasErrorWording(value: unknown): boolean {
+  const pending: unknown[] = [value];
+  while (pending.length) {
+    const decoded = parseMaybeJson(pending.pop());
+    if (typeof decoded === "string") {
+      if (ERROR_WORDS.test(decoded)) return true;
+    } else if (decoded && typeof decoded === "object") {
+      for (const child of Object.values(decoded)) pending.push(child);
+    }
+  }
+  return false;
+}
+
 /** `{"ok": true}` / `{"success": true}` / exit code 0: wording like "no conflict" is not an error. */
 function explicitSuccessIn(value: unknown): boolean {
   const v = parseMaybeJson(value);
@@ -262,8 +276,9 @@ function fromText(content: string, out: RawEvent[]) {
 /**
  * Normalize a customer transcript. Throws TraceInputError for empty/oversized input.
  * Never truncates silently: oversize input is rejected, oversize single events are clipped with a warning.
+ * Known secrets are scrubbed from decoded event payloads, before any clipping.
  */
-export function normalizeTrace(content: string, format: "auto" | "json" | "jsonl" | "text" = "auto"): NormalizedTrace {
+export function normalizeTrace(content: string, format: "auto" | "json" | "jsonl" | "text" = "auto", knownSecrets: readonly string[] = []): NormalizedTrace {
   const bytes = byteLength(content);
   if (bytes > MAX_TRACE_BYTES) throw new TraceInputError("too_large", `trace is ${bytes} bytes; limit is ${MAX_TRACE_BYTES}`);
   if (content.trim() === "") throw new TraceInputError("empty", "trace is empty");
@@ -314,12 +329,12 @@ export function normalizeTrace(content: string, format: "auto" | "json" | "jsonl
   const events: TraceEvent[] = raw
     .filter((r) => r.text.trim() !== "" || r.kind === "tool_call")
     .map((r, index) => {
-      let text = r.text;
+      const red = redactSecrets(r.text, knownSecrets);
+      let text = red.text;
       if (text.length > MAX_EVENT_CHARS) {
         warnings.push(`event ${index + 1} clipped to ${MAX_EVENT_CHARS} characters`);
         text = `${text.slice(0, MAX_EVENT_CHARS)}…[clipped]`;
       }
-      const red = redactSecrets(text);
       redactions += red.redactions;
       const toolName = r.toolName ?? (r.toolCallId ? nameById.get(r.toolCallId) ?? null : null);
       const errorSignal: ErrorSignal =
@@ -327,14 +342,14 @@ export function normalizeTrace(content: string, format: "auto" | "json" | "jsonl
           ? null
           : r.explicitError
             ? "explicit"
-            : !explicitSuccessIn(r.text) && ERROR_WORDS.test(red.text)
+            : !explicitSuccessIn(r.text) && hasErrorWording(red.text)
               ? "pattern"
               : null;
       return {
         id: `e${index + 1}`,
         index,
         kind: r.kind,
-        text: red.text,
+        text,
         toolName,
         toolCallId: r.toolCallId ?? null,
         errorSignal,
@@ -351,12 +366,12 @@ export function normalizeTrace(content: string, format: "auto" | "json" | "jsonl
 /** Redact and bound the customer's system prompt (instructions under test). */
 export function normalizeInstructions(systemPrompt: string | null | undefined): { text: string | null; redactions: number; clipped: boolean } {
   if (!systemPrompt?.trim()) return { text: null, redactions: 0, clipped: false };
-  let text = systemPrompt;
+  const red = redactSecrets(systemPrompt);
+  let text = red.text;
   let clipped = false;
   while (byteLength(text) > MAX_SYSTEM_PROMPT_BYTES) {
     text = text.slice(0, Math.floor(text.length * 0.9));
     clipped = true;
   }
-  const red = redactSecrets(text);
-  return { text: red.text, redactions: red.redactions, clipped };
+  return { text, redactions: red.redactions, clipped };
 }

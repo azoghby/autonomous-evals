@@ -7,11 +7,11 @@ import type { Logger } from "../evals/types";
 
 const REDACTED = "[REDACTED]";
 
-/** Ordered: specific token shapes first, generic key=value shapes last. */
+/** Specific token shapes supplement credential assignments and known secrets. */
 const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp; group?: number }> = [
   { name: "pem_private_key", re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g },
-  { name: "anthropic_key", re: /\bsk-ant-[A-Za-z0-9_-]{16,}/g },
-  { name: "openai_key", re: /\bsk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{20,}/g },
+  { name: "anthropic_key", re: /sk-ant-[A-Za-z0-9_-]{16,}/g },
+  { name: "openai_key", re: /sk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{20,}/g },
   { name: "stripe_key", re: /\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{16,}/g },
   { name: "stripe_webhook_secret", re: /\bwhsec_[A-Za-z0-9]{16,}/g },
   { name: "github_token", re: /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})/g },
@@ -19,18 +19,12 @@ const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp; group?: number 
   { name: "aws_access_key", re: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g },
   { name: "google_api_key", re: /\bAIza[0-9A-Za-z_-]{35}\b/g },
   { name: "jwt", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g },
-  { name: "postgres_url_password", re: /\b(postgres(?:ql)?:\/\/[^:\s/]+:)[^@\s]+(@)/gi },
+  { name: "database_url_password", re: /\b([a-z][a-z0-9+.-]*:\/\/[^:\s/@]+:)[^@\s]+(@)/gi },
+  { name: "huggingface_token", re: /\bhf_[A-Za-z0-9]{20,}/g },
+  { name: "sendgrid_token", re: /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g },
+  { name: "npm_token", re: /\b(?:npm_|napi_)[A-Za-z0-9]{20,}/g },
+  { name: "gitlab_token", re: /\bglpat-[A-Za-z0-9_-]{20,}/g },
   { name: "bearer", re: /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{12,}/gi, group: 1 },
-  {
-    name: "auth_header",
-    re: /("?(?:authorization|x-api-key|api-key|cookie|set-cookie)"?\s*[:=]\s*"?)([^"\n,}]{6,})/gi,
-    group: 1,
-  },
-  {
-    name: "key_value_secret",
-    re: /("?\b(?:api[_-]?key|apikey|secret|client[_-]?secret|password|passwd|access[_-]?token|refresh[_-]?token|private[_-]?key)\b"?\s*[:=]\s*"?)([^"\s,}]{4,})/gi,
-    group: 1,
-  },
 ];
 
 export interface RedactionResult {
@@ -44,8 +38,9 @@ export function redactSecrets(input: string, knownSecrets: readonly string[] = [
   let redactions = 0;
   const kinds = new Set<string>();
 
-  for (const secret of knownSecrets) {
-    if (secret.length < 4) continue;
+  // JSON event payloads can still contain encoded string values after the outer trace is decoded.
+  const variants = new Set(knownSecrets.filter((s) => s.length >= 4).flatMap((s) => [s, JSON.stringify(s).slice(1, -1)]));
+  for (const secret of [...variants].sort((a, b) => b.length - a.length)) {
     const parts = text.split(secret);
     if (parts.length > 1) {
       redactions += parts.length - 1;
@@ -54,13 +49,41 @@ export function redactSecrets(input: string, knownSecrets: readonly string[] = [
     }
   }
 
+  // Capture a complete quoted value (including escaped quotes), or one unquoted assignment.
+  // Matching whole keys avoids treating ordinary words such as "tokenizer" as credentials.
+  const assignments = /(^|[^A-Za-z0-9_-])(["']?)([A-Za-z][A-Za-z0-9_-]*)\2(\s*[:=]\s*)/g;
+  const edits: Array<{ start: number; end: number; replacement: string }> = [];
+  for (const match of text.matchAll(assignments)) {
+    const key = match[3]!;
+    const sensitive = /(?:^|[_-])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key)(?:$|[_-])|(?:password|passwd|secret|token|apiKey|privateKey)$/i.test(key)
+      || /^(?:authorization|x-api-key|api-key|cookie|set-cookie)$/i.test(key);
+    if (!sensitive) continue;
+    const start = match.index + match[0].length;
+    if (edits.length && start < edits[edits.length - 1]!.end) continue;
+    const valuePattern = /^(?:authorization|x-api-key|api-key|cookie|set-cookie)$/i.test(key) && !/^["']/.test(text.slice(start))
+      ? /^[^\r\n,}]+/
+      : /^("(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^\s,;}&"']+)/;
+    const value = valuePattern.exec(text.slice(start))?.[0];
+    if (!value) continue;
+    const quoted = value.startsWith('"') || value.startsWith("'");
+    const inner = quoted ? value.slice(1, -1) : value;
+    if (!inner || inner === REDACTED || /^(?:null|false|true)$/i.test(inner)) continue;
+    redactions++;
+    kinds.add("key_value_secret");
+    edits.push({ start, end: start + value.length, replacement: quoted ? `${value[0]}${REDACTED}${value[0]}` : REDACTED });
+  }
+  for (const edit of edits.reverse()) text = text.slice(0, edit.start) + edit.replacement + text.slice(edit.end);
+
   for (const { name, re, group } of SECRET_PATTERNS) {
     re.lastIndex = 0;
     text = text.replace(re, (...args: unknown[]) => {
+      const replacement = name === "database_url_password"
+        ? `${String(args[1])}${REDACTED}${String(args[2])}`
+        : group ? `${String(args[group])}${REDACTED}` : REDACTED;
+      if (replacement === args[0]) return replacement;
       redactions += 1;
       kinds.add(name);
-      if (name === "postgres_url_password") return `${String(args[1])}${REDACTED}${String(args[2])}`;
-      return group ? `${String(args[group])}${REDACTED}` : REDACTED;
+      return replacement;
     });
   }
   return { text, redactions, kinds: [...kinds] };
@@ -68,16 +91,15 @@ export function redactSecrets(input: string, knownSecrets: readonly string[] = [
 
 /** True when the text still contains a known secret or a recognizable credential. */
 export function containsSecret(text: string, knownSecrets: readonly string[] = []): boolean {
-  if (knownSecrets.some((s) => s.length >= 4 && text.includes(s))) return true;
-  return redactSecrets(text).redactions > 0;
+  return redactSecrets(text, knownSecrets).redactions > 0;
 }
 
 /** Deep-redacts strings inside JSON-like values (for log payloads). Bounded depth and size. */
 export function redactValue(value: unknown, knownSecrets: readonly string[] = [], depth = 0): unknown {
   if (depth > 6) return "[TRUNCATED]";
   if (typeof value === "string") {
-    const clipped = value.length > 2_000 ? `${value.slice(0, 2_000)}…[truncated]` : value;
-    return redactSecrets(clipped, knownSecrets).text;
+    const redacted = redactSecrets(value, knownSecrets).text;
+    return redacted.length > 2_000 ? `${redacted.slice(0, 2_000)}…[truncated]` : redacted;
   }
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => redactValue(v, knownSecrets, depth + 1));
   if (value && typeof value === "object") {
