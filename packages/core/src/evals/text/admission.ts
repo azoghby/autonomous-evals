@@ -31,7 +31,7 @@ function parseInstruction(line: string): ObjectiveSpec | null {
  * A newline is a boundary only outside quotes; incomplete lines cannot donate substrings.
  * Apostrophes within words are not quotation delimiters. Code/markup is handled as opaque.
  */
-function sentences(text: string): { start: number; quote: string }[] {
+export function sentences(text: string): { start: number; quote: string }[] {
   const result: { start: number; quote: string }[] = [];
   let start = 0, quote = '', escaped = false;
   const emit = (end: number) => {

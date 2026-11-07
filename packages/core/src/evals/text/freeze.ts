@@ -1,3 +1,4 @@
+import { rubricAdmissionProblems } from './rubric-admission';
 import { objectiveAdmissionProblems } from './admission';
 /**
  * Freezing: a suite is identified by the SHA-256 of its canonical JSON. Runs, reproductions,
@@ -28,7 +29,7 @@ export function suiteDigest(body: FrozenTextSuiteBody): string {
 
 export function freezeSuite(body: FrozenTextSuiteBody): FrozenTextSuite {
   const parsed = FrozenTextSuiteBodySchema.parse({ ...body, referenceText: normalizeReferenceText(body.referenceText) });
-  const problems = parsed.constraintCatalog ? objectiveAdmissionProblems(parsed) : [];
+  const problems = parsed.constraintCatalog ? [...objectiveAdmissionProblems(parsed), ...rubricAdmissionProblems(parsed)] : [];
   if (problems.length) throw new FrozenSuiteAdmissionError(problems.join("; "));
   if (containsSecret(JSON.stringify(parsed))) throw new FrozenSuiteIntegrityError("suite contains credential content");
   return FrozenTextSuiteSchema.parse({ ...parsed, digest: suiteDigest(parsed) });
@@ -58,7 +59,7 @@ export function verifyFrozenSuite(stored: unknown): FrozenTextSuite {
 /** Execution/investigation/monitoring boundary. Integrity alone is not design admission. */
 export function verifyAdmittedFrozenSuite(stored: unknown): FrozenTextSuite {
   const suite = verifyFrozenSuite(stored);
-  const problems = objectiveAdmissionProblems(suite);
+  const problems = [...objectiveAdmissionProblems(suite), ...rubricAdmissionProblems(suite)];
   if (problems.length) throw new FrozenSuiteAdmissionError(problems.join("; "));
   return suite;
 }

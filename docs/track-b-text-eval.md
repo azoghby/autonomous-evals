@@ -123,3 +123,39 @@ node tests/track-b/calendar-integration-review/run.mjs --track-a-ref origin/trac
 All strict TypeScript checks pass. Selected evals: **312 tests / 21 files**, none skipped, including 13 calendar integration service tests, 12 integration service tests, 5 PGlite checkpoints and 38 PostgreSQL data-store tests. Text security review: **116 tests / 5 files**, including 50 admission tests and unchanged execution/investigation safety regressions. Calendar integration review dependents: **20 tests / 2 files**, none skipped. The final text review also strengthens the same-input v1/v2 task-identity assertion. `git diff --check` passes.
 
 The existing offline dependency cache was temporarily symlinked at `tests/track-b/node_modules` for the selected/calendar harnesses and removed afterward. Local `origin/track-a` resolved to `103ff42059da950780213bb8ea2832521c457eb9`; shared-contract digest remains `67a98dc7ddab55f56223fe40b402edae6bd0edbab4d4d070a19706fc006ae915`. Initial new-test typing errors and a quoted conditional sentence-boundary failure were corrected before the passing runs. A disjoint read-only Sol adversarial review supplied parser cases. No ECC, Track A edits, provider/cloud calls, install/fetch, outreach, push or PR. The parent still owns the next bounded live diagnostic and real-agent quality acceptance.
+
+## Rubric assessment binding follow-up (offline)
+
+The third live diagnostic's S06/S07/S11/S12 defects now fail code admission, even if an investigator accepts everything. The original proposed policy bound all new rubrics to reference-required assessment; the v2 correction below supersedes that overbroad policy. the source-bound fallback check separates judged applicability from code-enforced exact response equality. The unchanged Lumen prompt, reference, twelve questions and unconditional objectives remain intact. Integrity-only reading/hashing preserves old bytes/digests; unsafe execution is rejected separately. See [rubric admission details and limitations](track-b-text-design-admission.md#rubric-admission-follow-up-reference_assessmentv2).
+
+Task identity now also includes `reference_assessment.v1`. The objective catalog remains `explicit_output.v2`. Optional schema fields are `requiresReference?: true` (code assigned on new designs) and `conditionalInstructionId?: string` (canonical source binding). The conservative policy can leave even behavioral rubric checks unassessed without a reference; legacy unbound generic rubrics retain prior semantics, while the recognized reference-fallback source closes the actual live fixture's flag bypass. Applicability and factual usefulness remain judge responsibilities; this is not unrestricted semantic classification or proof of real-agent quality.
+
+Final verification for this follow-up (no provider/cloud calls, install or fetch):
+
+```sh
+TEXT_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/text-security-review/run.mjs
+npm --prefix tests/track-b run check -- --components evals --track-a-ref origin/track-a
+git diff --check
+```
+
+Strict TypeScript passes; text security review passes **131 tests / 6 files**; selected evals pass **351 tests / 23 files**, none skipped. Fifteen new regressions use a byte-identical owned copy of the third live evidence solely for isolated harness staging. They cover live quarantine before dispatch, bounded design rejection despite review acceptance, false flags, removed/foreign conditional bindings, weakened templates, missing/blank references, reused bound checks, exact response violations including refusal, unknown applicability, and invalid reference citations. Existing useful-design, objective, T1–T3 and integration/PGlite tests remain green. Local `origin/track-a` resolved to `90bb8b382878c1888d998834f5758bfd5b783f51`, contract digest unchanged. A temporary symlink to the existing offline dependency cache was removed after checks. Initial new-fixture duplicate IDs and a parameterized test typing issue were corrected before final passing runs. No unowned source or historical evidence/digest was edited; no push or PR. Parent owns live validation and integration of the optional assessment fields.
+
+
+## Behavioral assessment correction (reference_assessment.v2)
+
+Proposed `113bb80d0e5ccd04bcaefe80d69341fd32fe7634` was applied locally as `46808f5`, then corrected and squashed into a single replacement commit without modifying shared judges, contracts, manifests or application code. Its live-fixture quarantine, exact conditional wording guard, source bindings and task identity are retained. V2 adds a narrow source-bound tone assessment exception to the reference default, restoring actual no-reference subjective judging under PLAN.md §4.2. See the [supported grammar and compatibility limits](track-b-text-design-admission.md#rubric-admission-follow-up-reference_assessmentv2). The new optional `behavioralInstructionId` field must be accepted by external closed-schema consumers before integration; those files are parent-owned.
+
+The added composition tests use the real `createGatewayJudge` with injected fetch, token, authorization and usage recording. They demonstrate supported behavioral execution without reference, blocked factual/source-absence checks, evidence-backed behavioral concerns, unknown dispatch usage without retries, conditional applicability supported by exact reference quotations, exact response equality, refusal/addition/paraphrase rejection when applicable, unknown applicability, 50-word/forbidden-token failures and the valid three-project paraphrase. Missing token counts remain null and no dollar cost is invented. The separate useful-answer rubrics in the existing repaired-fixture tests remain necessary: conditional non-applicability alone does not prove a good answer.
+
+Historical evidence is unchanged: the live JSON and owned isolated-test copy both have file SHA-256 `1e214e2c21861b2b29bef10d2105b6b2f79325d1ebeae3f625201f1a68e7dc6b`; original suite digest remains `39648dc16b59ceb3816b8096713ef6e2bbccc81404953c3263e6ba3cfc97f9c2`. S06/S07/S11/S12 remain rejected before any target or judge dispatch. No evidence was regenerated.
+
+
+Final offline verification for the v2 correction:
+
+```sh
+TEXT_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/text-security-review/run.mjs
+node tests/track-b/run-checks.mjs --components evals,judges --track-a-ref origin/track-a
+git diff --check
+```
+
+Strict TypeScript passed in both harnesses. Isolated text/security review: **148 tests / 7 files**. Selected evals/judges: **397 tests / 26 files**, none skipped. Shared contracts came from already-local `origin/track-a` at `e6a77c7ad694d7cb1f562d0eeb6ff242d105a382`, contract digest `67a98dc7ddab55f56223fe40b402edae6bd0edbab4d4d070a19706fc006ae915`. The first invocation lacked local node_modules; a temporary symlink to the existing offline cache resolved it and was removed afterward. No install, network fetch, provider/cloud call, ECC, delegate, push or PR. Real-agent quality and conditional applicability accuracy remain unverified; the parent owns the bounded live diagnostic after integration review.

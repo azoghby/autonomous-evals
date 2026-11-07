@@ -99,6 +99,12 @@ export const RubricCheckSchema = z
     rubric: NonEmpty(1_500),
     /** True when the rubric judges factual correctness; requires reference text, else not_assessed. */
     assessesFactualCorrectness: z.boolean(),
+    /** Source-bound tone assessment; exact source and rubric template are code validated. */
+    behavioralInstructionId: z.string().optional(),
+    /** Code-bound conservative reference dependency; absent only in legacy suites. */
+    requiresReference: z.literal(true).optional(),
+    /** Source-bound conditional response; rubric text must equal the code template. */
+    conditionalInstructionId: z.string().optional(),
   })
   .strict();
 export type RubricCheck = z.infer<typeof RubricCheckSchema>;

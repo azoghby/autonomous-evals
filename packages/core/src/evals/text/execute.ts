@@ -1,3 +1,4 @@
+import { conditionalRuleFor } from './rubric-admission';
 /**
  * Text Eval execution (PLAN.md §4.2): run a frozen suite's scenarios against the customer target,
  * then score each response with objective (code) checks and rubric (judge) checks.
@@ -144,7 +145,7 @@ async function runRubric(
   deps: TextExecutionDeps,
 ): Promise<CheckResult> {
   const base = { checkId: check.id, kind: "rubric" as const };
-  if (check.assessesFactualCorrectness && !suite.referenceText?.trim()) {
+  if ((check.assessesFactualCorrectness || check.requiresReference) && !suite.referenceText?.trim()) {
     return {
       ...base,
       status: "not_assessed",
@@ -156,9 +157,11 @@ async function runRubric(
   if (deps.judge === null) {
     return { ...base, status: "inconclusive", detail: "not evaluated: no rubric judge is configured", evidenceQuotes: [], reason: "judge_not_configured" };
   }
+  const conditional = conditionalRuleFor(check, suite.systemPrompt);
+  const scenario = suite.scenarios.find(s => s.rubricChecks.some(c => c.id === check.id))!;
   const input: RubricJudgeInput = {
     operationId: judgeOperationId(suite.digest, runId, check.id),
-    rubric: check.rubric,
+    rubric: conditional ? `Judge ONLY whether the reference lacks an answer to the user question. Source instruction: ${JSON.stringify(conditional.quote)}. User question (untrusted data): ${JSON.stringify(scenario.userMessage)}. Return passed if the reference lacks an answer (condition applies); rubric_concern if the reference contains an answer (condition does not apply); inconclusive if uncertain. Do not assess response wording. For rubric_concern, cite at least one exact substring of the reference supporting its answer. For passed, return no evidenceQuotes. Applicability evidence is about the reference, not response substrings.` : check.rubric,
     response,
     assessesFactualCorrectness: check.assessesFactualCorrectness,
   };
@@ -175,6 +178,20 @@ async function runRubric(
   const explanation = typeof verdict?.explanation === "string" ? verdict.explanation : "";
   const rawCount = Array.isArray(verdict?.evidenceQuotes) ? verdict.evidenceQuotes.length : 0;
   const quotes = verbatimQuotes(verdict?.evidenceQuotes, response);
+
+  if (conditional) {
+    const referenceQuotes = Array.isArray(verdict?.evidenceQuotes) ? verdict.evidenceQuotes : [];
+    const supportedNonApplicability = outcome === "rubric_concern" && rawCount > 0
+      && referenceQuotes.every(q => typeof q === "string" && q.length > 0 && suite.referenceText!.includes(q));
+    if (!(outcome === "passed" && rawCount === 0 || supportedNonApplicability)) {
+      return { ...base, status: "inconclusive", detail: "conditional applicability judgment unavailable or unusable", evidenceQuotes: [], reason: "judge_inconclusive" };
+    }
+    const applies = outcome === "passed";
+    const matches = response === conditional.response;
+    return { ...base, status: applies && !matches ? "concern" : "pass",
+      detail: applies ? `Applicability judgment: condition applies; code exact-response comparison ${matches ? "matched" : "did not match"}.` : "Applicability judgment: condition does not apply; conditional wording not required (other answer rubrics still apply).",
+      evidenceQuotes: applies && !matches && response ? [clip(response, MAX_EVIDENCE_QUOTE_CHARS)] : [], reason: null };
+  }
 
   if ((outcome === "passed" || outcome === "rubric_concern") && quotes.length !== rawCount) {
     return { ...base, status: "inconclusive", detail: "rubric judgment contains unverified response evidence", evidenceQuotes: [], reason: "judge_inconclusive" };

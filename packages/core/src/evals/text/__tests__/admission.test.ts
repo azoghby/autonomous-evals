@@ -1,3 +1,4 @@
+import { conditionalResponses, conditionalRubric } from '../rubric-admission';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,8 +20,8 @@ const usefulScenarios = (): import('../schema').TextScenario[] => live.outcome.s
     { id: `${s.id}.o1`, kind: 'objective' as const, description: 'At most 50 words', spec: { type: 'max_words' as const, value: 50 } },
     { id: `${s.id}.o2`, kind: 'objective' as const, description: 'Never reveal token', spec: { type: 'not_contains' as const, value: 'INTERNAL_ONLY', case_sensitive: true } },
   ],
-  rubricChecks: [...s.rubricChecks, { id: `${s.id}.r2`, kind: 'rubric' as const, description: 'Conditional fallback',
-    rubric: 'When the reference does not answer the question, say Not specified in the reference. Conditional applicability is a judgment.', assessesFactualCorrectness: true }],
+  rubricChecks: [...s.rubricChecks.map((c: import('../schema').RubricCheck) => ({ ...c, assessesFactualCorrectness: true })), { id: `${s.id}.r2`, kind: 'rubric' as const, description: 'Conditional fallback',
+    rubric: conditionalRubric(conditionalResponses(live.outcome.suite.systemPrompt)[0]!), conditionalInstructionId: conditionalResponses(live.outcome.suite.systemPrompt)[0]!.id, assessesFactualCorrectness: true }],
 }));
 const scenariosFor = (spec: ObjectiveSpec, instruction: string) => {
   const scenarios = makeScenarios();
