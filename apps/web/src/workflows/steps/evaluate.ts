@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { FatalError } from "workflow";
-import type { Finding, Report, Suite } from "@ae/core/contracts/index";
+import type { Finding, Remediation, Report, Suite } from "@ae/core/contracts/index";
 import type { RunResult } from "@ae/core/contracts/services";
 import { putJobArtifact } from "@ae/core/storage/blob";
-import { recordProgress, saveFindings, setJobState } from "@/server/job-store";
+import { findingRowIdByKey, recordProgress, saveFindings, saveRemediation, setJobState } from "@/server/job-store";
 import { getEvalServices } from "@/server/services";
 import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
 
@@ -97,11 +97,38 @@ export async function investigateStep(jobId: string, suite: Suite, runs: RunResu
 }
 investigateStep.maxRetries = 1;
 
-export async function renderReportStep(jobId: string, findings: Finding[], suite?: Suite): Promise<BudgetResult<Report>> {
+/**
+ * Proposes + verifies a fix for one confirmed finding (engineer budget share). Never fails the job:
+ * a service error yields data=null and a progress note. The finding row is stored first (idempotent) so the
+ * remediation can reference it; persistReportStep later skips already-stored keys.
+ */
+export async function proposeFixStep(jobId: string, finding: Finding, suite?: Suite): Promise<BudgetResult<Remediation | null>> {
   "use step";
   const intake = await loadIntake(jobId, false);
   const services = await getEvalServices();
-  return withBudget(jobId, "operator", (ctx) => services.renderReport(ctx, { intake, findings, suite }));
+  const result = await withBudget(jobId, "engineer", async (ctx) => {
+    try {
+      await ctx.recordProgress("proposing_fix", `Proposing and verifying a fix for "${finding.title.slice(0, 120)}".`);
+      const fix = await services.proposeAndVerifyFix(ctx, { finding, suite, intake });
+      await saveFindings(jobId, [finding]);
+      const rowId = await findingRowIdByKey(jobId, finding.id);
+      if (!rowId) throw new Error("finding row missing");
+      await saveRemediation(jobId, rowId, fix);
+      return fix;
+    } catch (err) {
+      await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
+      return null;
+    }
+  });
+  return result;
+}
+proposeFixStep.maxRetries = 1;
+
+export async function renderReportStep(jobId: string, findings: Finding[], suite?: Suite, remediations?: Remediation[]): Promise<BudgetResult<Report>> {
+  "use step";
+  const intake = await loadIntake(jobId, false);
+  const services = await getEvalServices();
+  return withBudget(jobId, "operator", (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations }));
 }
 renderReportStep.maxRetries = 1;
 

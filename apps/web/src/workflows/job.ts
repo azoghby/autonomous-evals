@@ -1,17 +1,19 @@
 import { createHook, FatalError } from "workflow";
 import { jobHookToken, type JobEvent, type QualifyResult } from "@ae/core/contracts/index";
+import type { Remediation } from "@ae/core/contracts/index";
 import type { RunResult } from "@ae/core/contracts/services";
 import { connectionFailureMessage, decideAfterQualify, decidePayment, isQuoteAcceptance, MAX_CLARIFICATION_ROUNDS,
-  MAX_CONNECTION_CHECK_ROUNDS, needsConnectionCheck } from "./decisions";
+  MAX_CONNECTION_CHECK_ROUNDS, needsConnectionCheck, selectFindingsForFix } from "./decisions";
 import {
   cancelStep, commercialMessageStep, declineStep, deliverStep, failStep, getStateStep, neonDeliverySafetyStep, pauseBudgetStep,
   progressStep, setStateStep,
 } from "./steps/lifecycle";
 import { connectionCheckStep, createQuoteStep, qualifyStep } from "./steps/quote";
 import {
-  auditTraceStep, createBranchStep, designSuiteStep, investigateStep, persistReportStep, renderReportStep, runSuiteStep,
+  auditTraceStep, createBranchStep, designSuiteStep, investigateStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
 } from "./steps/evaluate";
 import { notifyCustomerStep } from "./steps/notify";
+import { flagSettlementFailureStep, settlePaymentStep } from "./steps/billing";
 
 type PaymentEvent = Extract<JobEvent, { type: "payment_confirmed" }>;
 type Outcome = { jobId: string; status: "delivered" | "cancelled" | "failed" | "paused_budget" | "declined" | "already_finished" };
@@ -120,6 +122,10 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.
     const delivered = await deliverStep(jobId);
     await neonDeliverySafetyStep(jobId, delivered.deliveredAtIso); // non-fatal: never fails delivery
+    // Per-finding pricing: capture $3 per confirmed finding (capped) or release the hold. Never fails delivery.
+    try { await settlePaymentStep(jobId); } catch (err) {
+      await flagSettlementFailureStep(jobId, err instanceof Error ? err.message : String(err));
+    }
     await notifyCustomerStep(jobId);
     return { jobId, status: "delivered" };
   }
@@ -157,7 +163,17 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
   }
 
   async function finishReport(findings: Parameters<typeof renderReportStep>[1], suite?: Parameters<typeof renderReportStep>[2]): Promise<Stopped | undefined> {
-    const rendered = await renderReportStep(jobId, findings, suite);
+    // "Fix, not just find": propose + verify a fix per confirmed finding (max 5). Budget shortfall skips the rest.
+    const remediations: Remediation[] = [];
+    for (const f of selectFindingsForFix(findings)) {
+      const fix = await proposeFixStep(jobId, f, suite);
+      if (fix.status === "budget_exceeded") {
+        await progressStep(jobId, "fixes_skipped", "Skipped remaining fix verification: per-job budget is limited. Findings are still reported.");
+        break;
+      }
+      if (fix.data) remediations.push(fix.data);
+    }
+    const rendered = await renderReportStep(jobId, findings, suite, remediations);
     if (rendered.status === "budget_exceeded") { await pauseBudgetStep(jobId, rendered.message); return { stopped: "paused_budget" }; }
     await persistReportStep(jobId, rendered.data);
     return undefined;

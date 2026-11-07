@@ -94,6 +94,10 @@ export const quotes = pgTable("quotes", {
   deliverables: jsonb("deliverables").notNull(),
   acceptedAt: ts("accepted_at"),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  /** 'fixed' | 'per_finding'. Chosen by the customer at acceptance; priceCents stays the fixed price. */
+  pricingMode: text("pricing_mode").notNull().default("fixed"),
+  /** Authorization cap for per_finding quotes (null for fixed). */
+  capCents: integer("cap_cents"),
   createdAt,
 }, (t) => [uniqueIndex("quotes_job_version_uq").on(t.jobId, t.version)]);
 
@@ -110,6 +114,9 @@ export const payments = pgTable("payments", {
   kind: text("kind").notNull().default("one_time"), // one_time | subscription
   /** Set once the workflow hook accepted payment_confirmed; null rows are retried by cron. */
   workflowResumedAt: ts("workflow_resumed_at"),
+  /** paid (fixed) | authorized (per_finding hold) | captured | released. */
+  status: text("status").notNull().default("paid"),
+  capturedAmountCents: integer("captured_amount_cents"),
   createdAt,
 }, (t) => [
   uniqueIndex("payments_session_uq").on(t.stripeCheckoutSessionId),
@@ -132,6 +139,15 @@ export const findings = pgTable("findings", {
   rerunOfFindingId: uuid("rerun_of_finding_id"),
   createdAt,
 }, (t) => [index("findings_job_idx").on(t.jobId)]);
+
+/** Validated fixes ("fix, not just find"): one per confirmed finding. data = Remediation contract. */
+export const remediations = pgTable("remediations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id),
+  findingRowId: uuid("finding_row_id").notNull().references(() => findings.id),
+  data: jsonb("data").notNull(),
+  createdAt,
+}, (t) => [index("remediations_job_idx").on(t.jobId), uniqueIndex("remediations_finding_uq").on(t.findingRowId)]);
 
 export const agentSessions = pgTable("agent_sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -292,3 +308,16 @@ export const rateLimits = pgTable("rate_limits", {
   windowStart: ts("window_start").notNull().defaultNow(),
   count: integer("count").notNull().default(0),
 });
+
+/** API keys for agents (MCP). Only the sha256 hash is stored; the plaintext is shown once at creation. */
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(),
+  /** First 8 chars of the plaintext key, for display only. */
+  prefix: text("prefix").notNull(),
+  lastUsedAt: ts("last_used_at"),
+  revokedAt: ts("revoked_at"),
+  createdAt,
+}, (t) => [uniqueIndex("api_keys_hash_uq").on(t.keyHash), index("api_keys_customer_idx").on(t.customerId)]);

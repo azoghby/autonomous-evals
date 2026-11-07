@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BRANCH_TTL_MS, CREDENTIALS_TTL_MS, MAX_CLARIFICATION_ROUNDS, budgetCheck, BUDGET_SHARE,
   decideAfterQualify, decideCancel, decidePayment, deliveryDeadlines, isQuoteAcceptance,
-  connectionFailureMessage, needsConnectionCheck, sanitizeCheckDetail,
+  connectionFailureMessage, needsConnectionCheck, sanitizeCheckDetail, selectFindingsForFix,
 } from "./decisions";
 
 const pay = (quoteVersion: number, paymentId = "11111111-1111-4111-8111-111111111111") =>
@@ -104,5 +104,28 @@ describe("decideCancel", () => {
     const op = { id: "op", isOperator: true };
     expect(decideCancel(job("running"), op)).toEqual({ allowed: true, asOperator: true });
     expect(decideCancel(job("cancelled"), op)).toMatchObject({ allowed: false, status: 409 });
+  });
+});
+
+describe("selectFindingsForFix", () => {
+  const f = (id: string, status: "confirmed" | "rubric_concern" | "inconclusive", severity: "critical" | "high" | "medium" | "low") => ({ id, status, severity });
+  it("keeps only confirmed findings, deduped, most severe first", () => {
+    const out = selectFindingsForFix([f("a", "confirmed", "low"), f("b", "inconclusive", "critical"), f("c", "confirmed", "critical"), f("a", "confirmed", "low")]);
+    expect(out.map((x) => x.id)).toEqual(["c", "a"]);
+  });
+  it("caps at 5 by default and honors a custom max", () => {
+    const many = Array.from({ length: 8 }, (_, i) => f(`f${i}`, "confirmed", "medium"));
+    expect(selectFindingsForFix(many)).toHaveLength(5);
+    expect(selectFindingsForFix(many, 2).map((x) => x.id)).toEqual(["f0", "f1"]);
+    expect(selectFindingsForFix(many, 0)).toEqual([]);
+  });
+});
+
+import { settlementMessage } from "./decisions";
+describe("settlementMessage", () => {
+  it("describes charges and the zero case", () => {
+    expect(settlementMessage(2, 600)).toBe("Charged $6.00 for 2 confirmed findings.");
+    expect(settlementMessage(1, 300)).toBe("Charged $3.00 for 1 confirmed finding.");
+    expect(settlementMessage(0, 0)).toBe("No confirmed findings: authorization released, you pay $0.");
   });
 });

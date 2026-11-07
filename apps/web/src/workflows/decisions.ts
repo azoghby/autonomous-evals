@@ -1,4 +1,4 @@
-import type { JobEvent, JobState, Package } from "@ae/core/contracts/index";
+import type { Finding, JobEvent, JobState, Package } from "@ae/core/contracts/index";
 
 /** Pure decision logic for jobWorkflow, kept free of I/O so it is unit-testable. */
 
@@ -103,4 +103,27 @@ export function decideCancel(job: { customerId: string; state: JobState }, viewe
     return { allowed: false, status: 409, error: "Work has already started and can no longer be cancelled here; contact support" };
   }
   return { allowed: true, asOperator: viewer.isOperator };
+}
+
+export const MAX_FIXES_PER_JOB = 5;
+const SEVERITY_RANK: Record<Finding["severity"], number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+/** Which findings get a proposed + verified fix: confirmed only, unique ids, most severe first, capped. Pure. */
+export function selectFindingsForFix<T extends Pick<Finding, "id" | "status" | "severity">>(
+  findings: readonly T[], max: number = MAX_FIXES_PER_JOB,
+): T[] {
+  const seen = new Set<string>();
+  const eligible = findings.filter((f) => {
+    if (f.status !== "confirmed" || seen.has(f.id)) return false;
+    seen.add(f.id);
+    return true;
+  });
+  // Array.prototype.sort is stable, so equal severities keep their original order.
+  return [...eligible].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]).slice(0, Math.max(0, max));
+}
+
+/** Customer-facing progress line for a settled per-finding payment. */
+export function settlementMessage(confirmedCount: number, amountCents: number): string {
+  if (amountCents <= 0) return "No confirmed findings: authorization released, you pay $0.";
+  return `Charged $${(amountCents / 100).toFixed(2)} for ${confirmedCount} confirmed finding${confirmedCount === 1 ? "" : "s"}.`;
 }

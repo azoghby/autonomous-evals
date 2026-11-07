@@ -17,6 +17,33 @@ export const PRICE_CENTS: Record<Package, number> = {
 };
 export const MONITORING_PRICE_CENTS_MONTHLY = 4900;
 
+/** Pricing modes: 'fixed' (default, PRICE_CENTS) or 'per_finding' (authorize the cap, capture per confirmed finding). */
+export const PRICING_MODES = ["fixed", "per_finding"] as const;
+export const PricingMode = z.enum(PRICING_MODES);
+export type PricingMode = z.infer<typeof PricingMode>;
+export const PER_FINDING_CENTS = 300;
+export const PER_FINDING_CAP_CENTS: Record<Package, number> = {
+  trace_audit: 1500,
+  text_eval: 1500,
+  workflow_eval: 1500,
+  version_comparison: 3000,
+};
+export const PAYMENT_STATUSES = ["paid", "authorized", "captured", "released"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/** Revenue recognised for one payment row: captured amount for per-finding, nothing while held or after release. */
+export function recognizedRevenueCents(p: { status: string; amountCents: number; capturedAmountCents: number | null }): number {
+  if (p.status === "captured") return p.capturedAmountCents ?? 0;
+  if (p.status === "authorized" || p.status === "released") return 0;
+  return p.amountCents;
+}
+
+/** Amount to capture for a per-finding job: $3 per confirmed finding, capped. 0 means release the authorization. */
+export function perFindingCaptureCents(confirmedCount: number, capCents: number): number {
+  if (!Number.isInteger(confirmedCount) || confirmedCount <= 0) return 0;
+  return Math.min(confirmedCount * PER_FINDING_CENTS, capCents);
+}
+
 /** Per-job Naïve budget caps in micro-USD, reserved before dispatch. */
 export const JOB_BUDGET_MICRO_USD: Record<Package, number> = {
   trace_audit: 3_000_000,
@@ -145,6 +172,27 @@ export const Finding = z.object({
   reproductions: z.int().min(0).max(3).default(0),
 });
 export type Finding = z.infer<typeof Finding>;
+
+/** Pass counts before/after applying a remediation to the relevant frozen scenario(s) / trace re-check. */
+export const PassCounts = z.object({ passed: z.int().min(0), total: z.int().min(0) });
+
+/** "Fix, not just find": a proposed remediation for a confirmed finding plus its verification evidence. */
+export const Remediation = z.object({
+  findingId: z.string().min(1).max(64),
+  kind: z.enum(["prompt_patch", "tool_schema", "guardrail", "other"]),
+  summary: z.string().max(500),
+  /** Unified diff or replacement text. */
+  patch: z.string().max(20_000),
+  rationale: z.string().max(2_000),
+  verification: z.object({
+    status: z.enum(["verified", "partially_verified", "not_verified"]),
+    before: PassCounts,
+    after: PassCounts,
+    regressions: z.int().min(0),
+    evidence: z.array(Evidence).max(5),
+  }),
+});
+export type Remediation = z.infer<typeof Remediation>;
 
 export const CostEntry = z.object({
   jobId: z.uuid(),

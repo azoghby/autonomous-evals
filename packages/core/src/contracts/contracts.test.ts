@@ -4,6 +4,7 @@ import {
   JobEvent,
   MAX_TRACE_BYTES,
   PRICE_CENTS,
+  Remediation,
   jobHookToken,
 } from "./index";
 
@@ -74,5 +75,21 @@ describe("JobEvent", () => {
 
   it("builds a stable hook token", () => {
     expect(jobHookToken("abc")).toBe("job:abc");
+  });
+});
+
+describe("Remediation", () => {
+  const valid = {
+    findingId: "f1", kind: "prompt_patch", summary: "s", patch: "p", rationale: "r",
+    verification: { status: "verified", before: { passed: 0, total: 1 }, after: { passed: 1, total: 1 }, regressions: 0, evidence: [] },
+  };
+  it("accepts a valid remediation", () => {
+    expect(Remediation.safeParse(valid).success).toBe(true);
+  });
+  it("rejects unknown kind, oversize summary and more than 5 evidence items", () => {
+    expect(Remediation.safeParse({ ...valid, kind: "magic" }).success).toBe(false);
+    expect(Remediation.safeParse({ ...valid, summary: "x".repeat(501) }).success).toBe(false);
+    const ev = { kind: "judge", excerpt: "e" };
+    expect(Remediation.safeParse({ ...valid, verification: { ...valid.verification, evidence: Array(6).fill(ev) } }).success).toBe(false);
   });
 });

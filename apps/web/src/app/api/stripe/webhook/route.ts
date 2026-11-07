@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { stripe, webhookSecret, getStripeMode } from "@ae/core/payments/stripe";
-import { recordPaymentFromSession } from "@ae/core/payments/checkout";
+import { isManualCaptureAuthorized, recordPaymentFromSession } from "@ae/core/payments/checkout";
 import { resumeJobForPayment } from "../../../../workflows/resume";
 
 export const dynamic = "force-dynamic";
@@ -35,8 +35,16 @@ export async function POST(request: Request) {
   if (event.livemode !== (getStripeMode() === "live")) return Response.json({ received: true, ignored: "environment_mismatch" });
 
   const session = event.data.object as Stripe.Checkout.Session;
-  if (session.payment_status !== "paid") return Response.json({ received: true, ignored: "not_paid_yet" });
   if (!session.metadata?.job_id) return Response.json({ received: true, ignored: "no_job_metadata" });
+  try {
+    // Manual-capture (per_finding) sessions complete as 'unpaid' with the PaymentIntent in requires_capture.
+    if (session.payment_status !== "paid" && !(await isManualCaptureAuthorized(session))) {
+      return Response.json({ received: true, ignored: "not_paid_yet" });
+    }
+  } catch (err) {
+    console.error("stripe webhook authorization check failed", event.id, err instanceof Error ? err.message : err);
+    return Response.json({ error: "Processing failed" }, { status: 500 });
+  }
 
   try {
     // Persist the resumable payment signal BEFORE acknowledging.

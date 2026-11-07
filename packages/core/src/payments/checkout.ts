@@ -1,8 +1,8 @@
 import type Stripe from "stripe";
-import { and, eq, gte, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import type { JobEvent } from "../contracts/index";
-import { MONITORING_PRICE_CENTS_MONTHLY } from "../contracts/index";
+import { MONITORING_PRICE_CENTS_MONTHLY, perFindingCaptureCents, type PricingMode } from "../contracts/index";
 import { getStripeMode, stripe } from "./stripe";
 
 /** Delivers an event to a job's workflow. Injected so core never depends on the web app. */
@@ -17,6 +17,8 @@ export interface CheckoutArgs {
   successUrl: string;
   cancelUrl: string;
   productName?: string;
+  /** 'per_finding': priceCents is the authorization cap, held with manual capture and charged at delivery. */
+  pricingMode?: PricingMode;
   /** Only set after the previous session for this quote expired (Stripe replays cached responses per idempotency key). */
   retryAfterSessionId?: string;
 }
@@ -26,7 +28,11 @@ export const checkoutIdempotencyKey = (jobId: string, quoteVersion: number, retr
 
 export async function createCheckoutForQuote(a: CheckoutArgs): Promise<{ sessionId: string; url: string }> {
   if (!Number.isInteger(a.priceCents) || a.priceCents <= 0) throw new Error("priceCents must be a positive integer");
-  const metadata = { job_id: a.jobId, quote_version: String(a.quoteVersion), environment: getStripeMode() };
+  const perFinding = a.pricingMode === "per_finding";
+  const metadata = {
+    job_id: a.jobId, quote_version: String(a.quoteVersion), environment: getStripeMode(),
+    pricing_mode: perFinding ? "per_finding" : "fixed",
+  };
   const session = await stripe().checkout.sessions.create({
     mode: "payment",
     customer_email: a.customerEmail,
@@ -39,10 +45,10 @@ export async function createCheckoutForQuote(a: CheckoutArgs): Promise<{ session
       },
     }],
     metadata,
-    payment_intent_data: { metadata },
+    payment_intent_data: perFinding ? { capture_method: "manual", metadata } : { metadata },
     success_url: a.successUrl,
     cancel_url: a.cancelUrl,
-  }, { idempotencyKey: checkoutIdempotencyKey(a.jobId, a.quoteVersion, a.retryAfterSessionId) });
+  }, { idempotencyKey: `${checkoutIdempotencyKey(a.jobId, a.quoteVersion, a.retryAfterSessionId)}${perFinding ? ":pf" : ""}` });
   if (!session.url) throw new Error("Stripe returned a checkout session without a URL");
   return { sessionId: session.id, url: session.url };
 }
@@ -76,13 +82,27 @@ export async function createMonitoringCheckout(
 const idOf = (v: string | { id: string } | null | undefined) => (typeof v === "string" ? v : v?.id ?? null);
 
 /**
- * Persists a paid session as a payment row. Idempotent: the unique session id (and event id) make a
+ * A per_finding Checkout completes with payment_status 'unpaid' while its PaymentIntent sits in
+ * 'requires_capture'. That hold counts as payment confirmed for workflow purposes.
+ */
+export async function isManualCaptureAuthorized(session: Stripe.Checkout.Session): Promise<boolean> {
+  if (session.mode !== "payment" || session.metadata?.pricing_mode !== "per_finding") return false;
+  if (session.status !== "complete" || session.payment_status === "paid") return false;
+  const piId = idOf(session.payment_intent);
+  if (!piId) return false;
+  const pi = await stripe().paymentIntents.retrieve(piId);
+  return pi.status === "requires_capture";
+}
+
+/**
+ * Persists a paid (or manual-capture authorized) session as a payment row. Idempotent: the unique session id (and event id) make a
  * second call a no-op that returns the existing row with inserted=false.
  */
 export async function recordPaymentFromSession(
   session: Stripe.Checkout.Session, eventId: string | null,
 ): Promise<{ payment: PaymentRow; inserted: boolean }> {
-  if (session.payment_status !== "paid") throw new Error(`Session ${session.id} is not paid (${session.payment_status})`);
+  const authorized = await isManualCaptureAuthorized(session);
+  if (session.payment_status !== "paid" && !authorized) throw new Error(`Session ${session.id} is not paid (${session.payment_status})`);
   const jobId = session.metadata?.job_id;
   const quoteVersion = Number(session.metadata?.quote_version);
   if (!jobId || !Number.isInteger(quoteVersion) || quoteVersion < 0) {
@@ -97,6 +117,7 @@ export async function recordPaymentFromSession(
     currency: session.currency ?? "usd",
     environment: session.livemode ? "live" : "test",
     kind: session.mode === "subscription" ? "subscription" : "one_time",
+    status: authorized ? "authorized" : "paid",
   }).onConflictDoNothing().returning();
   if (rows[0]) return { payment: rows[0], inserted: true };
   const [existing] = await db().select().from(schema.payments)
@@ -153,8 +174,9 @@ export async function reconcile(send: SendJobEvent, now: Date = new Date()): Pro
   for await (const s of sessions) {
     summary.sessionsChecked++;
     if (summary.sessionsChecked > 1000) break;
-    if (s.payment_status !== "paid" || !s.metadata?.job_id) continue;
+    if (!s.metadata?.job_id) continue;
     try {
+      if (s.payment_status !== "paid" && !(await isManualCaptureAuthorized(s))) continue;
       const { inserted } = await recordPaymentFromSession(s, null);
       if (inserted) summary.recorded++;
     } catch (err) {
@@ -173,4 +195,39 @@ export async function reconcile(send: SendJobEvent, now: Date = new Date()): Pro
     }
   }
   return summary;
+}
+
+export interface SettleResult {
+  outcome: "captured" | "released" | "not_applicable" | "already_settled";
+  confirmedCount: number;
+  amountCents: number;
+}
+
+/**
+ * Settles a per_finding authorization at delivery: captures min(3 USD * confirmed, cap) or, with no
+ * confirmed findings, cancels the PaymentIntent. Idempotent: a settled row is returned as-is and
+ * Stripe's idempotency key makes a retried capture/cancel safe.
+ */
+export async function settlePerFindingPayment(jobId: string, confirmedCount: number): Promise<SettleResult> {
+  const [row] = await db().select({ payment: schema.payments, quote: schema.quotes })
+    .from(schema.payments)
+    .innerJoin(schema.quotes, and(eq(schema.quotes.jobId, schema.payments.jobId), eq(schema.quotes.version, schema.payments.quoteVersion)))
+    .where(and(eq(schema.payments.jobId, jobId), eq(schema.payments.kind, "one_time"), inArray(schema.payments.status, ["authorized", "captured", "released"])))
+    .orderBy(desc(schema.payments.createdAt)).limit(1);
+  if (!row || row.quote.pricingMode !== "per_finding") return { outcome: "not_applicable", confirmedCount, amountCents: 0 };
+  const { payment, quote } = row;
+  if (payment.status !== "authorized") {
+    return { outcome: "already_settled", confirmedCount, amountCents: payment.capturedAmountCents ?? 0 };
+  }
+  if (!payment.stripePaymentIntentId) throw new Error(`Payment ${payment.id} has no PaymentIntent to settle`);
+  const cap = quote.capCents ?? payment.amountCents;
+  const amount = Math.min(perFindingCaptureCents(confirmedCount, cap), payment.amountCents);
+  if (amount > 0) {
+    await stripe().paymentIntents.capture(payment.stripePaymentIntentId, { amount_to_capture: amount }, { idempotencyKey: `capture:${jobId}` });
+    await db().update(schema.payments).set({ status: "captured", capturedAmountCents: amount }).where(eq(schema.payments.id, payment.id));
+    return { outcome: "captured", confirmedCount, amountCents: amount };
+  }
+  await stripe().paymentIntents.cancel(payment.stripePaymentIntentId, undefined, { idempotencyKey: `release:${jobId}` });
+  await db().update(schema.payments).set({ status: "released", capturedAmountCents: 0 }).where(eq(schema.payments.id, payment.id));
+  return { outcome: "released", confirmedCount, amountCents: 0 };
 }
