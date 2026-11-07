@@ -16,6 +16,9 @@ export default defineConfig({
     include: ["packages/core/src/**/*.test.ts", "apps/web/src/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["**/node_modules/**", "e2e/**"],
     setupFiles: [p("./test/setup.ts")],
+    // Track B's PGlite-backed SQL suites exceed the 5s/10s defaults under full parallel load.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "html"],
