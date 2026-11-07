@@ -71,12 +71,22 @@ export const ObjectiveSpecSchema = z
   });
 export type ObjectiveSpec = z.infer<typeof ObjectiveSpecSchema>;
 
+export const ConstraintCatalogSchema = z.object({
+  version: z.literal('explicit_output.v1'),
+  entries: z.array(z.object({
+    id: z.string(), source: z.enum(['systemPrompt', 'userMessage']), scenarioId: z.string().nullable(),
+    start: z.number().int().nonnegative(), quote: z.string().min(1), spec: ObjectiveSpecSchema,
+  }).strict()),
+}).strict();
+export type ConstraintCatalog = z.infer<typeof ConstraintCatalogSchema>;
+
 export const ObjectiveCheckSchema = z
   .object({
     id: CheckIdSchema,
     kind: z.literal("objective"),
     description: NonEmpty(500),
     spec: ObjectiveSpecSchema,
+    constraintId: z.string().optional(),
   })
   .strict();
 export type ObjectiveCheck = z.infer<typeof ObjectiveCheckSchema>;
@@ -145,6 +155,7 @@ export const FrozenTextSuiteBodySchema = z
     referenceText: z.string().max(MAX_REFERENCE_CHARS).nullable(),
     scenarios: z.array(TextScenarioSchema).length(SUITE_SIZE),
     review: SuiteReviewRecordSchema,
+    constraintCatalog: ConstraintCatalogSchema.optional(),
   })
   .strict()
   .superRefine((suite, ctx) => {

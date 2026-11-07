@@ -11,7 +11,7 @@
  * - Checks run on the full response; only the stored copy is clipped.
  */
 import { containsSecret } from "../../agents/redact";
-import { verifyFrozenSuite } from "./freeze";
+import { verifyAdmittedFrozenSuite } from "./freeze";
 import {
   type CheckResult,
   CheckResultSchema,
@@ -312,7 +312,7 @@ export async function executeScenario(
   attempt: ScenarioExecution["attempt"],
   deps: TextExecutionDeps,
 ): Promise<ScenarioExecution> {
-  const verified = verifyFrozenSuite(suite);
+  const verified = verifyAdmittedFrozenSuite(suite);
   if (containsSecret(JSON.stringify(verified), deps.knownSecrets)) throw new Error("suite contains credential content");
   assertValidRunId(runId);
   const scenario = findScenario(verified, scenarioId);
@@ -326,7 +326,7 @@ export async function executeSuite(
   deps: TextExecutionDeps,
   opts?: { scenarioIds?: string[] },
 ): Promise<SuiteRun> {
-  const verified = verifyFrozenSuite(suite);
+  const verified = verifyAdmittedFrozenSuite(suite);
   if (containsSecret(JSON.stringify(verified), deps.knownSecrets)) throw new Error("suite contains credential content");
   assertValidRunId(runId);
 

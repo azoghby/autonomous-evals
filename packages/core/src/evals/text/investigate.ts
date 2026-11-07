@@ -4,7 +4,7 @@ import type { AgentTaskRunner } from '../../agents/session-service';
 import type { CostEntry, Finding, JobRef, TestDefectRecord } from '../types';
 import { untrusted } from './design';
 import { executeScenario, executeSuite } from './execute';
-import { verifyFrozenSuite } from './freeze';
+import { verifyAdmittedFrozenSuite } from './freeze';
 import { SuiteRunSchema, type FrozenTextSuite, type ScenarioExecution, type SuiteRun, type TextExecutionDeps } from './schema';
 
 export const TextInvestigationOutput = z.object({
@@ -23,7 +23,7 @@ export interface TextInvestigation {
 /** Investigates existing evidence; never sends credentials or arbitrary target errors to agents. */
 export async function investigateTextRun(input: { job: JobRef; suite: FrozenTextSuite; run: SuiteRun; knownSecrets?: readonly string[] }, deps: TextExecutionDeps & { runner: AgentTaskRunner; budgetMicroUsd?: number }): Promise<TextInvestigation> {
   const knownSecrets = [...(deps.knownSecrets ?? []), ...(input.knownSecrets ?? [])];
-  const suite = verifyFrozenSuite(input.suite);
+  const suite = verifyAdmittedFrozenSuite(input.suite);
   if (containsSecret(JSON.stringify(suite), knownSecrets)) throw new Error("suite contains credential content");
   const run = SuiteRunSchema.parse(input.run);
   assertRunMatches(suite, run);
@@ -103,7 +103,7 @@ export function assertRunMatches(suite: FrozenTextSuite, run: SuiteRun): void {
 
 /** Explicit new run against the exact frozen suite; retains baseline untouched. */
 export async function rerunTextSuite(suite: FrozenTextSuite, baseline: SuiteRun, runId: string, deps: TextExecutionDeps): Promise<SuiteRun> {
-  const verified = verifyFrozenSuite(suite); assertRunMatches(verified, SuiteRunSchema.parse(baseline));
+  const verified = verifyAdmittedFrozenSuite(suite); assertRunMatches(verified, SuiteRunSchema.parse(baseline));
   if (runId === baseline.runId) throw new Error('rerun requires a new run ID');
   const current = await executeSuite(verified, runId, deps, { scenarioIds: baseline.executions.map(e => e.scenarioId) });
   return { ...current, executions: current.executions.map(e => ({ ...e, attempt: 'rerun' })) };

@@ -7,7 +7,7 @@ export function makeScenarios(): TextScenario[] {
     const id = `S${String(i + 1).padStart(2, '0')}`;
     return {
       id, title: `Fixture ${i + 1}`, category: i < 4 ? 'ordinary' : i < 8 ? 'instruction_edge' : 'grounding_ambiguity',
-      userMessage: `Reply with READY for fixture ${i + 1}.`, rationale: 'Checks the explicit reply constraint.', severity: 'medium',
+      userMessage: 'The response must contain the literal "READY".\nThe response must not contain the literal "FORBIDDEN_MARKER".', rationale: 'Checks the explicit reply constraint.', severity: 'medium',
       objectiveChecks: [{ id: `${id}.o1`, kind: 'objective', description: 'Includes required marker', spec: { type: 'contains', value: 'READY', case_sensitive: true } }],
       rubricChecks: [],
     };

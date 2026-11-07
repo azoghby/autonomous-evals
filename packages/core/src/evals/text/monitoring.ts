@@ -1,4 +1,4 @@
-import { verifyFrozenSuite } from './freeze';
+import { verifyAdmittedFrozenSuite } from './freeze';
 import { assertRunMatches } from './investigate';
 import { SuiteRunSchema, type FrozenTextSuite, type SuiteRun } from './schema';
 
@@ -7,7 +7,7 @@ export function textRunForMonitoring(suiteInput: FrozenTextSuite, runInput: Suit
   jobId: string; runId: string; suiteDigest: string; targetVersion: string;
   checks: Array<{ scenarioId: string; checkId: string; outcome: 'passed' | 'failed' | 'inconclusive' | 'infrastructure_error'; evidenceIds: string[] }>;
 } {
-  const suite = verifyFrozenSuite(suiteInput);
+  const suite = verifyAdmittedFrozenSuite(suiteInput);
   const run = SuiteRunSchema.parse(runInput);
   assertRunMatches(suite, run);
   if (!targetVersion.trim()) throw new Error('target version required');

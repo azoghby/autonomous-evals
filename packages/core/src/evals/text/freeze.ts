@@ -1,3 +1,4 @@
+import { objectiveAdmissionProblems } from './admission';
 /**
  * Freezing: a suite is identified by the SHA-256 of its canonical JSON. Runs, reproductions,
  * reruns and monitoring all carry this digest; a mismatch means the suite was edited after freeze.
@@ -27,6 +28,8 @@ export function suiteDigest(body: FrozenTextSuiteBody): string {
 
 export function freezeSuite(body: FrozenTextSuiteBody): FrozenTextSuite {
   const parsed = FrozenTextSuiteBodySchema.parse({ ...body, referenceText: normalizeReferenceText(body.referenceText) });
+  const problems = parsed.constraintCatalog ? objectiveAdmissionProblems(parsed) : [];
+  if (problems.length) throw new FrozenSuiteAdmissionError(problems.join("; "));
   if (containsSecret(JSON.stringify(parsed))) throw new FrozenSuiteIntegrityError("suite contains credential content");
   return FrozenTextSuiteSchema.parse({ ...parsed, digest: suiteDigest(parsed) });
 }
@@ -38,6 +41,10 @@ export class FrozenSuiteIntegrityError extends Error {
   }
 }
 
+export class FrozenSuiteAdmissionError extends Error {
+  constructor(message: string) { super(message); this.name = "FrozenSuiteAdmissionError"; }
+}
+
 /** Parse a stored suite and verify its digest. Throws FrozenSuiteIntegrityError on any mismatch. */
 export function verifyFrozenSuite(stored: unknown): FrozenTextSuite {
   const parsed = FrozenTextSuiteSchema.safeParse(stored);
@@ -46,4 +53,12 @@ export function verifyFrozenSuite(stored: unknown): FrozenTextSuite {
   const { digest, ...body } = parsed.data;
   if (suiteDigest(body) !== digest) throw new FrozenSuiteIntegrityError("stored suite digest does not match its content");
   return parsed.data;
+}
+
+/** Execution/investigation/monitoring boundary. Integrity alone is not design admission. */
+export function verifyAdmittedFrozenSuite(stored: unknown): FrozenTextSuite {
+  const suite = verifyFrozenSuite(stored);
+  const problems = objectiveAdmissionProblems(suite);
+  if (problems.length) throw new FrozenSuiteAdmissionError(problems.join("; "));
+  return suite;
 }
