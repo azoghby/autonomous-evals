@@ -60,6 +60,11 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - [ ] AgentMail: inboxes (commercial, auth), `packages/core/src/email/`, inbound webhook `/api/webhooks/agentmail`, `email_threads` table
 - [ ] UI v2 (calmer, fewer boxes, Motion + anime.js): landing/design system/experts page; app screens + operator tabs (Overview · Experts · Infra)
 
+- [ ] Differentiators (in flight): **Fix, not just find** (remediations + before/after verification), **Pay per confirmed finding** (Stripe manual capture, $0 if nothing real), **MCP server** at `/api/mcp` with per-customer API keys so agents can hire us
+- [ ] Workflow gaps: Neon delivery-safety step, pre-payment `checkTarget`, cancel route
+- [ ] Wire `rateLimit` + `assertHuman` into request-link, POST jobs, expert signup
+- [ ] Security review (opus, read-only); findings get fixed after
+
 ## Next steps (priority order)
 
 1. **Stripe test key → paid Trace Audit end to end** (gate 3). Create the webhook endpoint via the API → set `STRIPE_WEBHOOK_SECRET` → test duplicate and missed webhooks.
@@ -84,4 +89,5 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - 2026-11-07 ~13:45 PT: cloned, branch `track-a`, Neon + Vercel provisioned, scaffold + contracts + schema, first deploy.
 - ~14:00: parallel workers: landing UI, app screens, server/auth, workflow/Stripe/cron, test infra. All merged.
 - ~14:05: moved Neon to PG18 us-east-2 (Realtime/Storage/Functions need it). Added expert network scope + MVP. Monid connected.
+- ~14:30: AgentMail (`ae-commercial@agentmail.to`, inbound webhook `ep_3LnO5TpiMamhUvPG3Kik5WKeN8n`), Vercel Firewall rate-limit rules (3, live), BotID/analytics/headers, Stripe setup script merged. Differentiators dispatched.
 - ~14:15: Neon storage, Neon ops, client/server reconciliation merged. AgentMail key received. UI v2 (calmer + Motion/anime.js) started.
