@@ -53,3 +53,27 @@ Fixtures: `packages/core/src/contracts/fixtures/index.ts` (unsupported-claim tra
 - **Secrets**: `apiKey` and branch connection strings never appear in returned data, findings, evidence, reports, or logs.
 - **Target security**: HTTPS only, reject private/loopback/link-local before any network call, resolve DNS and re-check, no redirects, timeout, bounded response.
 - **Dependencies**: ask Track A to install them (single lockfile).
+
+## Shared adapters on `ServiceContext` (sessions, budget, artifacts)
+
+Database access, session persistence, budget reservations and artifact storage go through adapters on `ctx`, never direct table writes. All three are optional on the type (so bare test contexts still compile) but Track A always provides them (`makeServiceContext` -> `createServiceAdapters(jobId)` in `packages/core/src/adapters/`). Use `ctx.sessions!` etc., or guard with `?.`. Everything is scoped to `ctx.jobId`.
+
+```ts
+// Resume-or-start a Naive agent session (a redeployed step picks up where the last one stopped)
+const resumable = await ctx.sessions!.findResumable("investigator");   // latest non-terminal (not completed/failed/cancelled) or null
+const rec = resumable ?? await ctx.sessions!.start({ agent: "investigator", agentId, agentVersion, sessionId }); // idempotent on sessionId
+// ... run, then:
+await ctx.sessions!.update(rec.sessionId!, { status: "completed", decision: "confirmed", result: { findings: 2 }, addUsageMicroUsd: 41_000 });
+// addUsageMicroUsd is a non-negative integer, incremented atomically in SQL. Still call ctx.recordCost for spend.
+
+// Extra budget inside a stage (the workflow already reserves a per-agent share around each stage via withBudget)
+const r = await ctx.budget!.reserve("investigator", 250_000);          // one INSERT..SELECT; only inserts if cap - reservations - costs >= amount
+if (!r.ok) throw new BudgetExceededError(`only ${r.remainingMicroUsd} micro-USD left`);
+try { /* paid work */ } finally { await ctx.budget!.release(r.reservationId); } // idempotent
+
+// Job-scoped artifacts (Neon storage by default, Blob fallback)
+const { pathname } = await ctx.artifacts!.put("transcript-3.json", JSON.stringify(t), "application/json"); // name: [a-z0-9._-], <=100 chars, no ".."; <=10 MB
+const art = await ctx.artifacts!.get(pathname);                          // { body: Uint8Array, contentType } | null; other jobs' paths throw
+```
+
+Rules: persist the returned `pathname`, never a URL. Do not put secrets (api keys, branch connection strings) in session `result`, artifacts, or anything a workflow step returns: step I/O is stored in plaintext. Neon HTTP has no interactive transactions, so each adapter method is one atomic statement (or an idempotent insert-then-read); do not rely on multi-statement atomicity.

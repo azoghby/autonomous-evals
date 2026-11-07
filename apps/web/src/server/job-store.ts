@@ -1,4 +1,5 @@
 import "server-only";
+import { createServiceAdapters } from "@ae/core/adapters/index";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import {
@@ -130,6 +131,7 @@ export async function makeServiceContext(jobId: string): Promise<ServiceContext>
     budgetMicroUsd: Math.max(0, cap - spent),
     recordCost: (entry) => recordCost({ ...entry, jobId }),
     recordProgress: (milestone, message) => recordProgress(jobId, milestone, message),
+    ...createServiceAdapters(jobId),
   };
 }
 
