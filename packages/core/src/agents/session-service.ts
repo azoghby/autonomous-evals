@@ -452,7 +452,14 @@ export class AgentSessionService {
       let snap: NaiveSessionSnapshot;
       try {
         snap = await this.deps.naive.getSession(sessionId);
-      } catch {
+      } catch (error) {
+        if (error instanceof NaiveCallError && error.kind === "definitive" &&
+            (error.status === 401 || error.status === 403 || error.status === 404)) {
+          // The session may already have spent money. Preserve its identity and reservation;
+          // neither a replacement create nor zero-cost settlement is safe here.
+          return this.escalate(rec, spec, "session_unavailable",
+            "saved session cannot be accessed; reconcile provider access and usage manually", [sessionId]);
+        }
         return { status: "pending", taskKey: rec.taskKey, reason: "naive_unreachable", sessionId, retryAfterMs: 10_000 };
       }
       if (snap.status !== "queued" && snap.status !== "running") return this.finalize(rec, snap, spec);

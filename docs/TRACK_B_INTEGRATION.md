@@ -22,6 +22,22 @@ Track A published initial contracts on branch `track-a`, commit `673873d`, at `p
 
 These are integration requirements identified from the published contracts, not changes made to Track A's files.
 
+### Current contract checkpoint (afd4737)
+
+The initial service list above is historical. The current Track A contract also requires
+`proposeAndVerifyFix` and optionally exposes `getJobBranchConnection`. Track B supplies the
+ownership-checked connection resolver. It does **not** yet supply a verified-remediation
+service: a suggested change must not be reported as verified without executing the relevant
+frozen scenario against that change. This is an open integration requirement, not covered by
+the service-name compatibility test. Trace rechecking alone cannot prove that a customer
+agent's behavior has changed.
+
+Private progress chat now has a PostgreSQL conversation adapter and a separate migration
+artifact; the app must still supply authenticated routes and an authorized progress projection.
+The UI patch under `docs/progress-chat-ui/` is not a deployed interface. Evaluation-data
+acquisition has quality/provenance gates and expert drafts, but no expert outreach has been
+sent and no contributed dataset has been validated in production.
+
 ### Persistence supplied by Track A
 
 - Authorize the job/customer before invoking engine services. Customer input must not choose another customer's job ID, credential reference, branch, or run.

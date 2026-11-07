@@ -144,6 +144,35 @@ describe("AgentSessionService: budgets", () => {
 });
 
 describe("AgentSessionService: ambiguous creation and recovery", () => {
+  it.each([401, 403, 404])("escalates inaccessible saved sessions (%s) without recreating or releasing unknown spend", async (status) => {
+    const h = harness(good);
+    let polls = 0;
+    h.naive.getSession = async () => {
+      polls++;
+      throw new NaiveCallError("definitive", "provider detail must stay private", status);
+    };
+    const out = await h.service.run(spec());
+    expect(out).toMatchObject({ status: "needs_operator", code: "session_unavailable", sessionIds: ["ses_fake_1"] });
+    expect(JSON.stringify(out)).not.toContain("provider detail");
+    const reservation = structuredClone([...h.ledger.reservations.values()]);
+    expect(h.ledger.committed("job:job-fixture-1")).toBe(usd(0.5));
+    const restarted = new AgentSessionService({ ...h.deps, workerId: "restart" });
+    expect(await restarted.run(spec())).toMatchObject({ status: "needs_operator", code: "session_unavailable" });
+    expect([...h.ledger.reservations.values()]).toEqual(reservation);
+    expect(h.naive.createCalls).toHaveLength(1);
+    expect(polls).toBe(1);
+  });
+
+  it("keeps transient polling failures resumable on the same saved session", async () => {
+    const h = harness(good);
+    const original = h.naive.getSession.bind(h.naive);
+    h.naive.getSession = async () => { throw new NaiveCallError("ambiguous", "temporary", 503); };
+    expect(await h.service.run(spec())).toMatchObject({ status: "pending", sessionId: "ses_fake_1" });
+    h.naive.getSession = original;
+    expect(await new AgentSessionService({ ...h.deps, workerId: "restart" }).run(spec())).toMatchObject({ status: "completed" });
+    expect(h.naive.createCalls).toHaveLength(1);
+  });
+
   it("a timeout after the server created the session is recovered by lookup, never re-created", async () => {
     const h = harness(good);
     h.naive.createFailures.set(0, { error: new NaiveCallError("ambiguous", "timeout"), createdAnyway: true });
