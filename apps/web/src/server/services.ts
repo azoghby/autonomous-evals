@@ -3,7 +3,7 @@ import {
   Finding, QualifyResult, Remediation, Report, Suite, type IntakeInput,
 } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext, RunResult } from "@ae/core/contracts/services";
-import { rejectTargetUrl } from "./target-url";
+import { assertPublicTarget } from "./target-url";
 
 const MOCK = "[MOCK]";
 const MOCK_CLARIFY_MARKER = "[needs-clarification]";
@@ -110,7 +110,7 @@ export const mockServices: EvalServices = {
     return { findings: hasFailedTool ? [mockFinding("mock-f1")] : [], claimsChecked: 3 };
   },
   async checkTarget(_ctx, endpoint) {
-    const reason = rejectTargetUrl(endpoint.url);
+    const reason = await assertPublicTarget(endpoint.url);
     return reason ? { ok: false, detail: `${MOCK} ${reason}` } : { ok: true, detail: `${MOCK} connection check skipped` };
   },
   async designSuite(ctx) {

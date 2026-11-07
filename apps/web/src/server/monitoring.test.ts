@@ -17,6 +17,9 @@ const h = vi.hoisted(() => ({
   readBlob: vi.fn(),
 }));
 
+// assertPublicTarget resolves DNS; keep tests offline by resolving every hostname to a public address.
+vi.mock("node:dns/promises", () => ({ lookup: async () => [{ address: "93.184.216.34", family: 4 }] }));
+
 vi.mock("@ae/core/db/client", async () => {
   const schema = await import("@ae/core/db/schema");
   const rowsFor = (t: unknown, phase: "sub" | "run") => {
