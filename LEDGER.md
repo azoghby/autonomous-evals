@@ -31,7 +31,10 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 | Email | AgentMail (`AGENTMAIL_API_KEY` set); Resend is the fallback (no key) |
 | Monid | CLI is logged in (key `main`, $20); `MONID_API_KEY` on Vercel, used for expert contact research |
 | Env on Vercel | DATABASE_URL(_UNPOOLED), SESSION_SECRET, CREDENTIALS_ENCRYPTION_KEY, CRON_SECRET, OPERATOR_EMAILS, STRIPE_MODE=test, APP_URL, BLOB_READ_WRITE_TOKEN, NEON_PROJECT_ID, NEON_MAIN_BRANCH_ID, NEON_SIM_SEED_BRANCH_ID, NEON_STORAGE_*, MONID_API_KEY, AGENTMAIL_API_KEY (+ inbox IDs once created) |
-| **Missing (owner must provide)** | `STRIPE_SECRET_KEY` (test), then `STRIPE_WEBHOOK_SECRET` (can be auto-created), `NEON_API_KEY` (console → API keys), `COMPANY_ADDRESS` (for CAN-SPAM footer), live Stripe key only after PLAN §9 gates |
+| Stripe (test) | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` set (local + Vercel all envs); webhook endpoint `we_1UZHThPZwqSpk1TEM1CBUa5n` → /api/stripe/webhook |
+| Neon API | `NEON_API_KEY` set (local + Vercel) |
+| Email footer | `COMPANY_ADDRESS` = sender identity only (owner has no postal address; CAN-SPAM wants one before real cold outreach) |
+| **Missing** | live Stripe key only after PLAN §9 gates; a postal address (virtual mailbox) before cold outreach at volume |
 
 ## Done (committed on `track-a`)
 
@@ -102,3 +105,4 @@ vercel deploy --prod --yes --scope agents-db31                   # deploy (GitHu
 - ~15:55: booking, crons, UI hooks merged; `npm run deploy` → prod Ready. Remaining in flight: e2e pipeline test.
 - ~16:20: adapters + e2e merged, prod redeployed. Open: stale-job recovery check in prod, Playwright happy-path selectors for v3, Stripe test key.
 - ~16:30: deleted old Neon projects sparkling-frost-08478178 and long-shape-06677281 (owner OK, both empty).
+- ~16:45: Stripe test key, webhook, NEON_API_KEY, COMPANY_ADDRESS configured; redeployed. Prod paid-run test in flight.
