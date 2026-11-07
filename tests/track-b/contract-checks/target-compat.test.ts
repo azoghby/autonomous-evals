@@ -61,7 +61,7 @@ describe('checkTarget service output', () => {
       const result = await createTargetServices(new RecordingTransport(() => { throw failure; })).checkTarget(ctx, endpoint);
       expect(checkResult.parse(result)).toEqual({ ok: false, detail: code });
     }
-    for (const malformed of [{}, { choices: [] }, { choices: [{ message: { role: 'assistant', content: 'OK' }, finish_reason: 'length' }] }, 'html', null]) {
+    for (const malformed of [{}, { choices: [] }, { choices: [{ message: { role: 'assistant', content: 'OK' }, finish_reason: 'content_filter' }] }, 'html', null]) {
       const result = await createTargetServices(new RecordingTransport(() => malformed)).checkTarget(ctx, endpoint);
       expect(checkResult.parse(result).ok).toBe(false);
       expect(result.detail).not.toContain(endpoint.apiKey);
