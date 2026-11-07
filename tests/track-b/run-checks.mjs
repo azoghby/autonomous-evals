@@ -11,7 +11,7 @@ const source = join(repo, 'packages/core/src');
 const contractsRepoPath = 'packages/core/src/contracts';
 const owned = ['agents', 'evals', 'reporting', 'targets', 'simulator', 'monitoring', 'judges'];
 /** Track B source directories each directory imports at type/runtime level (staged without their tests when unselected). */
-const sourceDependencies = { simulator: ['targets'] };
+const sourceDependencies = { simulator: ['targets'], agents: ['evals', 'reporting'], evals: ['agents', 'reporting'], reporting: ['agents', 'evals'] };
 /** Compatibility components: tests live in tests/track-b/contract-checks and are staged to src/contract-checks. */
 const contractComponents = {
   'contract-schemas': { files: ['schema-compat.test.ts'], needs: [] },
@@ -205,6 +205,7 @@ async function main() {
     const resultsFile = join(staging, 'vitest-results.json');
     run(join(here, 'node_modules/vitest/vitest.mjs'), ['run', '--root', staging, '--reporter=default', '--reporter=json', `--outputFile.json=${resultsFile}`], {
       TRACK_A_CONTRACT_SHA: contracts?.sha ?? '',
+      TRACE_ACCEPTANCE_PATH: join(here, 'trace-acceptance.json'),
     });
 
     // A green exit alone is insufficient: every staged test file must have run, with no skipped/todo tests.
