@@ -1,0 +1,21 @@
+# Offline validation record
+
+Recorded 2026-11-07. Track A: `2dff9d8af8cccdd171d78760a0d74136d138fcb4`; explicit immutable core prerequisite: `e47a852737e7aca7d2fa984c363abe58f5c0ad05`. No fetch, dependency installation, network, provider, cloud migration or deployment occurred.
+
+`node docs/structured-progress-integration/verification/validate.mjs` passed. It extracts an exact Track A Git archive, applies the previous `docs/progress-chat-integration/combined.patch` (original base `96cb4adcea8c55ae4d8cc353deb059996245aa77`), overlays **committed** `packages/core/src` from the explicit core pin, then checks/applies the backend follow-on patch. Overlay retains Track A-only contracts/composition files. The overlay is a test composition prerequisite, not an automatically safe production merge. No mutable working core files are copied. No shell worktree is created.
+
+**81 tests passed, none skipped**, in five files: 16 new PGlite SQL tests exercising the applied app helper and Workflow publisher with real checkpoint/acquisition stores; three actual request-dispatcher tests with local session/pool boundaries; 30 core projection tests; 22 core negative tests; 10 core chat service tests. These establish saved Text and Calendar outcome/blocker reads, frozen run/suite/branch rejection, checkpoint digest rejection, missing rows, missing/waiting data and expert blockers, no raw prose, tenant/job scoping, viewer-specific opaque references, exact stored watermark, stale-watermark rejection, persisted running status, unknown cost completeness, writer revision CAS, immutable frozen associations and publication of trusted expected missing identities. Dispatcher tests cover actual production composition and `ai_gateway` cost ledger preservation (37 microUSD), authorization before private reads, and a pinned read-only transaction.
+
+`node docs/structured-progress-integration/verification/typecheck.mjs STAGE` passed strict targeted TypeScript on the three applied server modules and their actual core dependencies. Session and Neon SDK interfaces use explicit offline declarations; this is not full workspace or installed Neon SDK compatibility validation.
+
+Validated follow-on patch SHA-256: `f789fdda53766b7f08fded92b28452f9472a7a09abd03fcd82f87150eee42995`.
+
+The exact outputs are in `test-results.txt` and `typecheck-results.txt`. Disposable test archive retained at `/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-35zXai`; the path is evidence of this local run and need not exist on another machine. Set `STRUCTURED_NODE_MODULES` to an existing offline directory containing Vitest, Zod, TypeScript, Node types and PGlite. The local default is `/tmp/track-b-harness/node_modules`.
+
+## Limits and prerequisites
+
+The core pin predates the parent's omitted-findings and report-basis-roundtrip fixes. Those production fixes are required separately and must be revalidated; they are neither duplicated here nor claimed fixed by these passing adapter tests. No claim of correct final finding totals or report acceptance follows from this harness. The current helper's authenticated transaction contract is supplied by the actual dispatcher; direct helper tests deliberately provide an already-authorized job.
+
+PGlite executes real SQL/store code, but tests do not prove multi-session PostgreSQL lock/CAS behavior or real Neon transport. Dispatcher pool fixtures record exact query and transaction use; they do not run conversation writes, remote authentication, or a live server. No browser, rendering, endpoint acceptance, target dispatch or provider behavior was tested. The existing UI and route are not modified by this deliverable's patch beyond server composition.
+
+The publisher is concrete server code, but existing Track A Workflow does not call it. The backend prerequisites describe the missing typed rich-factory hook, actual core-issued checkpoint identities and durable update boundary; a production owner must implement these before structured routes can read inventory. The validator supplies authoritative inventory fixtures explicitly; it does not infer inventory from arbitrary JSON. No perpetual 503 stub is supplied, and missing inventory fails closed. Literal engine suite size 12 and Track A appended-pack size 32 are distinct; appended-pack structured coverage is unproven and remains unknown.

@@ -1,0 +1,2 @@
+Targeted TypeScript scratch: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-ts-LPXdOU; actual applied app/core sources; offline Neon/session declarations, not full workspace or real SDK.
+Targeted strict TypeScript passed.
