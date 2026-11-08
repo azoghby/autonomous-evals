@@ -63,6 +63,8 @@ Current additional implementation:
 
 Further Phase 1 core work: investigation and rerun adapters now use retained rich evidence with current authorization, and `evals/naive-services.ts` composes the five concrete methods. They are not active in application routing. The current finding enum lacks dismissed/resolved, so a genuine resolved rerun is retained and blocked at public projection rather than mislabeled. `docs/naive-phase1-owner-composition.md` specifies the required owner integration and remaining contract/provider gates.
 
+Runtime progress: concrete SQL suite admission/run/investigation storage now exists with transactional owner and approval-level checks, and Jude's SDK proxy judge reconciles measured billed cost with durable dispatch fencing. Actual SQL tests run the rich design-to-investigation chain with fake provider transport. These pieces still require owner authorization/policy composition and a `naive_proxy`-capable atomic cost sink; they are not deployed or live-judge acceptance receipts.
+
 Phase 0 is still open: full real conformance, remaining migrations, expanded-role resources/authorization, and staging/application acceptance remain gates. Production remains unchanged by this work.
 
 ---

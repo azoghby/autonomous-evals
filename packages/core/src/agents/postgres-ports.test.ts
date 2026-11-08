@@ -170,6 +170,17 @@ describe('agent PostgreSQL adapters: PGlite SQL execution (single session, not r
     expect((await ledger.reserve(reservation('b', 90))).ok).toBe(true);
   });
 
+  it('enforces the shared job and named Jude budget without impersonating a legacy role', async () => {
+    const req = reservation('jude', 80);
+    req.scopes[1] = { key: 'agent:judge:test', capMicroUsd: 100 };
+    expect(await ledger.reserve(req)).toMatchObject({ ok: true });
+    expect(await new PostgresBudgetLedger(db).reserve(req)).toMatchObject({ ok: true, replayed: true });
+    expect(await ledger.reserve({ ...req, reservationId: 'jude-over', amountMicroUsd: 21 })).toMatchObject({ ok: false });
+    await ledger.settle(req.reservationId, 30);
+    expect(await ledger.reserve({ ...req, reservationId: 'jude-next', amountMicroUsd: 70 })).toMatchObject({ ok: true });
+    await expect(ledger.reserve({ ...req, reservationId: 'invented-role', scopes: [req.scopes[0], { key: 'agent:invented:test', capMicroUsd: 100 }] })).rejects.toThrow('invalid_input');
+  });
+
   it('rejects duplicate or missing job/role scopes rather than bypassing aggregate caps', async () => {
     const req = reservation('a');
     for (const scopes of [[], [req.scopes[0]], [req.scopes[1]], [...req.scopes, req.scopes[0]]]) {

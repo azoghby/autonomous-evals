@@ -1,3 +1,4 @@
+import { COMPANY_ROLE_DEFINITIONS } from './company-roles';
 import { AgentRoleSchema, AgentTaskStateSchema } from '../evals/types';
 import type { AgentTaskStore, AgentTaskRecord, AgentTaskPatch, BudgetLedger, BudgetReservationRequest, BudgetReservationResult } from '../evals/types';
 
@@ -106,7 +107,7 @@ function request(req: BudgetReservationRequest): BudgetReservationRequest {
   const scopes = req.scopes.map(s => { string(s.key); integer(s.capMicroUsd); return { key: s.key, capMicroUsd: s.capMicroUsd }; }).sort((a,b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
   if (new Set(scopes.map(s => s.key)).size !== scopes.length) invalid();
   // A reservation must count against its job and at least one role-period scope.
-  if (!scopes.some(s => s.key === `job:${req.jobId}`) || !scopes.some(s => /^agent:(commercial|evaluation_engineer|quality_investigator|company_operator):[A-Za-z0-9_-]+$/.test(s.key))) invalid();
+  if (!scopes.some(s => s.key === `job:${req.jobId}`) || !scopes.some(s => { const match = /^agent:([a-z_]+):[A-Za-z0-9_-]+$/.exec(s.key); return !!match && Object.prototype.hasOwnProperty.call(COMPANY_ROLE_DEFINITIONS, match[1]!); })) invalid();
   return { ...req, scopes };
 }
 async function lockScopes(tx: AgentSqlExecutor, scopes: BudgetReservationRequest['scopes']) {

@@ -14,6 +14,12 @@ This is a source-derived integration handoff for `docs/NAIVE_PLAN.md` Phases 0‚Ä
 
 **Activation gate:** the current application sinks do not satisfy the B replay contract. A successful real-method fixture or staged core test does not clear this gate.
 
+## Proxy receipt adoption
+
+The new `judges/naive-proxy.ts` emits `NaiveProxyCost` with source `naive_proxy`, the SDK request ID, provider `billed_micro_usd`, and `naive_proxy:<requestId>` replay identity. `contracts/index.ts` currently permits only `naive` and `ai_gateway`, so this receipt must **not** be cast into `ServiceContext.recordCost` or mislabeled as a session. Track A must extend the cost contract and keyed SQL sink for proxy receipts before application activation. Vendor cost/token counts are not customer-billed usage.
+
+The proxy has no SDK money-cap field. `max_tokens` bounds output tokens, while `createNaiveProxyBudget` reserves against shared job and Jude-period SQL ledger scopes; measured overage remains recorded. A live model/input pricing envelope is an acceptance gate, not a provider hard-cap claim.
+
 ## Proposed owner implementation
 
 1. Add an explicit nullable `receipt_key` column to costs. For Na√Øve session receipts, derive it in trusted code as `naive:<sessionId>` and verify supplied metadata agrees. Require a nonempty validated session identity, `measured:true`, and a nonnegative safe-integer micro-USD amount. Reject unknown usage as pending reconciliation; do not finalize it as a measured zero. A measured zero is valid.
