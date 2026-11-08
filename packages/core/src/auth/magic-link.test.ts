@@ -12,9 +12,6 @@ describe("devLinksEnabled", () => {
   it("is allowed locally with AUTH_DEV_LINKS=1", () => {
     expect(devLinksEnabled(env({ AUTH_DEV_LINKS: "1" }), true)).toBe(true);
   });
-  it("is allowed in local next start (NODE_ENV=production, no VERCEL_ENV) when explicitly enabled", () => {
-    expect(devLinksEnabled(env({ AUTH_DEV_LINKS: "1", NODE_ENV: "production" }), true)).toBe(true);
-  });
   it("is impossible on Vercel production even with AUTH_DEV_LINKS=1", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     expect(devLinksEnabled(env({ AUTH_DEV_LINKS: "1", VERCEL_ENV: "production" }), true)).toBe(false);
@@ -25,6 +22,13 @@ describe("devLinksEnabled", () => {
   });
   it("is impossible on Vercel preview, including the no-email fallback", () => {
     expect(devLinksEnabled(env({ VERCEL_ENV: "preview" }), false)).toBe(false);
+  });
+  // after the Vercel cases: the warn-once flag is module state
+  it("is refused on any NODE_ENV=production build, even off Vercel with AUTH_DEV_LINKS=1", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(devLinksEnabled(env({ AUTH_DEV_LINKS: "1", NODE_ENV: "production" }), true)).toBe(false);
+    expect(devLinksEnabled(env({ AUTH_DEV_LINKS: "1", NODE_ENV: "production" }), false)).toBe(false);
+    err.mockRestore();
   });
 });
 

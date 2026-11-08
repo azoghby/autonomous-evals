@@ -8,14 +8,14 @@ import {
 export { isOperator } from "./tokens";
 
 let warnedDevLinks = false;
-/** Dev links must be impossible on Vercel production/preview, whatever AUTH_DEV_LINKS says. */
+/** Dev links must be impossible on Vercel production/preview and any NODE_ENV=production build, whatever AUTH_DEV_LINKS says. */
 export function devLinksEnabled(env: NodeJS.ProcessEnv = process.env, emailConfigured = isEmailConfigured()): boolean {
   const wanted = env.AUTH_DEV_LINKS === "1" || (!emailConfigured && env.NODE_ENV !== "production");
   if (!wanted) return false;
-  if (env.VERCEL_ENV === "production" || env.VERCEL_ENV === "preview") {
+  if (env.VERCEL_ENV === "production" || env.VERCEL_ENV === "preview" || env.NODE_ENV === "production") {
     if (env.AUTH_DEV_LINKS === "1" && !warnedDevLinks) {
       warnedDevLinks = true;
-      console.error(`[SECURITY] AUTH_DEV_LINKS=1 is set on VERCEL_ENV=${env.VERCEL_ENV}; ignoring it. Dev sign-in links are disabled here. Remove AUTH_DEV_LINKS.`);
+      console.error(`[SECURITY] AUTH_DEV_LINKS=1 is set on a production build (VERCEL_ENV=${env.VERCEL_ENV ?? "unset"}, NODE_ENV=${env.NODE_ENV ?? "unset"}); ignoring it. Dev sign-in links are disabled here. Remove AUTH_DEV_LINKS.`);
     }
     return false;
   }
