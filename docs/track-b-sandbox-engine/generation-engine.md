@@ -116,3 +116,7 @@ find Vitest; offline `npx tsc -p apps/web --noEmit` cannot resolve the actual
 workspace compiler. Invoking the cached actual compiler confirms unresolved
 Next/React/workflow/botid and workspace dependencies. No repository-wide pass is
 claimed and no manifests were changed.
+
+## Parent integrated verification
+
+After integration at `7f492e2`, the parent reran the actual durable-engine suite using the retained workflow dependencies with ipaddr.js 2.5.0 supplied explicitly. Strict TypeScript and all **12 tests** passed, including native PostgreSQL restart, adopted-session continuation, exact gate artifact replay, racing legacy/new admission, changed identity, tenant binding and revoked authorization. No skipped tests or live provider calls occurred.
