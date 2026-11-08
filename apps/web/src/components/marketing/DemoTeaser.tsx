@@ -31,7 +31,7 @@ export function DemoTeaser() {
   const { lines, trial } = excerpt();
   const passed = trial?.checks.filter((c) => c.passed).length ?? 0;
   return (
-    <Section id="demo" labelledBy="demo-h" band className="scroll-mt-16">
+    <Section id="demo" labelledBy="demo-h" className="scroll-mt-16">
       <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
         <Reveal className="flex flex-col gap-6 lg:col-span-5">
           <h2 id="demo-h" className="t-h2 text-balance text-fg">A real run, replayed. <span className="text-muted">Nothing scripted.</span></h2>
@@ -41,7 +41,10 @@ export function DemoTeaser() {
           <div><Button href="/demo" variant="outline" className="group">Watch the run <NudgeArrow /></Button></div>
         </Reveal>
         <Reveal className="lg:col-span-7">
-          <Link href="/demo" aria-label="Watch the recorded run" className="ls-card block rounded-[4px] border border-line-2 bg-bg-raised p-5 sm:p-6">
+          <Link href="/demo" aria-label="Watch the recorded run" className="demo-card block rounded-[4px] bg-bg-raised p-5 sm:p-6">
+            <p className="mb-5 flex items-center gap-2.5 border-b border-line pb-4 font-mono text-[11px] uppercase text-fg-2">
+              <span aria-hidden className="live-dot" />Recorded run · replay
+            </p>
             <ul className="flex flex-col gap-3 font-mono text-[13px] leading-relaxed">
               {lines.map((l, i) => (
                 <li key={i} className="flex gap-4">
