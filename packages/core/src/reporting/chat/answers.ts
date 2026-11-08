@@ -1,4 +1,4 @@
-import type { ChatReply, ProgressSnapshot } from './types.js';
+import type { ChatReply, ProgressSnapshot } from './types';
 
 type Topic = ChatReply['topic'];
 

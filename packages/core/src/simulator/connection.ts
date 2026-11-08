@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { BranchOwnership } from './neon.js';
+import type { BranchOwnership } from './neon';
 
 export type NeonConnectionErrorCode = 'invalid_neon_connection_config' | 'branch_not_owned' |
   'branch_ownership_mismatch' | 'branch_not_ready' | 'neon_connection_invalid_response' |

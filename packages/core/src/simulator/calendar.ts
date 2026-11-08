@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { FunctionTool, ToolCall } from '../targets/chat.js';
-import { isPersistableText, toolCallSchema } from '../targets/chat.js';
+import type { FunctionTool, ToolCall } from '../targets/chat';
+import { isPersistableText, toolCallSchema } from '../targets/chat';
 
 export interface RunScope { jobId: string; runId: string; version: string }
 export interface Calendar { id: string; ownerId: string }

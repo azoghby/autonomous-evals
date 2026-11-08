@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatTarget, ToolCall } from '../targets/chat.js';
+import type { ChatMessage, ChatTarget, ToolCall } from '../targets/chat';
 /** Internal demo fixtures only: never customer executions or live SDK verification. */
 export function internalCalendarFixture(mode: 'buggy' | 'fixed', call: ToolCall): ChatTarget {
   return { async complete(messages: ChatMessage[]) {

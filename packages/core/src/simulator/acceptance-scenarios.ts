@@ -1,6 +1,6 @@
-import { calendarSeed, type CalendarState } from './calendar.js';
-import type { StateExpectation } from './graders.js';
-import type { ToolCall } from '../targets/chat.js';
+import { calendarSeed, type CalendarState } from './calendar';
+import type { StateExpectation } from './graders';
+import type { ToolCall } from '../targets/chat';
 
 export interface CalendarAcceptanceScenario {
   id: string;

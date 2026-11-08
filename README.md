@@ -8,15 +8,15 @@
 **[Live site](https://standard-evals.vercel.app)** &nbsp;·&nbsp;
 **[Sample report](https://standard-evals.vercel.app/sample)** &nbsp;·&nbsp;
 **[Leaderboard](https://standard-evals.vercel.app/leaderboard)** &nbsp;·&nbsp;
-**[MCP docs](https://github.com/azoghby/standard-evals/blob/track-a/docs/MCP.md)** &nbsp;·&nbsp;
-**[Sandbox plan](https://github.com/azoghby/standard-evals/blob/track-a/docs/SANDBOX_EVALS_PLAN.md)**
+**[MCP docs](docs/MCP.md)** &nbsp;·&nbsp;
+**[Sandbox plan](docs/SANDBOX_EVALS_PLAN.md)**
 
 <br>
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://standard-evals.vercel.app)
 [![Neon](https://img.shields.io/badge/Postgres-Neon-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech)
-[![MCP](https://img.shields.io/badge/MCP-server-7C3AED?style=for-the-badge&logo=modelcontextprotocol&logoColor=white)](https://github.com/azoghby/standard-evals/blob/track-a/docs/MCP.md)
+[![MCP](https://img.shields.io/badge/MCP-server-7C3AED?style=for-the-badge&logo=modelcontextprotocol&logoColor=white)](docs/MCP.md)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
 </div>
@@ -78,13 +78,13 @@ flowchart LR
 | **Agent-run company** | A Commercial agent qualifies the request and quotes it. Code sets the price. A durable Workflow runs the job, records confirmed findings, proposes fixes and delivers the report. |
 | **Two ways to pay** | Fixed package price, or per confirmed finding ($3 each, capped, $0 if nothing is real). Stripe Checkout for cards; x402 USDC on Base Sepolia **testnet** is also merged. |
 | **Reproducible reports** | Findings with evidence, verified fixes with before/after pass counts, shareable report links, and a [sample report](https://standard-evals.vercel.app/sample) you can read first. |
-| **Fix as a pull request** | Verified patches can be proposed as GitHub PRs, and a [GitHub Action](https://github.com/azoghby/standard-evals/blob/track-a/integrations/github-action/README.md) re-runs a delivered job's frozen suite on every PR. |
+| **Fix as a pull request** | Verified patches can be proposed as GitHub PRs, and a [GitHub Action](integrations/github-action/README.md) re-runs a delivered job's frozen suite on every PR. |
 | **Public leaderboard** | Reference agents scored on a fixed suite, with an opt-in submission flow that requires authorization to test. |
-| **Expert network** | Human experts supply domain ground truth. Every outreach is approval-gated ([docs](https://github.com/azoghby/standard-evals/blob/track-a/docs/EXPERT_NETWORK.md)). |
+| **Expert network** | Human experts supply domain ground truth. Every outreach is approval-gated ([docs](docs/EXPERT_NETWORK.md)). |
 | **Hire it from your editor** | Remote MCP server with browser OAuth, plus a Claude Code plugin and a Cursor rule. |
 | **Sandbox Evals** | State-based grading of your agent inside a seeded copy of its own world. See below. |
 
-**Packages today:** `trace_audit`, `text_eval`, `workflow_eval` ($5 fixed, $15 per-finding cap) and `version_comparison` ($10 fixed, $30 cap). Prices are shown in [docs/MCP.md](https://github.com/azoghby/standard-evals/blob/track-a/docs/MCP.md); `list_packages` is the live source of truth.
+**Packages today:** `trace_audit`, `text_eval`, `workflow_eval` ($5 fixed, $15 per-finding cap) and `version_comparison` ($10 fixed, $30 cap). Prices are shown in [docs/MCP.md](docs/MCP.md); `list_packages` is the live source of truth.
 
 <br>
 
@@ -92,7 +92,7 @@ flowchart LR
 
 Run the customer's agent against a seeded, throwaway copy of its own world and grade the **state it leaves behind**.
 
-- **Ingest.** OpenAPI, function or MCP tool definitions, DB schema, seed data and policy docs become a typed `EnvironmentSpec` ([`spec.ts`](https://github.com/azoghby/standard-evals/blob/track-a/packages/core/src/sandbox/spec.ts)). Tools are bound to generated SQL, or to schema-constrained simulation for things like `send_email`.
+- **Ingest.** OpenAPI, function or MCP tool definitions, DB schema, seed data and policy docs become a typed `EnvironmentSpec` ([`spec.ts`](packages/core/src/sandbox/spec.ts)). Tools are bound to generated SQL, or to schema-constrained simulation for things like `send_email`.
 - **Isolate.** One golden Neon branch per job. Each trial gets its own database via `CREATE DATABASE ... TEMPLATE world`, so trials never share state. A frozen clock makes "30-day refund window" cases deterministic.
 - **Break things on purpose.** Per-scenario faults: `http_500`, `timeout`, `rate_limited`, `empty_result`, `stale_data`, and `injected_instruction` (a prompt injection planted in a tool result, with a canary).
 - **Trust the tests.** Every generated scenario must pass four gates before you see it: an **oracle** agent can solve it, **null agents** (do-nothing, empty-reply, dump-everything) all fail, a **grader mutation test** flips the verdict when the final state is perturbed, and you approve it.
@@ -104,9 +104,9 @@ Run the customer's agent against a seeded, throwaway copy of its own world and g
 
 <br>
 
-- The ingest, runtime, engine and media modules exist under [`packages/core/src/sandbox/`](https://github.com/azoghby/standard-evals/blob/track-a/packages/core/src/sandbox) with unit tests, and the runtime has an opt-in live test against Neon.
+- The ingest, runtime, engine and media modules exist under [`packages/core/src/sandbox/`](packages/core/src/sandbox) with unit tests, and the runtime has an opt-in live test against Neon.
 - The `/sandbox` pages in the web app currently render **sample data** (fixtures labelled "Sample"). They are not real results.
-- The MCP `sandbox_*` tools validate input and currently return `{"status":"coming_soon"}`. See [docs/MCP.md](https://github.com/azoghby/standard-evals/blob/track-a/docs/MCP.md).
+- The MCP `sandbox_*` tools validate input and currently return `{"status":"coming_soon"}`. See [docs/MCP.md](docs/MCP.md).
 - Customer-code ("repo") mode on Vercel Sandbox, realtime voice transports and video-input agents are planned, not shipped. See the roadmap.
 
 </details>
@@ -123,7 +123,7 @@ The same engine drives every modality. A persona's `modality` decides how the si
 | **Checks** | Transcribe the agent's replies, then grade perception and latency | A **media oracle**: a vision model must read the ground truth back before an asset is used |
 | **Stress** | Audio perturbations | Blur, rotation, low light, crop, JPEG artifacts, and instructions hidden in images |
 
-A first voice and vision slice lives in [`packages/core/src/sandbox/media/`](https://github.com/azoghby/standard-evals/blob/track-a/packages/core/src/sandbox/media). Realtime voice transports are on the roadmap.
+A first voice and vision slice lives in [`packages/core/src/sandbox/media/`](packages/core/src/sandbox/media). Realtime voice transports are on the roadmap.
 
 <br>
 
@@ -170,7 +170,7 @@ npx -y mcp-remote https://standard-evals.vercel.app/api/mcp/mcp
 </td></tr>
 </table>
 
-Then ask your agent to audit itself. The [Claude Code plugin](https://github.com/azoghby/standard-evals/blob/track-a/integrations/claude-code-plugin/README.md) adds `/audit-my-agent` and `/sandbox-eval`; the [Cursor rule](https://github.com/azoghby/standard-evals/blob/track-a/integrations/cursor/README.md) adds `@audit-my-agent`. Nothing is uploaded until you see the redacted payload and say yes, and your agent never pays: checkout is a Stripe link you open yourself.
+Then ask your agent to audit itself. The [Claude Code plugin](integrations/claude-code-plugin/README.md) adds `/audit-my-agent` and `/sandbox-eval`; the [Cursor rule](integrations/cursor/README.md) adds `@audit-my-agent`. Nothing is uploaded until you see the redacted payload and say yes, and your agent never pays: checkout is a Stripe link you open yourself.
 
 <details>
 <summary><b>MCP tools</b></summary>
@@ -189,7 +189,7 @@ Then ask your agent to audit itself. The [Claude Code plugin](https://github.com
 | `cancel_job` | Cancel before work starts |
 | `sandbox_create_environment`, `sandbox_generate_suite`, `sandbox_run`, `sandbox_status`, `sandbox_report` | Sandbox Evals flow. **Preview:** returns `coming_soon` today |
 
-Also a `sample_report` resource and prompt, and a `hire_eval` playbook prompt. Headless and CI setups use an API key bearer token instead of OAuth. Everything is in [docs/MCP.md](https://github.com/azoghby/standard-evals/blob/track-a/docs/MCP.md).
+Also a `sample_report` resource and prompt, and a `hire_eval` playbook prompt. Headless and CI setups use an API key bearer token instead of OAuth. Everything is in [docs/MCP.md](docs/MCP.md).
 
 </details>
 
@@ -214,7 +214,7 @@ Live snapshot from `/api/leaderboard` (10 reference agents, suite `standard-v1`,
 | 9 | DeepSeek V3.2 | 62% | 55% | 1 |
 | 10 | GPT-5 nano | 28% | 30% | 3 |
 
-These are a single run, not a pass^k study, and the live board may have moved since. The reference list lives in [`data/public-agents.json`](https://github.com/azoghby/standard-evals/blob/track-a/data/public-agents.json).
+These are a single run, not a pass^k study, and the live board may have moved since. The reference list lives in [`data/public-agents.json`](data/public-agents.json).
 
 <br>
 
@@ -249,7 +249,7 @@ AUTH_DEV_LINKS=1 DEV_SIMULATE_PAYMENTS=1 npm run dev -w web -- -p 3100
 npx tsx scripts/e2e-pipeline.ts --base http://localhost:3100
 ```
 
-This signs in, gets a quote, simulates payment and verifies delivery. Handoff notes, infrastructure names and deploy caveats are in [`LEDGER.md`](https://github.com/azoghby/standard-evals/blob/track-a/LEDGER.md).
+This signs in, gets a quote, simulates payment and verifies delivery. Handoff notes, infrastructure names and deploy caveats are in [`LEDGER.md`](LEDGER.md).
 
 </details>
 
@@ -291,7 +291,7 @@ LEDGER.md                 Working handoff log
 
 ## Roadmap
 
-From the [Sandbox Evals plan](https://github.com/azoghby/standard-evals/blob/track-a/docs/SANDBOX_EVALS_PLAN.md). Items are plans, not promises.
+From the [Sandbox Evals plan](docs/SANDBOX_EVALS_PLAN.md). Items are plans, not promises.
 
 - [ ] **Hackathon vertical (in progress):** `acme-support` reference environment, ingest, Neon runtime, engine with oracle and null-agent gates, a voice and a vision slice, then runs of public models on the leaderboard. Modules exist; end-to-end wiring to the product is still preview.
 - [ ] **Week 1:** `sandbox_api` mode (REST + MCP sandbox server), repo mode on Vercel Sandbox, customer suite-approval UI, Workflow + Queues fan-out, branch-pool tier, judge calibration, environment fidelity score, CI gate for sandbox suites
@@ -304,6 +304,6 @@ From the [Sandbox Evals plan](https://github.com/azoghby/standard-evals/blob/tra
 <div align="center">
 
 Built at the Naïve Autonomous Company Hackathon, November 7 to 8, 2026.<br>
-[standard-evals.vercel.app](https://standard-evals.vercel.app) &nbsp;·&nbsp; [Issues](https://github.com/azoghby/standard-evals/issues) &nbsp;·&nbsp; [Working notes](https://github.com/azoghby/standard-evals/blob/track-a/LEDGER.md)
+[standard-evals.vercel.app](https://standard-evals.vercel.app) &nbsp;·&nbsp; [Issues](https://github.com/azoghby/standard-evals/issues) &nbsp;·&nbsp; [Working notes](LEDGER.md)
 
 </div>

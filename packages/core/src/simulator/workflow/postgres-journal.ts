@@ -1,9 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { z } from 'zod';
-import { isPersistableText, toolCallSchema } from '../../targets/chat.js';
-import { stateExpectationSchema } from '../graders.js';
-import type { SqlConnection, SqlPool } from '../pool.js';
-import type { WorkflowInvestigationJournal, WorkflowInvestigationRecord } from './index.js';
+import { isPersistableText, toolCallSchema } from '../../targets/chat';
+import { stateExpectationSchema } from '../graders';
+import type { SqlConnection, SqlPool } from '../pool';
+import type { WorkflowInvestigationJournal, WorkflowInvestigationRecord } from './index';
 
 const id = z.string().min(1).max(128).refine(isPersistableText);
 const text = z.string().refine(isPersistableText);

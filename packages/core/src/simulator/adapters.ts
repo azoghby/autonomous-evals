@@ -1,4 +1,4 @@
-import type { BranchOwnership, NeonBranchService } from './neon.js';
+import type { BranchOwnership, NeonBranchService } from './neon';
 /** Retry this observation in a later Workflow step; the service will not repeat an accepted DELETE. */
 export class BranchCleanupPendingError extends Error {
   readonly code = 'branch_cleanup_pending';

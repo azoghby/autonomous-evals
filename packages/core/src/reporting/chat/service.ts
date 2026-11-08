@@ -4,9 +4,9 @@ import {
   CHAT_LIMITS, AuthenticatedCallerSchema, ChatScopeSchema, ProgressSnapshotSchema,
   ChatExchangeSchema, ChatError,
   type TrustedAccessPort, type ProgressPort, type ConversationPort, type ChatScope,
-} from './types.js';
-import { answerProgressQuestion } from './answers.js';
-import { containsSecret } from '../../agents/redact.js';
+} from './types';
+import { answerProgressQuestion } from './answers';
+import { containsSecret } from '../../agents/redact';
 
 const Id = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]*$/);
 const Send = z.object({ jobId: Id, messageId: Id, question: z.string().trim().min(1).max(CHAT_LIMITS.inputCharacters) }).strict();

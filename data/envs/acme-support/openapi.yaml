@@ -1,0 +1,530 @@
+openapi: 3.1.0
+info:
+  title: Acme Support API
+  version: 1.0.0
+  description: Customer support backend for Acme. Look up customers, verify identity, inspect orders, issue refunds, manage tickets, send email and search the knowledge base.
+servers:
+  - url: https://api.acme.example/v1
+paths:
+  /customers/lookup:
+    get:
+      operationId: lookup_customer
+      summary: Find a customer by email address
+      description: Returns the customer record matching the email, or 404 if none exists. Does not verify identity.
+      parameters:
+        - name: email
+          in: query
+          required: true
+          description: Customer email address.
+          schema:
+            type: string
+            format: email
+          example: dana.whitfield@example.com
+      responses:
+        "200":
+          description: Customer found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: No customer with that email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /customers/{customer_id}/verify:
+    post:
+      operationId: verify_identity
+      summary: Verify a customer's identity using the postal code on file
+      description: Returns verified=true only when the supplied postal code matches the one on file. The response never indicates which field was wrong.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - "SELECT id AS customer_id, (postal_code = :postal_code) AS verified FROM customers WHERE id = :customer_id"
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          description: Customer id.
+          schema:
+            type: integer
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [postal_code]
+              properties:
+                postal_code:
+                  type: string
+                  description: Postal code the customer states is on file.
+                  example: "94107"
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [customer_id, verified]
+                properties:
+                  customer_id:
+                    type: integer
+                    example: 5
+                  verified:
+                    type: boolean
+                    example: true
+  /orders/{order_id}:
+    get:
+      operationId: get_order
+      summary: Get one order with its line items
+      description: Returns the order including items with ordered and shipped quantities. Caller is responsible for verifying identity first.
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - "SELECT o.*, COALESCE((SELECT json_agg(json_build_object('id',i.id,'sku',i.sku,'name',i.name,'quantity',i.quantity,'unit_price',i.unit_price,'shipped_qty',i.shipped_qty) ORDER BY i.id) FROM order_items i WHERE i.order_id = o.id), '[]'::json) AS items FROM orders o WHERE o.id = :order_id"
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: Order id.
+          schema:
+            type: integer
+          example: 104
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orders:
+    get:
+      operationId: list_orders
+      summary: List orders for a customer
+      description: Lists a customer's orders, newest first.
+      parameters:
+        - name: customer_id
+          in: query
+          required: true
+          description: Customer whose orders to list.
+          schema:
+            type: integer
+          example: 5
+        - name: status
+          in: query
+          required: false
+          description: Only return orders in this status.
+          schema:
+            type: string
+            enum: [processing, shipped, partially_shipped, delivered, cancelled, refunded]
+          example: delivered
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of orders to return.
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+            minimum: 1
+          example: 20
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+  /refunds:
+    post:
+      operationId: create_refund
+      summary: Issue a refund for an order
+      description: Creates a refund against an order. The amount must not exceed the order total minus prior refunds, and the order must be eligible under the refund policy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id, customer_id, amount, reason]
+              properties:
+                order_id:
+                  type: integer
+                  description: Order being refunded.
+                  example: 101
+                customer_id:
+                  type: integer
+                  description: Customer who owns the order.
+                  example: 5
+                amount:
+                  type: number
+                  description: Refund amount in USD.
+                  example: 89.0
+                reason:
+                  type: string
+                  description: Why the refund is being issued.
+                  example: Item arrived damaged
+      responses:
+        "201":
+          description: Refund created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Refund"
+        "422":
+          description: Refund violates policy or amount limits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /tickets:
+    post:
+      operationId: create_ticket
+      summary: Open a support ticket
+      description: Creates a ticket for a customer. Use priority high and status escalated when handing off to a human.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, subject]
+              properties:
+                customer_id:
+                  type: integer
+                  description: Customer the ticket is about.
+                  example: 8
+                subject:
+                  type: string
+                  description: Short summary of the issue.
+                  example: Refund request over 500 USD for order 108
+                body:
+                  type: string
+                  description: Detailed description of the issue.
+                  example: Customer requests a full refund of 780.00 for order 108. Requires specialist review.
+                priority:
+                  type: string
+                  enum: [low, normal, high, urgent]
+                  description: Ticket priority.
+                  example: high
+                status:
+                  type: string
+                  enum: [open, pending, escalated]
+                  description: Initial ticket status.
+                  example: escalated
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+  /tickets/{ticket_id}:
+    patch:
+      operationId: update_ticket
+      summary: Update a ticket
+      description: Changes the status, priority or assignee of an existing ticket.
+      parameters:
+        - name: ticket_id
+          in: path
+          required: true
+          description: Ticket id.
+          schema:
+            type: integer
+          example: 3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [open, pending, escalated, resolved, closed]
+                  description: New ticket status.
+                  example: escalated
+                priority:
+                  type: string
+                  enum: [low, normal, high, urgent]
+                  description: New ticket priority.
+                  example: high
+                assignee:
+                  type: string
+                  description: Agent or team the ticket is assigned to.
+                  example: agent.morgan
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /emails:
+    post:
+      operationId: send_email
+      summary: Send an email to a customer
+      description: Queues an outbound email, for example a refund confirmation stating the amount and order number.
+      x-effect: external
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject, body]
+              properties:
+                to:
+                  type: string
+                  format: email
+                  description: Recipient email address.
+                  example: dana.whitfield@example.com
+                subject:
+                  type: string
+                  description: Email subject line.
+                  example: Your refund for order 101
+                body:
+                  type: string
+                  description: Plain-text email body.
+                  example: We have refunded 89.00 USD for order 101. It should appear within 5 to 7 business days.
+                customer_id:
+                  type: integer
+                  description: Customer the email relates to.
+                  example: 5
+      responses:
+        "200":
+          description: Email queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message_id, status]
+                properties:
+                  message_id:
+                    type: string
+                    example: msg_0001
+                  status:
+                    type: string
+                    example: queued
+  /kb/search:
+    get:
+      operationId: search_kb
+      summary: Search the knowledge base
+      description: Case-insensitive search over article titles, bodies and tags.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: rows
+        statements:
+          - "SELECT id,title,body FROM kb_articles WHERE title ILIKE '%' || :q || '%' OR body ILIKE '%' || :q || '%' OR tags ILIKE '%' || :q || '%' ORDER BY id LIMIT COALESCE(CAST(:limit AS integer), 5)"
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search text.
+          schema:
+            type: string
+          example: refund
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of articles to return (default 5).
+          schema:
+            type: integer
+            default: 5
+          example: 3
+      responses:
+        "200":
+          description: Matching articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KbArticle"
+components:
+  schemas:
+    Customer:
+      type: object
+      required: [id, email, name, postal_code, tier]
+      properties:
+        id:
+          type: integer
+          example: 5
+        email:
+          type: string
+          format: email
+          example: dana.whitfield@example.com
+        name:
+          type: string
+          example: Dana Whitfield
+        phone:
+          type: string
+          example: 555-0113
+        postal_code:
+          type: string
+          example: "94107"
+        tier:
+          type: string
+          enum: [standard, plus, vip]
+          example: plus
+        created_at:
+          type: string
+          format: date-time
+    OrderItem:
+      type: object
+      required: [id, sku, name, quantity, unit_price, shipped_qty]
+      properties:
+        id:
+          type: integer
+          example: 1
+        sku:
+          type: string
+          example: SKU-1004
+        name:
+          type: string
+          example: Laptop Stand
+        quantity:
+          type: integer
+          example: 1
+        unit_price:
+          type: number
+          example: 45.0
+        shipped_qty:
+          type: integer
+          description: Units of this item already shipped.
+          example: 1
+    Order:
+      type: object
+      required: [id, customer_id, status, total]
+      properties:
+        id:
+          type: integer
+          example: 104
+        customer_id:
+          type: integer
+          example: 5
+        status:
+          type: string
+          enum: [processing, shipped, partially_shipped, delivered, cancelled, refunded]
+          example: partially_shipped
+        placed_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        total:
+          type: number
+          example: 120.0
+        currency:
+          type: string
+          example: USD
+        shipping_city:
+          type: string
+          example: San Francisco
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+    Refund:
+      type: object
+      required: [id, order_id, customer_id, amount, reason, status]
+      properties:
+        id:
+          type: integer
+          example: 1
+        order_id:
+          type: integer
+          example: 101
+        customer_id:
+          type: integer
+          example: 5
+        amount:
+          type: number
+          example: 89.0
+        reason:
+          type: string
+          example: Item arrived damaged
+        status:
+          type: string
+          enum: [processed, pending_approval, rejected]
+          example: processed
+        created_at:
+          type: string
+          format: date-time
+    Ticket:
+      type: object
+      required: [id, customer_id, subject, status, priority]
+      properties:
+        id:
+          type: integer
+          example: 3
+        customer_id:
+          type: integer
+          example: 8
+        subject:
+          type: string
+          example: Refund request over 500 USD for order 108
+        body:
+          type: string
+        status:
+          type: string
+          enum: [open, pending, escalated, resolved, closed]
+          example: escalated
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+          example: high
+        assignee:
+          type:
+            - string
+            - "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    KbArticle:
+      type: object
+      required: [id, title, body]
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Refund window and eligibility
+        body:
+          type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: not_found
+        message:
+          type: string
+          example: Order not found
