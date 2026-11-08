@@ -1,5 +1,23 @@
 # Track B objective design admission
 
+## Offline rubric repair: reference_assessment.v3
+
+New design constructs conditional check IDs, canonical prose, reference dependency and factual flags from source rules before admission and investigator review. Known conditional IDs in drafts identify code-owned slots; their model-generated prose/flags are discarded. Missing slots are constructed, while unknown conditional IDs still reject. Other rubrics retain their prose and factual flags: arbitrary false factual flags are not repaired or reclassified. The engineer reserves space within the existing three-rubric limit, and the investigator still reviews useful factual coverage and source semantics. Frozen suite admission does not construct or normalize checks. Historical bytes, digests, integrity-only reads and quarantine gates remain unchanged. The rubric admission version and task identity are now v3; objective catalog/schema versions are unchanged.
+
+Conditional sentence extraction now detects candidates separately from authority admission. The entire system source must consist of bounded role prose, supported unconditional output rules, the recognized conditional grammar, and the exact supported trust instruction. Examples, fences, indentation, untrusted context, unknown trailing overrides and other opaque scope block admission even when every copied binding matches. Different outputs for the same supported condition also block as unresolved; no conflicting rules execute together. This deliberately sacrifices coverage rather than guessing precedence or scope. The unchanged Lumen prompt remains supported, including its original fallback, 50-word/token limits and three-project paraphrases.
+
+Both exact tone templates remain supported as entire system sources. An entire user tone template qualifies only when the system source is absent/blank or exactly the same tone instruction. Any other higher-priority source makes the user binding unresolved and rejects before target/Gateway dispatch. This includes benign but unsupported system wording as a conservative coverage limit. Admitted tone judgments receive code-written hierarchy guidance, selected source role and separate system/user context in the rubric; response/reference remain evidence. The Gateway contract and transport are unchanged. Broader behavioral semantics are still investigator/judge work, not deterministic certification.
+
+Offline validation (no install, network, provider call or spend):
+
+- `node tests/track-b/run-checks.mjs --components evals,judges --track-a-ref origin/track-a`: strict type-check, **27 files / 429 tests passed**, none skipped. Local Track A revision `eee9939b290190886fa9aa11fd32ff84442f05f2`, contract digest `dc7936cf343e023a9f0b3b2c0ee02b3886a1f230397f282ee4aaec84a9b27101`. Used a temporary dependency symlink to `/tmp/autonomous-evals-checks.m10du4/node_modules`, removed afterwards.
+- `TEXT_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/rubric-boundary-review/run.mjs`: strict type-check, **8 files / 174 tests passed**. R1/R2 defect characterizations now assert pre-dispatch rejection; semantic-provider limitations and positive controls remain.
+- `TEXT_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/text-security-review/run.mjs`: strict type-check, **7 files / 148 tests passed**.
+
+The boundary regression replays both actual guillemet S01 draft samples from the rubric-binding artifact within the existing offline full-suite diagnostic scaffold, preserving their separate factual rubric prose. Both reach injected investigator review and retain useful three-project execution. The artifact stores samples rather than complete drafts; this is not replay or live acceptance of an entire original draft. Missing slots construct successfully, forged IDs and ordinary false flags still block. Applicability remains judged and exact response equality code-enforced. Wrong trusted applicability/evidence judgments can still miss defects; existing relevance characterizations remain explicit. Initial tests exposed stale exact-payload/version expectations; these now assert the hierarchy-bearing payload and v3 identity. No timeout or contract expectations were relaxed.
+
+The sections below retain the historical v2 diagnostics; they are not new live acceptance claims.
+
 ## Latest bounded live diagnostic
 
 The [rubric-binding probe](../tests/track-b/live-evidence/text-design-rubric-binding-2026-11-07.json)
@@ -9,7 +27,7 @@ No suite was accepted and no investigator/target was dispatched. Both drafts cha
 the canonical conditional template's quote characters; the revision also changed a
 required factual flag. The source string and selected actual draft rubrics are preserved
 in the diagnostic artifact. Requiring a model to copy code-owned conditional prose
-exactly is an open usability defect, not successful design acceptance. No further
+exactly was a usability defect addressed by the offline v3 construction above, not successful live design acceptance. No further
 session retry was started. The independent source/hierarchy findings are recorded in
 [the rubric boundary review](track-b-rubric-boundary-review.md).
 

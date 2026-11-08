@@ -17,6 +17,7 @@ try {
   await mkdir(join(stage, 'src/rubric-boundary-review'), { recursive: true });
   await cp(join(here, 'review.test.ts'), join(stage, 'src/rubric-boundary-review/review.test.ts'));
   await cp(join(repo, 'tests/track-b/live-evidence/text-design-natural-language-2026-11-07.json'), join(stage, 'src/rubric-boundary-review/live.json'));
+  await cp(join(repo, 'tests/track-b/live-evidence/text-design-rubric-binding-2026-11-07.json'), join(stage, 'src/rubric-boundary-review/binding.json'));
   await symlink(dependencies, join(stage, 'node_modules'), 'dir');
   await writeFile(join(stage, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
   await writeFile(join(stage, 'tsconfig.json'), JSON.stringify({ compilerOptions: {

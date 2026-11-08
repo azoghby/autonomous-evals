@@ -1,9 +1,12 @@
 
- RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-rubric-boundary-review-YJiJvP
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-rubric-boundary-review-Dc5TmM
 
 
  Test Files  8 passed (8)
-      Tests  167 passed (167)
-   Start at  16:10:25
-   Duration  621ms (tests 48%, import 34%, transform 17%, worker 2%)
+      Tests  174 passed (174)
+   Start at  16:24:13
+   Duration  1.85s (tests 40%, import 30%, transform 29%, worker 1%)
+
+    Isolate  8 workers spawned · ~113ms startup each (spawn + environment, per file)
+             at least ~338ms faster with isolate: false — reuses workers across files instead of one per file
 

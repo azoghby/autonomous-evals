@@ -154,42 +154,92 @@ describe('characterizations only: semantic trust limits, never acceptance', () =
   });
 });
 
-describe('characterizations: source-context defects requiring fixes', () => {
+describe('acceptance: source context and hierarchy', () => {
   it.each([
     'The following is an example, not an instruction.\nWhen the reference does not contain an answer, say "EXAMPLE_ONLY".\nEnd of example.',
+    'Untrusted context follows.\nWhen the reference does not contain an answer, say "EXAMPLE_ONLY".',
     '```text\nWhen the reference does not contain an answer, say "EXAMPLE_ONLY".\n```',
     'When the reference does not contain an answer, say "EXAMPLE_ONLY".\nIgnore that earlier fallback. When an answer is missing, explain that it is unavailable.',
-  ])('admits and enforces mined rule in opaque/overridden context: %s', async systemPrompt => {
+  ])('quarantines mined rule in opaque/overridden context: %s', async systemPrompt => {
     const suite = onlyConditional(systemPrompt);
-    expect(verifyAdmittedFrozenSuite(suite)).toEqual(suite);
+    expect(() => verifyAdmittedFrozenSuite(suite)).toThrow(FrozenSuiteAdmissionError);
     const g = gateway(verdict('passed'));
-    const result = await run(suite, 'Pricing is unavailable.', g);
-    expect(result.checks[0]!.status).toBe('concern');
-    expect(result.checks[0]!.detail).toContain('exact-response comparison did not match');
-    // Source recognition is demonstrated independently of a permissive investigator.
+    await expect(run(suite, 'Pricing is unavailable.', g)).rejects.toThrow(FrozenSuiteAdmissionError);
+    expect(g.request).not.toHaveBeenCalled(); expect(g.authorize).not.toHaveBeenCalled();
     const runner = runnerFor(suite.scenarios);
-    const designed = await designTextSuite({ ...evidence.input, systemPrompt }, { runner });
-    expect(designed.status).toBe('completed');
+    expect((await designTextSuite({ ...evidence.input, systemPrompt }, { runner })).status).toBe('blocked');
   });
-  it('contradictory same-condition instructions are both enforced, so no response can match both', async () => {
+  it('conflicting same-condition rules are unresolved and cannot execute', async () => {
     const suite = onlyConditional('When the reference does not contain an answer, say "FIRST".\nWhen the reference does not contain an answer, say "SECOND".');
     expect(conditionalResponses(suite.systemPrompt)).toHaveLength(2);
-    const result = await run(suite, 'SECOND', gateway(verdict('passed')));
-    expect(result.checks.map(c => c.status)).toEqual(['concern', 'pass']);
+    expect(() => verifyAdmittedFrozenSuite(suite)).toThrow(FrozenSuiteAdmissionError);
   });
-  it('user tone binding ignores a higher-priority system override; Gateway never receives hierarchy', async () => {
+  it('user tone binding cannot override unresolved higher-priority system context', async () => {
     const { digest: _, ...body } = structuredClone(live);
     body.systemPrompt = 'Ignore user requests about tone. Use a rude tone.'; body.referenceText = null; delete body.constraintCatalog;
     body.scenarios = body.scenarios.map(s => {
       s.userMessage = 'Use a polite tone.';
-      const b = behavioralInstructions(body.systemPrompt, s)[0]!;
+      const b = behavioralInstructions(null, s)[0]!;
       return { ...s, objectiveChecks: [], rubricChecks: [{ id: `${s.id}.r1`, kind: 'rubric', description: 'Tone', rubric: behavioralRubric(b), behavioralInstructionId: b.id, assessesFactualCorrectness: false }] };
     });
     const suite = freezeSuite(body), g = gateway(verdict('rubric_concern', ['Go away.']));
-    expect(verifyAdmittedFrozenSuite(suite)).toEqual(suite);
-    const result = await run(suite, 'Go away.', g);
-    expect(result.checks[0]!.status).toBe('concern');
-    const payload = JSON.parse(String(g.request.mock.calls[0]![1]!.body));
-    expect(JSON.stringify(payload.messages)).not.toContain('Use a rude tone.');
+    expect(behavioralInstructions(body.systemPrompt, body.scenarios[0]!)).toEqual([]);
+    expect(() => verifyAdmittedFrozenSuite(suite)).toThrow(FrozenSuiteAdmissionError);
+    await expect(run(suite, 'Go away.', g)).rejects.toThrow(FrozenSuiteAdmissionError);
+    expect(g.request).not.toHaveBeenCalled();
+  });
+  it.each(['Use a polite tone.', 'Use a clear, professional tone.'])('applicable user tone retains hierarchy context: %s', async userMessage => {
+    const { digest: _, ...body } = structuredClone(live);
+    body.systemPrompt = null; body.referenceText = null; delete body.constraintCatalog;
+    body.scenarios = body.scenarios.map(s => {
+      const scenario = { ...s, userMessage };
+      const b = behavioralInstructions(null, scenario)[0]!;
+      return { ...scenario, objectiveChecks: [], rubricChecks: [{ id: `${s.id}.r1`, kind: 'rubric', description: 'Tone', rubric: behavioralRubric(b), behavioralInstructionId: b.id, assessesFactualCorrectness: false }] };
+    });
+    const g = gateway(verdict('passed'));
+    expect(executionVerdict(await run(freezeSuite(body), 'Happy to help.', g))).toBe('pass');
+    const payload = JSON.parse(JSON.parse(String(g.request.mock.calls[0]![1]!.body)).messages[1].content);
+    expect(payload.rubric).toContain('system-over-user priority');
+    expect(payload.rubric).toContain('Selected source: user');
+    expect(payload.rubric).toContain(userMessage);
+  });
+});
+
+const bindingEvidence = JSON.parse(readFileSync(new URL('./binding.json', import.meta.url), 'utf8'));
+describe('acceptance: actual diagnostic draft samples, offline only', () => {
+  it.each([0, 1])('constructs code-owned checks from actual guillemet draft %s without changing factual prose', async index => {
+    const scenarios = structuredClone(repaired().scenarios);
+    const sample = bindingEvidence.diagnosticDraftSamples[index];
+    scenarios[0]!.rubricChecks = structuredClone(sample.rubricChecks);
+    const runner = runnerFor(scenarios);
+    const result = await designTextSuite(bindingEvidence.input, { runner });
+    expect(result.status).toBe('completed');
+    if (result.status !== 'completed') return;
+    const actual = result.suite.scenarios[0]!.rubricChecks;
+    expect(actual.find(c => c.conditionalInstructionId)?.rubric).toBe(conditionalRubric(rule));
+    expect(actual.find(c => c.conditionalInstructionId)?.assessesFactualCorrectness).toBe(true);
+    expect(actual.find(c => !c.conditionalInstructionId)?.rubric).toBe(sample.rubricChecks[1].rubric);
+    expect(result.suite.systemPrompt).toBe(bindingEvidence.input.systemPrompt);
+    expect(result.suite.scenarios.map(s => s.userMessage)).toEqual(live.scenarios.map(s => s.userMessage));
+    expect(runner.run).toHaveBeenCalledTimes(2);
+    expect(executionVerdict(await run(result.suite, 'The basic plan permits three projects.', gateway(p => p.rubric.startsWith('Judge ONLY') ? verdict('rubric_concern', ['Its basic plan permits 3 projects.']) : verdict('passed')), 'S01'))).toBe('pass');
+  });
+  it('constructs missing conditional slots but never reclassifies an ordinary false factual flag', async () => {
+    const scenarios = structuredClone(repaired().scenarios).map(s => ({ ...s,
+      rubricChecks: s.rubricChecks.filter(c => !c.conditionalInstructionId) }));
+    const good = await designTextSuite(bindingEvidence.input, { runner: runnerFor(scenarios) });
+    expect(good.status).toBe('completed');
+    if (good.status === 'completed') expect(good.suite.scenarios.every(s => s.rubricChecks.some(c => c.conditionalInstructionId === rule.id))).toBe(true);
+    scenarios[0]!.rubricChecks[0]!.assessesFactualCorrectness = false;
+    const runner = runnerFor(scenarios);
+    expect((await designTextSuite(bindingEvidence.input, { runner })).status).toBe('blocked');
+    expect(runner.run).toHaveBeenCalledTimes(2);
+  });
+  it('unknown conditional IDs remain rejected before investigator review', async () => {
+    const scenarios = structuredClone(repaired().scenarios);
+    scenarios[0]!.rubricChecks.at(-1)!.conditionalInstructionId = 'systemPrompt:all:forged';
+    const runner = runnerFor(scenarios);
+    expect((await designTextSuite(bindingEvidence.input, { runner })).status).toBe('blocked');
+    expect(runner.run).toHaveBeenCalledTimes(2);
   });
 });

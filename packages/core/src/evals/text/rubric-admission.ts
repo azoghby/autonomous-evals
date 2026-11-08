@@ -1,12 +1,12 @@
-import { sentences } from './admission';
+import { sentences, supportedInstructionContext } from './admission';
 import type { FrozenTextSuiteBody, RubricCheck, TextScenario } from './schema';
 
 /** Separate from objective grammar/version: task identity changes without migrating catalogs. */
-export const RUBRIC_ADMISSION_VERSION = 'reference_assessment.v2';
+export const RUBRIC_ADMISSION_VERSION = 'reference_assessment.v3';
 export function conditionalResponses(systemPrompt: string | null) {
   // Deliberately narrow, source-bound grammar. Never infer an arbitrary condition's meaning.
-  // Detection is conservative even in opaque context: ambiguity quarantines execution rather
-  // than donating an unconditional objective or silently allowing a weakened rubric.
+  // Candidates retain offsets even in opaque context. Admission separately checks authority;
+  // copying a candidate binding cannot lift unresolved scope or conflict quarantine.
   return sentences(systemPrompt ?? '').flatMap(s => {
     const match = /^When the reference does not contain an answer, say ("(?:[^"\\]|\\.)+")\.?$/.exec(s.quote);
     if (!match) return [];
@@ -26,6 +26,7 @@ export function conditionalRubric(rule: ConditionalResponse): string {
 export function behavioralInstructions(systemPrompt: string | null, scenario: Pick<TextScenario, 'id' | 'userMessage'>) {
   return ([['systemPrompt', 'all', systemPrompt], ['userMessage', scenario.id, scenario.userMessage]] as const)
     .flatMap(([source, scope, text]) => {
+      if (source === 'userMessage' && systemPrompt?.trim() && systemPrompt !== text) return [];
       if (text !== 'Use a polite tone.' && text !== 'Use a clear, professional tone.') return [];
       return [{ id: `${source}:${scope}:0`, quote: text }];
     });
@@ -43,9 +44,30 @@ export function bindRubricReferences(scenarios: readonly TextScenario[], systemP
   return scenarios.map(s => ({ ...s, rubricChecks: s.rubricChecks.map(c => supportedBehavior(c, systemPrompt, s)
     ? { ...c } : { ...c, requiresReference: true as const }) }));
 }
+/** New drafts only; frozen checks are never repaired. Known source IDs identify code-owned
+ * slots. Unknown IDs and ordinary factual/behavioral checks are preserved for validation. */
+export function constructConditionalChecks(scenarios: readonly TextScenario[], systemPrompt: string | null): TextScenario[] {
+  const rules = conditionalResponses(systemPrompt);
+  return scenarios.map(s => {
+    const checks = s.rubricChecks.filter(c => !rules.some(r => r.id === c.conditionalInstructionId));
+    for (const rule of rules) {
+      let n = 1;
+      while (checks.some(c => c.id === `${s.id}.r${n}`)) n++;
+      checks.push({ id: `${s.id}.r${n}`, kind: 'rubric', description: 'Source-bound exact conditional response',
+        rubric: conditionalRubric(rule), conditionalInstructionId: rule.id,
+        assessesFactualCorrectness: true, requiresReference: true });
+    }
+    return { ...s, rubricChecks: checks };
+  });
+}
+
 export function rubricAdmissionProblems(input: Pick<FrozenTextSuiteBody, 'systemPrompt' | 'referenceText' | 'scenarios'>): string[] {
   const rules = conditionalResponses(input.systemPrompt);
   const problems: string[] = [];
+  if (rules.length && (!supportedInstructionContext(input.systemPrompt ?? '')
+    || new Set(rules.map(r => r.response)).size > 1)) {
+    problems.push('conditional source scope or conflict unresolved; candidate text is not an authoritative executable rule');
+  }
   for (const scenario of input.scenarios) {
     for (const check of scenario.rubricChecks) {
       if (check.behavioralInstructionId !== undefined && !supportedBehavior(check, input.systemPrompt, scenario)) {

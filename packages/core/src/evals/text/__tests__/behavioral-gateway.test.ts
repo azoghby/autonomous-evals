@@ -41,7 +41,7 @@ describe('source-bound behavioral support composed with the configured gateway',
     expect(result.checks.map(c => c.status)).toEqual(['pass', 'pass', 'not_assessed', 'not_assessed']);
     expect(g.request).toHaveBeenCalledTimes(1); expect(g.authorize).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(String(g.request.mock.calls[0]![1]!.body));
-    expect(JSON.parse(payload.messages[1].content)).toMatchObject({ rubric: body.scenarios[0]!.rubricChecks[0]!.rubric, reference: null });
+    expect(JSON.parse(payload.messages[1].content)).toMatchObject({ rubric: expect.stringContaining(body.scenarios[0]!.rubricChecks[0]!.rubric), reference: null });
     expect(g.recordUsage).toHaveBeenCalledWith(expect.objectContaining({ result: 'received', promptTokens: null, completionTokens: null, costMicroUsd: null }));
   });
 
@@ -87,7 +87,7 @@ describe('source-bound behavioral support composed with the configured gateway',
       output: task.role === 'evaluation_engineer' ? { scenarios: body.scenarios } : { verdicts: body.scenarios.map(s => ({ scenarioId: s.id, accepted: true, reasons: [] })) },
       taskKey: task.purpose, session: { sessionId: task.purpose } })) } as unknown as AgentTaskRunner;
     const designed = await designTextSuite({ job: { jobId: 'behavior-design', customerId: 'fixture-customer', package: 'text_eval', environment: 'test', quoteVersion: null, linkedRetestOf: null, isFixture: true }, versionLabel: 'v2', systemPrompt: body.systemPrompt, referenceText: null }, { runner });
-    expect(RUBRIC_ADMISSION_VERSION).toBe('reference_assessment.v2');
+    expect(RUBRIC_ADMISSION_VERSION).toBe('reference_assessment.v3');
     expect(designed.status).toBe('completed');
     if (designed.status !== 'completed') throw new Error('design blocked');
     const g = gateway();
