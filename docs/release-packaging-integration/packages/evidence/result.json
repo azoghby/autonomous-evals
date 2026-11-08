@@ -1,0 +1,499 @@
+{
+  "trackA": "da92bedd68b230188e2499fdd8440ea23b2f1d6b",
+  "parent": "f8d1f75cf53422015e63b8ac3233eacbaa1a30d5",
+  "checkout": "f8d1f75cf53422015e63b8ac3233eacbaa1a30d5",
+  "tools": {
+    "node": "v24.21.0",
+    "npm": "11.19.0",
+    "typescript": "6.0.3"
+  },
+  "output": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-release-packages-UpTrkv",
+  "verified": {
+    "manifestAndLock": {
+      "owners": 2,
+      "exactAdditions": 7,
+      "unrelatedLockEntriesUnchanged": true
+    },
+    "priorPinIdenticalPackageInputs": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "workspaceOfflineCi": true,
+    "owners": {
+      "packages/core": {
+        "exactVersions": {
+          "resend": "6.37.0",
+          "dotenv": "18.0.9"
+        },
+        "lockedClosurePackages": 6,
+        "sourceImportSites": [
+          {
+            "file": "packages/core/src/auth/email.ts",
+            "line": 1,
+            "specifier": "resend",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "packages/core/src/email/setup-inboxes.ts",
+            "line": 6,
+            "specifier": "dotenv/config",
+            "explicitlyTypeOnly": false
+          }
+        ],
+        "negativeControlUnresolved": 2,
+        "resolutions": [
+          {
+            "specifier": "dotenv/config",
+            "types": "node_modules/dotenv/dist/config.d.ts",
+            "esm": "node_modules/dotenv/dist/config.cjs"
+          },
+          {
+            "specifier": "resend",
+            "types": "node_modules/resend/dist/index.d.mts",
+            "esm": "node_modules/resend/dist/index.mjs"
+          }
+        ]
+      },
+      "apps/web": {
+        "exactVersions": {
+          "drizzle-orm": "0.45.4",
+          "zod": "4.6.7",
+          "stripe": "23.1.0",
+          "@neondatabase/serverless": "1.2.0",
+          "@x402/core": "2.30.0"
+        },
+        "lockedClosurePackages": 23,
+        "sourceImportSites": [
+          {
+            "file": "apps/web/src/app/api/auth/request-link/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/auth/verify/route.ts",
+            "line": 2,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/cron/cleanup/route.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/cron/stale-jobs/recovery.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/cron/stale-jobs/route.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/dev/simulate-payment/route.ts",
+            "line": 2,
+            "specifier": "stripe",
+            "explicitlyTypeOnly": true
+          },
+          {
+            "file": "apps/web/src/app/api/dev/simulate-payment/route.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/experts/signup/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/accept-quote/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/accept-quote/route.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/cancel/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/cancel/route.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/messages/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/monitoring/route.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/retest/route.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/share/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/jobs/[jobId]/share/route.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/keys/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/mcp/[transport]/route.ts",
+            "line": 4,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/operator/experts/invite/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/operator/interventions/route.ts",
+            "line": 1,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/operator/outreach/[id]/approve/route.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/operator/outreach/[id]/reject/route.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/app/api/stripe/webhook/route.ts",
+            "line": 1,
+            "specifier": "stripe",
+            "explicitlyTypeOnly": true
+          },
+          {
+            "file": "apps/web/src/app/api/stripe/webhook/route.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/api-keys.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/create-job.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/expert-calls-logic.ts",
+            "line": 6,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/expert-calls.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/experts.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/follow-ups.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/github-pr.ts",
+            "line": 2,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/github-service.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/http.ts",
+            "line": 2,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/idempotency.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/inbound-email.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/infra.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/job-actions.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/job-store.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/leaderboard-agents.ts",
+            "line": 4,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/leaderboard-db.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/leaderboard-db.ts",
+            "line": 13,
+            "specifier": "@neondatabase/serverless",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/mcp-tools.ts",
+            "line": 2,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/mcp-tools.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/monitoring.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/queries.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/rate-limit.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/regression-api.ts",
+            "line": 3,
+            "specifier": "zod",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/regression-store.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/rerun-slots.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/revenue.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/share.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/x402-pay.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/x402-pay.ts",
+            "line": 3,
+            "specifier": "@x402/core/http",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/server/x402-pay.ts",
+            "line": 4,
+            "specifier": "@x402/core/types",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/restart.ts",
+            "line": 2,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/resume.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/billing.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/common.ts",
+            "line": 3,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/evaluate.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/lifecycle.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/notify.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/quote.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          },
+          {
+            "file": "apps/web/src/workflows/steps/resume.ts",
+            "line": 1,
+            "specifier": "drizzle-orm",
+            "explicitlyTypeOnly": false
+          }
+        ],
+        "negativeControlUnresolved": 6,
+        "resolutions": [
+          {
+            "specifier": "@neondatabase/serverless",
+            "types": "node_modules/@neondatabase/serverless/index.d.mts",
+            "esm": "node_modules/@neondatabase/serverless/index.mjs"
+          },
+          {
+            "specifier": "@x402/core/http",
+            "types": "node_modules/@x402/core/dist/esm/http/index.d.mts",
+            "esm": "node_modules/@x402/core/dist/esm/http/index.mjs"
+          },
+          {
+            "specifier": "@x402/core/types",
+            "types": "node_modules/@x402/core/dist/esm/types/index.d.mts",
+            "esm": "node_modules/@x402/core/dist/esm/types/index.mjs"
+          },
+          {
+            "specifier": "drizzle-orm",
+            "types": "node_modules/drizzle-orm/index.d.ts",
+            "esm": "node_modules/drizzle-orm/index.js"
+          },
+          {
+            "specifier": "stripe",
+            "types": "node_modules/stripe/esm/stripe.esm.node.d.ts",
+            "esm": "node_modules/stripe/esm/stripe.esm.node.js"
+          },
+          {
+            "specifier": "zod",
+            "types": "node_modules/zod/index.d.cts",
+            "esm": "node_modules/zod/index.js"
+          }
+        ]
+      }
+    }
+  },
+  "blockers": [],
+  "assumptions": [
+    "Selected Track A pin is the owner integration target; later commits require rerunning.",
+    "Owner will apply this artifact and existing Workflow/chat/data artifacts through their normal review process."
+  ],
+  "limits": [
+    "Offline npm extraction disables lifecycle scripts; no full Next/Workflow build or service execution.",
+    "Isolated fixtures use only the reachable closure of the existing Track A lock entries; they are resolution checks, not application runtime execution.",
+    "TypeScript resolver checks module availability, not semantic application type correctness.",
+    "No provider/cloud calls, credentials, deployment, or release acceptance."
+  ],
+  "releaseAccepted": false,
+  "patchSha256": "e1cecad8e0edf441c40b3d09d732f79a815005fb14eeaa6c1ee716bd5f168b15",
+  "packagingAccepted": true
+}

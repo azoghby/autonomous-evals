@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "trackA": "da92bedd68b230188e2499fdd8440ea23b2f1d6b",
+  "parent": "f8d1f75cf53422015e63b8ac3233eacbaa1a30d5",
+  "compatiblePriorTrackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "dependencies": {
+    "packages/core": {
+      "resend": "6.37.0",
+      "dotenv": "18.0.9"
+    },
+    "apps/web": {
+      "drizzle-orm": "0.45.4",
+      "zod": "4.6.7",
+      "stripe": "23.1.0",
+      "@neondatabase/serverless": "1.2.0",
+      "@x402/core": "2.30.0"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+diff --git a/apps/web/package.json b/apps/web/package.json
+index e71ef9a..d484bda 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -26,7 +26,12 @@
+     "resend": "^6.37.0",
+     "server-only": "^0.0.1",
+     "workflow": "^5.4.0",
+-    "@workflow/core": "5.4.0"
++    "@workflow/core": "5.4.0",
++    "drizzle-orm": "0.45.4",
++    "zod": "4.6.7",
++    "stripe": "23.1.0",
++    "@neondatabase/serverless": "1.2.0",
++    "@x402/core": "2.30.0"
+   },
+   "devDependencies": {
+     "@tailwindcss/turbopack": "^4",
+diff --git a/package-lock.json b/package-lock.json
+index 02df73e..f404733 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -43,7 +43,12 @@
+         "react-dom": "19.3.0",
+         "resend": "^6.37.0",
+         "server-only": "^0.0.1",
+-        "workflow": "^5.4.0"
++        "workflow": "^5.4.0",
++        "drizzle-orm": "0.45.4",
++        "zod": "4.6.7",
++        "stripe": "23.1.0",
++        "@neondatabase/serverless": "1.2.0",
++        "@x402/core": "2.30.0"
+       },
+       "devDependencies": {
+         "@tailwindcss/turbopack": "^4",
+@@ -16926,7 +16931,9 @@
+         "drizzle-orm": "^0.45.4",
+         "ipaddr.js": "2.5.0",
+         "stripe": "^23.1.0",
+-        "zod": "^4.6.7"
++        "zod": "^4.6.7",
++        "resend": "6.37.0",
++        "dotenv": "18.0.9"
+       },
+       "devDependencies": {
+         "@electric-sql/pglite": "^0.5.15",
+diff --git a/packages/core/package.json b/packages/core/package.json
+index 485cef6..8312712 100644
+--- a/packages/core/package.json
++++ b/packages/core/package.json
+@@ -24,7 +24,9 @@
+     "drizzle-orm": "^0.45.4",
+     "ipaddr.js": "2.5.0",
+     "stripe": "^23.1.0",
+-    "zod": "^4.6.7"
++    "zod": "^4.6.7",
++    "resend": "6.37.0",
++    "dotenv": "18.0.9"
+   },
+   "devDependencies": {
+     "@electric-sql/pglite": "^0.5.15",

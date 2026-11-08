@@ -1,0 +1,4 @@
+npm install --offline --ignore-scripts --no-audit --no-fund --install-strategy=nested
+npm error code ENOTCACHED
+npm error request to https://registry.npmjs.org/resend failed: cache mode is 'only-if-cached' but no cached response is available.
+npm error A complete log of this run can be found in: /Users/alexzoghby/.npm/_logs/2026-11-08T01_17_23_814Z-debug-0.log

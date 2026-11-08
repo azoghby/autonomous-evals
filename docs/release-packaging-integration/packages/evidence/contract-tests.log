@@ -1,0 +1,11 @@
+✔ exact seven additions belong to their importing package (77.248375ms)
+✔ artifact is deterministic and edits only two manifests and the lock (834.667666ms)
+✔ historical release-contract baseline is evidence, not a silent current acceptance claim (1.0385ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1051.198667

@@ -1,0 +1,2 @@
+/usr/local/bin/node --input-type=module -e console.log(import.meta.resolve("dotenv/config"))
+file:///private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-release-packages-UpTrkv/packages-core/node_modules/dotenv/dist/config.cjs

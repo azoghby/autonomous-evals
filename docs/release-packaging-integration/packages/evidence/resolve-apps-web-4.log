@@ -1,0 +1,2 @@
+/usr/local/bin/node --input-type=module -e console.log(import.meta.resolve("stripe"))
+file:///private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-release-packages-UpTrkv/apps-web/node_modules/stripe/esm/stripe.esm.node.js
