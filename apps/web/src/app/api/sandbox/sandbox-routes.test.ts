@@ -220,6 +220,11 @@ describe("POST runs + GET report", () => {
     expect(report.k).toBe(5);
     expect((await startRun(post({ k: 99 }), params({ draftId }))).status).toBe(400);
   });
+  it("rejects an oversized body with 413 via the bounded reader", async () => {
+    const draftId = await makeDraft();
+    const res = await startRun(post(JSON.stringify({ k: 3, pad: "x".repeat(10_000) }), true), params({ draftId }));
+    expect(res.status).toBe(413);
+  });
 });
 
 describe("SandboxInputError mapping", () => {
