@@ -1,0 +1,38 @@
+{
+  "scope": "Read-only live configured exact-version inspection",
+  "sourceCommit": "5906961",
+  "calls": [
+    "list",
+    "get",
+    "getVersion",
+    "get",
+    "getVersion",
+    "get",
+    "getVersion",
+    "get",
+    "getVersion"
+  ],
+  "status": "verified",
+  "result": {
+    "directory": {
+      "commercial": {
+        "agentId": "agt_8qs08dagxf8jyyj76afczxrdhp",
+        "agentVersion": 1
+      },
+      "evaluation_engineer": {
+        "agentId": "agt_gwht2ygfm04s2j19062q3r5sad",
+        "agentVersion": 1
+      },
+      "quality_investigator": {
+        "agentId": "agt_p2r9zh605pmpzvx4fdprd832vt",
+        "agentVersion": 1
+      },
+      "company_operator": {
+        "agentId": "agt_46gdd6aqq1vtzcvvtnrtnyqk7j",
+        "agentVersion": 1
+      }
+    },
+    "created": [],
+    "missing": []
+  }
+}

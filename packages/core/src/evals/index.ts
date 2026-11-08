@@ -22,3 +22,4 @@ export { createDiscoveryOperations, createPostgresDiscoveryOperations } from './
 export { createProgressChatService, createPostgresConversationPort } from '../reporting/chat';
 export { createDurableProgressProjection, createDurableProgressReader } from '../reporting/chat/projection';
 export { renderCalendarReport } from '../reporting/calendar';
+export { createComparisonMonitoringService, createTextComparisonAdapter, createCalendarComparisonAdapter, createRetainedComparisonAdapter } from '../monitoring';

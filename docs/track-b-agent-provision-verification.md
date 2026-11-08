@@ -1,5 +1,18 @@
 # Track B agent provisioning verification
 
+## Read-only live verification (2026-11-07)
+
+Parent `5906961` verified all four configured role agents at exact version 1
+against the live authenticated API. The diagnostic used `dryRun: true`, with the
+create method disabled independently. It made one list call, four get calls and
+four getVersion calls; no agent was created, modified or deleted, and no session
+was started. All required configuration checks passed; no roles were missing.
+The unrelated CEO agent was not adopted or changed.
+
+Safe result artifact: `tests/track-b/live-evidence/naive-configuration-verification-2026-11-07.json`.
+This verifies returned API configuration at the pinned versions, not deployed
+Workflow wiring, future configuration, monetary settlement or model behavior.
+
 Implemented only operator provisioning, its offline regression tests, and these
 handoff documents. ECC disabled. Independent child SDK review:
 [sdk-contract-review.md](track-b-agent-provision-verification/sdk-contract-review.md).

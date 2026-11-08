@@ -12,7 +12,7 @@ const source = join(repo, 'packages/core/src');
 const contractsRepoPath = 'packages/core/src/contracts';
 const owned = ['agents', 'evals', 'reporting', 'targets', 'simulator', 'monitoring', 'judges'];
 /** Track B source directories each directory imports at type/runtime level (staged without their tests when unselected). */
-const sourceDependencies = { simulator: ['targets'], agents: ['evals', 'reporting'], evals: ['agents', 'reporting', 'simulator', 'judges'], reporting: ['agents', 'evals'] };
+const sourceDependencies = { simulator: ['targets'], agents: ['evals', 'reporting'], evals: ['agents', 'reporting', 'simulator', 'judges', 'monitoring'], reporting: ['agents', 'evals'], monitoring: ['evals', 'simulator'] };
 /** Compatibility components: tests live in tests/track-b/contract-checks and are staged to src/contract-checks. */
 const contractComponents = {
   'contract-schemas': { files: ['schema-compat.test.ts'], needs: [] },

@@ -30,4 +30,11 @@ Remaining application work: agree the rich shared contract; load and authorize i
 
 ## Checks
 
+Parent integration exposes the service and three adapter factories through
+`evals/index.ts`. The isolated check runners now stage the monitoring module's
+new eval/simulator dependencies (and the composition entry's reciprocal source
+dependency) without selecting unrelated tests. Parent reran the 20 comparison
+tests and the strict monitoring-only check (8 tests); both passed. Independent
+review remains separate from these fixture-based acceptance results.
+
 Run `node tests/track-b/comparison-monitoring/run.mjs`. It stages local core sources with read-only contracts from the pinned local Track A ref, runs strict TypeScript checking, and executes offline acceptance tests using the actual PostgreSQL checkpoint adapter and disk-backed PGlite for restart/replay. The runner rejects skipped or missing assertions. Final exact check: `TRACK_B_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/comparison-monitoring/run.mjs` passed strict TypeScript and **20 tests in 3 files, none skipped** (12 new acceptance cases plus 8 legacy monitoring checks). The environment override uses preinstalled dependencies; a normal checkout can install the existing isolated `tests/track-b` manifest and use the default. Verified text rich outcomes, actual calendar SQL fixture comparisons, nonzero/null arithmetic, frozen/appended-inventory rejection, target/tenant/job identity conflicts, disk-backed database close/reopen replay, ambiguous dispatch fencing, retained monitoring baselines, and alert drafts without delivery. The calendar fixture exercises the existing engine through the rich adapter port; typed production wrapper factories compile but are not deployed integration evidence. `git diff --check` also passed. No broader provider or application compatibility claim is made.
