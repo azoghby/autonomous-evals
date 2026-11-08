@@ -1,0 +1,118 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-FpMOcD",
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "core": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b",
+  "patches": [
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/progress-chat-integration/combined.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/structured-progress-integration/backend/structured-progress.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/data-production-integration/intake/track-a.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/workflow-data-bridge/bridge.patch"
+  ],
+  "parentPin": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "dataPin": "66da7a4d408a6171994ce1af414d512733437a52",
+  "dataOverlay": "packages/core/src/evals/data",
+  "intake": "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/data-production-integration/intake/track-a.patch",
+  "intakeHash": "c2150e8e2fcecff69d19d323d120d8efeaab2e06b71d69ebce16d5614551f96b",
+  "excludedIntakeHunk": "buildAgentDeps export already applied and hardened",
+  "admission": "packages/core/src/evals/integration/approved-suite.ts",
+  "admissionHash": "e4fb51d0fe208e2bc1b4c43aa935514b0b23cd94e80c34e9583920ee187e58d3",
+  "bridgeHash": "6dd40178aa554b32fa22557d290a77b89c053a1170566436261b343b9698edbf",
+  "base": "ec123e9ebf1e83c27f8109102658d1554cb20fb5",
+  "remediation": "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-169a689b/docs/workflow-remediation-integration/app/003-remediation.patch",
+  "excluded": [
+    "apps/web/src/server/rich-services.ts",
+    "apps/web/src/workflows/steps/rich-evaluation.ts"
+  ],
+  "combined": true,
+  "strictCombinedSourceTypecheck": "passed",
+  "tests": 140,
+  "files": [
+    {
+      "file": "bridge-verification/global-costs.test.ts",
+      "tests": 2,
+      "status": "passed"
+    },
+    {
+      "file": "bridge-verification/rich-driver.test.ts",
+      "tests": 8,
+      "status": "passed"
+    },
+    {
+      "file": "bridge-verification/service-hook.test.ts",
+      "tests": 1,
+      "status": "passed"
+    },
+    {
+      "file": "bridge-verification/workflow-data.test.ts",
+      "tests": 12,
+      "status": "passed"
+    },
+    {
+      "file": "complete-verification/cross-flow.test.ts",
+      "tests": 1,
+      "status": "passed"
+    },
+    {
+      "file": "remediation-verification/app-remediation.test.ts",
+      "tests": 5,
+      "status": "passed"
+    },
+    {
+      "file": "resumption-verification/atomic-intake.test.ts",
+      "tests": 4,
+      "status": "passed"
+    },
+    {
+      "file": "resumption-verification/dispatcher-recovery.test.ts",
+      "tests": 16,
+      "status": "passed"
+    },
+    {
+      "file": "resumption-verification/job-lifecycle.test.ts",
+      "tests": 7,
+      "status": "passed"
+    },
+    {
+      "file": "resumption-verification/review-ledger-recovery.test.ts",
+      "tests": 4,
+      "status": "passed"
+    },
+    {
+      "file": "apps/web/src/server/data-production.test.ts",
+      "tests": 5,
+      "status": "passed"
+    },
+    {
+      "file": "packages/core/src/targets/remediation.test.ts",
+      "tests": 31,
+      "status": "passed"
+    },
+    {
+      "file": "packages/core/src/evals/remediation/remediation.test.ts",
+      "tests": 23,
+      "status": "passed"
+    },
+    {
+      "file": "packages/core/src/evals/integration/approved-suite.test.ts",
+      "tests": 10,
+      "status": "passed"
+    },
+    {
+      "file": "packages/core/src/evals/remediation/accounting/accounting.test.ts",
+      "tests": 6,
+      "status": "passed"
+    },
+    {
+      "file": "apps/web/src/app/api/jobs/[jobId]/data-review/route.test.ts",
+      "tests": 5,
+      "status": "passed"
+    }
+  ],
+  "skipped": 0,
+  "resumptionHash": "03c3bce1d7a57ea0432a588d5b1d0f93378eb1c61bc86a23d6ad028e7f1e184e",
+  "resumptionParent": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+  "externalWorkflowAPI": "scripted; hosted replay/compiler not executed",
+  "sqlRuntime": "PGlite; native PostgreSQL unavailable"
+}

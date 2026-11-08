@@ -1,0 +1,283 @@
+diff --git a/apps/web/migrations/004-workflow-resumption.sql b/apps/web/migrations/004-workflow-resumption.sql
+new file mode 100644
+index 0000000..0dbd1e0
+--- /dev/null
++++ b/apps/web/migrations/004-workflow-resumption.sql
+@@ -0,0 +1,13 @@
++BEGIN;
++CREATE TABLE workflow_integration.review_resume_intents (
++ job_id text NOT NULL,
++ request_digest text NOT NULL CHECK(request_digest ~ '^[a-f0-9]{64}$'),
++ tenant_id text NOT NULL,
++ environment text NOT NULL CHECK(environment IN ('test','live')),
++ workflow_run_id text NOT NULL,
++ status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','needs_operator','finished')),
++ last_attempt_at timestamptz NOT NULL DEFAULT clock_timestamp(),
++ PRIMARY KEY(job_id,request_digest)
++);
++REVOKE ALL ON workflow_integration.review_resume_intents FROM PUBLIC;
++COMMIT;
+diff --git a/apps/web/src/app/api/cron/review-resumption/route.ts b/apps/web/src/app/api/cron/review-resumption/route.ts
+new file mode 100644
+index 0000000..62dedc2
+--- /dev/null
++++ b/apps/web/src/app/api/cron/review-resumption/route.ts
+@@ -0,0 +1,30 @@
++import { requireCronAuth } from '../_auth';
++import { workflowSql } from '@/server/rich-services';
++import { dispatchReviewResumes } from '@/server/workflow-resumption';
++import { getHookByToken, getRun } from 'workflow/api';
++import { getWorld } from 'workflow/runtime';
++import { reenqueueRun } from '@workflow/core/runtime';
++import { jobHookToken } from '@ae/core/contracts/index';
++export async function GET(request:Request) {
++ const denied=requireCronAuth(request);if(denied)return denied;
++ try {
++  const summary=await dispatchReviewResumes(workflowSql(),{
++   async liveness(jobId,runId) {
++    try {
++     const hook=await getHookByToken(jobHookToken(jobId));
++     if(hook.runId!==runId)return 'unknown';
++     const status=await getRun(runId).status;
++     return status==='pending'||status==='running'?'alive':'dead';
++    } catch(error) {
++     return error instanceof Error && ['HookNotFoundError','WorkflowRunNotFoundError'].includes(error.name)?'dead':'unknown';
++    }
++   },
++   async reenqueue(jobId,runId) {
++    const hook=await getHookByToken(jobHookToken(jobId));
++    if(hook.runId!==runId)throw new Error('review_resume_owner_changed');
++    await reenqueueRun(await getWorld(),runId);
++   }
++  });
++  return Response.json(summary);
++ }catch{return Response.json({error:'Review resumption unavailable'},{status:503});}
++}
+diff --git a/apps/web/src/server/data-production.ts b/apps/web/src/server/data-production.ts
+index 425f3f3..3e8e862 100644
+--- a/apps/web/src/server/data-production.ts
++++ b/apps/web/src/server/data-production.ts
+@@ -1,4 +1,6 @@
+ import 'server-only';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { enqueueReviewResume } from './workflow-resumption';
+ import { createHash } from 'node:crypto';
+ import { Pool } from '@neondatabase/serverless';
+ import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
+@@ -34,9 +36,8 @@ function database() {
+ const identity = (value: string) => createHash('sha256').update(value).digest('hex');
+ 
+ /** Private server capability. Never export through a public route/action or accept customerId from a body. */
+-async function scoped(jobId: string) {
++async function scoped(jobId: string, sql: AgentTransactionalSql = database()) {
+   if (!/^[0-9a-f-]{36}$/i.test(jobId)) throw new Error('data_job_invalid');
+-  const sql = database();
+   const rows = await sql.query<{ customer_id: string; package: string; environment: 'test' | 'live'; is_mock: boolean; retest_of_job_id: string | null }>(
+     'SELECT customer_id, package, environment, is_mock, retest_of_job_id FROM jobs WHERE id=$1', [jobId]);
+   const row = rows.rows[0];
+@@ -137,10 +138,10 @@ export async function advanceProductionData(jobId: string, input: ProductionData
+ }
+ 
+ /** Authenticated human intake only. No provider/generation/workflow invocation. */
+-export async function humanDataReview(jobId: string, digest: string, submission?: { receiptId: string; decision: 'approved' | 'rejected'; reviewed: DataBatch }) {
++async function humanDataReviewInTransaction(sql: AgentTransactionalSql, jobId: string, digest: string, submission?: { receiptId: string; decision: 'approved' | 'rejected'; reviewed: DataBatch }) {
+   const human = await getCurrentCustomer();
+   if (!human?.isOperator || !/^[a-f0-9]{64}$/.test(digest)) throw new Error('data_review_unavailable');
+-  const s = await scoped(jobId);
++  const s = await scoped(jobId, sql);
+   const request = await s.operations.get(`data-review-request:${digest}`);
+   if (request?.state !== 'complete') throw new Error('data_review_unavailable');
+   const snapshot = structuredClone(request.result) as { task: DataTaskSpec; candidates: DataBatch };
+@@ -153,5 +154,17 @@ export async function humanDataReview(jobId: string, digest: string, submission?
+   reviewed.sources = reviewed.sources.map(source => ({ ...source, review: { ...source.review, reviewerId: human.id } }));
+   reviewed.cases = reviewed.cases.map(c => c.verification ? { ...c, verification: { ...c.verification, verifierId: human.id } } : c);
+   await s.reviews.submit({ receiptId: submission.receiptId, decision: submission.decision, task: snapshot.task, candidates: snapshot.candidates, reviewed });
++  const bound = (await sql.query<{workflow_run_id:string}>(`SELECT workflow_run_id FROM jobs WHERE id=$1 AND customer_id=$2 AND environment=$3 AND package='text_eval' AND is_mock=false AND state IN ('planning','running','investigating') FOR UPDATE`, [jobId,s.job.customerId,s.job.environment])).rows[0];
++  if(!bound?.workflow_run_id) throw new Error('data_review_scope');
++  await enqueueReviewResume(sql,{jobId,tenantId:s.job.customerId,environment:s.job.environment,workflowRunId:bound.workflow_run_id},digest);
+   return { status: 'recorded' as const };
+ }
++
++/** One READ COMMITTED pinned transaction, no callback retries: receipt + canonical review + wake intent.
++ * Flatten ONLY ledger-local transactions onto this pinned outer transaction; errors propagate and roll back all writes. */
++export async function humanDataReview(jobId: string, digest: string, submission?: { receiptId: string; decision: 'approved'|'rejected'; reviewed: DataBatch }) {
++ return database().transaction(async tx => {
++  const pinned: AgentTransactionalSql = {query: (q,p) => tx.query(q,p),transaction: fn => fn(tx)};
++  return humanDataReviewInTransaction(pinned,jobId,digest,submission);
++ });
++}
+diff --git a/apps/web/src/server/workflow-resumption.ts b/apps/web/src/server/workflow-resumption.ts
+new file mode 100644
+index 0000000..f8bd35b
+--- /dev/null
++++ b/apps/web/src/server/workflow-resumption.ts
+@@ -0,0 +1,65 @@
++import 'server-only';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import type { AuthenticatedDataReview } from '@ae/core/evals/data/orchestration';
++export type ReviewResumeScope = {jobId:string;tenantId:string;environment:'test'|'live';workflowRunId:string};
++const active = ['planning','running','investigating'];
++async function authorized(sql:AgentTransactionalSql,s:ReviewResumeScope) {
++ return (await sql.query<{state:string}>(`SELECT state FROM jobs WHERE id::text=$1 AND customer_id::text=$2 AND environment=$3
++ AND workflow_run_id=$4 AND package='text_eval' AND is_mock=false`,[s.jobId,s.tenantId,s.environment,s.workflowRunId])).rows[0];
++}
++async function canonical(sql:AgentTransactionalSql,s:ReviewResumeScope,digest:string) {
++ const row=(await sql.query<{result:AuthenticatedDataReview;result_digest:string;digest:string}>(`SELECT result,result_digest,digest FROM evaluation_data_persistence.operations
++ WHERE tenant_id=$1 AND job_id=$2 AND operation_key=$3 AND state='complete'`,[s.tenantId,s.jobId,`authenticated-data-review:${digest}`])).rows[0];
++ if(!row || row.result_digest!==reviewDigest(row.result) || row.digest!==row.result_digest || row.result.requestDigest!==digest
++ || row.result.authority!=='authenticated_human' || !row.result.principalId || !['approved','rejected'].includes(row.result.decision)) return false;
++ return true;
++}
++/** Called inside the SAME pinned transaction as the core authenticated review ledger writes. */
++export async function enqueueReviewResume(sql:AgentTransactionalSql,s:ReviewResumeScope,requestDigest:string) {
++ const job=await authorized(sql,s);
++ if(!job || !active.includes(job.state) || !/^[a-f0-9]{64}$/.test(requestDigest) || !await canonical(sql,s,requestDigest)) throw new Error('review_resume_refused');
++ const result=await sql.query(`INSERT INTO workflow_integration.review_resume_intents(job_id,request_digest,tenant_id,environment,workflow_run_id)
++ VALUES($1,$2,$3,$4,$5) ON CONFLICT(job_id,request_digest) DO UPDATE SET job_id=EXCLUDED.job_id
++ WHERE workflow_integration.review_resume_intents.tenant_id=EXCLUDED.tenant_id AND workflow_integration.review_resume_intents.environment=EXCLUDED.environment
++ AND workflow_integration.review_resume_intents.workflow_run_id=EXCLUDED.workflow_run_id RETURNING job_id`,[s.jobId,requestDigest,s.tenantId,s.environment,s.workflowRunId]);
++ if(result.rows.length!==1) throw new Error('review_resume_identity_conflict');
++}
++/** Waking is permission to re-read the authoritative data pipeline, NEVER permission to execute a target. */
++export async function reviewWakeReady(sql:AgentTransactionalSql,s:ReviewResumeScope):Promise<boolean> {
++ const job=await authorized(sql,s); if(!job || !active.includes(job.state)) return false;
++ const rows=await sql.query<{request_digest:string}>(`SELECT request_digest FROM workflow_integration.review_resume_intents
++ WHERE job_id=$1 AND tenant_id=$2 AND environment=$3 AND workflow_run_id=$4 AND status='pending' ORDER BY request_digest`,[s.jobId,s.tenantId,s.environment,s.workflowRunId]);
++ for(const row of rows.rows) if(await canonical(sql,s,row.request_digest)) return true;
++ return false;
++}
++export async function dispatchReviewResumes(sql:AgentTransactionalSql,api:{liveness(jobId:string,runId:string):Promise<'alive'|'dead'|'unknown'>;reenqueue(jobId:string,runId:string):Promise<void>},limit=50) {
++ if(!Number.isSafeInteger(limit)||limit<1||limit>100) throw new Error('review_resume_limit');
++ const rows=await sql.query<{job_id:string;request_digest:string;tenant_id:string;environment:'test'|'live';workflow_run_id:string}>(`SELECT * FROM workflow_integration.review_resume_intents WHERE status='pending' ORDER BY last_attempt_at,job_id,request_digest LIMIT $1`,[limit]);
++ const summary={examined:rows.rows.length,reenqueued:0,held:0};
++ for(const row of rows.rows) {
++  const s={jobId:row.job_id,tenantId:row.tenant_id,environment:row.environment,workflowRunId:row.workflow_run_id};
++  const job=await authorized(sql,s);
++  let status='pending';
++  if(!job || !active.includes(job.state)) status=job && ['delivered','cancelled','failed','declined'].includes(job.state)?'finished':'needs_operator';
++  else if(await canonical(sql,s,row.request_digest)) {
++   const live=await api.liveness(s.jobId,s.workflowRunId);
++   if(live==='dead') status='needs_operator';
++   else if(live==='alive') {
++    // Recheck scope immediately before queue delivery; the step reauthorizes again.
++    if(await reviewWakeReady(sql,s)) { await api.reenqueue(s.jobId,s.workflowRunId); summary.reenqueued++; }
++   }
++  }
++  await sql.query('UPDATE workflow_integration.review_resume_intents SET status=$3,last_attempt_at=clock_timestamp() WHERE job_id=$1 AND request_digest=$2',[s.jobId,row.request_digest,status]);
++  if(status==='needs_operator') summary.held++;
++ }
++ return summary;
++}
++/** Snapshot only intents visible BEFORE data advance, so a concurrent human completion is never acknowledged unseen. */
++export async function captureReviewIntents(sql:AgentTransactionalSql,s:ReviewResumeScope) {
++ if(!await authorized(sql,s))return [];
++ return (await sql.query<{request_digest:string}>(`SELECT request_digest FROM workflow_integration.review_resume_intents WHERE job_id=$1 AND tenant_id=$2 AND environment=$3 AND workflow_run_id=$4 AND status='pending'`,[s.jobId,s.tenantId,s.environment,s.workflowRunId])).rows.map(r=>r.request_digest);
++}
++export async function finishReviewIntents(sql:AgentTransactionalSql,s:ReviewResumeScope,digests:string[]) {
++ for(const digest of digests)await sql.query(`UPDATE workflow_integration.review_resume_intents SET status='finished' WHERE job_id=$1 AND tenant_id=$2 AND environment=$3 AND workflow_run_id=$4 AND request_digest=$5 AND status='pending'`,[s.jobId,s.tenantId,s.environment,s.workflowRunId,digest]);
++}
+diff --git a/apps/web/src/workflows/job.ts b/apps/web/src/workflows/job.ts
+index 3226094..e99f31d 100644
+--- a/apps/web/src/workflows/job.ts
++++ b/apps/web/src/workflows/job.ts
+@@ -1,4 +1,5 @@
+-import { createHook, FatalError, getWorkflowMetadata } from "workflow";
++import { reviewWakeStep } from './steps/review-wake';
++import { sleep, createHook, FatalError, getWorkflowMetadata } from "workflow";
+ import { jobHookToken, type JobEvent, type Package, type QualifyResult } from "@ae/core/contracts/index";
+ import type { Remediation } from "@ae/core/contracts/index";
+ import type { RunResult } from "@ae/core/contracts/services";
+@@ -121,7 +122,18 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
+       if (!richMode && plan.phase === "execute" && plan.discardPartialResults) await discardPartialEvaluationStep(jobId);
+       let stopped: Stopped | undefined;
+       if (richMode && pkg !== "trace_audit") {
+-        const status = await richEvaluationStep(jobId, getWorkflowMetadata().workflowRunId);
++        let status = await richEvaluationStep(jobId, getWorkflowMetadata().workflowRunId);
++        while (status === 'review_pending') {
++          // Durable timer + fresh step calls; the original run/hook and immutable identities survive review.
++          // Re-enqueue only recovers dropped queue messages; it never starts a replacement worker.
++          for (;;) {
++            await sleep('30s');
++            const wake=await reviewWakeStep(jobId,getWorkflowMetadata().workflowRunId);
++            if(wake==='stop') return {jobId,status:'on_hold'};
++            if(wake)break;
++          }
++          status = await richEvaluationStep(jobId, getWorkflowMetadata().workflowRunId);
++        }
+         if (status !== "complete") stopped = { stopped: status === "paused_budget" ? "paused_budget" : "on_hold" };
+       } else {
+         stopped = pkg === "trace_audit" ? await runTraceAudit() : await runEndpointEval(pkg);
+diff --git a/apps/web/src/workflows/steps/review-wake.ts b/apps/web/src/workflows/steps/review-wake.ts
+new file mode 100644
+index 0000000..ca718cf
+--- /dev/null
++++ b/apps/web/src/workflows/steps/review-wake.ts
+@@ -0,0 +1,10 @@
++import { workflowSql } from '@/server/rich-services';
++import { getJob } from '@/server/job-store';
++import { reviewWakeReady } from '@/server/workflow-resumption';
++export async function reviewWakeStep(jobId:string,workflowRunId:string) {
++ 'use step';
++ const job=await getJob(jobId);
++ if(!job || job.workflowRunId!==workflowRunId || job.isMock || !['planning','running','investigating'].includes(job.state)) return 'stop' as const;
++ return reviewWakeReady(workflowSql(),{jobId,tenantId:job.customerId,environment:job.environment,workflowRunId});
++}
++reviewWakeStep.maxRetries=0;
+diff --git a/apps/web/src/workflows/steps/rich-evaluation.ts b/apps/web/src/workflows/steps/rich-evaluation.ts
+index afaa4f0..169a7a8 100644
+--- a/apps/web/src/workflows/steps/rich-evaluation.ts
++++ b/apps/web/src/workflows/steps/rich-evaluation.ts
+@@ -1,3 +1,4 @@
++import { captureReviewIntents, finishReviewIntents } from '@/server/workflow-resumption';
+ import { TrackBBlockedError, TrackBPendingError } from '@ae/core/evals/service-adapter';
+ import { Report } from '@ae/core/contracts/index';
+ import { calendarOperationRunId } from '@ae/core/evals/calendar-integration/index';
+@@ -9,11 +10,12 @@ import { getJob, recordProgress, setJobState } from '@/server/job-store';
+ import { createBranchStep, persistReportStep } from './evaluate';
+ import { withBudget } from './common';
+ 
+-type RichOutcome = 'complete' | 'pending' | 'needs_operator' | 'paused_budget';
++type RichOutcome = 'complete' | 'review_pending' | 'agent_pending' | 'cost_delivery_pending' | 'pending' | 'needs_operator' | 'paused_budget';
+ /** No decrypted intake, raw response, endpoint or pool connection leaves this step. */
+ export async function richEvaluationStep(jobId: string, workflowRunId: string): Promise<RichOutcome> {
+   'use step';
+   let authorized = false;
++  let pendingReason: 'review_pending'|'agent_pending'|'cost_delivery_pending' = 'agent_pending';
+   try {
+     // Rich engines freeze exactly twelve. Appending Track A's default 32-case
+     // rt_* pack would silently skip paid scope: explicit operator decision required.
+@@ -45,13 +47,19 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+       let suiteDigest: string;
+       await setJobState(jobId, 'planning');
+       if (intake.package === 'text_eval') {
++        const resumeScope={jobId,tenantId:job.customerId,environment:job.environment,workflowRunId};
++        const observedReviews=await captureReviewIntents(workflowSql(),resumeScope);
+         const data = await api.advanceData();
++        // Pipeline effects are retained in core before acknowledging only the observed wake intents.
++        await finishReviewIntents(workflowSql(),resumeScope,observedReviews);
+         let suite;
+         let dataProvenance;
+         if (data !== null) {
+           // All acquisition/review/cost/mapping/freeze gates remain distinct in the
+           // private retained result. No nonready result can execute the target.
+           if (data.status !== 'ready' || !data.frozen) {
++            if (data.status === 'waiting_for_review') pendingReason = 'review_pending';
++            if (data.status === 'cost_delivery_pending') pendingReason = 'cost_delivery_pending';
+             if (['waiting_for_data', 'waiting_for_review', 'cost_delivery_pending'].includes(data.status)) throw new TrackBPendingError(5000, 'Approved data is pending.');
+             throw new TrackBBlockedError('needs_operator', 'Approved data requires reconciliation.');
+           }
+@@ -120,11 +128,11 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+     return result.status === 'budget_exceeded' ? 'paused_budget' : 'complete';
+   } catch (error) {
+     if (!authorized) return 'needs_operator';
+-    const state: RichOutcome = error instanceof TrackBPendingError ? 'pending'
++    const state: RichOutcome = error instanceof TrackBPendingError ? pendingReason
+       : error instanceof TrackBBlockedError && error.code === 'paused_budget' ? 'paused_budget' : 'needs_operator';
+     // Fixed prose only. Retain original checkpoint and reservations; never retry an
+     // ambiguous dispatch with a fresh suite/run/branch identity.
+-    await recordProgress(jobId, `rich_${state}`, state === 'pending' ? 'Evaluation is pending on retained durable work.'
++    await recordProgress(jobId, `rich_${state}`, (['pending','review_pending','agent_pending','cost_delivery_pending'].includes(state)) ? 'Evaluation is pending on retained durable work.'
+       : state === 'paused_budget' ? 'Evaluation paused at its budget limit.' : 'Evaluation requires operator reconciliation before continuing.');
+     if (state === 'paused_budget') await setJobState(jobId, 'paused_budget');
+     return state;
