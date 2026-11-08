@@ -42,7 +42,7 @@ const FAQ: readonly [string, string][] = [
   ["Can I bring my own model key?", "Yes. With a bring-your-own key your agent's model calls go straight to your provider, so we charge you $0 in tokens. You only pay for trials."],
   ["What happens when I hit the free limit?", `Developer is hard-capped at ${freePlan.limits.trialsPerMonth} trials a month and ${freeCap} of our model spend. When you reach either, new runs stop. You are never charged.`],
   ["How does annual billing work?", "Annual plans are billed once a year for 10 months, so you get 2 months free. The monthly price shown is the effective rate."],
-  ["Can I cancel anytime?", "Yes. Email us today and we will cancel at the end of your billing period. A self-serve Stripe customer portal is coming soon."],
+  ["Can I cancel anytime?", "Yes. Open Billing and usage (/settings/billing) and use Manage billing to cancel, change your card or download invoices in the Stripe customer portal. A cancellation takes effect at the end of your billing period, and a free trial can be cancelled before the first charge."],
   ["Can I still buy a single eval?", "Yes. Quick evals (Trace Audit, Text Eval, Workflow Eval, Version Comparison) are one-off purchases, no subscription. Start one from the Quick evals section below."],
   ["Do you have SOC 2 or HIPAA?", "We don't hold SOC 2 or HIPAA attestations today. An Enterprise security review is coming soon."],
 ];
