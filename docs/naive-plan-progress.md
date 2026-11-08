@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Cumulative runtime adoption review (2026-11-08)
+
+`docs/naive-current-runtime-adoption` is the current reviewable source adoption package against actual `fbedc75`, preserving main `ca17ce9`: **147 source/test paths (43 modified, 104 added), no deletions**. It consolidates the unapplied dependency chain through bounded run recovery without replaying already-adopted expert26/factual39 patches. Read its README, scope/activation reviews, manifest and validation receipt before any adoption. A new exact cross-track source ownership approval is required; this package remains unapplied.
+
+Independent patch application and two assemblies match 2,412 exported files; all 1,395 final source files and executable inputs match the prior 4,609-test/types/build composition. Actual source separately passes 4,152 tests/web types. Full baseline Git pins plus the scoped patch preserve 4,178 existing out-of-scope paths; review directories omit unrelated historical docs. SQL inventory has 69 references with aliases and separate migration authorization, not executable ordering. Lite/customer/chat paths need sidecar schema even with Naïve flags off. Target money uncertainty still keeps recovered stages pending; hosted/native acceptance and full plan gates remain open. No source application or live action occurred.
+
 ## Bounded generic run recovery candidate (2026-11-08)
 
 Read `docs/naive-run-recovery-integration/README.md` and its final validation receipt. This unapplied 19-file/two-SQL increment extends the exact judge candidate and preserves actual strict-conformance scripts. Finite canonical run plans, transactional checkpoint associations and exact mode/attempt evidence permit retained target replay after ownership recovery. Unknown target or dispatched-judge evidence stays held; cancellation, changed inputs and stale owners cannot publish or dispatch.

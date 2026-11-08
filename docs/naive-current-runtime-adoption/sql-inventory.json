@@ -1,0 +1,529 @@
+{
+  "liveActions": false,
+  "applyMigrations": false,
+  "ordering": "Alphabetical inventory only; no executable migration order. Requires manual dependency review and separate authorization.",
+  "entries": [
+    {
+      "path": "docs/expert-adoption-integration/postimages/packages/core/src/db/migrations/0024_expert_automation.sql",
+      "sha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-unified-integration/sql/0024_expert_automation.sql",
+        "packages/core/src/db/migrations/0024_expert_automation.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-budget-envelope-integration/sql/001-stage-model-envelopes.sql",
+      "sha256": "634ab2ccb9888113a884a84edae5a98d17e6a63a91a94a867dbb2a4a8b41bb37",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-cancellation-integration/sql/001-job-cancellation.sql",
+      "sha256": "fe9dbbc67c8cc3afc5acd6508917c8b3832d12ac3f5ec8242c32ac02d62c1539",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-copilot-dispatch-integration/sql/001-copilot-dispatch.sql",
+      "sha256": "ace3695ed7c6a396f44e8ee959a0530f307578e2afc9a8a9e45369497e728778",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql",
+      "sha256": "c274a1dc4fa38e923d3f83f9a747cc1413055de11adba13f8760344693d32c59",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql",
+      "sha256": "61a6a37236762516cb08601761a8b5b1b5230460004337fb2a54e01e30dd37d4",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql",
+      "sha256": "3dd8aa997bb604dba4c7f0219b3cc2791907b1feecf45063b36a004d8ce78624",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-judge-attempt-integration/sql/001-proxy-dispatch.sql",
+      "sha256": "be35e03c5d74eed0deac8fdab62d11a5ef43567897e21859abd4b7a680d415ed",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "packages/core/src/judges/migrations/001-proxy-dispatch.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-remediation-owner-integration/sql/001-remediation-accounting.sql",
+      "sha256": "562d5fb0ce65327ee5a8ba9fd75ce4872c3928b7006de1ac8e7999d1b113894a",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "packages/core/src/evals/remediation/accounting/001-remediation-accounting.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-run-recovery-integration/sql/001-run-recovery.sql",
+      "sha256": "6949c814a4b52e8e0b15d3afdd517c088a32a4e528bd4d71b8c768cad11c57f8",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql",
+      "sha256": "174c0da524dbf20407b5f1ede6ef680b2e3a7bc39362dc3e77239939da8dc50a",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql",
+      "sha256": "e6e55766acb22889a18c6499c263a42a3789d7e1d2130abd89caafd51e759988",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-shared-budget-integration/sql/002-gateway-turn-budget.sql",
+      "sha256": "b88f5673cd2d71d078a05d3ac7b89449ca496f3e57041b7951c60090c0bb6e98",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-sourcing-authority-integration/sql/001-expert-sourcing-authority.sql",
+      "sha256": "38d312f9d18a85cc6cd65b79c3045c87a75c6ffa27347dd046a1b9b653758741",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-unified-integration/sql/001-expert-sourcing-authority.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql",
+      "sha256": "7d919fded398bd7cf3da9d23460e5568321961576dd97ffc58582e1b585ed646",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql",
+      "sha256": "0c4238f884a3840611e37fe23e8c714afe42cf13305912ca4fd9103d2691f473",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-stage-recovery-integration/sql/002-stage-progress.sql",
+      "sha256": "92539fca108f7d66a80c768038107a432c1efd8088bfd16b1b539fef4878739e",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0025_expert_workflow.sql",
+      "sha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-unified-integration/sql/0025_expert_workflow.sql",
+        "packages/core/src/db/migrations/0025_expert_workflow.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "sha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-unified-integration/sql/0026_expert_text_runtime.sql",
+        "packages/core/src/db/migrations/0026_expert_text_runtime.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-unified-integration/sql/001-expert-sourcing-authority.sql",
+      "sha256": "38d312f9d18a85cc6cd65b79c3045c87a75c6ffa27347dd046a1b9b653758741",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-sourcing-authority-integration/sql/001-expert-sourcing-authority.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-unified-integration/sql/0024_expert_automation.sql",
+      "sha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/expert-adoption-integration/postimages/packages/core/src/db/migrations/0024_expert_automation.sql",
+        "packages/core/src/db/migrations/0024_expert_automation.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-unified-integration/sql/0025_expert_workflow.sql",
+      "sha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0025_expert_workflow.sql",
+        "packages/core/src/db/migrations/0025_expert_workflow.sql"
+      ]
+    },
+    {
+      "path": "docs/naive-unified-integration/sql/0026_expert_text_runtime.sql",
+      "sha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+        "packages/core/src/db/migrations/0026_expert_text_runtime.sql"
+      ]
+    },
+    {
+      "path": "packages/core/src/agents/autonomy/operations.sql",
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0000_init.sql",
+      "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0001_expert_network.sql",
+      "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0002_delivery_snapshot.sql",
+      "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0003_rate_limits.sql",
+      "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0004_email_threads.sql",
+      "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0005_remediations.sql",
+      "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0006_per_finding_pricing.sql",
+      "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0007_api_keys.sql",
+      "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0008_monitoring_runs.sql",
+      "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0009_call_slots.sql",
+      "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0010_engagement_prev_tokens.sql",
+      "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0011_job_shares.sql",
+      "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0012_github_prs.sql",
+      "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0013_regression_runs.sql",
+      "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0014_public_agents.sql",
+      "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0015_owner_autopilot.sql",
+      "sha256": "d783be2498700ba676146cd0b5429e74707cff9aca2528e98cbec62bef413a69",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0016_mcp_oauth.sql",
+      "sha256": "981754d2d89f862bd3da4bb82dc077ca895f915051731511e965681e081d77ba",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0017_sandbox_evals.sql",
+      "sha256": "b0f0e7f90a5df5f4ecc4ddaaa7e3adaf4661d84724d68aa5864a9a8f0bd8bc61",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0018_plans_and_sales.sql",
+      "sha256": "053f58659df61f7a6c4f19bd6ac9085fc91694e8ce33a33d4324c9654996bffa",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0019_founder_approvals.sql",
+      "sha256": "fc6fb3375570b4f8f113591da7de94f69b7d308f13e6881828099e1a53a22878",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0020_founder_email.sql",
+      "sha256": "57f12877a21cc7f00a8d20ab97d51f2391cd61206a879521876bd339f9aca8e5",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0021_company_agents.sql",
+      "sha256": "ef94bc66397eb1fe1a33c37d7777aa5c76d5f020a2c3c547b7aee94dbd760f47",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0022_uneven_nitro.sql",
+      "sha256": "03493fb6a36cc0d626dba5e6f1bd6e4e3d858903d650b1ccc59faa1874e39526",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0023_cost_receipts.sql",
+      "sha256": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0024_expert_automation.sql",
+      "sha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/expert-adoption-integration/postimages/packages/core/src/db/migrations/0024_expert_automation.sql",
+        "docs/naive-unified-integration/sql/0024_expert_automation.sql"
+      ]
+    },
+    {
+      "path": "packages/core/src/db/migrations/0025_expert_workflow.sql",
+      "sha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0025_expert_workflow.sql",
+        "docs/naive-unified-integration/sql/0025_expert_workflow.sql"
+      ]
+    },
+    {
+      "path": "packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "sha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+        "docs/naive-unified-integration/sql/0026_expert_text_runtime.sql"
+      ]
+    },
+    {
+      "path": "packages/core/src/db/migrations/0027_overage_charges.sql",
+      "sha256": "f81649798c8d812ddc8367ce0e742dd183507c297c05789e6569ddd0319cd94d",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0028_monitoring_sub_unique.sql",
+      "sha256": "2268b295b38ee70057aceccf1dcc0ef2fb9cd28209547d84326f8b1a9facb4ae",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0029_optimal_hulk.sql",
+      "sha256": "28b75097aee589e90120e002e58608911af2d47cb4511e1e7fc1dff779a23984",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0030_feedback.sql",
+      "sha256": "f4fd2a768e4bea6696086b9dd274e008455be80cf905233565db7379a5111cd6",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0031_usage_warnings_trial_end.sql",
+      "sha256": "caa86ae09393bd67282f4bccfccf2abf5f498bbe427cda47520c98ebf9eaa880",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/db/migrations/0032_feedback_quote_approval.sql",
+      "sha256": "bc49ef1facc7f3ddae960982eff31bacb17a16279197da3ec431b157d2b9cddb",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql",
+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/evals/data/persistence-migrations/002-data-operations.sql",
+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/evals/remediation/accounting/001-remediation-accounting.sql",
+      "sha256": "562d5fb0ce65327ee5a8ba9fd75ce4872c3928b7006de1ac8e7999d1b113894a",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-remediation-owner-integration/sql/001-remediation-accounting.sql"
+      ]
+    },
+    {
+      "path": "packages/core/src/evals/remediation/accounting/reconciliation/001-reconciliation.sql",
+      "sha256": "5b6426125daff423f20947ea8888e3b9519c5b7f8932bee175c03b86e0a43733",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/evals/sandbox/runtime-storage/migration.sql",
+      "sha256": "54ad5153157adfad185c6c6376496a3016e93a36bb83c4fd8e1aa32182889fce",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/judges/migrations/001-proxy-dispatch.sql",
+      "sha256": "be35e03c5d74eed0deac8fdab62d11a5ef43567897e21859abd4b7a680d415ed",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": [
+        "docs/naive-judge-attempt-integration/sql/001-proxy-dispatch.sql"
+      ]
+    },
+    {
+      "path": "packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql",
+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/simulator/ledger-migrations/001_branch_ownership.sql",
+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/simulator/migrations/001_calendar.sql",
+      "sha256": "7153e1bbdec0558a46d0fc6d9cbea4366a1c56ae8e2849240a21472c9af17834",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    },
+    {
+      "path": "packages/core/src/simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql",
+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+      "status": "tracked-review-material-only",
+      "migrationAuthorizationRequired": true,
+      "identicalContentAliases": []
+    }
+  ]
+}

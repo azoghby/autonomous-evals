@@ -96,6 +96,7 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 
 | Feature | Status | Key files |
 |---|---|---|
+| Cumulative runtime source adoption | Reviewed unapplied 147-file source patch against actual fbedc75; no deletions, separate activation gates | docs/naive-current-runtime-adoption |
 | Bounded generic text run recovery | Unapplied 19-file/two-SQL candidate; retained target replay, exact judge evidence, unresolved money retains parent | docs/naive-run-recovery-integration |
 | Strict Naïve conformance | Actual scripts gate; exact check coverage and observed suite pipeline, offline verification only | scripts/conformance.ts, docs/naive-strict-conformance.md |
 | Durable judge attempts and independent v2 accounting | Unapplied 14-file candidate; same-transaction shared admission, current dispatch checks, operator unused recovery and independent receipt drain | docs/naive-judge-attempt-integration |
@@ -454,3 +455,5 @@ Times are PT, as recorded.
   - Onboarding: 0 open runs to process.
 
 - Main reconciliation for cumulative adoption review: fetched `ca17ce9`; the delta from `8dc6c7d` is only Track A gateway/redeployment and company-cycle ledger receipts. Preserved both sides of the append-only ledger conflict. Application/core source is unchanged; those production actions are Track A evidence, not activation of the Naïve candidates.
+
+- 2026-11-08 Cumulative source adoption package: preserved main `ca17ce9` at merge `fbedc75` and delegated packaging, preservation and activation/SQL audits to three Sol workers. New `docs/naive-current-runtime-adoption` consolidates the staged chain into one 147-file actual-source delta (43 modified/104 new; no deletions), preserving 4,178 other tracked files and unrelated untracked customer-recruitment work. Full Git tree pins cover 4,221 paths; review exports omit irrelevant historical docs after a diagnosed local Git-object/file hydration stall, without changing adoption scope. Independent apply and two assemblies verify 2,412 exported files. All 1,395 final source file and executable test/build input match the already-tested 4,609-test/types/build composition; only ledger and preserved nonexecuting env-example/CI/gitignore differ. Current actual-source web types and 4,152 tests pass (zero failures/two skips). Independent audits verify 147 exact pre/postimages and 69 SQL refs/aliases. No source adoption, migrations, credentials, provider calls, flags, deployment, outreach or spend. Exact cross-track source override remains required; SQL/runtime deployment blockers, target monetary completion hold and full Naïve plan remain open.

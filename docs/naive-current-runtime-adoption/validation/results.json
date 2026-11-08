@@ -1,0 +1,66 @@
+{
+  "status": "unapplied_cumulative_source_candidate",
+  "baselineCommit": "fbedc75d1ede96e792a72119ac606d10ade41fe4",
+  "preservedMain": "ca17ce9",
+  "manifestSha256": "a51ba35c57fbbba98d37659f3955c544bb5aafdc5de5b1a812a1092724fd790b",
+  "ownerPatchSha256": "91ead12ea30be6aeebc273e9d48f2e6a8660bd6bf4e13445b858a20e5ccc30f0",
+  "changedSourcePaths": 147,
+  "modifiedSourcePaths": 43,
+  "newSourcePaths": 104,
+  "deletions": [],
+  "fullBaselineTrackedPaths": 4221,
+  "preservedExistingOutsidePatch": 4178,
+  "assemblyVerifiedFiles": 2412,
+  "identicalFinalSourcePathsToTestedCandidate": 1395,
+  "verificationReuse": {
+    "source": "../naive-run-recovery-integration/validation/results.json",
+    "reason": "All final source and exported runtime/test/build inputs exactly match tested candidate, except nonexecuting differences listed here",
+    "additionalPreservedPaths": [
+      ".env.example",
+      ".github/workflows/ci.yml",
+      ".gitignore"
+    ],
+    "differentNonexecutingPaths": [
+      "LEDGER.md"
+    ],
+    "candidateTests": {
+      "numPassedTests": 4609,
+      "numFailedTests": 0,
+      "numPendingTests": 2,
+      "numPassedTestSuites": 1097,
+      "numFailedTestSuites": 0,
+      "success": true
+    },
+    "candidateTypes": "previous web/core pass; exact identical source",
+    "candidateBuild": {
+      "status": "pass",
+      "workflowSteps": 63,
+      "workflows": 4,
+      "builtManifestSha256": "8da99cf19e92256ab8a87ff0e450d48d37a6d77ded016beaf8512581abda672b",
+      "finalDifferences": [
+        "apps/web/src/server/naive-remediation-runtime.test.ts",
+        "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts"
+      ],
+      "unchangedBuildAndSqlHashes": 2407
+    }
+  },
+  "actualSourceTests": {
+    "numPassedTests": 4152,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1012,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualSourceWebTypes": "pass",
+  "actualWorkingTreePatchCheck": "pass; no source application",
+  "sqlInventoryRefs": 69,
+  "sqlExecuted": false,
+  "limitations": [
+    "Review assemblies export scoped runtime/test/config/SQL inputs, not all historical documentation; complete Git tree pins and no-deletion patch preserve actual untouched files",
+    "Not deployment-ready: existing lite/customer/chat paths require new sidecar schema even with Naive flags off",
+    "Target monetary uncertainty keeps generic recovered stages pending",
+    "No new actual source adoption, credentials, migrations, provider calls, flags, outreach, spending or deployment",
+    "Full Naive plan and hosted/native acceptance remain open"
+  ]
+}

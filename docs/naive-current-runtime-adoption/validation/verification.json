@@ -1,0 +1,25 @@
+{
+  "baselineCommit": "fbedc75d1ede96e792a72119ac606d10ade41fe4",
+  "manifestSha256": "a51ba35c57fbbba98d37659f3955c544bb5aafdc5de5b1a812a1092724fd790b",
+  "ownerPatchSha256": "91ead12ea30be6aeebc273e9d48f2e6a8660bd6bf4e13445b858a20e5ccc30f0",
+  "ownerPatchApplied": true,
+  "independentPatchCheckedFiles": 2412,
+  "sourcePathsChecked": 1395,
+  "cumulativeChangedSourcePaths": 147,
+  "deletions": [],
+  "checks": [
+    {
+      "assembly": "/private/tmp/naive-current-adoption-final-v3",
+      "checkedFiles": 2412,
+      "mismatches": []
+    },
+    {
+      "assembly": "/private/tmp/naive-current-adoption-final-v4",
+      "checkedFiles": 2412,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true,
+  "liveActions": false,
+  "migrationApplied": false
+}
