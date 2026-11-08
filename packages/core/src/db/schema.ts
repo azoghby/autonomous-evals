@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  pgTable, uuid, text, timestamp, integer, bigint, jsonb, boolean, uniqueIndex, index, pgEnum,
+  pgTable, uuid, text, timestamp, integer, bigint, jsonb, boolean, uniqueIndex, index, pgEnum, doublePrecision,
 } from "drizzle-orm/pg-core";
 import { JOB_STATES, PACKAGES } from "../contracts/index";
 
@@ -478,3 +478,82 @@ export const ownerEmailLog = pgTable("owner_email_log", {
   messageId: text("message_id"),
   sentAt: ts("sent_at").notNull().defaultNow(),
 }, (t) => [index("owner_email_log_owner_sent_idx").on(t.ownerEmail, t.sentAt)]);
+
+/* ---------------- Sandbox Evals (engine-backed; packages/core/src/sandbox) ---------------- */
+
+/** A customer's sandbox world: the built EnvironmentSpec (tools, DDL/seed, policies, workflows, integration). No secrets. */
+export const sandboxEnvironments = pgTable("sandbox_environments", {
+  /** env_<uuid> */
+  id: text("id").primaryKey(),
+  ownerId: uuid("owner_id").notNull().references(() => customers.id),
+  /** Reserved for team/org ownership; null = personal. */
+  orgId: text("org_id"),
+  name: text("name").notNull(),
+  domain: text("domain").notNull().default(""),
+  /** prebuilt | custom */
+  source: text("source").notNull(),
+  prebuiltId: text("prebuilt_id"),
+  spec: jsonb("spec").notNull().$type<unknown>(),
+  warnings: jsonb("warnings").notNull().$type<string[]>().default(sql`'[]'::jsonb`),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("sandbox_environments_owner_idx").on(t.ownerId, t.createdAt)]);
+
+/** A generated + gated scenario suite for an environment (the wizard's "draft"). id = drf_<uuid>. */
+export const sandboxSuites = pgTable("sandbox_suites", {
+  id: text("id").primaryKey(),
+  environmentId: text("environment_id").notNull().references(() => sandboxEnvironments.id, { onDelete: "cascade" }),
+  ownerId: uuid("owner_id").notNull().references(() => customers.id),
+  orgId: text("org_id"),
+  /** generating | gating | ready | failed */
+  status: text("status").notNull().default("generating"),
+  /** GeneratedScenario[] (scenario + grader mutations) before gating. */
+  generated: jsonb("generated").notNull().$type<unknown[]>().default(sql`'[]'::jsonb`),
+  /** Reviewable scenarios: {scenario, decision, edited, validated, gateReasons}[]. */
+  scenarios: jsonb("scenarios").notNull().$type<unknown[]>().default(sql`'[]'::jsonb`),
+  costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+  budgetMicroUsd: bigint("budget_micro_usd", { mode: "number" }).notNull(),
+  error: text("error"),
+  workflowRunId: text("workflow_run_id"),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("sandbox_suites_owner_idx").on(t.ownerId, t.createdAt), index("sandbox_suites_env_idx").on(t.environmentId)]);
+
+/** One sandbox eval run: k trials per accepted scenario against the target, with pass^k + Wilson CI. id = run_<uuid>. */
+export const sandboxRuns = pgTable("sandbox_runs", {
+  id: text("id").primaryKey(),
+  ownerId: uuid("owner_id").notNull().references(() => customers.id),
+  orgId: text("org_id"),
+  environmentId: text("environment_id").notNull().references(() => sandboxEnvironments.id, { onDelete: "cascade" }),
+  suiteId: text("suite_id").references(() => sandboxSuites.id, { onDelete: "set null" }),
+  /** queued | running | complete | failed */
+  status: text("status").notNull().default("queued"),
+  k: integer("k").notNull(),
+  /** SandboxScenario[] frozen at start. */
+  scenarios: jsonb("scenarios").notNull().$type<unknown[]>(),
+  /** ScenarioResult[] (per-trial results inside), one entry per finished scenario. */
+  results: jsonb("results").notNull().$type<unknown[]>().default(sql`'[]'::jsonb`),
+  /** Gate report summaries of the scenarios in this run, copied from the suite. */
+  gates: jsonb("gates").notNull().$type<unknown[]>().default(sql`'[]'::jsonb`),
+  /** SuiteSummary (pass@1, pass^k, byCategory, security). */
+  summary: jsonb("summary").$type<unknown>(),
+  passAt1: doublePrecision("pass_at_1"),
+  passHatK: doublePrecision("pass_hat_k"),
+  ci95Low: doublePrecision("ci95_low"),
+  ci95High: doublePrecision("ci95_high"),
+  versions: jsonb("versions").$type<unknown>(),
+  costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+  budgetMicroUsd: bigint("budget_micro_usd", { mode: "number" }).notNull(),
+  trialsDone: integer("trials_done").notNull().default(0),
+  trialsTotal: integer("trials_total").notNull().default(0),
+  /** Neon world id (neon-world:<branchId>) while the run holds a job branch; cleared on teardown. */
+  worldId: text("world_id"),
+  workflowRunId: text("workflow_run_id"),
+  error: text("error"),
+  /** fatal | retryable | budget */
+  errorKind: text("error_kind"),
+  startedAt: ts("started_at"),
+  completedAt: ts("completed_at"),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("sandbox_runs_owner_idx").on(t.ownerId, t.createdAt), index("sandbox_runs_status_idx").on(t.status)]);
