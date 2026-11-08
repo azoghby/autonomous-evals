@@ -11,6 +11,8 @@ export { createTargetServices } from '../targets/adapters';
 export { createTextTarget } from '../targets/text';
 export { createBranchServices } from '../simulator/adapters';
 export { AgentSessionService } from '../agents/session-service';
+export { createPostgresAgentRuntime, withAgentCostDelivery } from '../agents/runtime';
+export type { AgentCostSink } from '../agents/runtime';
 export { PostgresAgentTaskStore, PostgresBudgetLedger } from '../agents/postgres-ports';
 export { createPostgresEvaluationDataStore, acquireEvaluationData } from './data';
 export { createMediaWikiDiscovery } from './data/discovery';

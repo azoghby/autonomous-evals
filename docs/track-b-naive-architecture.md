@@ -50,6 +50,10 @@ the saved session and held reservation, not a replacement task.
 - `createPostgresAgentRuntime(deps)`, which composes the SQL task/budget adapters,
   `AgentSessionService`, and the cost decorator without environment reads or I/O.
 
+The parent also exports these factories and `AgentCostSink` from the server-only
+`evals/index.ts` entry point. Parent verification reran strict types with all 16
+architecture tests and 122 agent tests against Track A `eee9939`; all passed.
+
 The factory requires the SQL transaction port and cost sink explicitly. It never
 falls back to memory, provisions agents or introduces a job orchestrator. The sink
 receives `naive:<provider-session-id>` and the original measured `CostEntry`.
