@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { TrackBBlockedError, TrackBPendingError } from '@ae/core/evals/service-adapter';
 const state = vi.hoisted(() => ({ api: null as any, progress: vi.fn(), persist: vi.fn(), artifact: vi.fn(), phases: [] as string[], tasks: [] as {task_id:string}[], pack:null as any, executePack:vi.fn() }));
-vi.mock('@/server/workflow-pack-projection',()=>({attachWorkflowPackEvidence:(base:any,pack:any)=>({...base,appendedPack:pack}),containsWorkflowPackArtifactSecret:()=>false}));
+vi.mock('@/server/workflow-pack-projection',()=>({attachWorkflowPackEvidence:(base:any,pack:any)=>({...base,appendedPack:pack}),containsWorkflowPackArtifactSecret:()=>false,projectWorkflowPack:(pack:any)=>({appendedPack:{cases:pack.pack.results}})}));
 vi.mock('@/server/workflow-packs',()=>({workflowPackSelection:async()=>{if(!state.pack)throw new Error('review_required');return {authorizationId:'approved'};},executeWorkflowPack:async(input:unknown)=>{state.executePack(input);return state.pack;}}));
 vi.mock('@/server/rich-services', () => ({ createRichWorkflowServices: async () => { if (state.api instanceof Error) throw state.api; return state.api; }, workflowSql: () => ({query: async () => ({rows:state.tasks})}) }));
 vi.mock('@/server/rich-artifacts', () => ({ persistRichArtifact: (...a:unknown[]) => state.artifact(...a) }));
@@ -58,8 +58,16 @@ it('passes the independent base suite/run to the pack adapter and retains comple
  expect(state.artifact.mock.calls[0][3].appendedPack).toEqual(state.pack);
  expect(state.api.renderReport.mock.calls[0][1].limitations.join(' ')).toContain('Appended pack status: fail');
 });
-it('retains unknown/quarantined pack evidence but blocks report delivery',async()=>{
+it('retains unknown/quarantined pack evidence and draft report but blocks delivery',async()=>{
  process.env.REDTEAM_PACK='on';state.pack={pack:{status:'quarantined',results:[{id:'rt_case',status:'quarantined'}]}};
  expect(await richEvaluationStep('job','workflow')).toBe('needs_operator');
- expect(state.artifact.mock.calls[0][3].appendedPack).toEqual(state.pack);expect(state.persist).not.toHaveBeenCalled();
+ expect(state.artifact.mock.calls[0][3].appendedPack).toEqual(state.pack);expect(state.persist).toHaveBeenCalledOnce();
+ expect(state.artifact.mock.invocationCallOrder[0]).toBeLessThan(state.persist.mock.invocationCallOrder[0]);
+});
+
+it('a failing assessed case cannot hide simultaneous quarantined coverage',async()=>{
+ process.env.REDTEAM_PACK='on';state.pack={pack:{status:'fail',results:[{id:'rt_failed',status:'fail'},{id:'rt_unsupported',status:'quarantined'}]}};
+ expect(await richEvaluationStep('job','workflow')).toBe('needs_operator');
+ expect(state.artifact.mock.calls[0][3].appendedPack.pack.results).toHaveLength(2);
+ expect(state.persist).toHaveBeenCalledOnce();
 });

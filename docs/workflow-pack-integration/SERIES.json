@@ -1,0 +1,33 @@
+{
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "core": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "beforeCorePatches": [
+    "docs/progress-chat-integration/combined.patch"
+  ],
+  "coreOverlay": [
+    "packages/core/src/agents",
+    "packages/core/src/evals",
+    "packages/core/src/judges",
+    "packages/core/src/monitoring",
+    "packages/core/src/reporting",
+    "packages/core/src/simulator",
+    "packages/core/src/targets"
+  ],
+  "patches": [
+    "docs/structured-progress-integration/backend/structured-progress.patch",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
+    "docs/workflow-pack-integration/projection/003-pack-projection.patch",
+    "docs/workflow-pack-integration/execution/003-pack-execution.patch"
+  ],
+  "requiresAncestor": "c63a67aa41e7c1da6f82835c009d711d01bd4dc7",
+  "sha256": {
+    "docs/workflow-integration/SERIES.json": "c7f948e95dba4a9697e2b33daacbc52ed879d115d716fcb8245513b75646c450",
+    "docs/progress-chat-integration/combined.patch": "df804eac5b27f299f4b742dd5ada18f72ed6d3fba79c7790b9c25ae97d067773",
+    "docs/structured-progress-integration/backend/structured-progress.patch": "f789fdda53766b7f08fded92b28452f9472a7a09abd03fcd82f87150eee42995",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch": "41ceb9cc8de444d04884d429011e531818563432b0951249fc647f52fcfb88bd",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch": "fc6697118ea2e567ef7241132d72efcd1db6504af21d9eb0b1d419e3e0bc0c16",
+    "docs/workflow-pack-integration/projection/003-pack-projection.patch": "3a4d8b4df80aa50378fcd7ecf8b81098a66977fc8ae0400f3edab13a6cd03c90",
+    "docs/workflow-pack-integration/execution/003-pack-execution.patch": "8cc4f503cf2e75f4a98be2a541c843afdcd7fd63e83001e03751654e67840b0f"
+  }
+}

@@ -214,7 +214,7 @@ index 7ec8a32..03b4451 100644
  import { renderCalendarReport } from '@ae/core/reporting/calendar';
  import { containsSecret } from '@ae/core/agents/redact';
  import { createRichWorkflowServices, workflowSql } from '@/server/rich-services';
-+import { attachWorkflowPackEvidence, containsWorkflowPackArtifactSecret } from '@/server/workflow-pack-projection';
++import { attachWorkflowPackEvidence, containsWorkflowPackArtifactSecret, projectWorkflowPack } from '@/server/workflow-pack-projection';
 +import { executeWorkflowPack, workflowPackSelection } from '@/server/workflow-packs';
 +import type { PackRunEvidence } from '@ae/core/evals/packs/index';
  import { persistRichArtifact } from '@/server/rich-artifacts';
@@ -271,7 +271,7 @@ index 7ec8a32..03b4451 100644
 -      if (containsSecret(JSON.stringify({ evidence, report }), api.knownSecrets)) throw new TrackBBlockedError('needs_operator', 'Credential-bearing evidence refused.');
 +      if (containsWorkflowPackArtifactSecret(evidence, api.knownSecrets) || containsSecret(JSON.stringify(report), api.knownSecrets)) throw new TrackBBlockedError('needs_operator', 'Credential-bearing evidence refused.');
        await persistRichArtifact(workflowSql(), { jobId, tenantId: job.customerId, environment: job.environment }, suiteDigest, evidence, api.knownSecrets);
-+      if (pack && !['pass','fail','concern'].includes(pack.pack.status)) throw new TrackBBlockedError('needs_operator', 'Appended coverage incomplete; separate evidence retained for operator reconciliation.');
        await persistReportStep(jobId, report);
++      if (pack && projectWorkflowPack(pack).appendedPack.cases.some(c => !['pass','fail','concern'].includes(c.status))) throw new TrackBBlockedError('needs_operator', 'Appended coverage incomplete; separate evidence retained for operator reconciliation.');
        await inventory.touch();
        } finally { await api.dispose(); }

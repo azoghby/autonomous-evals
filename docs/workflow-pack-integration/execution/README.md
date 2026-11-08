@@ -72,7 +72,7 @@ pack manifest/results separately. It uses sibling
 `containsWorkflowPackArtifactSecret(evidence, knownSecrets)` and the original
 report scanner. The sibling owns inventory/report/storage/download projections.
 No edits here target `workflow-inventory.ts`, `rich-artifacts.ts` or `report.ts`.
-Unknown/quarantined/incomplete pack evidence is retained before delivery stops
+Unknown/quarantined/incomplete pack evidence and its draft report are retained before delivery stops
 for operator review. An assessed pack failure stays visible independently of base12.
 
 ## Authenticated operator/source-rule contract
@@ -113,8 +113,8 @@ input with `action: "approve"` and `contentDigest` from preview. A changed targe
 base, source rule or ordered case list changes the review digest. The receipt's
 reviewer and timestamp are server-issued. Approval binds the actual retained
 admitted suite. One immutable approval per job is persisted; another approval
-returns 409. Retry approval after a lost response by reading its durable selection,
-not creating another identity. `workflowPackSelection(jobId)` retrieves that
+returns 409. After a lost response, an authorized operator must retrieve the durable selection
+through private database maintenance; do not create another identity. `workflowPackSelection(jobId)` retrieves that
 reference for the internal Workflow. Runtime authorization re-reads the private
 row, reviewer receipt, source-rule list, tenant/environment/current Workflow and
 actual target configuration. Setting `revoked_at` through authorized operator
@@ -140,6 +140,8 @@ core/Next strict TypeScript and Workflow compilation harness, using installed
 packages only. SQL tests use PGlite; the secured target is an in-process fake.
 No providers, cloud or database deployments are tested. See `validation.log` for
 the final run. Parent combined validation remains authoritative for sibling seams.
+The parent also stores draft reports before blocking delivery and checks each
+projected case, so aggregate failure cannot hide simultaneous coverage gaps.
 
 Final local run: **38/38 tests in five files passed**, none skipped. Complete core
 and Next app strict TypeScript passed; actual Workflow tooling compiled **47
