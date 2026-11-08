@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { approveAndSendDraft, rejectDraft } from "../outreach-approve";
 import { registerApprovalHandler } from "./registry";
+import "../company/approval-handlers"; // onboarding_run_over_budget
 
 /**
  * Built-in founder-approval kinds. Add new kinds here (or import a module that calls registerApprovalHandler

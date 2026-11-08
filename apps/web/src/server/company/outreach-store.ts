@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { MIN_FIT_SCORE, SDR_KINDS } from "@ae/core/company/outreach";
 import { appUrl, companyAddress, isSuppressed, suppressEmail, unsubscribeUrl } from "../owner-shared";
+import { notifyOutreachDraft } from "../notify/hooks";
 
 export interface OutreachLead {
   id: string; domain: string; company: string; segment: string; agentDescription: string;
@@ -19,6 +20,8 @@ export interface OutreachStore {
   isSuppressed(email: string): Promise<boolean>;
   recentDraftExists(email: string, domain: string, since: Date): Promise<boolean>;
   insertDraft(row: { toEmail: string; subject: string; body: string; kind: string }): Promise<string>;
+  /** Asks the founder to approve the draft (phone/email); never sends the draft itself. Never throws. */
+  notifyDraft?(d: { id: string; kind: string; toEmail: string; subject: string }): Promise<void>;
   setLead(id: string, patch: { status: string; outreachDraftId?: string }): Promise<void>;
   matchLeadByEmail(email: string): Promise<{ id: string } | null>;
   suppress(email: string): Promise<void>;
@@ -72,6 +75,7 @@ export function drizzleOutreachStore(): OutreachStore {
       const [r] = await db().insert(D).values({ ...row, toEmail: lowerEmail(row.toEmail), status: "pending" }).returning({ id: D.id });
       return r.id;
     },
+    notifyDraft: (d) => notifyOutreachDraft(d),
     async setLead(id, patch) {
       await db().update(L).set({ ...patch, updatedAt: new Date() }).where(eq(L.id, id));
     },

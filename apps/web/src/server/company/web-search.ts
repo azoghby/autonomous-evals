@@ -16,6 +16,19 @@ export interface WebSource { url: string; title?: string; snippet?: string; date
 export interface WebSearchResult { text: string; sources: WebSource[]; microUsd: number }
 export type WebSearch = (query: string, ctx: GatewayContext, opts?: { maxOutputTokens?: number }) => Promise<WebSearchResult>;
 
+/**
+ * Web pages (API docs, examples) often contain key-shaped strings. The gateway rightly refuses prompts that look like
+ * they carry credentials, so web text is scrubbed before it can reach a model. Mirrors the gateway's guard patterns.
+ */
+const CREDENTIAL_LIKE: RegExp[] = [
+  /sk-[A-Za-z0-9_-]{20,}/g, /\b(?:nt|nak|nsk)_live_[A-Za-z0-9_]{8,}/g, /\bAKIA[0-9A-Z]{16}\b/g, /\bAIza[0-9A-Za-z_-]{30,}/g,
+  /\bgh[pousr]_[A-Za-z0-9]{30,}/g, /\bxox[abprs]-[A-Za-z0-9-]{10,}/g, /\b(?:sk|rk|pk)_live_[A-Za-z0-9]{16,}/g,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{24,}/g, /-----BEGIN [A-Z ]*PRIVATE KEY-----/g,
+];
+export function scrubCredentialLike(text: string): string {
+  return CREDENTIAL_LIKE.reduce((t, re) => t.replace(re, "[redacted-key]"), text);
+}
+
 /** Only http(s) URLs, no credentials in them, deduped. */
 export function cleanSources(raw: ReadonlyArray<{ url?: unknown; title?: unknown; snippet?: unknown; date?: unknown }>): WebSource[] {
   const seen = new Set<string>();
@@ -32,7 +45,7 @@ export function cleanSources(raw: ReadonlyArray<{ url?: unknown; title?: unknown
     out.push({
       url: key,
       ...(typeof s.title === "string" ? { title: s.title.slice(0, 200) } : {}),
-      ...(typeof s.snippet === "string" ? { snippet: s.snippet.slice(0, 1500) } : {}),
+      ...(typeof s.snippet === "string" ? { snippet: scrubCredentialLike(s.snippet.slice(0, 1500)) } : {}),
       ...(typeof s.date === "string" ? { date: s.date.slice(0, 20) } : {}),
     });
   }
@@ -61,5 +74,5 @@ export const gatewayWebSearch: WebSearch = async (query, ctx, opts = {}) => {
     const meta = (s as { providerMetadata?: { perplexity?: { snippet?: string; date?: string } } }).providerMetadata?.perplexity;
     return { url: (s as { url?: string }).url, title: (s as { title?: string }).title, snippet: meta?.snippet, date: meta?.date };
   }));
-  return { text: res.text, sources, microUsd };
+  return { text: scrubCredentialLike(res.text), sources, microUsd };
 };

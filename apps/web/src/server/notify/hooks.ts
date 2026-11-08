@@ -16,7 +16,9 @@ async function safe(label: string, fn: () => Promise<unknown>): Promise<void> {
 export function notifyOutreachDraft(d: { id: string; kind: string; toEmail: string; subject: string }): Promise<void> {
   return safe("outreach_draft", async () => {
     const { requestFounderApproval } = await approvals();
-    const label = d.kind === "agent_invite" ? "Agent invite" : "Expert invite";
+    const label = d.kind === "agent_invite" ? "Agent invite"
+      : d.kind === "sdr_first_touch" ? "SDR first touch"
+      : d.kind === "sdr_follow_up" ? "SDR follow-up" : "Expert invite";
     await requestFounderApproval({
       kind: "outreach_draft", ref: d.id,
       title: `${label}: ${d.subject}`,

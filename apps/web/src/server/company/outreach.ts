@@ -68,6 +68,8 @@ async function draftOne(
   const final = finalizeOutreachEmail(raw, { email, unsubscribeUrl: store.unsubscribeUrl(email), companyAddress: store.companyAddress() });
   const draftId = await store.insertDraft({ toEmail: email, subject: final.subject, body: final.body, kind });
   if (kind === "sdr_first_touch") await store.setLead(lead.id, { status: "drafted", outreachDraftId: draftId });
+  // Founder's phone/email approval request (same "outreach_draft" kind as the console queue). Skipped on dry runs.
+  if (!ctx.dryRun) await store.notifyDraft?.({ id: draftId, kind, toEmail: email, subject: final.subject });
   domainsSeen.add(lead.domain); domainsSeen.add(emailDomain(email));
   ctx.log("draft_created", { leadId: lead.id, draftId, kind });
   return "drafted";

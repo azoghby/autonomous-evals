@@ -14,6 +14,7 @@ import {
 } from "@ae/core/company/research";
 import { runCompanyAgent, type AgentRunContext, type AgentRunOutcome, type RunOptions, type RunResult, type RuntimeDeps } from "./runtime";
 import { gatewayWebSearch, type WebSearch } from "./web-search";
+import { companyStructured } from "./structured";
 import { ContactFinderError, defaultContactFinder, pickContact, type ContactFinder } from "./contacts";
 import { getLatestBrief } from "./market-research";
 
@@ -58,10 +59,16 @@ export interface ProspectingDeps {
 
 export function buildProspectQueries(now: Date): Array<{ label: string; query: string }> {
   const when = monthYear(now);
-  return rotateSegments(now, SEGMENTS_PER_RUN).map((s) => ({
-    label: s.label,
-    query: `As of ${when}: find startups and companies that ship customer-facing AI agents for ${s.label}. Good public sources: the Y Combinator company directory, Product Hunt launches, GitHub topics, and the companies' own sites. For each give the company name, its own website domain, what the agent does and a product URL. Cite sources.`,
-  }));
+  return rotateSegments(now, SEGMENTS_PER_RUN).flatMap((s) => [
+    {
+      label: s.label,
+      query: `As of ${when}: list 10 to 15 startups (for example from the Y Combinator company directory, recent batches) that ship customer-facing AI agents for ${s.label}. For each give the company name, its own website domain, one sentence on what the agent does, and a product URL. Cite sources.`,
+    },
+    {
+      label: s.label,
+      query: `As of ${when}: recent Product Hunt launches, funding announcements or GitHub projects of companies shipping production AI agents for ${s.label} (multi-turn agents that take actions through tools). List up to 10 with company name, own website domain, what the agent does, and a source URL each.`,
+    },
+  ]);
 }
 
 export function buildLeadPrompt(block: string, seeds: readonly string[]): string {
@@ -200,7 +207,7 @@ export async function runProspectingAgent(
   const d: ProspectingDeps = {
     runtime: deps.runtime,
     webSearch: deps.webSearch ?? gatewayWebSearch,
-    generate: deps.generate ?? generateStructured,
+    generate: deps.generate ?? companyStructured,
     store: deps.store ?? drizzleProspectingStore(),
     contactFinder: deps.contactFinder ?? defaultContactFinder(opts.env ?? process.env),
   };

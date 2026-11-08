@@ -15,6 +15,7 @@ import {
   MAX_CUSTOMER_TEXT_CHARS, mergeRequirements, OnboardingModelOutput, OnboardingRequirements, planRunSize, SECRET_REPLY, sniffArtifacts,
 } from "@ae/core/company/onboarding";
 import { formatReportMessage, summarizeRun } from "@ae/core/company/onboarding-report";
+import { FOUNDER_OVERRIDE_KEY } from "@ae/core/company/onboarding";
 import { recordEmailThread } from "../email-threads";
 import { appUrl } from "../owner-shared";
 import { runBudgetMicroUsd, type EngineSandboxService } from "../sandbox/engine-service";
@@ -49,8 +50,24 @@ export interface OnboardingDeps {
   allowance: (customerId: string, now: Date) => Promise<Allowance>;
   fetchSpec: FetchSpec;
   baseUrl: () => string;
+  /** Puts an over-budget run on the founder's phone/email (kind "onboarding_run_over_budget"). Never throws. */
+  flagFounder: (i: { conversationId: string; stage: "build" | "run"; summary: string }) => Promise<void>;
   runtime?: RunOptions["deps"];
 }
+
+/** Set by the founder-approval handler; lets the next build/run proceed at the minimal size (k=1, <= 3 scenarios). */
+const hasOverride = (collected: Record<string, unknown>): boolean => collected[FOUNDER_OVERRIDE_KEY] === true;
+const OVERRIDE_RUN = { k: 1, scenarios: 3 } as const;
+
+const defaultFlagFounder: OnboardingDeps["flagFounder"] = async ({ conversationId, stage, summary }) => {
+  try {
+    const { requestFounderApproval } = await import("../notify/approvals");
+    await requestFounderApproval({
+      kind: "onboarding_run_over_budget", ref: `${conversationId}:${stage}`, title: "Onboarding run over the customer's plan budget",
+      summary, payload: { conversationId, stage },
+    });
+  } catch (err) { console.error("onboarding founder flag failed", err instanceof Error ? err.message : err); }
+};
 
 const defaultGenerate: OnboardingDeps["generate"] = async (prompt, ctx) => {
   const res = await generateStructured({
@@ -74,6 +91,7 @@ export const defaultOnboardingDeps = (): OnboardingDeps => ({
   },
   fetchSpec: defaultFetchSpec,
   baseUrl: appUrl,
+  flagFounder: defaultFlagFounder,
 });
 
 const OFF = "The onboarding assistant is off right now.";
@@ -110,10 +128,10 @@ const userMessage = (err: unknown): { text: string; status: "collecting" | "bloc
   throw err;
 };
 
-async function startBuild(d: OnboardingDeps, ctx: AgentRunContext, customerId: string, collected: OnboardingRequirements) {
+async function startBuild(d: OnboardingDeps, ctx: AgentRunContext, conversationId: string, customerId: string, collected: OnboardingRequirements, override: boolean) {
   const allowance = await d.allowance(customerId, ctx.now);
-  if (planRunSize({ available: 1, k: 1, headroomMicroUsd: allowance.headroomMicroUsd, runCapMicroUsd: allowance.runCapMicroUsd }).blocked) {
-    // TODO(founder-approvals): register kind "onboarding_run_over_budget"
+  if (!override && planRunSize({ available: 1, k: 1, headroomMicroUsd: allowance.headroomMicroUsd, runCapMicroUsd: allowance.runCapMicroUsd }).blocked) {
+    if (!ctx.dryRun) await d.flagFounder({ conversationId, stage: "build", summary: "A signed-up customer's plan budget cannot cover even a minimal onboarding run (1 scenario, k=1). Approve to let the onboarding agent build and run a minimal suite anyway (k=1, up to 3 scenarios)." });
     return { status: "blocked" as const, reply: "Your plan's model budget can't cover even a minimal run right now. I've flagged this and a founder will review and get back to you here." };
   }
   try {
@@ -203,8 +221,9 @@ async function turn(d: OnboardingDeps, ctx: AgentRunContext, input: OnboardingIn
   if (missing.length > 0) {
     return finish([modelOut.reply, notes].filter(Boolean).join("\n\n"), "collecting", { collected: collected as Record<string, unknown>, ...(fresh ? { environmentId: null, suiteId: null, runId: null, reportedAt: null } : {}) }, cleaned);
   }
-  const built = await startBuild(d, ctx, customer.id, collected);
-  const patch: Partial<ConversationRow> = { collected: collected as Record<string, unknown> };
+  const override = hasOverride(conv.collected);
+  const built = await startBuild(d, ctx, conv.id, customer.id, collected, override);
+  const patch: Partial<ConversationRow> = { collected: { ...collected, ...(override ? { [FOUNDER_OVERRIDE_KEY]: true } : {}) } };
   if (built.status === "building") Object.assign(patch, { environmentId: built.environmentId, suiteId: built.suiteId, runId: null, reportedAt: null });
   return finish([notes, built.reply].filter(Boolean).join("\n\n"), built.status, patch, cleaned);
 }
@@ -278,9 +297,12 @@ async function advanceBuilding(d: OnboardingDeps, ctx: AgentRunContext, svc: Onb
   const validated = draft.scenarios.filter((s) => s.validated);
   const pool = validated.length > 0 ? validated : draft.scenarios;
   const allowance = await d.allowance(conv.customerId, ctx.now);
-  const size = planRunSize({ available: pool.length, headroomMicroUsd: allowance.headroomMicroUsd, runCapMicroUsd: allowance.runCapMicroUsd });
+  const planned = planRunSize({ available: pool.length, headroomMicroUsd: allowance.headroomMicroUsd, runCapMicroUsd: allowance.runCapMicroUsd });
+  const size = planned.blocked && hasOverride(conv.collected)
+    ? { ...planned, blocked: false, k: OVERRIDE_RUN.k, scenarios: Math.min(OVERRIDE_RUN.scenarios, pool.length) }
+    : planned;
   if (size.blocked) {
-    // TODO(founder-approvals): register kind "onboarding_run_over_budget"
+    if (!ctx.dryRun) await d.flagFounder({ conversationId: conv.id, stage: "run", summary: `A signed-up customer's scenarios are ready but the run (estimated $${(planned.estimateMicroUsd / 1e6).toFixed(2)}) is over their plan allowance. Approve to run a minimal suite anyway (k=1, up to 3 scenarios).` });
     return fail("Your scenarios are ready, but the run's expected cost is over your plan's allowance. A founder will review it and reply here.");
   }
   const started = await svc.startRun(conv.customerId, draft.draftId, { k: size.k, scenarioIds: pool.slice(0, size.scenarios).map((s) => s.scenario.id) });

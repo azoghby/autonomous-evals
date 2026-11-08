@@ -43,7 +43,8 @@ export function summarizeActivity(rows: PublicActivityRow[]): Map<string, AgentA
     cur.runs += 1;
     if (r.status === "ok") cur.ok += 1;
     if (r.status === "failed") cur.failed += 1;
-    for (const [k, v] of Object.entries(p.counts)) cur.counts[k] = (cur.counts[k] ?? 0) + v;
+    // Gauges (e.g. capRemaining) are point-in-time values, not totals: never sum them.
+    for (const [k, v] of Object.entries(p.counts)) if (!/^cap|remaining/i.test(k)) cur.counts[k] = (cur.counts[k] ?? 0) + v;
     if (!cur.latest || new Date(p.at).getTime() > new Date(cur.latest.at).getTime()) {
       cur.latest = { at: p.at, status: p.status, publicSummary: p.publicSummary };
     }
@@ -86,9 +87,9 @@ export async function getPublicOrgChart(now: Date = new Date()): Promise<PublicO
   try {
     const [toggles, rows, passive] = await Promise.all([
       getAgentToggles(),
-      // Whitelisted columns only: never summary/detail/error.
-      db().select({ agentId: a.agentId, status: a.status, counts: a.counts, publicSummary: a.publicSummary, startedAt: a.startedAt })
-        .from(a).where(gte(a.startedAt, since)).orderBy(desc(a.startedAt)).limit(1000),
+      // Whitelisted columns only: never summary/detail/error. Wrapped so a sync db() throw rejects inside Promise.all.
+      (async () => db().select({ agentId: a.agentId, status: a.status, counts: a.counts, publicSummary: a.publicSummary, startedAt: a.startedAt })
+        .from(a).where(gte(a.startedAt, since)).orderBy(desc(a.startedAt)).limit(1000))(),
       passiveCounts(since),
     ]);
     const stats = summarizeActivity(rows);

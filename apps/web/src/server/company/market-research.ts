@@ -14,6 +14,7 @@ import {
 } from "@ae/core/company/research";
 import { runCompanyAgent, type AgentRunContext, type AgentRunOutcome, type RunOptions, type RunResult, type RuntimeDeps } from "./runtime";
 import { gatewayWebSearch, type WebSearch } from "./web-search";
+import { companyStructured } from "./structured";
 
 export type CompanyRunOptions = Omit<RunOptions, "deps">;
 
@@ -68,7 +69,7 @@ async function collectSearches(ctx: AgentRunContext, webSearch: WebSearch): Prom
 
 export function buildBriefPrompt(date: string, block: string): string {
   return `Write the market brief dated ${date}. Cover each segment (support, ops/back-office, fintech, health admin non-clinical, voice), competitors with public pricing, pricing benchmarks, and opportunities for Standard Evals.
-Every named company, competitor and pricing benchmark must cite sourceUrls/sourceUrl taken verbatim from the SOURCES list. Leave out anything you cannot source. Set "date" to ${date}.
+Every named company, competitor and pricing benchmark must cite sourceUrls/sourceUrl taken verbatim from the SOURCES list. Leave out anything you cannot source. Be concise: at most 4 companies per segment, 8 competitors, 8 pricing benchmarks, 4 opportunities, 1-2 sentences per field, and leave "sources" empty (we attach them). Set "date" to ${date}.
 
 ${block}`;
 }
@@ -80,10 +81,19 @@ async function runResearch(ctx: AgentRunContext, deps: MarketResearchDeps): Prom
   }
   const date = dayKey(ctx.now);
   const { block, urls } = buildEvidenceBlock(searches);
-  const res = await deps.generate({
-    model: "haiku", system: COMPANY_AGENTS.market_research.system, prompt: buildBriefPrompt(date, block),
-    schema: MarketBriefSchema, ctx: ctx.gateway, maxOutputTokens: 6000,
+  const synth = (model: "haiku" | "sonnet") => deps.generate({
+    model, system: COMPANY_AGENTS.market_research.system, prompt: buildBriefPrompt(date, block),
+    schema: MarketBriefSchema, ctx: ctx.gateway, maxOutputTokens: 12000,
   });
+  let res: Awaited<ReturnType<typeof synth>>;
+  try {
+    res = await synth("haiku");
+  } catch (err) {
+    // Haiku occasionally answers in prose for long evidence blocks; retry once on the stronger model.
+    if (!(err instanceof GatewayError) || err.code !== "malformed_output") throw err;
+    ctx.log("synthesis_retry", { error: err.message.slice(0, 200), raw: (err.details.raw ?? "").slice(0, 200) });
+    res = await synth("sonnet");
+  }
   const grounded = groundBrief({ ...res.object, date }, urls);
   const titles = new Map(searches.flatMap((s) => s.sources.map((x) => [x.url, x.title] as const)));
   const sources = urls.slice(0, 60).map((url) => ({ url, ...(titles.get(url) ? { title: titles.get(url) } : {}) }));
@@ -141,7 +151,7 @@ export async function runMarketResearchAgent(
   const d: MarketResearchDeps = {
     runtime: deps.runtime,
     webSearch: deps.webSearch ?? gatewayWebSearch,
-    generate: deps.generate ?? generateStructured,
+    generate: deps.generate ?? companyStructured,
     saveBrief: deps.saveBrief ?? saveBriefToDb,
   };
   return runCompanyAgent("market_research", { ...opts, deps: d.runtime }, (ctx) => runResearch(ctx, d));

@@ -63,7 +63,7 @@ describe("runProspectingAgent", () => {
     expect(inserted.map((i) => i.domain).sort()).toEqual(["a.ai", "c.com"]);
     expect(contacts.get("id-a.ai")).toMatchObject({ contactEmail: "hello@a.ai", contactSource: "https://a.ai/contact" });
     expect(f.calls).toEqual(["a.ai", "c.com"]);
-    expect(m.activities[0].counts).toMatchObject({ searches: 3, candidates: 3, newLeads: 2, duplicates: 1, contactsFound: 1 });
+    expect(m.activities[0].counts).toMatchObject({ searches: 6, candidates: 3, newLeads: 2, duplicates: 1, contactsFound: 1 });
     expect(m.costs.some((c) => c.source === "company_tool" && c.microUsd === 24_500)).toBe(true);
     expect(m.activities[0].publicSummary).not.toMatch(/a\.ai|hello@/);
     expect(sendCompanyEmail).not.toHaveBeenCalled();

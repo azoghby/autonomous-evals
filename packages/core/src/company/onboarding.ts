@@ -8,6 +8,8 @@ import { assertNoCredentials, GatewayError } from "../ai/gateway";
 export const PREBUILT_WORLD_IDS = ["acme-support"] as const;
 export const ONBOARDING_DEFAULT_K = 3;
 export const ONBOARDING_MAX_SCENARIOS = 6;
+/** conversation.collected key set by the founder-approval handler: allow one minimal over-budget run. */
+export const FOUNDER_OVERRIDE_KEY = "founderApprovedOverBudget";
 /** Rough list-price estimate of our spend per trial (simulator + judge + target tokens), micro-USD. */
 export const ESTIMATED_TRIAL_MICRO_USD = 40_000;
 export const MAX_POLICY_CHARS = 20_000;
