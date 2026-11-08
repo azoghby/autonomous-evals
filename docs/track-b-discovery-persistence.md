@@ -1,6 +1,6 @@
 # Durable public discovery persistence
 
-Import directly from `packages/core/src/evals/data/discovery/persistence/index.ts`. This addition does not modify discovery, shared exports, application wiring, contracts or manifests. It implements `DiscoveryOperations` for the current bounded MediaWiki discovery result contract.
+Import directly from `packages/core/src/evals/data/discovery/persistence/index.ts`. It does not modify shared exports, application wiring, contracts or manifests. It implements `DiscoveryOperations` for the current bounded MediaWiki discovery result contract.
 
 ```ts
 import { createPostgresDiscoveryOperations } from './evals/data/discovery/persistence';
@@ -35,7 +35,7 @@ Keys/scopes must be nonblank strings of at most 1024 UTF-16 units, without contr
 
 Only the database winner receives `claimed`. Its random owner token stays private to the adapter. Concurrent pending responses never clear or overwrite that token. Other instances cannot complete a pending operation. The underlying SQL locks and checks ownership again during completion. Tokens remain in the owning adapter for its job lifetime to support repeated completion, including a committed write whose acknowledgement was lost. Memory use grows with unique claimed operations; discard the adapter when that worker execution ends. There are no timers or leases.
 
-Fresh instances replay completed data through `claim`, without needing the old token. `complete` on a fresh instance is deliberately rejected: durable replay does not confer write authority. An owning instance can retry identical completion; SQL jsonb equality under a row lock allows object-key reordering but rejects changed data. Returned results and submitted completions are detached copies. A completion failure retains ownership and never releases the claim.
+Fresh instances replay completed data or terminal rejection diagnostics through `claim`, without needing the old token. `complete` on a fresh instance is deliberately rejected: durable replay does not confer write authority. An owning instance can retry identical completion; SQL jsonb equality under a row lock allows object-key reordering but rejects changed data. Returned results and submitted completions are detached copies. A completion failure retains ownership and never releases the claim.
 
 ## Result boundary and errors
 
@@ -45,12 +45,22 @@ Persistence does not verify factual content, grant permission, or approve eviden
 
 Errors expose only `discovery_persistence_` codes: `invalid_identity`, `input_conflict`, `not_owner`, `completion_conflict`, `ambiguous`, `invalid_result`, or `storage_unavailable`. Raw storage exceptions, SQL parameters, connection strings and original causes are discarded. Handle `storage_unavailable` conservatively: retrying a claim is safe, but do not infer dispatch permission from a failed claim or completion.
 
+### Durable rejection envelope
+
+The existing checkpoint `completed` storage state now accepts either the unchanged candidate batch or `{status:'rejected', rejection:{reasons:[...]}}`. The public ledger projects the latter as `state:'rejected'`; acquisition receives `status:'rejected'`, never a successful discovery batch. No migration or scope/namespace change is required. Existing completed batches replay unchanged. Older binaries do not understand rejection envelopes and fail closed; deploy producer and persistence support together.
+
+`reject` uses the same authenticated tenant/job namespace, input digest, private owner token, row lock, immutable JSON comparison and error sanitization as `complete`. Only the original owner may write it. Fresh adapters may replay but cannot write. Identical rejection retries are idempotent; changed reasons, success-after-rejection and rejection-after-success conflict. Rejection neither releases ownership nor converts ambiguous checkpoints. Lost write acknowledgements stay conservative until replay proves a commit.
+
+Validation accepts only nonempty unique allowlisted reason arrays (`invalid_response`, `content_limit_exceeded`, `pii_detected`, `secret_detected`, `unsafe_data`) with no extra envelope fields. The same strict JSON and current secret/PII screens apply on write and replay. Rejected source text, identifiers, URLs, matched PII, content hashes and exception messages are never written. The input digest remains the preexisting request/configuration binding, not a hash of rejected content. Unknown or corrupt diagnostics fail closed instead of silently disappearing. Acquisition durably preserves these codes in its decision history while moving to generation with no rejected data.
+
 ## Recovery and integration limits
 
 A pending claim survives process death. If the worker crashes after claiming (even before dispatch), subsequent workers return pending indefinitely. Ambiguous checkpoints also return pending. There is no automatic expiry, takeover, release, resend or claim deletion. An operator must reconcile external activity independently; this module deliberately offers no reconciliation mutation API. Never clear a claim merely because it is old. Retain checkpoints/results for the entire promised idempotency window.
 
-Application authentication, authorized job lookup, database provisioning/migration application, encrypted storage/retention policy, Workflow composition, and operator reconciliation remain integration responsibilities. No application routes or shared exports were changed. SQL tests use local PGlite's real PostgreSQL semantics on one serialized connection; they do not prove multi-connection PostgreSQL contention or production isolation configuration. No cloud/provider verification was run.
+Application authentication, authorized job lookup, database provisioning/migration application, encrypted storage/retention policy, Workflow composition, and operator reconciliation remain integration responsibilities. No application routes or shared exports were changed. SQL tests include a file-backed close/reopen of terminal rejection and acquisition replay. They use local PGlite's real PostgreSQL semantics on one serialized connection; they do not prove multi-connection PostgreSQL contention or production isolation configuration. No cloud/provider verification was run.
 
 ## Verification
 
 Run `node tests/track-b/run-checks.mjs --components evals --track-a-ref origin/track-a`. The owned `persistence/persistence.test.ts` suite exercises SQL-backed concurrent claim/completion races, delayed same-instance pending responses, reconstructed adapter replay, tenant/job separation, immutable digest conflicts, stale token rejection, pending/ambiguous recovery, lost completion acknowledgements, unsafe input rejection and corrupt replay rejection. It uses authored fixtures only.
+
+Terminal rejection validation: `node tests/track-b/run-checks.mjs --components evals --track-a-ref origin/track-a` resolved local contracts at `f28b7a63ec78bbacd5ab7633ccf818a119c99401` and passed strict TypeScript plus 358 tests in 23 files, none skipped. Coverage includes file-backed SQL restart before acquisition phase persistence, immutable terminal-result races, scope/token checks, lost acknowledgements versus uncommitted writes, zero-GET rejection replay, unsafe-source fallback and unchanged reviewed-candidate gates. Existing local dependencies were reused without installation; no live/network/provider/cloud calls were run.

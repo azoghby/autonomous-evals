@@ -1,18 +1,22 @@
 import { createHash } from 'node:crypto';
-import type { AcquisitionRequest, AcquisitionResult, DataBatch, EvaluationDataPorts } from '../acquisition';
+import type { AcquisitionRequest, AcquisitionResult, DataBatch, DiscoveryRejection, DiscoveryRejectionReason, EvaluationDataPorts } from '../acquisition';
 import { reviewDigest } from '../binding';
 import { inspectDataSafety } from '../quality';
 import type { DataSource } from '../types';
+import { validateDiscoveryBatch } from './persistence/validation';
+import { validateDiscoveryRejection } from './rejection';
 import { HttpsPublicSourceTransport, publicSourceUrl, type PublicSourceTransport } from '../../../targets/public-source';
 
 /** Application-supplied durable atomic ledger. Never expire/reclaim an ambiguous claim automatically. */
 export interface DiscoveryOperations {
   /** Atomically bind key to digest before granting exactly one caller claimed. Reject digest conflicts. */
   claim(key: string, digest: string): Promise<
-    { state: 'claimed' } | { state: 'pending' } | { state: 'complete'; data: DataBatch }
+    { state: 'claimed' } | { state: 'pending' } | { state: 'complete'; data: DataBatch } | { state: 'rejected'; rejection: DiscoveryRejection }
   >;
   /** Atomically persist result under the existing digest; failure leaves the claim pending. */
   complete(key: string, digest: string, data: DataBatch): Promise<void>;
+  /** Optional for legacy stores: absence fails closed, never pretends rejection was durable. */
+  reject?(key: string, digest: string, rejection: DiscoveryRejection): Promise<void>;
 }
 export interface MediaWikiDiscoveryConfig {
   providerOrigin: string;
@@ -28,7 +32,15 @@ export interface MediaWikiDiscoveryConfig {
   now?: () => Date;
 }
 const digestContent = (text: string) => createHash('sha256').update(text).digest('hex');
-function fail(): never { throw new Error('public_discovery_invalid_response'); }
+class DefinitiveRejection extends Error {
+  constructor(readonly reasons: DiscoveryRejectionReason[]) { super('public_discovery_invalid_response'); }
+}
+function fail(reason: DiscoveryRejectionReason = 'invalid_response'): never { throw new DefinitiveRejection([reason]); }
+function screen(value: unknown, secrets: readonly string[]): void {
+  const safety = inspectDataSafety(value, secrets);
+  if (!safety.safe) throw new DefinitiveRejection(safety.reasons.map(code =>
+    code === 'pii_detected' || code === 'secret_detected' ? code : code === 'data_too_large' ? 'content_limit_exceeded' : 'unsafe_data'));
+}
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : fail();
 const positive = (value: unknown): number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fail();
 const limit = (value: number | undefined, maximum: number): number => value === undefined ? maximum : Number.isSafeInteger(value) && value >= 1 && value <= maximum ? value : (() => { throw new Error('public_discovery_invalid_config'); })();
@@ -59,13 +71,16 @@ export function createMediaWikiDiscovery(config: MediaWikiDiscoveryConfig): Pick
     try { raw = await transport.get(url); } catch { throw new Error('public_discovery_provider_unavailable'); }
     // Also enforce bounds with injected ports, before admitting provider-controlled data.
     const text = JSON.stringify(raw);
-    if (!text || Buffer.byteLength(text) > 256_000) fail();
+    if (!text) fail();
+    if (Buffer.byteLength(text) > 256_000) fail('content_limit_exceeded');
     const response = object(raw);
-    if (response.error || response.errors || response.warnings || response.redirects) fail();
+    if (response.error || response.errors || response.warnings) throw new Error('public_discovery_provider_unavailable');
+    if (response.redirects) fail();
     return object(response.query);
   };
   const validateBatch = (batch: DataBatch): DataBatch => {
-    if (!inspectDataSafety(batch, knownSecrets).safe || !Array.isArray(batch.sources) || !Array.isArray(batch.cases)
+    screen(batch, knownSecrets);
+    if (!Array.isArray(batch.sources) || !Array.isArray(batch.cases)
       || batch.cases.length || batch.sources.length > maxResults) fail();
     let chars = 0;
     const ids = new Set<string>();
@@ -77,7 +92,8 @@ export function createMediaWikiDiscovery(config: MediaWikiDiscoveryConfig): Pick
         || !source.url.startsWith(`${origin}/w/index.php?oldid=`) || !/^\d+$/.test(source.url.split('oldid=')[1] ?? '')) fail();
       ids.add(source.id);
     }
-    if (chars > maxContentChars) fail();
+    if (chars > maxContentChars) fail('content_limit_exceeded');
+    try { validateDiscoveryBatch(batch, knownSecrets); } catch { fail(); }
     return structuredClone(batch);
   };
   return { discover: async (input: AcquisitionRequest): Promise<AcquisitionResult> => {
@@ -86,38 +102,49 @@ export function createMediaWikiDiscovery(config: MediaWikiDiscoveryConfig): Pick
     const digest = reviewDigest({ identity, request });
     const operation = await operations.claim(request.operationKey, digest);
     if (operation.state === 'pending') return { status: 'pending' };
+    if (operation.state === 'rejected') return { status: 'rejected', rejection: validateDiscoveryRejection(operation.rejection) };
     if (operation.state === 'complete') return { status: 'complete', data: validateBatch(operation.data) };
-    const pageIds = new Set<number>();
-    // Hard upper bound: <=3 searches + one batched revision retrieval. Ignore continuation.
-    for (const query of queries) {
-      if (pageIds.size >= maxResults) break;
-      const response = await read(api({ list: 'search', srsearch: query, srnamespace: '0', srprop: '', srlimit: String(maxResults - pageIds.size) }));
-      if (!Array.isArray(response.search) || response.search.length > maxResults - pageIds.size) fail();
-      for (const hit of response.search) pageIds.add(positive(object(hit).pageid));
-    }
-    const sources: DataSource[] = [];
-    if (pageIds.size) {
-      const response = await read(api({ prop: 'revisions', pageids: [...pageIds].join('|'), rvprop: 'ids|content|contentmodel', rvslots: 'main' }));
-      if (!Array.isArray(response.pages) || response.pages.length !== pageIds.size) fail();
-      const seen = new Set<number>();
-      for (const value of response.pages) {
-        const page = object(value); const pageId = positive(page.pageid);
-        if (!pageIds.has(pageId) || seen.has(pageId) || page.missing || page.invalid) fail();
-        seen.add(pageId);
-        if (!Array.isArray(page.revisions) || page.revisions.length !== 1) fail();
-        const revision = object(page.revisions[0]); const revisionId = positive(revision.revid);
-        const slot = object(object(revision.slots).main);
-        if (typeof slot.content !== 'string' || !slot.content.trim() || slot.contentmodel !== 'wikitext') fail();
-        sources.push({
-          id: `mw_${reviewDigest({ origin, pageId, revisionId }).slice(0, 48)}`,
-          url: `${origin}/w/index.php?oldid=${revisionId}`, content: slot.content,
-          license: { name: 'Unknown', url: origin, permission: 'unknown', allowedUses: [] },
-          provenance: { origin: 'public', producerId: `mediawiki:${origin}`, retrievedAt: (now?.() ?? new Date()).toISOString(), contentHash: digestContent(slot.content) },
-          review: { status: 'pending', reviewerId: '', reviewedAt: '', notes: 'Untrusted public retrieval; permission and independent review required.' },
-        });
+    let data: DataBatch;
+    try {
+      const pageIds = new Set<number>();
+      // Hard upper bound: <=3 searches + one batched revision retrieval. Ignore continuation.
+      for (const query of queries) {
+        if (pageIds.size >= maxResults) break;
+        const response = await read(api({ list: 'search', srsearch: query, srnamespace: '0', srprop: '', srlimit: String(maxResults - pageIds.size) }));
+        if (!Array.isArray(response.search) || response.search.length > maxResults - pageIds.size) fail();
+        for (const hit of response.search) pageIds.add(positive(object(hit).pageid));
       }
+      const sources: DataSource[] = [];
+      if (pageIds.size) {
+        const response = await read(api({ prop: 'revisions', pageids: [...pageIds].join('|'), rvprop: 'ids|content|contentmodel', rvslots: 'main' }));
+        if (!Array.isArray(response.pages) || response.pages.length !== pageIds.size) fail();
+        const seen = new Set<number>();
+        for (const value of response.pages) {
+          const page = object(value); const pageId = positive(page.pageid);
+          if (!pageIds.has(pageId) || seen.has(pageId) || page.missing || page.invalid) fail();
+          seen.add(pageId);
+          if (!Array.isArray(page.revisions) || page.revisions.length !== 1) fail();
+          const revision = object(page.revisions[0]); const revisionId = positive(revision.revid);
+          const slot = object(object(revision.slots).main);
+          if (typeof slot.content !== 'string' || !slot.content.trim() || slot.contentmodel !== 'wikitext') fail();
+          sources.push({
+            id: `mw_${reviewDigest({ origin, pageId, revisionId }).slice(0, 48)}`,
+            url: `${origin}/w/index.php?oldid=${revisionId}`, content: slot.content,
+            license: { name: 'Unknown', url: origin, permission: 'unknown', allowedUses: [] },
+            provenance: { origin: 'public', producerId: `mediawiki:${origin}`, retrievedAt: (now?.() ?? new Date()).toISOString(), contentHash: digestContent(slot.content) },
+            review: { status: 'pending', reviewerId: '', reviewedAt: '', notes: 'Untrusted public retrieval; permission and independent review required.' },
+          });
+        }
+      }
+      data = validateBatch({ sources, cases: [] });
+    } catch (error) {
+      if (!(error instanceof DefinitiveRejection)) throw error;
+      const rejection = validateDiscoveryRejection({ reasons: error.reasons });
+      if (!operations.reject) throw new Error('public_discovery_rejection_storage_unavailable');
+      // Persistence is outside the retrieval catch: uncertain writes never become terminal results.
+      await operations.reject(request.operationKey, digest, structuredClone(rejection));
+      return { status: 'rejected', rejection };
     }
-    const data = validateBatch({ sources, cases: [] });
     await operations.complete(request.operationKey, digest, structuredClone(data));
     return { status: 'complete', data };
   } };

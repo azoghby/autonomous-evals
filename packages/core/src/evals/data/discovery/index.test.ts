@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { createMediaWikiDiscovery, type DiscoveryOperations, type MediaWikiDiscoveryConfig } from './index';
-import { acquireEvaluationData, type AcquisitionRequest, type DataBatch, type EvaluationDataStore, type EvaluationDataTask } from '../acquisition';
+import { acquireEvaluationData, type AcquisitionRequest, type DiscoveryRejection, type DataBatch, type EvaluationDataStore, type EvaluationDataTask } from '../acquisition';
 import { assessDataQuality } from '../quality';
 
 // Authored API-shaped fixtures, never fetched public data or factual verification.
@@ -21,14 +21,19 @@ const search = { query: { search: [{ pageid: 7, title: 'Fixture title', url: 'ht
 const revision = (text = content) => ({ query: { pages: [{ pageid: 7, revisions: [{ revid: 91, slots: { main: { contentmodel: 'wikitext', content: text } } }] }] } });
 /** Test-only durable-port contract model; not production persistence. */
 class Operations implements DiscoveryOperations {
-  rows = new Map<string, { digest: string; data?: DataBatch }>();
+  rows = new Map<string, { digest: string; data?: DataBatch; rejection?: DiscoveryRejection }>();
   async claim(key: string, digest: string) {
     const row = this.rows.get(key);
     if (row && row.digest !== digest) throw new Error('operation_conflict');
+    if (row?.rejection) return { state: 'rejected' as const, rejection: structuredClone(row.rejection) };
     if (row?.data) return { state: 'complete' as const, data: structuredClone(row.data) };
     if (row) return { state: 'pending' as const };
     this.rows.set(key, { digest });
     return { state: 'claimed' as const };
+  }
+  async reject(key: string, digest: string, rejection: DiscoveryRejection) {
+    if (this.rows.get(key)?.digest !== digest) throw new Error('operation_conflict');
+    this.rows.set(key, { digest, rejection: structuredClone(rejection) });
   }
   async complete(key: string, digest: string, data: DataBatch) {
     if (this.rows.get(key)?.digest !== digest) throw new Error('operation_conflict');
@@ -126,38 +131,40 @@ describe('MediaWiki candidate discovery', () => {
     expect(p.get).not.toHaveBeenCalled();
     for (const text of ['opaque-sensitive-fixture', 'customer@example.com']) {
       const unsafe = setup({ knownSecrets: ['opaque-sensitive-fixture'], transport: { get: vi.fn().mockResolvedValueOnce(search).mockResolvedValueOnce(revision(text)) } });
-      await expect(unsafe.discover(request)).rejects.toThrow('public_discovery_invalid_response');
+      expect(await unsafe.discover(request)).toMatchObject({ status: 'rejected', rejection: { reasons: [text.includes('@') ? 'pii_detected' : 'secret_detected'] } });
+      expect(JSON.stringify([...unsafe.operations.rows.values()])).not.toContain(text);
     }
     const first = setup(); await first.discover(request);
     await expect(createMediaWikiDiscovery({ ...first.config, knownSecrets: ['Untrusted fixture text'] }).discover(request)).rejects.toThrow('public_discovery_invalid_response');
     expect(first.get).toHaveBeenCalledTimes(2);
   });
   it.each([
-    null, {}, { error: { code: 'upstream failure' } }, { warnings: { unexpected: 'fixture' }, query: { search: [] } },
+    null, {},
     { query: { search: 'bad' } }, { query: { search: [{ pageid: -1 }] } }, { query: { search: [{ pageid: 1.2 }] } },
     { query: { search: Array.from({ length: 6 }, (_, i) => ({ pageid: i + 1 })) } },
   ])('fails closed on malformed search/provider response %#', async raw => {
     const get = vi.fn().mockResolvedValue(raw);
     const p = setup({ transport: { get } });
-    await expect(p.discover(request)).rejects.toThrow('public_discovery_invalid_response');
+    const rejection = { status: 'rejected', rejection: { reasons: ['invalid_response'] } };
+    expect(await p.discover(request)).toEqual(rejection);
+    expect(await p.discover(request)).toEqual(rejection);
     expect(get).toHaveBeenCalledTimes(1);
-    expect(await p.discover(request)).toEqual({ status: 'pending' });
   });
   it.each([
-    {}, { query: { pages: [] } }, { query: { pages: [{ pageid: 8 }] } },
+    {}, revision('invalid \ud800 text'), { query: { pages: [] } }, { query: { pages: [{ pageid: 8 }] } },
     { query: { pages: [{ pageid: 7, missing: true }] } }, { query: { pages: [{ pageid: 7, revisions: [] }] } },
     { query: { pages: [{ pageid: 7, revisions: [{ revid: 91, slots: { main: { contentmodel: 'json', content: '{}' } } }] }] } },
     { query: { pages: [{ pageid: 7, revisions: [{ revid: 91, slots: { main: { contentmodel: 'wikitext', contenthidden: true } } }] }] } },
   ])('fails closed on malformed revision response %#', async raw => {
     const get = vi.fn().mockResolvedValueOnce(search).mockResolvedValueOnce(raw);
-    await expect(setup({ transport: { get } }).discover(request)).rejects.toThrow('public_discovery_invalid_response');
+    expect(await setup({ transport: { get } }).discover(request)).toEqual({ status: 'rejected', rejection: { reasons: ['invalid_response'] } });
   });
   it('bounds query/result/content/response counts and ignores continuation URLs', async () => {
     for (const change of [{ queries: [] }, { queries: ['a', 'b', 'c', 'd'] }, { queries: ['x'.repeat(257)] }, { maxResults: 6 }, { maxContentChars: 80_001 }]) {
       expect(() => setup(change)).toThrow('public_discovery_invalid_config');
     }
-    await expect(setup({ maxContentChars: 2 }).discover(request)).rejects.toThrow('public_discovery_invalid_response');
-    await expect(setup({ transport: { get: vi.fn().mockResolvedValue({ query: { search: [] }, extra: 'x'.repeat(256_001) }) } }).discover(request)).rejects.toThrow('public_discovery_invalid_response');
+    expect(await setup({ maxContentChars: 2 }).discover(request)).toMatchObject({ status: 'rejected', rejection: { reasons: ['content_limit_exceeded'] } });
+    expect(await setup({ transport: { get: vi.fn().mockResolvedValue({ query: { search: [] }, extra: 'x'.repeat(256_001) }) } }).discover(request)).toMatchObject({ status: 'rejected' });
     const get = vi.fn().mockResolvedValue({ query: { search: [] }, continue: { url: 'https://127.0.0.1/private' } });
     const done = await setup({ queries: ['a', 'b', 'c'], transport: { get } }).discover(request);
     expect(done).toEqual({ status: 'complete', data: empty });
@@ -186,5 +193,52 @@ describe('MediaWiki candidate discovery', () => {
     expect(task.assessment.factualCorrectness).toBe('unassessed');
     expect(task.assessment.approvedAnswerCaseIds).toEqual([]);
     expect(p.get).toHaveBeenCalledTimes(2);
+  });
+  it('keeps provider error/warning responses and uncommitted rejection writes pending', async () => {
+    for (const raw of [{ error: { code: 'retry later' } }, { warnings: { code: 'uncertain' } }]) {
+      const p = setup({ transport: { get: vi.fn().mockResolvedValue(raw) } });
+      await expect(p.discover(request)).rejects.toThrow('public_discovery_provider_unavailable');
+      expect(await p.discover(request)).toEqual({ status: 'pending' });
+      expect(p.config.transport!.get).toHaveBeenCalledTimes(1);
+    }
+    const operations = new Operations();
+    operations.reject = async () => { throw new Error('ambiguous write'); };
+    const p = setup({ operations, transport: { get: vi.fn().mockResolvedValueOnce(search).mockResolvedValueOnce(revision('customer@example.com')) } });
+    await expect(p.discover(request)).rejects.toThrow('ambiguous write');
+    expect(await p.discover(request)).toEqual({ status: 'pending' });
+    expect(p.config.transport!.get).toHaveBeenCalledTimes(2);
+  });
+  it('keeps acquisition blocked when a definitive rejection cannot be durably committed', async () => {
+    let record: EvaluationDataTask | null = null;
+    const store: EvaluationDataStore = {
+      get: async () => record ? structuredClone(record) : null,
+      insertIfAbsent: async next => { record = structuredClone(next); return { inserted: true, record: structuredClone(next) }; },
+      compareAndSet: async (_id, revision, next) => { if (record?.revision !== revision) return null; record = structuredClone(next); return structuredClone(next); },
+    };
+    const operations = new Operations();
+    operations.reject = async () => { throw new Error('private write error'); };
+    const get = vi.fn().mockResolvedValueOnce(search).mockResolvedValueOnce(revision('customer@example.com'));
+    const p = setup({ operations, transport: { get } });
+    const generate = vi.fn(async () => ({ status: 'complete' as const, data: empty }));
+    const expert = vi.fn(async () => ({ status: 'pending' as const }));
+    const ports = { store, discover: p.discover, generate, expert };
+    for (let i = 0; i < 2; i++) {
+      const task = await acquireEvaluationData(request.task, empty, ports);
+      expect(task.phase).toBe('discovery');
+      expect(task.state).toBe('waiting_for_data');
+      expect(task.sources).toEqual([]);
+      expect(JSON.stringify(task)).not.toContain('private write error');
+      expect(JSON.stringify(task)).not.toContain('customer@example.com');
+    }
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(generate).not.toHaveBeenCalled();
+    expect(expert).not.toHaveBeenCalled();
+  });
+  it('fails closed with a legacy store that cannot persist terminal rejection', async () => {
+    const operations = new Operations();
+    const p = setup({ operations: { claim: operations.claim.bind(operations), complete: operations.complete.bind(operations) },
+      transport: { get: vi.fn().mockResolvedValue(null) } });
+    await expect(p.discover(request)).rejects.toThrow('public_discovery_rejection_storage_unavailable');
+    expect(await p.discover(request)).toEqual({ status: 'pending' });
   });
 });

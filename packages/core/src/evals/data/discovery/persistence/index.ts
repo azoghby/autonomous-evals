@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { AgentTransactionalSql } from '../../../../agents/postgres-ports';
 import { PostgresTextCheckpointStore, type CheckpointKey, type TextCheckpointStore } from '../../../integration/checkpoints';
-import type { DataBatch } from '../../acquisition';
 import { inspectDataSafety } from '../../quality';
 import type { DiscoveryOperations } from '../index';
-import { validateDiscoveryBatch } from './validation';
+import { validateDiscoveryBatch, type DiscoveryStoredResult } from './validation';
 
 /** Resolve from authenticated server context and an authorized job lookup, never request.task. */
 export interface AuthenticatedDiscoveryScope { tenantId: string; jobId: string }
@@ -49,7 +48,7 @@ export function createDiscoveryOperations(options: DiscoveryPersistenceOptions):
     if (typeof digest !== 'string' || !/^[a-f0-9]{64}$/.test(digest)) return fail('invalid_identity');
     return { jobId, kind, id: hash(['discovery-operation-v1', key]), inputDigest: digest };
   };
-  const validate = (value: unknown): DataBatch => {
+  const validate = (value: unknown): DiscoveryStoredResult => {
     try { return validateDiscoveryBatch(value, secrets); } catch { return fail('invalid_result'); }
   };
   return {
@@ -63,20 +62,29 @@ export function createDiscoveryOperations(options: DiscoveryPersistenceOptions):
         owners.set(record.id, { digest, token: result.token });
         return { state: 'claimed' };
       }
-      if (result.state === 'completed') return { state: 'complete', data: validate(result.value) };
+      if (result.state === 'completed') {
+        const value = validate(result.value);
+        return 'status' in value ? { state: 'rejected', rejection: value.rejection } : { state: 'complete', data: value };
+      }
       return { state: 'pending' }; // Includes ambiguous: never dispatch again automatically.
     },
     async complete(key, digest, data) {
-      const record = checkpoint(key, digest);
-      const owner = owners.get(record.id);
-      if (!owner) return fail('not_owner');
-      if (owner.digest !== digest) return fail('input_conflict');
-      const batch = validate(data); // Detached, strict JSON, checked before touching storage.
-      await storage(() => store.complete(record, owner.token, batch));
-      // Retain token for idempotent retries, including lost SQL completion acknowledgements.
-      // SQL compares jsonb under lock; changed results cannot overwrite a completed value.
+      const batch = validate(data);
+      if ('status' in batch) return fail('invalid_result');
+      await finish(key, digest, batch);
+    },
+    async reject(key, digest, rejection) {
+      await finish(key, digest, validate({ status: 'rejected', rejection }));
     },
   };
+  async function finish(key: string, digest: string, value: DiscoveryStoredResult): Promise<void> {
+    const record = checkpoint(key, digest);
+    const owner = owners.get(record.id);
+    if (!owner) return fail('not_owner');
+    if (owner.digest !== digest) return fail('input_conflict');
+    await storage(() => store.complete(record, owner.token, value));
+    // Keep ownership for identical retries after lost completion acknowledgements.
+  }
 }
 
 /** Existing text_integration migration must already be applied by the application. */

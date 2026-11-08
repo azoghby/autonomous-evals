@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
-import type { DataBatch } from '../../acquisition';
+import type { DataBatch, DiscoveryRejection } from '../../acquisition';
 import { inspectDataSafety } from '../../quality';
 import { publicSourceUrl } from '../../../../targets/public-source';
 
+import { validateDiscoveryRejection } from '../rejection';
+
+export type DiscoveryStoredResult = DataBatch | { status: 'rejected'; rejection: DiscoveryRejection };
 const invalid = (): never => { throw new Error('discovery_persistence_invalid_result'); };
 type ObjectValue = Record<string, unknown>;
 function object(value: unknown, keys: string[]): ObjectValue {
@@ -22,7 +25,7 @@ function publicUrl(value: unknown): string {
 
 /** Current discovery contract: bounded public candidate sources, no cases or approvals.
  * Reject unknown fields and lossy JSON rather than silently normalizing persisted evidence. */
-export function validateDiscoveryBatch(value: unknown, secrets: readonly string[]): DataBatch {
+export function validateDiscoveryBatch(value: unknown, secrets: readonly string[]): DiscoveryStoredResult {
   let nodes = 0;
   const seen = new Set<object>();
   function json(item: unknown, depth: number): void {
@@ -51,7 +54,12 @@ export function validateDiscoveryBatch(value: unknown, secrets: readonly string[
   const encoded = JSON.stringify(value);
   if (Buffer.byteLength(encoded) > 500_000 || !inspectDataSafety(value, secrets).safe) invalid();
   // Snapshot synchronously before any await or SQL serialization.
-  const batch = object(JSON.parse(encoded), ['sources', 'cases']);
+  const snapshot = JSON.parse(encoded) as Record<string, unknown>;
+  if (snapshot && snapshot.status === 'rejected') {
+    const result = object(snapshot, ['status', 'rejection']);
+    return { status: 'rejected', rejection: validateDiscoveryRejection(result.rejection) };
+  }
+  const batch = object(snapshot, ['sources', 'cases']);
   if (!Array.isArray(batch.sources) || batch.sources.length > 5 || !Array.isArray(batch.cases) || batch.cases.length) invalid();
   const ids = new Set<string>();
   let chars = 0;

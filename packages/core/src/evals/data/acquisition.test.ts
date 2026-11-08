@@ -57,6 +57,39 @@ describe("evaluation data acquisition", () => {
     expect(task.cases[0]?.input).toContain("IGNORE POLICY");
     expect(task.assessment.factualCorrectness).toBe("unassessed");
   });
+  it("advances definitive discovery rejection without dropping existing candidates or minting approvals", async () => {
+    const p = ports();
+    const existing: DataBatch = { sources: [], cases: [{ id: "existing", input: "Fixture question", expectedAnswer: "Unverified",
+      requirementIds: ["arithmetic"], sourceIds: [], synthetic: true, generatorId: "prior-generator" }] };
+    p.discover = async () => ({ status: "rejected", rejection: { reasons: ["pii_detected", "secret_detected"] } });
+    let task = await acquireEvaluationData(spec, existing, p);
+    expect(task.phase).toBe("generation");
+    expect(task.cases).toEqual(existing.cases);
+    expect(task.assessment.approvedAnswerCaseIds).toEqual([]);
+    expect(task.decisions.at(-1)).toMatchObject({ outcome: "discovery_rejected", rejection: { reasons: ["pii_detected", "secret_detected"] } });
+    p.generate = async request => {
+      expect(request.untrustedData).toEqual(existing);
+      return { status: "complete", data: empty };
+    };
+    task = await acquireEvaluationData(spec, existing, p);
+    expect(task.phase).toBe("expert");
+    expect(task.cases).toEqual(existing.cases);
+    expect(task.decisions.filter(item => item.outcome === "discovery_rejected")).toHaveLength(1);
+  });
+  it("does not advance or persist raw diagnostics for invalid rejection or rejected non-discovery phases", async () => {
+    const p = ports();
+    p.discover = async () => ({ status: "rejected", rejection: { reasons: ["customer@example.com"] } } as any);
+    let task = await acquireEvaluationData(spec, empty, p);
+    expect(task.phase).toBe("discovery");
+    expect(task.decisions.at(-1)?.outcome).toBe("invalid_rejection");
+    expect(JSON.stringify(task)).not.toContain("customer@example.com");
+    p.discover = async () => ({ status: "complete", data: empty });
+    await acquireEvaluationData(spec, empty, p);
+    p.generate = async () => ({ status: "rejected", rejection: { reasons: ["invalid_response"] } });
+    task = await acquireEvaluationData(spec, empty, p);
+    expect(task.phase).toBe("generation");
+    expect(task.state).toBe("waiting_for_data");
+  });
   it("requires independently authenticated review before factual answers become ready", async () => {
     const p = ports();
     await acquireEvaluationData(spec, empty, p);
