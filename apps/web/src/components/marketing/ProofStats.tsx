@@ -14,8 +14,8 @@ export async function ProofStats() {
   const s = await getHomeStats();
   if (!s) return null;
   const items: Array<{ label: string; value: string }> = [
-    { label: "Leaderboard agents", value: INT_FMT.format(s.agents) },
-    { label: "Model pairings run", value: INT_FMT.format(s.pairings) },
+    { label: "Open-source agents tested", value: INT_FMT.format(s.agents) },
+    { label: "Agent × model pairings", value: INT_FMT.format(s.pairings) },
     { label: "Scenarios graded", value: INT_FMT.format(s.scenarios) },
     ...(s.medianCostPerScenarioUsd != null ? [{ label: "Median cost / scenario", value: usd(s.medianCostPerScenarioUsd) }] : []),
   ];

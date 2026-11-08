@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { db } from "../../../../packages/core/src/db/client";
 
 export interface HomeStats {
-  /** Public leaderboard agents with at least one graded run. */
+  /** Distinct open-source agents (name before " · "), each may run on several models. */
   agents: number;
   /** Distinct (agent, model) pairings with at least one graded run. */
   pairings: number;
@@ -29,7 +29,7 @@ export async function getHomeStats(): Promise<HomeStats | null> {
   try {
     const res = await db().execute(sql`
       SELECT
-        count(DISTINCT a.id) AS agents,
+        count(DISTINCT split_part(a.name, ' · ', 1)) AS agents,
         count(DISTINCT (a.slug, a.model)) AS pairings,
         coalesce(sum(r.total), 0) AS scenarios,
         percentile_cont(0.5) WITHIN GROUP (ORDER BY r.cost_micro_usd::float8 / r.total)
