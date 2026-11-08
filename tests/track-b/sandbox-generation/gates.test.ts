@@ -72,9 +72,10 @@ describe('execution-backed sandbox admission', () => {
     h.ports.mutate = args => mutate({ ...args, plan: { ...args.plan, targetCheckId: 'collateral' } });
     expect((await runScenarioGates(h.input, h.ports)).reasons).toContain('mutation:mutation_0:target_did_not_flip');
   });
-  it.each(['cost', 'grade', 'cleanup', 'isolation', 'exception'] as const)('keeps %s failures unresolved', async issue => {
+  // §10: missing settlement is telemetry unless a customer quality budget is set.
+  it.each(['invalid_cost', 'grade', 'cleanup', 'isolation', 'exception'] as const)('keeps %s failures unresolved', async issue => {
     const h = harness();
-    if (issue === 'cost') { const execute = h.ports.execute; h.ports.execute = async args => ({ ...await execute(args), costMicroUsd: null }); }
+    if (issue === 'invalid_cost') { const execute = h.ports.execute; h.ports.execute = async args => ({ ...await execute(args), costMicroUsd: -1 }); }
     if (issue === 'grade') h.ports.grade = async () => ({ complete: false, checks: [] });
     if (issue === 'cleanup') { const start = h.ports.startRun; h.ports.startRun = async args => ({ ...await start(args), async dispose() { throw new Error('unresolved cleanup'); } }); }
     if (issue === 'isolation') { const run = await h.ports.startRun({ environment, scenario, key: 'shared' }); h.ports.startRun = async () => run; }

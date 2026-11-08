@@ -40,8 +40,9 @@ it('composes durable Engineer SQL generation, real gates, exact approval, retain
  await expect(engine.run(input)).rejects.toThrow('Customer approval');expect(dispatches).toBe(0);
  approval={decision:'approved',suiteDigest:artifact.digest,environmentDigest:gateDigest(artifact.environment),evidenceDigest:gateDigest(artifact.evidence),scope:artifact.scope,customerId:'offline-customer',approvalId:'approval-v1'};
  await expect(engine.run({...input,versions:{...input.versions,runtime:'changed'}})).rejects.toThrow('version');expect(dispatches).toBe(0);await expect(createSandboxEngine({...config,gateVersions:{...config.gateVersions,mutation:'changed'}}).run(input)).rejects.toThrow('gate_version');expect(dispatches).toBe(0);
- await expect(engine.run(input)).rejects.toThrow('lost durable report acknowledgement');expect(dispatches).toBe(2);const report=await createSandboxEngine(config).run(input);expect(dispatches).toBe(2);expect(report.grade?.verdict).toBe('pass');expect(report.outcome.status).toBe('unknown');expect(report.money).toEqual({status:'unknown',microUsd:null});expect(report.unresolved).toContain('cost_unsettled');expect(reports.size).toBe(1);
- expect(engine.summarize([report],2)).toMatchObject({expected:2,observed:1,missing:1,eligible:0,passed:0,passRate:null,ci95:null,allK:null,excluded:{unknown:1}});
+ await expect(engine.run(input)).rejects.toThrow('lost durable report acknowledgement');expect(dispatches).toBe(2);const report=await createSandboxEngine(config).run(input);expect(dispatches).toBe(2);// §10: absent customer quality budget, unsettled monetary telemetry does not gate proven quality.
+ expect(report.grade?.verdict).toBe('pass');expect(report.outcome.status).toBe('pass');expect(report.money).toEqual({status:'unknown',microUsd:null});expect(report.unresolved).not.toContain('cost_unsettled');expect(reports.size).toBe(1);
+ expect(engine.summarize([report],2)).toMatchObject({expected:2,observed:1,missing:1,eligible:1,passed:1,passRate:1,allK:null,excluded:{unknown:0}});
  authorized=false;await expect(engine.run(input)).rejects.toThrow('unauthorized');expect(dispatches).toBe(2);
  }finally{await runtime.close();await f.close();}
 },60000);

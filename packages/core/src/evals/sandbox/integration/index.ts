@@ -1,9 +1,10 @@
+import { qualityOutcome, SANDBOX_OUTCOME_RULE } from './outcome';
 import { executeEngineMedia, pinMediaPlan, mediaPlanIdentity, validateMediaPlan, type EngineMediaPorts, type EngineMediaEvidence } from './media';
 export type { EngineMediaPorts, EngineMediaPlan, EngineMediaEvidence } from './media';
 import type { EvalVersions, EnvironmentSpec, SandboxScenario } from '../../../sandbox/spec';
 import { freezeSandboxInputs, verifySandboxInputs } from '../identity';
 import { createSandboxGenerationAdapter, type SandboxGenerationConfig, type SandboxGenerationRequest } from '../generation/adapter';
-import { admitApprovedSandboxSuite, createSuiteGateArtifact, gateDigest, runScenarioGates, type CustomerApprovalPort, type GatePorts, type GateReplayPort, type GateScope, type GateVersions, type SuiteGateArtifact, type ScenarioGateEvidence } from '../generation/gates';
+import { admitApprovedSandboxSuite, createSuiteGateArtifact, gateDigest, runScenarioGates, type CustomerApprovalPort, type GatePorts, type GateReplayPort, type GateScope, type GateVersions, type SuiteGateArtifact, type ScenarioGateEvidence, type GateQualityCostPolicy, validGateQualityCostPolicy } from '../generation/gates';
 import { executeToolLoopTrial, executionDigest, type ExecutionPorts, type TrialArtifact, type TrialInput } from '../execution/runner';
 import { gradeSandbox, type GradeInput, type GradeResult, type GradingRun } from '../grading';
 import { summarizeRepeats, type StatisticalTrial } from '../grading/statistics';
@@ -41,6 +42,10 @@ export interface SandboxEngineConfig {
 }
 export interface PrivateSandboxReport {
   schema: 'sandbox-private-report-v1';
+  /** Absent only on historical v1 reports; never reinterpret their stored outcome. */
+  outcomeRule?: typeof SANDBOX_OUTCOME_RULE;
+  qualityCostPolicy?: GateQualityCostPolicy | null;
+  policyDigest?: string;
   media?: EngineMediaEvidence | null;
   suiteDigest: string;
   approvalId: string;
@@ -120,6 +125,11 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
       if (gateDigest(request.artifact.scope) !== gateDigest(scope)) throw new Error('sandbox_scope_mismatch');
       const { artifact, approval } = await admitApprovedSandboxSuite(request.artifact, config.approvals);
       if (approval.customerId !== job.customerId) throw new Error('sandbox_customer_mismatch');
+      // Approval is loaded from authenticated immutable server storage, never the HTTP body.
+      const qualityCostPolicy = structuredClone(approval.qualityCostPolicy ?? null);
+      if (qualityCostPolicy !== null && !validGateQualityCostPolicy(qualityCostPolicy))
+        throw new Error('sandbox_quality_cost_policy_invalid');
+      const policyDigest = gateDigest({ outcomeRule: SANDBOX_OUTCOME_RULE, qualityCostPolicy });
       if (artifact.evidence.some(e => gateDigest(e.versions) !== gateDigest(gateVersions)))
         throw new Error('sandbox_gate_versions_mismatch');
       const frozen = verifySandboxInputs(freezeSandboxInputs(artifact.environment, artifact.scenarios));
@@ -142,12 +152,12 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
         suiteDigest: artifact.digest, environmentDigest: executionDigest(frozen.environment), runtimeVersion: input.versions.runtime,
         targetConfigDigest: targetConfigDigest!, mediaConfigDigest: executionDigest(mediaIdentity) } : undefined;
       if (binding) await mediaPorts!.bridge.authorize(structuredClone(binding));
-      const report = await config.authority.replay.once(`${scope.jobId}/integrated-trial/${trial.trialId}`, gateDigest({ input, suite: artifact.digest, approval: approval.approvalId, ...(plan ? { media: mediaIdentity } : {}) }), async () => {
+      const report = await config.authority.replay.once(`${scope.jobId}/integrated-trial/${trial.trialId}`, gateDigest({ input, suite: artifact.digest, approval, outcomeRule: SANDBOX_OUTCOME_RULE, policyDigest, ...(plan ? { media: mediaIdentity } : {}) }), async () => {
         const result = plan ? await executeEngineMedia(input, plan, binding!, config.execution, { ...mediaPorts!,
           bridge: { ...mediaPorts!.bridge, authorize: async b => {
             await authorize('run', artifact.digest);
             const current = await admitApprovedSandboxSuite(request.artifact, config.approvals);
-            if (current.approval.approvalId !== approval.approvalId) throw new Error('sandbox_media_approval_changed');
+            if (gateDigest(current.approval) !== gateDigest(approval)) throw new Error('sandbox_media_approval_changed');
             await mediaPorts!.bridge.authorize(b);
           } } }, signal) : null;
         const execution = result ? result.execution : await executeToolLoopTrial(input, config.execution, signal);
@@ -173,22 +183,23 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
           if (evidence?.kind === 'voice' && evidence.artifact.timing.latencyPassed === false) unresolved.push('media_latency_failed');
           if (evidence?.kind === 'receipt' && evidence.artifact.latency.checks.some(c => !c.passed)) unresolved.push('media_latency_failed');
         }
-        if (!grade || grade.verdict === 'unknown') unresolved.push('grading_unknown');
-        // Execution v1 has no authoritative settlement receipt; never invent known money.
-        unresolved.push('cost_unsettled');
+        const status = qualityOutcome(execution, grade, qualityCostPolicy, unresolved);
         const outcome: StatisticalTrial = { scenarioId: scenario.id, trial: trial.trial, seed: String(trial.seed),
           fixtureHash: gateDigest({ environment: frozen.envHash, fixtureSql: scenario.fixtureSql }), variant: trial.variant,
           agentVersion: gateDigest({ model: trial.agentModel, config: trial.agentConfigDigest }), versions: input.versions,
-          status: 'unknown', failureAttribution: 'unknown' };
-        return { schema: 'sandbox-private-report-v1' as const, suiteDigest: artifact.digest, approvalId: approval.approvalId,
+          status, ...(status === 'pass' ? {} : { failureAttribution: 'unknown' as const }) };
+        return { schema: 'sandbox-private-report-v1' as const, outcomeRule: SANDBOX_OUTCOME_RULE, qualityCostPolicy, policyDigest, suiteDigest: artifact.digest, approvalId: approval.approvalId,
           execution, grade, outcome, unresolved, money: execution.money, ...(result ? { media: result.media } : {}) };
       });
-      if (report.execution.identityDigest !== identity || report.suiteDigest !== artifact.digest || report.approvalId !== approval.approvalId)
+      if (report.outcomeRule !== SANDBOX_OUTCOME_RULE || report.policyDigest !== policyDigest
+        || gateDigest(report.qualityCostPolicy) !== gateDigest(qualityCostPolicy) || report.execution.identityDigest !== identity || report.suiteDigest !== artifact.digest || report.approvalId !== approval.approvalId)
         throw new Error('sandbox_report_identity_conflict');
       await config.authority.persistPrivateReport(structuredClone(report));
       return structuredClone(report);
     },
     summarize(reports: readonly PrivateSandboxReport[], expected: number) {
+      if (new Set(reports.map(r => gateDigest({ rule: r.outcomeRule ?? 'legacy', policy: r.policyDigest ?? null }))).size > 1)
+        throw new Error('sandbox_outcome_policy_mismatch');
       return summarizeRepeats(reports.map(r => r.outcome), expected);
     },
   };

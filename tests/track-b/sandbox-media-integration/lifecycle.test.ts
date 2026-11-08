@@ -67,7 +67,11 @@ for (const kind of ['receipt','voice'] as const) it(`${kind}: admitted SQL lifec
  await expect(engine.run({...request,trial:{...request.trial,agentConfigDigest:'changed'}})).rejects.toThrow('config');expect(dispatched).toBe(0);
  await expect(engine.run(request)).rejects.toThrow('lost acknowledgement');
  expect(events).toEqual(['allocate','capture','dispose','grade']);expect(runtime.tools).toBe(1);
- expect(reports[0].grade?.verdict).toBe('pass');expect(reports[0].media?.kind).toBe(kind);expect(reports[0].outcome.status).toBe('unknown');expect(reports[0].money.microUsd).toBeNull();
+ expect(reports[0].grade?.verdict).toBe('pass');expect(reports[0].media?.kind).toBe(kind);expect(reports[0].outcome.status).toBe(kind==='receipt'?'pass':'unknown');expect(reports[0].money.microUsd).toBeNull();
+ // Voice's fixture tool args are {}, so spoken amount 47 fails required tool-argument perception.
+ // Receipt has complete perception; neither fixture has a customer quality cost budget.
+ expect(reports[0].unresolved).not.toContain('cost_unsettled');
+ if(kind==='voice'){expect(reports[0].unresolved).toContain('media_perception_unresolved_or_failed');expect(reports[0].media?.artifact.perception.some(c=>!c.passed)).toBe(true);}
  const count=dispatched;await persistent.db.close();const reopened=await checkpointDatabase(join(root,'sql'));
  try{config.authority.replay=gateReplay(reopened.store);config.media!.bridge.transport=makeTransport();config.media!.bridge.authority=new FileMediaAuthority(join(root,'bridge'));
  expect(await createSandboxEngine(config).run(request)).toEqual(reports[0]);expect(dispatched).toBe(count);expect(runtime.tools).toBe(1);
@@ -75,7 +79,7 @@ for (const kind of ['receipt','voice'] as const) it(`${kind}: admitted SQL lifec
  await expect(createSandboxEngine(config).run(request)).rejects.toThrow('identity_conflict');expect(dispatched).toBe(count);approval=originalApproval;
  const pendingInput={...runtime.input,trialId:'pending'};
  const pendingPlan=config.media!.plan(pendingInput);
- await reopened.store.claim({jobId:'sql-gates',kind:'sandbox-gate',id:'sql-job/integrated-trial/pending',inputDigest:gateDigest({input:pendingInput,suite:artifact.digest,approval:approval.approvalId,media:mediaPlanIdentity(pendingPlan)})});
+ await reopened.store.claim({jobId:'sql-gates',kind:'sandbox-gate',id:'sql-job/integrated-trial/pending',inputDigest:gateDigest({input:pendingInput,suite:artifact.digest,approval,outcomeRule:reports[0].outcomeRule,policyDigest:reports[0].policyDigest,media:mediaPlanIdentity(pendingPlan)})});
  await expect(createSandboxEngine(config).run({...request,trial:{...request.trial,trialId:'pending'}})).rejects.toThrow('pending_reconciliation');expect(dispatched).toBe(count);expect(runtime.tools).toBe(1);
  stt=0;let captures=0;const priorTools=runtime.tools;
  const failedRequest={...request,trial:{...request.trial,trialId:'snapshot-failure'}};

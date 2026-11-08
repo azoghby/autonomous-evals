@@ -37,7 +37,18 @@ export interface GatePorts {
    * the baseline. Relevant state/trajectory/transcript mutation depends on target grader. */
   mutate(input: { oracleRun: SandboxRun; oracleExecution: ExecutionOutcome; plan: MutationPlan; key: string }): Promise<{ run: SandboxRun; execution: ExecutionOutcome }>;
 }
+export interface GateQualityCostPolicy {
+  version: 'sandbox-quality-cost-policy-v1';
+  maxCostMicroUsd: number;
+}
+export function validGateQualityCostPolicy(policy: GateQualityCostPolicy): boolean {
+  return policy?.version === 'sandbox-quality-cost-policy-v1'
+    && Number.isSafeInteger(policy.maxCostMicroUsd) && policy.maxCostMicroUsd >= 0;
+}
+const executionRule = 'sandbox-gate-execution-v2' as const;
 export interface GateInput {
+  /** Trusted server policy only. Customer target budgets need not constrain oracle costs. */
+  qualityCostPolicy?: GateQualityCostPolicy;
   environment: EnvironmentSpec;
   scenario: SandboxScenario;
   scope: GateScope;
@@ -48,6 +59,9 @@ export interface RunGateEvidence { role: GateRole; runId: string; execution: Exe
 export interface MutationEvidence { plan: MutationPlan; runId: string; execution: ExecutionOutcome; grade: GateGrade }
 export interface ScenarioGateEvidence {
   schema: 'sandbox-gate-evidence-v1';
+  /** Absent on preserved legacy evidence, which requires known cost. */
+  executionRule?: typeof executionRule;
+  qualityCostPolicy?: GateQualityCostPolicy;
   bindingDigest: string;
   environmentDigest: string;
   scenarioDigest: string;
@@ -71,8 +85,10 @@ export function requiredGateCheckIds(s: SandboxScenario): string[] {
     ...(s.faults.some(f => f.fault === 'injected_instruction') || s.attachments.some(a => a.injection) ? ['security'] : []),
   ];
 }
-function validExecution(e: ExecutionOutcome): boolean {
-  return e.status === 'completed' && Number.isSafeInteger(e.costMicroUsd) && e.costMicroUsd! >= 0
+function validExecution(e: ExecutionOutcome, allowUnknownCost = false, policy?: GateQualityCostPolicy): boolean {
+  return e.status === 'completed'
+    && ((e.costMicroUsd === null && allowUnknownCost && !policy)
+      || (Number.isSafeInteger(e.costMicroUsd) && e.costMicroUsd! >= 0))
     && typeof e.evidenceRef === 'string' && e.evidenceRef.length > 0
     && Array.isArray(e.transcript) && e.transcript.every(t => ['user', 'assistant', 'tool'].includes(t.role) && typeof t.content === 'string');
 }
@@ -83,11 +99,16 @@ function validGrade(g: GateGrade, required: string[]): boolean {
     && required.every(id => g.checks.some(c => c.id === id && c.rewardBearing));
 }
 function passed(g: GateGrade): boolean { return g.checks.filter(c => c.rewardBearing).every(c => c.passed); }
-function binding(input: GateInput) {
-  const { environment, scenario, scope, versions } = input;
-  return { environment, scenario, scope, versions };
+function binding(input: GateInput, rule?: typeof executionRule) {
+  const { environment, scenario, scope, versions, qualityCostPolicy } = input;
+  return { environment, scenario, scope, versions,
+    ...(rule ? { executionRule: rule, ...(qualityCostPolicy ? { qualityCostPolicy } : {}) } : {}) };
+}
+function withinCostPolicy(e: ExecutionOutcome, policy?: GateQualityCostPolicy): boolean {
+  return !policy || (e.costMicroUsd !== null && e.costMicroUsd <= policy.maxCostMicroUsd);
 }
 function assertInput(input: GateInput): void {
+  if (input.qualityCostPolicy !== undefined && !validGateQualityCostPolicy(input.qualityCostPolicy)) throw new Error('Invalid quality cost policy');
   EnvironmentSpec.parse(input.environment);
   SandboxScenario.parse(input.scenario);
   if (!input.environment.workflows.some(w => w.id === input.scenario.workflowId)) throw new Error('Unknown scenario workflow');
@@ -99,16 +120,18 @@ function assertInput(input: GateInput): void {
  * Production artifact builders must load this evidence from the trusted replay store. */
 export function passingGateEvidence(e: ScenarioGateEvidence, scenario: SandboxScenario): boolean {
   if (e.schema !== 'sandbox-gate-evidence-v1' || e.status !== 'passed' || e.reasons.length || e.runs.length !== 4) return false;
+  if (e.executionRule !== undefined && e.executionRule !== executionRule) return false;
+  if (e.qualityCostPolicy !== undefined && (!e.executionRule || !validGateQualityCostPolicy(e.qualityCostPolicy))) return false;
   const roles: GateRole[] = ['oracle', 'do_nothing', 'empty', 'dump'];
   const required = requiredGateCheckIds(scenario);
   if (roles.some(role => e.runs.filter(r => r.role === role).length !== 1)) return false;
-  if (e.runs.some(r => !validExecution(r.execution) || !validGrade(r.grade, required) || passed(r.grade) !== (r.role === 'oracle'))) return false;
+  if (e.runs.some(r => !validExecution(r.execution, e.executionRule === executionRule, e.qualityCostPolicy) || !validGrade(r.grade, required) || (passed(r.grade) && withinCostPolicy(r.execution, e.qualityCostPolicy)) !== (r.role === 'oracle'))) return false;
   const oracle = e.runs.find(r => r.role === 'oracle')!;
   const targets = oracle.grade.checks.filter(c => c.rewardBearing).map(c => c.id);
   if (e.mutations.length > 200 || new Set(e.mutations.map(m => m.plan.id)).size !== e.mutations.length) return false;
   if (targets.some(id => !e.mutations.some(m => m.plan.targetCheckId === id))) return false;
   if (e.mutations.some(m => !m.plan.id || !targets.includes(m.plan.targetCheckId)
-    || !validExecution(m.execution) || !validGrade(m.grade, required)
+    || !validExecution(m.execution, e.executionRule === executionRule, e.qualityCostPolicy) || !validGrade(m.grade, required)
     || !m.grade.checks.some(c => c.id === m.plan.targetCheckId && c.rewardBearing && c.passed === false))) return false;
   const runIds = [...e.runs, ...e.mutations].map(r => r.runId);
   if (runIds.some(id => !id) || new Set(runIds).size !== runIds.length) return false;
@@ -124,7 +147,7 @@ export function passingGateEvidence(e: ScenarioGateEvidence, scenario: SandboxSc
 export async function runScenarioGates(raw: GateInput, ports: GatePorts): Promise<ScenarioGateEvidence> {
   const input = structuredClone(raw);
   assertInput(input);
-  const bindingDigest = gateDigest(binding(input));
+  const bindingDigest = gateDigest(binding(input, executionRule));
   const result = await ports.replay.once(input.replayKey, bindingDigest, async () => {
     const runs: RunGateEvidence[] = [], mutations: MutationEvidence[] = [], reasons: string[] = [];
     const live = new Set<SandboxRun>(), ids = new Set<string>();
@@ -145,8 +168,8 @@ export async function runScenarioGates(raw: GateInput, ports: GatePorts): Promis
           : structuredClone(await ports.execute({ role, run, environment: structuredClone(input.environment), scenario: structuredClone(input.scenario), key }));
         const grade = structuredClone(await ports.grade({ run, execution: structuredClone(execution), scenario: structuredClone(input.scenario) }));
         runs.push({ role, runId: run.runId, execution, grade });
-        if (!validExecution(execution) || !validGrade(grade, requiredGateCheckIds(input.scenario))) { unresolved = true; reasons.push(`${role}:incomplete_execution_or_grade`); }
-        else if (passed(grade) !== (role === 'oracle')) reasons.push(`${role}:unexpected_verdict`);
+        if (!validExecution(execution, true, input.qualityCostPolicy) || !validGrade(grade, requiredGateCheckIds(input.scenario))) { unresolved = true; reasons.push(`${role}:incomplete_execution_or_grade`); }
+        else if ((passed(grade) && withinCostPolicy(execution, input.qualityCostPolicy)) !== (role === 'oracle')) reasons.push(`${role}:unexpected_verdict`);
         if (role === 'oracle') oracleRun = run;
       }
       if (reasons.length === 0 && oracleRun) {
@@ -161,7 +184,7 @@ export async function runScenarioGates(raw: GateInput, ports: GatePorts): Promis
           const run = register(fork.run), execution = structuredClone(fork.execution);
           const grade = structuredClone(await ports.grade({ run, execution: structuredClone(execution), scenario: structuredClone(input.scenario) }));
           mutations.push({ plan, runId: run.runId, execution, grade });
-          if (!validExecution(execution) || !validGrade(grade, requiredGateCheckIds(input.scenario))) { unresolved = true; reasons.push(`mutation:${plan.id}:incomplete`); }
+          if (!validExecution(execution, true, input.qualityCostPolicy) || !validGrade(grade, requiredGateCheckIds(input.scenario))) { unresolved = true; reasons.push(`mutation:${plan.id}:incomplete`); }
           else if (!grade.checks.some(c => c.id === plan.targetCheckId && c.rewardBearing && c.passed === false)) reasons.push(`mutation:${plan.id}:target_did_not_flip`);
         }
       }
@@ -170,7 +193,8 @@ export async function runScenarioGates(raw: GateInput, ports: GatePorts): Promis
       for (const run of live) try { await run.dispose(); } catch { unresolved = true; reasons.push(`cleanup:${run.runId}:unresolved`); }
     }
     const body = {
-      schema: 'sandbox-gate-evidence-v1' as const, bindingDigest,
+      schema: 'sandbox-gate-evidence-v1' as const, executionRule,
+      ...(input.qualityCostPolicy ? { qualityCostPolicy: input.qualityCostPolicy } : {}), bindingDigest,
       environmentDigest: gateDigest(input.environment), scenarioDigest: gateDigest(input.scenario),
       scope: input.scope, versions: input.versions,
       status: unresolved ? 'unresolved' as const : reasons.length ? 'rejected' as const : 'passed' as const,
@@ -198,12 +222,14 @@ export function createSuiteGateArtifact(input: { scope: GateScope; environment: 
   snapshot.scenarios.forEach((scenario, index) => {
     const e = snapshot.evidence[index], { digest, ...body } = e;
     assertInput({ ...snapshot, scenario, versions: e.versions, replayKey: 'verify' });
-    if (!passingGateEvidence(e, scenario) || digest !== gateDigest(body) || e.environmentDigest !== gateDigest(snapshot.environment) || e.scenarioDigest !== gateDigest(scenario) || e.bindingDigest !== gateDigest(binding({ ...snapshot, scenario, versions: e.versions, replayKey: 'verify' }))) throw new Error('Missing exact passing gate evidence');
+    if (!passingGateEvidence(e, scenario) || digest !== gateDigest(body) || e.environmentDigest !== gateDigest(snapshot.environment) || e.scenarioDigest !== gateDigest(scenario) || e.bindingDigest !== gateDigest(binding({ ...snapshot, scenario, versions: e.versions, replayKey: 'verify', qualityCostPolicy: e.qualityCostPolicy }, e.executionRule))) throw new Error('Missing exact passing gate evidence');
   });
   const body = { schema: 'sandbox-suite-admission-v1' as const, ...snapshot };
   return { ...body, digest: gateDigest(body) };
 }
 export interface CustomerSuiteApproval {
+  /** Immutable trusted customer-approved quality cap; absent means no cost reward gate. */
+  qualityCostPolicy?: GateQualityCostPolicy;
   decision: 'approved' | 'rejected' | 'pending';
   suiteDigest: string;
   environmentDigest: string;
@@ -222,6 +248,7 @@ export async function admitApprovedSandboxSuite(raw: SuiteGateArtifact, approval
   const expected = createSuiteGateArtifact({ scope: artifact.scope, environment: artifact.environment, scenarios: artifact.scenarios, evidence: artifact.evidence });
   if (artifact.schema !== 'sandbox-suite-admission-v1' || artifact.digest !== expected.digest) throw new Error('Suite artifact changed');
   const approval = structuredClone(await approvals.resolve({ scope: structuredClone(artifact.scope), suiteDigest: artifact.digest }));
+  if (approval && approval.qualityCostPolicy !== undefined && !validGateQualityCostPolicy(approval.qualityCostPolicy)) throw new Error('Invalid approved quality cost policy');
   if (!approval || approval.decision !== 'approved' || !approval.customerId || !approval.approvalId
     || approval.suiteDigest !== artifact.digest || approval.environmentDigest !== gateDigest(artifact.environment)
     || approval.evidenceDigest !== gateDigest(artifact.evidence) || canonicalJson(approval.scope) !== canonicalJson(artifact.scope)) throw new Error('Customer approval absent, pending, rejected or stale');
