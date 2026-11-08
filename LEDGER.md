@@ -130,7 +130,7 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 
 Source: docs/INTEGRATION.md and the 65a653d merge.
 
-Merged into track-a. `EVAL_SERVICES` is unset everywhere recorded, so the app serves labelled mock results.
+Merged into track-a. **Prod now runs `EVAL_SERVICES=lite`** (set Nov 7 evening): `packages/core/src/lite/` implements all 11 eval methods via the AI gateway + SSRF-safe target transport, no Naïve needed. `EVAL_SERVICES=real` uses Track B and falls back to lite for unavailable methods; unset/`mock` = fixtures. Lite gaps: `rerunFinding`/`investigate` rely on in-run reruns on serverless (no target in signature); fix verification is single before/after; no simulated DB for workflow evals. Rollback: `vercel env rm EVAL_SERVICES production` + redeploy.
 
 Real and wired through `packages/core/src/integration/`:
 - qualify, auditTrace, renderReport (Naïve agents on the Postgres session and budget stores; needs the keys below)
@@ -176,7 +176,7 @@ Freeze is Nov 8, 9:30 AM PT. Judging is Nov 8, 11:00 AM PT.
 2. Fund the x402 payer wallet with Base Sepolia USDC from the Circle faucet (no ETH needed). Confirm `X402_PAY_TO` is set on Vercel. Rehearse `scripts/x402-pay-demo.ts` once on a test job. If it is not stable by 9:30, drop x402 from the demo.
 3. Rehearse the 3-minute flow in docs/DEMO_SCRIPT.md, including its fallbacks: paid Trace Audit with the 4242 test card, live progress, the seeded report, `claude mcp add`, and the operator console. Record the backup video between 9:30 and 11:00.
 4. Run `npx tsx --env-file=.env scripts/demo-seed.ts --apply` right before going on stage. Do a dry run first. The running job's heartbeat goes stale after 15 minutes, and the stale-jobs cron can escalate it.
-5. Enable real trace audits only if all of section 5 can be done safely in time (Naïve keys, migrations on a Neon branch, budget-0 check, conformance pass). Otherwise keep `EVAL_SERVICES` unset and say "mock" on stage. Do not claim real evals.
+5. Real evals are live via the lite engine (conformance 18/18 live). Switch to `EVAL_SERVICES=real` only once Track B's section 5 prerequisites are done (Naïve keys, migrations on a Neon branch, budget-0 check).
 6. Be ready to explain the test rows in prod (`stripe-e2e@`, `e2e-pipeline@`), or remove them.
 7. After judging: rotate the pasted keys; fix the per-finding sweep and x402 settle idempotency; finish the PLAN §9 must-pass checks; add a postal address for CAN-SPAM. Sell audits to other teams with live Stripe only after the PLAN §9 gates pass (`STRIPE_MODE=live` plus the live key).
 
@@ -189,3 +189,4 @@ Times are PT, as recorded.
 - ~17:40: prod redeploy with security fixes, MCP hire flow, stale-job recovery, report polish, landing Lighthouse perf 96 and a11y 100, OG, robots and sitemap.
 - ~18:30 to 19:30: red-team pack, fix-as-GitHub-PR (migration 0012), x402 work started, public share links and revenue counter (migration 0011), resumable workflow and stale-job auto-restart. Track B merged into `integrate-b` (71ef424); `EVAL_SERVICES=real` wired. v4 redesign deployed (~19:30) with a clean-worktree deploy.
 - After ~19:30 (no times recorded): x402 commit 1d56f4b and Track B merge 65a653d on track-a. Deploy not recorded for either.
+- Evening (post-4 PM): lite eval engine (7771433) committed; prod set to `EVAL_SERVICES=lite` and redeployed (dpl_8Z4YTS2reToQNsBxdjxPDjMnBsrL). Public agents seeded and run live on standard-suite-v1 (32 scenarios, ~$0.003 each): Sonnet 4.5 75%, GPT-5 mini 75%, Llama 3.3 70B 72%, Haiku 4.5 69%, Gemini 2.5 Flash 63%. Landing has 5-min ISR + leaderboard teaser. `scripts/public-agents.ts` falls back to `VERCEL_OIDC_TOKEN` (`--env-file=apps/web/.env.vercel.local`). Prod smoke: /, /leaderboard, /sample, revenue 200; x402 pay 401 without payment.
