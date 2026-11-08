@@ -21,6 +21,10 @@ export interface AuthenticatedDataReview {
 export interface DataOrchestrationPorts {
   acquisition: Omit<EvaluationDataPorts, 'reviewCandidates' | 'knownSecrets'>;
   operations: DataOperationLedger;
+  /** Explicit provider-owned advancement for a durable expert adapter. It must use its own
+   * persisted dispatch intent/CAS and read-only reconciliation for ambiguous sends. Never
+   * supply a stateless mail sender here. Absent this port, pending effects remain fenced. */
+  resumeExpert?: EvaluationDataPorts['expert'];
   /** Server-only immutable review ledger. Never pass a generator/model implementation here. */
   readReview(request: { digest: string; task: DataTaskSpec; data: DataBatch }): Promise<
     { status: 'pending' } | { status: 'decided'; review: AuthenticatedDataReview }>;
@@ -81,11 +85,15 @@ export async function advanceDataOrchestration(
     if (claim.record.digest !== digest) throw new Error('Data operation identity conflict');
     if (!claim.claimed) {
       if (claim.record.state === 'complete') return structuredClone(claim.record.result) as AcquisitionResult;
-      needsReconciliation = true;
-      return { status: 'pending' };
+      if (phase === 'expert' && ports.resumeExpert) provider = ports.resumeExpert;
+      else {
+        needsReconciliation = true;
+        return { status: 'pending' };
+      }
     }
     // Crash/exception/pending leaves an owned ambiguous operation. Only explicit reconciliation
     // with the underlying durable provider ledger may complete it; time never authorizes retry.
+    // The opt-in expert resume port advances that provider's durable state machine, not a send.
     try {
       const result = await provider(structuredClone(request));
       screen(result);

@@ -1,0 +1,383 @@
+--- /dev/null
++++ b/apps/web/src/server/automated-expert-owner.ts
+@@ -0,0 +1,146 @@
++import { isOperator } from '@ae/core/auth/tokens';
++import { Pool } from '@neondatabase/serverless';
++import { randomBytes, createHash } from 'node:crypto';
++import { sendEmail as applicationSendEmail } from '@ae/core/auth/email';
++import type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { createAutomatedExpertAdapter, type AutomatedExpertOwnerPorts, type ExpertLoopScope, type ExpertInvitation } from '@ae/core/evals/data/adapters/automated-expert';
++import type { BudgetLedger } from '@ae/core/evals/types';
++import { createExpertPromiseReservation, createPostgresExpertLoopStore } from '@ae/core/evals/data/adapters/postgres-expert-loop';
++import { COLD_CONTACTS_PER_DAY, buildInviteEmail } from './experts-logic';
++
++export interface SqlExpertOwnerOptions {
++ ledger: (tx: AgentSqlExecutor) => BudgetLedger; scope: ExpertLoopScope; tenantId: string; topic: string; appUrl: string; companyAddress: string;
++ contributions: AutomatedExpertOwnerPorts['contributions'];
++ sendEmail?: typeof applicationSendEmail; knownSecrets?: readonly string[];
++}
++const denied = (): never => { throw Error('expert_owner_denied_or_conflict'); };
++type Authority = { policy_id:string; customer_sharing_consent:boolean; day_scope:string };
++type Contact = {id:string;email:string;name:string;source:string;consent_flags:{contactForPaidWork?:boolean};allowed_uses:string[]};
++/** Concrete owner SQL boundary. One invocation advances the existing adapter once; no scheduler,
++ * evaluator, provider search or payment is introduced here. SQL transactions must not retry callbacks. */
++export function createSqlExpertOwner(sql: AgentTransactionalSql, options: SqlExpertOwnerOptions): AutomatedExpertOwnerPorts {
++ const scope=structuredClone(options.scope), secrets=options.knownSecrets??[];
++ function same(s:ExpertLoopScope) { if(reviewDigest({jobId:s.jobId,taskId:s.taskId,operationId:s.operationId,requestHash:s.requestHash})!==reviewDigest(scope))denied(); }
++ async function authority(tx:AgentSqlExecutor,s:ExpertLoopScope):Promise<Authority> {
++  same(s);
++  const r=(await tx.query<Authority>(`SELECT s.policy_id,s.customer_sharing_consent,
++   coalesce(o.first_promise_day,CURRENT_DATE)::text AS day_scope
++   FROM expert_automation_scopes s JOIN jobs j ON j.id=s.job_id AND j.customer_id=s.tenant_id
++   JOIN expert_automation_policies p ON p.id=s.policy_id
++   LEFT JOIN expert_automation_operations o ON o.operation_id=$5
++   WHERE s.job_id=$1 AND s.task_id=$2 AND s.tenant_id=$3 AND s.request_hash=$4
++   AND s.topic=$6 AND s.enabled AND p.enabled AND p.job_cap_micro_usd=25000000 AND p.daily_cap_micro_usd=50000000`,
++   [s.jobId,s.taskId,options.tenantId,s.requestHash,s.operationId,options.topic])).rows[0];
++  if(!r)denied();return r;
++ }
++ async function operation(tx:AgentSqlExecutor) {
++  const r=(await tx.query<{request_id:string;job_id:string;task_id:string;tenant_id:string;request_hash:string}>(
++   'SELECT * FROM expert_automation_operations WHERE operation_id=$1 FOR UPDATE',[scope.operationId])).rows[0];
++  if(!r||r.job_id!==scope.jobId||r.task_id!==scope.taskId||r.tenant_id!==options.tenantId||r.request_hash!==scope.requestHash)denied();return r;
++ }
++ async function contact(tx:AgentSqlExecutor,id:string):Promise<Contact> {
++  const r=(await tx.query<Contact>(`SELECT e.*,q.allowed_uses FROM experts e JOIN expert_automation_qualifications q ON q.expert_id=e.id
++   WHERE e.id=$1 AND q.topic=$2 AND q.qualified AND jsonb_array_length(q.evidence)>0 AND length(q.consent_receipt)>0
++   AND e.status='active' AND NOT EXISTS(SELECT 1 FROM contact_suppressions x WHERE lower(x.email)=lower(e.email)) FOR UPDATE OF e,q`,[id,options.topic])).rows[0];
++  if(!r)denied();return r;
++ }
++ function opted(c:Contact){return c.source==='opt_in'&&c.consent_flags.contactForPaidWork===true;}
++ async function prepare(tx:AgentSqlExecutor,c:Contact,inv:ExpertInvitation,coldQueue=false) {
++  const op=await operation(tx), digest=reviewDigest(inv);
++  let r=(await tx.query<{engagement_id:string;draft_id:string;invitation_digest:string;promised:boolean;send_state:string}>(
++   'SELECT * FROM expert_automation_invitations WHERE operation_id=$1 AND expert_id=$2 FOR UPDATE',[scope.operationId,c.id])).rows[0];
++  if(r){if(coldQueue)return r;if(r.invitation_digest!==digest){
++   if(r.promised||r.send_state!=='prepared')denied();
++   if(inv.questions.length>8||inv.questions.some(q=>q.length>1000)||inv.requiredUses.some(u=>!c.allowed_uses.includes(u)))denied();
++   await tx.query(`UPDATE outreach_drafts SET body=regexp_replace(body,'answer [0-9]+ short questions?','answer ' || $1::text || ' short questions') WHERE id=$2`,[inv.questions.length,r.draft_id]);
++   await tx.query('UPDATE expert_automation_invitations SET invitation_digest=$1 WHERE engagement_id=$2',[digest,r.engagement_id]);
++   await tx.query('UPDATE expert_requests SET questions=$1::jsonb WHERE id=$2',[JSON.stringify(inv.questions),op.request_id]);
++  }return r;}
++  if(inv.questions.length>8||inv.questions.some(q=>q.length>1000)||inv.honorariumMicroUsd%10000!==0||inv.requiredUses.some(u=>!c.allowed_uses.includes(u)))denied();
++  const token=randomBytes(32).toString('hex'),hash=createHash('sha256').update(token).digest('hex');
++  const email=buildInviteEmail({expertName:c.name,domain:options.topic,purpose:'Contribute independently verifiable evaluation cases.',questionCount:inv.questions.length,honorariumCents:inv.honorariumMicroUsd/10000,questionnaireUrl:`${options.appUrl}/expert/r/${token}`,optOutUrl:`${options.appUrl}/expert/opt-out/${token}`,companyAddress:options.companyAddress});
++  const draft=(await tx.query<{id:string}>(`INSERT INTO outreach_drafts(to_email,subject,body,status,kind) VALUES($1,$2,$3,'pending','expert_invite') RETURNING id`,[c.email,email.subject,email.body])).rows[0]!;
++  const engagement=(await tx.query<{id:string}>(`INSERT INTO expert_engagements(request_id,expert_id,token_hash,expires_at,honorarium_cents,outreach_draft_id) VALUES($1,$2,$3,now()+interval '7 days',$4,$5) RETURNING id`,[op.request_id,c.id,hash,inv.honorariumMicroUsd/10000,draft.id])).rows[0]!;
++  if(!coldQueue)await tx.query('UPDATE expert_requests SET questions=$1::jsonb WHERE id=$2',[JSON.stringify(inv.questions),op.request_id]);
++  await tx.query(`INSERT INTO expert_automation_invitations(operation_id,expert_id,engagement_id,draft_id,invitation_digest,amount_micro_usd) VALUES($1,$2,$3,$4,$5,$6)`,[scope.operationId,c.id,engagement.id,draft.id,digest,inv.honorariumMicroUsd]);
++  return {engagement_id:engagement.id,draft_id:draft.id,invitation_digest:digest};
++ }
++ const store=createPostgresExpertLoopStore(sql,{tenantId:options.tenantId,scope,authorize:async(tx,s)=>{await authority(tx,s);return {allowed:true,knownSecrets:secrets};}});
++ const owner:AutomatedExpertOwnerPorts={store,
++  authorize:async s=>sql.transaction(async tx=>{const a=await authority(tx,s);const approved=await tx.query<{expert_id:string;founder_approved_by:string}>(`SELECT expert_id,founder_approved_by FROM expert_automation_invitations i JOIN outreach_drafts d ON d.id=i.draft_id WHERE i.operation_id=$1 AND i.founder_approved_by IS NOT NULL AND d.status='approved'`,[s.operationId]);return {allowed:true,policyId:a.policy_id,dayScope:a.day_scope,customerSharingConsent:a.customer_sharing_consent,approvedColdContactIds:approved.rows.filter(r=>isOperator(r.founder_approved_by)).map(r=>r.expert_id),knownSecrets:secrets};}),
++  ensureRequest:async s=>sql.transaction(async tx=>{await authority(tx,s);await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`expert-operation:${s.operationId}`]);const found=(await tx.query('SELECT operation_id FROM expert_automation_operations WHERE operation_id=$1',[s.operationId])).rows[0];if(found){await operation(tx);return;}
++   const r=(await tx.query<{id:string}>(`INSERT INTO expert_requests(job_id,domain,questions,purpose,max_budget_cents) VALUES($1,$2,'[]'::jsonb,'Independent evaluation cases',2500) RETURNING id`,[s.jobId,options.topic])).rows[0]!;
++   await tx.query('INSERT INTO expert_automation_operations(operation_id,job_id,task_id,tenant_id,request_hash,request_id) VALUES($1,$2,$3,$4,$5,$6)',[s.operationId,s.jobId,s.taskId,options.tenantId,s.requestHash,r.id]);}),
++  discover:async(s,q)=>sql.transaction(async tx=>{await authority(tx,s);await operation(tx);if(q.topic!==options.topic||q.limit>10)denied();
++   const rows=await tx.query<{id:string}>(`SELECT e.id FROM experts e JOIN expert_automation_qualifications q ON q.expert_id=e.id WHERE q.topic=$1 AND q.qualified AND e.status='active' ORDER BY (e.source='opt_in') DESC,e.id LIMIT $2`,[q.topic,q.limit]);
++   const out=[];for(const row of rows.rows){let c:Contact;try{c=await contact(tx,row.id);}catch{continue;}
++    if(!opted(c)) { // Actual founder queue; this record confers no send permission or promise.
++     await prepare(tx,c,{requestId:s.operationId,contactId:c.id,questions:[`Subject: ${options.topic}`,'Provide representative independently verifiable cases, source permissions, and limitations.'],requiredUses:['evaluation'],honorariumMicroUsd:25000000,sharesCustomerScope:false},true);
++    }
++    out.push({id:c.id,qualified:true,optedIn:opted(c),honorariumMicroUsd:25000000});
++   }return out;}),
++  reserve:async(s,input)=>{same(s);const row=await store.get(s.operationId);const retainedInvitation=row?.invitation;if(!retainedInvitation) return denied();return sql.transaction(async tx=>{
++   const a=await authority(tx,s),c=await contact(tx,input.contactId),inv=retainedInvitation;
++   if(a.policy_id!==input.policyId||a.day_scope!==input.dayScope||input.jobCapMicroUsd!==25000000||input.dailyCapMicroUsd!==50000000||input.amountMicroUsd!==inv.honorariumMicroUsd||inv.contactId!==c.id||inv.sharesCustomerScope&&!a.customer_sharing_consent)denied();
++   const prepared=await prepare(tx,c,inv);
++   const approved=(await tx.query<{founder_approved_by:string|null}>(`SELECT i.founder_approved_by FROM expert_automation_invitations i JOIN outreach_drafts d ON d.id=i.draft_id WHERE i.engagement_id=$1 AND (i.founder_approved_by IS NULL OR d.status='approved')`,[prepared.engagement_id])).rows[0]!;
++   if(!opted(c)&&(!approved?.founder_approved_by||!isOperator(approved.founder_approved_by)))denied();
++   await tx.query("SELECT pg_advisory_xact_lock(hashtext('expert-company-promises'))");
++   const existing=(await tx.query<{promised:boolean;promise_key:string}>('SELECT promised,promise_key FROM expert_automation_invitations WHERE engagement_id=$1 FOR UPDATE',[prepared.engagement_id])).rows[0]!;
++   if(existing.promised){if(existing.promise_key!==input.key)denied();return true;}
++   const totals=(await tx.query<{job:string;day:string}>(`SELECT coalesce(sum(i.amount_micro_usd) FILTER(WHERE o.job_id=$1),0)::text AS job,coalesce(sum(i.amount_micro_usd) FILTER(WHERE i.promise_day=$2::date),0)::text AS day FROM expert_automation_invitations i JOIN expert_automation_operations o USING(operation_id) WHERE i.promised`,[s.jobId,a.day_scope])).rows[0]!;
++   if(Number(totals.job)+input.amountMicroUsd>25000000||Number(totals.day)+input.amountMicroUsd>50000000)return false;
++   await tx.query('UPDATE expert_automation_operations SET first_promise_day=coalesce(first_promise_day,$1::date) WHERE operation_id=$2',[a.day_scope,s.operationId]);
++   const reserveShared=createExpertPromiseReservation(options.ledger(tx),{dayScope:a.day_scope,authorize:async current=>{const auth=await authority(tx,current);return {allowed:true,policyId:auth.policy_id,dayScope:auth.day_scope};}});
++   if(!await reserveShared(s,input))return false;
++   await tx.query('UPDATE expert_automation_invitations SET promised=true,promise_day=$1::date,promise_key=$2 WHERE engagement_id=$3',[a.day_scope,input.key,prepared.engagement_id]);return true;});},
++  invite:async(s,inv,key)=>{
++   const claim=await sql.transaction(async tx=>{const a=await authority(tx,s),c=await contact(tx,inv.contactId);await operation(tx);
++    const r=(await tx.query<{engagement_id:string;draft_id:string;invitation_digest:string;promised:boolean;promise_key:string;founder_approved_by:string|null;send_state:string;subject:string;body:string;status:string;to_email:string;engagement_status:string}>(`SELECT i.*,d.subject,d.body,d.status,d.to_email,e.status AS engagement_status FROM expert_automation_invitations i JOIN outreach_drafts d ON d.id=i.draft_id JOIN expert_engagements e ON e.id=i.engagement_id WHERE i.operation_id=$1 AND i.expert_id=$2 AND e.expires_at>now() FOR UPDATE OF i,d,e`,[s.operationId,c.id])).rows[0];
++    if(!r||!r.promised||r.promise_key!==key||r.invitation_digest!==reviewDigest(inv)||r.engagement_status!=='invited'||r.status==='rejected'||r.to_email!==c.email||inv.sharesCustomerScope&&!a.customer_sharing_consent||!opted(c)&&(r.status!=='approved'||!r.founder_approved_by||!isOperator(r.founder_approved_by)))denied();
++    if(r.send_state!=='prepared')return null;
++    await tx.query("UPDATE expert_automation_invitations SET send_state='claimed' WHERE engagement_id=$1",[r.engagement_id]);return r;});
++   if(!claim)return {status:'ambiguous'};
++   try {const receipt=await (options.sendEmail??applicationSendEmail)({purpose:'commercial',to:claim.to_email,subject:claim.subject,text:claim.body});
++    await sql.transaction(async tx=>{await tx.query("UPDATE expert_automation_invitations SET send_state='sent',message_id=$1,thread_id=$2 WHERE engagement_id=$3 AND send_state='claimed'",[receipt.id??null,receipt.threadId??null,claim.engagement_id]);await tx.query("UPDATE outreach_drafts SET status='sent',sent_at=now() WHERE id=$1",[claim.draft_id]);});return {status:'sent',deliveryId:claim.engagement_id};
++   }catch{return {status:'ambiguous'};}
++  },
++  recoverDelivery:async(s,key)=>sql.transaction(async tx=>{await authority(tx,s);await operation(tx);const r=(await tx.query<{send_state:string;engagement_id:string}>('SELECT send_state,engagement_id FROM expert_automation_invitations WHERE operation_id=$1 AND promise_key=$2',[s.operationId,key])).rows[0];return r?.send_state==='sent'?{status:'sent',deliveryId:r.engagement_id}:null;}),
++  contributions:async(s,deliveryId)=>{await sql.transaction(async tx=>{await authority(tx,s);await operation(tx);const r=(await tx.query('SELECT engagement_id FROM expert_automation_invitations WHERE operation_id=$1 AND engagement_id=$2 AND send_state=\'sent\'',[s.operationId,deliveryId])).rows[0];if(!r)denied();});return options.contributions(s,deliveryId);},
++ };return owner;
++}
++/** Mount in the existing acquisition Workflow, once per durable acquisition operation. */
++export function createOwnerExpertStep(sql:AgentTransactionalSql,options:SqlExpertOwnerOptions){return createAutomatedExpertAdapter(createSqlExpertOwner(sql,options),{topic:options.topic});}
++
++/** Authenticated founder action records contact approval only. The existing Workflow performs
++ * budget reservation and dispatch through the durable claim. Never fabricates approved_by. */
++export async function approveSqlManagedExpertDraft(sql:AgentTransactionalSql,id:string,operatorEmail:string):Promise<boolean>{
++ return sql.transaction(async tx=>{
++  const row=(await tx.query<{draft_id:string}>("SELECT draft_id FROM expert_automation_invitations WHERE draft_id=$1 FOR UPDATE",[id])).rows[0];
++  if(!row)return false;
++  if(!isOperator(operatorEmail))denied();
++  await tx.query("SELECT pg_advisory_xact_lock(hashtext('expert-cold-contact-approvals'))");
++  const source=(await tx.query<{source:string}>(`SELECT e.source FROM expert_automation_invitations i JOIN experts e ON e.id=i.expert_id WHERE i.draft_id=$1`,[id])).rows[0];
++  if(source?.source==='agent_researched'){
++   const count=(await tx.query<{n:string}>(`SELECT count(*)::text AS n FROM expert_engagements e JOIN experts x ON x.id=e.expert_id JOIN outreach_drafts d ON d.id=e.outreach_draft_id WHERE x.source='agent_researched' AND d.status IN ('approved','sent') AND coalesce(d.sent_at,d.created_at)>=date_trunc('day',now() AT TIME ZONE 'UTC')`,[])).rows[0]!;
++   if(Number(count.n)>=COLD_CONTACTS_PER_DAY)denied();
++  }
++  const approved=(await tx.query(`UPDATE outreach_drafts SET status='approved',approved_by=$1 WHERE id=$2 AND status='pending' RETURNING id`,[operatorEmail,id])).rows[0];
++  if(!approved)denied();
++  await tx.query('UPDATE expert_automation_invitations SET founder_approved_by=$1 WHERE draft_id=$2',[operatorEmail,id]);
++  await tx.query("INSERT INTO interventions(operator_email,kind,note) VALUES($1,'approve_outreach',$2)",[operatorEmail,`Approved managed expert contact ${id}; dispatch remains budget/policy gated.`]);
++  return true;
++ });
++}
++/** Real pooled SQL for the existing owner route; HTTP query batches are not transactions. */
++let ownerPool:Pool|undefined;
++export function expertOwnerDatabase():AgentTransactionalSql{
++ const pool=ownerPool??=new Pool({connectionString:process.env.DATABASE_URL_UNPOOLED??process.env.DATABASE_URL});
++ return {
++  query:async<T>(query:string,params?:unknown[])=>({rows:(await pool.query(query,params)).rows as T[]}),
++  transaction:async<T>(fn:(tx:AgentSqlExecutor)=>Promise<T>)=>{
++   const client=await pool.connect();try{await client.query('BEGIN');const result=await fn({query:async<R>(query:string,params?:unknown[])=>({rows:(await client.query(query,params)).rows as R[]})});await client.query('COMMIT');return result;}catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
++  }
++ };
++}
+--- /dev/null
++++ b/apps/web/src/server/automated-expert-responses.ts
+@@ -0,0 +1,132 @@
++import { z } from 'zod';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import type { ExpertLoopScope } from '@ae/core/evals/data/adapters/automated-expert';
++import { createNaiveExpertResponseExtractor, mapQuestionnaireResponse, questionnaireResponseDigest,
++  type OwnerExpertResponseMetadata, type QuestionnaireAnswerRecord, type ExpertResponseCandidateResult } from '@ae/core/evals/data/adapters/expert-response';
++import { QuestionnaireAnswers } from '@ae/core/contracts/experts';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { inspectDataSafety } from '@ae/core/evals/data/quality';
++import type { DataTaskSpec } from '@ae/core/evals/data/types';
++import type { CostEntry, JobRef } from '@ae/core/evals/types';
++
++export interface SqlExpertResponseOptions {
++  scope: ExpertLoopScope;
++  tenantId: string;
++  topic: string;
++  runner: AgentTaskRunner;
++  job: JobRef;
++  sessionCapMicroUsd: number;
++  jobCapMicroUsd: number;
++  onMeasuredCost(entry: { taskKey: string; cost: CostEntry }): Promise<void>;
++  /** Resolve current server-owned secret policy on reads and again after every model/cost await. */
++  knownSecrets?: () => readonly string[];
++}
++export type SqlExpertResponseRead = { status: 'pending'; reason: string } | {
++  status: 'received'; response: QuestionnaireAnswerRecord; metadata: OwnerExpertResponseMetadata;
++};
++const useSchema = z.enum(['evaluation', 'generation', 'redistribution']);
++const sourceSchema = z.object({ url: z.string(), retrievedAt: z.string(), license: z.object({
++  name: z.string(), url: z.string(), permission: z.enum(['allowed', 'denied', 'unknown', 'mixed']), allowedUses: z.array(useSchema),
++}).strict() }).strict();
++const rowSchema = z.object({
++  request_id: z.string(), response_id: z.string(), engagement_id: z.string(), expert_id: z.string(),
++  answers: QuestionnaireAnswers.shape.answers, provenance: z.literal('expert_sourced'),
++  created_at: z.string(), questions: z.array(z.string().min(1)).min(1).max(8),
++  evidence: z.array(z.string().min(1)).min(1), allowed_uses: z.array(useSchema), consent_receipt: z.string(),
++  contribution_source: sourceSchema.nullable(),
++});
++
++/** Real owner-side SQL ingestion, with no grant inferred from signup contact consent or prose.
++ * Existing free text questionnaires lack contribution licensing: the nullable owner grant is
++ * intentionally required before extraction. All results are candidates awaiting independent review.
++ */
++export function createSqlExpertResponseService(sql: AgentTransactionalSql, options: SqlExpertResponseOptions) {
++  const scope = structuredClone(options.scope);
++  const tenantId = options.tenantId, topic = options.topic;
++  const knownSecrets = () => [...(options.knownSecrets?.() ?? [])];
++  const pending = (reason: string): { status: 'pending'; reason: string } => ({ status: 'pending', reason });
++  const safeId = (v: string) => typeof v === 'string' && v.length > 0 && v.length <= 1024 && inspectDataSafety(v, knownSecrets()).safe;
++
++  async function read(deliveryId: string): Promise<SqlExpertResponseRead> {
++    if (![scope.operationId, scope.jobId, scope.taskId, scope.requestHash, tenantId, topic, deliveryId].every(safeId)) return pending('unsafe_response_scope');
++    return sql.transaction(async tx => {
++      // Check current authority independently of whether the response exists; don't expose private
++      // existence information to a stale/revoked workflow. No private name/email/token is selected.
++      const authority = await tx.query(`SELECT o.request_id FROM expert_automation_operations o
++        JOIN expert_automation_scopes s ON s.job_id=o.job_id AND s.task_id=o.task_id
++          AND s.tenant_id=o.tenant_id AND s.request_hash=o.request_hash
++        JOIN jobs j ON j.id=o.job_id AND j.customer_id=o.tenant_id
++        JOIN expert_automation_policies p ON p.id=s.policy_id
++        JOIN expert_automation_invitations i ON i.operation_id=o.operation_id
++        JOIN expert_engagements g ON g.id=i.engagement_id AND g.request_id=o.request_id AND g.expert_id=i.expert_id
++        JOIN expert_requests r ON r.id=o.request_id AND r.job_id=o.job_id
++        WHERE o.operation_id=$1 AND o.job_id=$2 AND o.task_id=$3 AND o.tenant_id=$4
++          AND o.request_hash=$5 AND s.topic=$6 AND i.engagement_id=$7
++          AND s.enabled AND p.enabled AND p.job_cap_micro_usd=25000000 AND p.daily_cap_micro_usd=50000000
++          AND i.promised AND i.send_state='sent'`,
++      [scope.operationId, scope.jobId, scope.taskId, tenantId, scope.requestHash, topic, deliveryId]);
++      if (authority.rows.length !== 1) return pending('response_authority_unavailable');
++      const result = await tx.query(`SELECT o.request_id::text,r.id::text AS response_id,g.id::text AS engagement_id,
++          e.id::text AS expert_id,r.answers,r.provenance,
++          to_char(r.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at,
++          q.evidence,q.allowed_uses,q.consent_receipt,q.contribution_source,req.questions
++        FROM expert_automation_operations o
++        JOIN expert_automation_invitations i ON i.operation_id=o.operation_id
++        JOIN expert_engagements g ON g.id=i.engagement_id AND g.request_id=o.request_id AND g.expert_id=i.expert_id
++        JOIN expert_requests req ON req.id=o.request_id AND req.job_id=o.job_id
++        JOIN expert_responses r ON r.engagement_id=g.id
++        JOIN experts e ON e.id=g.expert_id
++        JOIN expert_automation_qualifications q ON q.expert_id=e.id AND q.topic=$6
++        WHERE o.operation_id=$1 AND o.job_id=$2 AND o.task_id=$3 AND o.tenant_id=$4 AND o.request_hash=$5
++          AND i.engagement_id=$7 AND i.send_state='sent' AND i.promised AND g.status IN ('answered','paid')
++          AND e.status='active' AND q.qualified
++          AND NOT EXISTS(SELECT 1 FROM contact_suppressions x WHERE lower(x.email)=lower(e.email))`,
++      [scope.operationId, scope.jobId, scope.taskId, tenantId, scope.requestHash, topic, deliveryId]);
++      // Multiple historical submissions are ambiguous, never silently choose latest/first.
++      if (result.rows.length !== 1) return pending('response_missing_or_ambiguous');
++      const parsed = rowSchema.safeParse(result.rows[0]);
++      if (!parsed.success) return pending('owner_response_evidence_missing');
++      const row = parsed.data;
++      if (!row.contribution_source) return pending('source_permission_missing');
++      const response: QuestionnaireAnswerRecord = { id: row.response_id, engagementId: row.engagement_id,
++        answers: row.answers, provenance: row.provenance, createdAt: row.created_at };
++      const digest = questionnaireResponseDigest(response);
++      const metadata: OwnerExpertResponseMetadata = { requestId: row.request_id, taskId: scope.taskId, jobId: scope.jobId,
++        engagementId: row.engagement_id, responseId: row.response_id, responseDigest: digest,
++        contributorId: row.expert_id,
++        questions: row.questions, qualificationEvidence: row.evidence,
++        // These fields are authenticated operator grants in the qualifications table, not contact consent.
++        consent: { evaluation: row.allowed_uses.includes('evaluation'), allowedUses: row.allowed_uses, receiptUrl: row.consent_receipt },
++        source: row.contribution_source };
++      if (!inspectDataSafety({ response, metadata }, knownSecrets()).safe) return pending('unsafe_response');
++      await tx.query(`INSERT INTO expert_automation_response_bindings(operation_id,engagement_id,response_id,response_digest)
++        VALUES($1,$2,$3,$4) ON CONFLICT(operation_id,engagement_id) DO NOTHING`, [scope.operationId, deliveryId, row.response_id, digest]);
++      const retained = await tx.query<{ response_id: string; response_digest: string }>(
++        'SELECT response_id::text,response_digest FROM expert_automation_response_bindings WHERE operation_id=$1 AND engagement_id=$2', [scope.operationId, deliveryId]);
++      if (retained.rows.length !== 1 || retained.rows[0]!.response_id !== row.response_id || retained.rows[0]!.response_digest !== digest) return pending('response_identity_changed');
++      return { status: 'received', response, metadata };
++    });
++  }
++
++  async function extract(task: DataTaskSpec, deliveryId: string): Promise<ExpertResponseCandidateResult> {
++    task = structuredClone(task);
++    if (task.jobId !== scope.jobId || task.taskId !== scope.taskId || task.jobId !== options.job.jobId) return pending('response_task_mismatch');
++    const first = await read(deliveryId);
++    if (first.status === 'pending') return first;
++    const before = mapQuestionnaireResponse(task, first.metadata, first.response, { cases: [] }, knownSecrets());
++    if (before.status !== 'pending' || before.reason !== 'extraction_missing') return before;
++    const extractor = createNaiveExpertResponseExtractor({ runner: options.runner, job: options.job,
++      sessionCapMicroUsd: options.sessionCapMicroUsd, jobCapMicroUsd: options.jobCapMicroUsd,
++      onMeasuredCost: options.onMeasuredCost, knownSecrets: knownSecrets() });
++    const result = await extractor(task, first.metadata, first.response);
++    // Cost delivery and extraction both await external systems. Re-read current SQL authority,
++    // qualification/consent/source grants and safety policy before returning any private candidates.
++    const current = await read(deliveryId);
++    if (current.status === 'pending') return current;
++    if (reviewDigest(first) !== reviewDigest(current)) return pending('response_metadata_changed');
++    if (!inspectDataSafety({ task, result, current }, knownSecrets()).safe) return pending('unsafe_response');
++    return result;
++  }
++  return { read, extract };
++}
+--- a/apps/web/src/server/outreach-approve.ts
++++ b/apps/web/src/server/outreach-approve.ts
+@@ -1,3 +1,4 @@
++import { approveSqlManagedExpertDraft, expertOwnerDatabase } from './automated-expert-owner';
+ import "server-only";
+ import { and, eq } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+@@ -18,7 +19,7 @@
+  * Operator approval of one pending outreach draft: guardrails, atomic pending->approved claim, intervention row,
+  * then send (if email is configured). Shared by the single-approve route and the one-click approve-all route.
+  */
+-export async function approveAndSendDraft(id: string, approverEmail: string, opts: { syncApproval?: boolean } = {}): Promise<ApproveResult> {
++async function approveLegacyDraft(id: string, approverEmail: string, opts: { syncApproval?: boolean } = {}): Promise<ApproveResult> {
+   const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail, kind: schema.outreachDrafts.kind })
+     .from(schema.outreachDrafts)
+     .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).limit(1);
+@@ -103,3 +104,14 @@
+   const ids = [...new Set(payload.ids.filter((x): x is string => typeof x === "string" && isUuid(x)))];
+   return { ids, op: payload.op };
+ }
++
++/** Shared lock covers legacy and managed approvals so the existing daily cold cap has one writer gate. */
++export async function approveAndSendDraft(id:string,approverEmail:string,opts:{syncApproval?:boolean}={}):Promise<ApproveResult>{
++ if(!isOperator(approverEmail))return {ok:false,status:403,error:'Operator access required'};
++ const sql=expertOwnerDatabase();
++ if(await approveSqlManagedExpertDraft(sql,id,approverEmail))return {ok:true,status:'approved'};
++ return sql.transaction(async tx=>{
++  await tx.query("SELECT pg_advisory_xact_lock(hashtext('expert-cold-contact-approvals'))");
++  return approveLegacyDraft(id,approverEmail,opts);
++ });
++}
+--- /dev/null
++++ b/packages/core/src/db/migrations/0024_expert_automation.sql
+@@ -0,0 +1,65 @@
++-- Owner-reviewed canonical grants. Application/model input cannot populate these records.
++CREATE TABLE expert_automation_policies (
++ id text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false,
++ job_cap_micro_usd bigint NOT NULL CHECK(job_cap_micro_usd=25000000),
++ daily_cap_micro_usd bigint NOT NULL CHECK(daily_cap_micro_usd=50000000)
++);
++CREATE TABLE expert_automation_scopes (
++ job_id uuid NOT NULL REFERENCES jobs(id), task_id text NOT NULL,
++ tenant_id uuid NOT NULL REFERENCES customers(id), request_hash text NOT NULL,
++ policy_id text NOT NULL REFERENCES expert_automation_policies(id), topic text NOT NULL,
++ enabled boolean NOT NULL DEFAULT false, customer_sharing_consent boolean NOT NULL DEFAULT false,
++ PRIMARY KEY(job_id,task_id)
++);
++CREATE TABLE expert_automation_qualifications (
++ expert_id uuid NOT NULL REFERENCES experts(id), topic text NOT NULL,
++ qualified boolean NOT NULL DEFAULT false, evidence jsonb NOT NULL,
++ allowed_uses jsonb NOT NULL, consent_receipt text NOT NULL, contribution_source jsonb,
++ PRIMARY KEY(expert_id,topic)
++);
++CREATE TABLE expert_automation_operations (
++ operation_id text PRIMARY KEY, job_id uuid NOT NULL REFERENCES jobs(id), task_id text NOT NULL,
++ tenant_id uuid NOT NULL REFERENCES customers(id), request_hash text NOT NULL,
++ request_id uuid NOT NULL UNIQUE REFERENCES expert_requests(id), first_promise_day date
++);
++CREATE TABLE expert_automation_invitations (
++ operation_id text NOT NULL REFERENCES expert_automation_operations(operation_id),
++ expert_id uuid NOT NULL REFERENCES experts(id), engagement_id uuid NOT NULL UNIQUE REFERENCES expert_engagements(id),
++ draft_id uuid NOT NULL UNIQUE REFERENCES outreach_drafts(id), invitation_digest text NOT NULL,
++ promise_key text UNIQUE, amount_micro_usd bigint NOT NULL CHECK(amount_micro_usd BETWEEN 0 AND 25000000),
++ promised boolean NOT NULL DEFAULT false, promise_day date,
++ founder_approved_by text, send_state text NOT NULL DEFAULT 'prepared' CHECK(send_state IN ('prepared','claimed','sent')),
++ message_id text, thread_id text, PRIMARY KEY(operation_id,expert_id)
++);
++CREATE FUNCTION expert_automation_operation_identity() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++ IF (NEW.operation_id,NEW.job_id,NEW.task_id,NEW.tenant_id,NEW.request_hash,NEW.request_id)
++ IS DISTINCT FROM (OLD.operation_id,OLD.job_id,OLD.task_id,OLD.tenant_id,OLD.request_hash,OLD.request_id)
++ OR (OLD.first_promise_day IS NOT NULL AND NEW.first_promise_day IS DISTINCT FROM OLD.first_promise_day)
++ THEN RAISE EXCEPTION 'immutable expert operation'; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER expert_automation_operation_identity BEFORE UPDATE ON expert_automation_operations
++ FOR EACH ROW EXECUTE FUNCTION expert_automation_operation_identity();
++CREATE FUNCTION expert_automation_promise_identity() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++ IF (NEW.operation_id,NEW.expert_id,NEW.engagement_id,NEW.draft_id,NEW.amount_micro_usd)
++ IS DISTINCT FROM (OLD.operation_id,OLD.expert_id,OLD.engagement_id,OLD.draft_id,OLD.amount_micro_usd)
++ OR (OLD.promised AND (NEW.promised,NEW.promise_key,NEW.promise_day,NEW.invitation_digest)
++ IS DISTINCT FROM (OLD.promised,OLD.promise_key,OLD.promise_day,OLD.invitation_digest))
++ THEN RAISE EXCEPTION 'immutable expert promise'; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER expert_automation_promise_identity BEFORE UPDATE ON expert_automation_invitations
++ FOR EACH ROW EXECUTE FUNCTION expert_automation_promise_identity();
++
++CREATE TABLE expert_automation_response_bindings (
++ operation_id text NOT NULL REFERENCES expert_automation_operations(operation_id),
++ engagement_id uuid NOT NULL REFERENCES expert_engagements(id),
++ response_id uuid NOT NULL REFERENCES expert_responses(id), response_digest text NOT NULL,
++ PRIMARY KEY(operation_id,engagement_id)
++);
++CREATE FUNCTION expert_automation_response_identity() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN RAISE EXCEPTION 'immutable expert response binding'; END $$;
++CREATE TRIGGER expert_automation_response_identity BEFORE UPDATE OR DELETE ON expert_automation_response_bindings
++ FOR EACH ROW EXECUTE FUNCTION expert_automation_response_identity();

@@ -1,0 +1,25 @@
+{
+  "baseCommit": "eaf7f6967f0d227b9826232afa9c368a2464e1be",
+  "files": [
+    {
+      "path": "apps/web/src/server/automated-expert-owner.ts",
+      "beforeSha256": null,
+      "afterSha256": "0d804dd0bb36e49c770d182564f0ca26985ef5bdce9d565ae4514bb70921ec18"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-responses.ts",
+      "beforeSha256": null,
+      "afterSha256": "0390b470e16fceb9f35f8247099c821e694f56c3836d27492f42b8fe5e568de6"
+    },
+    {
+      "path": "apps/web/src/server/outreach-approve.ts",
+      "beforeSha256": "0e17964bd46780b21f95ce75d846a0a7cfaf2200af85d32377a1846a19f55837",
+      "afterSha256": "e6708ebfabff6b34d75e18233f7863b58870538d49f5127ea52f8a534a65bfda"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0024_expert_automation.sql",
+      "beforeSha256": null,
+      "afterSha256": "36291cb4ef321f99fc1f2f23590c5ab773667079fe8a07fd970eb895027e6fb7"
+    }
+  ]
+}

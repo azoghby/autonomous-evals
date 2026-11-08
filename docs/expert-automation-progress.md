@@ -29,3 +29,15 @@ The new core adapter does not by itself prove application wiring, deployed autom
 ## Validation checkpoint
 
 Parent combined agents/evals/judges: strict TypeScript and 940 tests across 63 files, none skipped. Tests include actual acquisition-to-ready with authenticated independent review and SQL restart after lost send acknowledgement; email/owner transports are simulated. This does not establish hosted delivery, real experts or end-to-end app activation.
+
+## Response and owner-bridge checkpoint
+
+`expert-response.ts` now runs bounded Ines extraction from actual questionnaire records and maps only exact UTF-16 answer spans to candidate cases. Owner-issued request/engagement/response identity, qualifications, use consent and source permissions are required before spending. Missing metadata remains pending; the extractor cannot approve facts. Independent review is still separate.
+
+The current-base [owner bridge artifact](expert-automation-integration/README.md) connects real SQL expert requests/profiles/private questionnaire engagements and founder drafts to the core adapter. Shared honorarium reservation and promise binding are transactional; sends have durable claims and ambiguous recovery is read-only. The SQL response reader retains first response identity and rechecks current grants/authorization/secrets after model and cost awaits. This is an unapplied owner patch, not mounted app code.
+
+`advanceDataOrchestration` now has an explicit `resumeExpert` port for this durable provider state machine. Without it, legacy pending effects remain fenced. With it, a later Workflow invocation can advance selection, reservation and response polling without repeating an ambiguous send. The default behavior does not change for stateless providers.
+
+Parent checks: strict combined agents/evals/judges **956 tests / 65 files**, none skipped. Independent reproduction of the applied owner bridge: **28 SQL tests**, focused strict types, four postimages and separately pinned B support verified. Eight original legacy approval assertions pass with a documented fixture for the new SQL routing boundary; unchanged old fixtures alone have six missing-boundary failures. Provider/email transports and extraction runner are fakes; hosted contention, real email, automatic response review and Workflow mounting remain unverified.
+
+Both `18527a1` CI repair and `eaf7f69` implementation passed complete GitHub CI (web/core types, unit tests and production build). These results predate this checkpoint's uncommitted additions; they are not deployment evidence.

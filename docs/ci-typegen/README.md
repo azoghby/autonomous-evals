@@ -9,3 +9,7 @@ The three-line patch inserts `npx next typegen` with `working-directory: apps/we
 Apply with `git apply --check docs/ci-typegen/owner.patch` followed by `git apply docs/ci-typegen/owner.patch`. Run the full CI sequence from a clean checkout. A successful patch applicability check alone does not prove CI green.
 
 The applied-source staging check found the Workflow plugin requires app-local execution: root `next typegen apps/web` failed directory discovery, while running `next typegen` from `apps/web` succeeded. The patch uses the verified app-local form.
+
+## Hosted verification
+
+GitHub [run 42460226899](https://github.com/azoghby/standard-evals/actions/runs/42460226899), commit `18527a1ccc0ecdc2d2f2bc057d37a8deaf08fe5b`, completed successfully: clean npm ci, app-local Next type generation, web/core typechecks, unit tests and production build. This verifies the CI repair; it does not deploy features.
