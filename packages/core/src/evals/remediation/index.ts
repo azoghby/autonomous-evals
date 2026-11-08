@@ -99,6 +99,7 @@ export function createRemediationServices(deps: RemediationDeps) {
     async function record(costs: CostEntry[]) {
       for (const raw of costs) {
         const c = CostEntrySchema.parse(raw);
+        safe(c); // Current-secret policy also applies before accounting replay.
         if (c.jobId !== ctx.jobId || !c.measured || !c.externalId) block('Measured job-bound cost identity required.');
         const k = key('cost', c.externalId!, c);
         const claim = await deps.checkpoints.claim(k);

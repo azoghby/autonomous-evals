@@ -32,7 +32,7 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
       if (!caller || caller.subjectId !== scope.subjectId) throw new ChatError('not_found');
       const authorized = await ports.access.resolveAuthorizedJob(caller, scope.jobId);
       if (!authorized || !sameScope(scope, ChatScopeSchema.parse(authorized))) throw new ChatError('not_found');
-      const plan = await ports.resolve(scope);
+      const plan = structuredClone(await ports.resolve(structuredClone(scope)));
       if (!plan || !sameScope(scope, plan.scope)) throw new ChatError('not_found');
       if (!['test', 'live'].includes(plan.environment)) invalid();
       unique(plan.checkpoints.map(p => keyId(p.key)));
@@ -48,7 +48,7 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
         if (p.scenarioIds) unique(p.scenarioIds);
         if ((p.format === 'calendar_run' || p.format === 'calendar_investigation') && !nonempty(p.branchId)) invalid();
       }
-      const read = await ports.reader.read(plan);
+      const read = await ports.reader.read(structuredClone(plan));
       if (!sameScope(scope, read.scope) || read.job.jobId !== scope.jobId) invalid();
       const observedAt = instant.parse(read.observedAt);
       const at = (v: string) => { instant.parse(v); if (Date.parse(v) > Date.parse(observedAt)) invalid(); return v; };
@@ -127,7 +127,7 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
                 const original = baseline.executions.find(e => e.checks.some(c => f.id === `text:${e.scenarioId}:${c.checkId}` && checkIds.every(id => id === c.checkId)));
                 if (!original || original.runId !== baseline.runId) return invalid();
                 const check = original.checks.find(c => c.checkId === checkIds[0])!;
-                if (!['fail', 'concern'].includes(check.status) || f.evidence.some(e => e.kind === 'trace_event' || (e.kind === 'scenario_response' && (e.scenarioId !== original.scenarioId || e.runId !== baseline.runId)))) invalid();
+                if (!['fail', 'concern'].includes(check.status) || f.evidence.some(e => e.kind === 'legacy_excerpt' || e.kind === 'trace_event' || (e.kind === 'scenario_response' && (e.scenarioId !== original.scenarioId || e.runId !== baseline.runId)))) invalid();
                 const repro = reproductions.find(e => e.scenarioId === original.scenarioId);
                 if (f.reproduction?.attempted && (!repro || f.reproduction.runId !== repro.runId)) invalid();
                 if (f.label === 'confirmed' && (original.outcome !== 'completed' || !original.target.ok || repro?.outcome !== 'completed' || !repro.target.ok || f.basis !== 'objective' || check.kind !== 'objective' || check.status !== 'fail'

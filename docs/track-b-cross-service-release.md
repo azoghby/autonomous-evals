@@ -1,3 +1,7 @@
+## Parent fixes
+
+Report cost rows are now detached from caller-owned input. Calendar A5 selects the running phase explicitly rather than relying on opaque reference sort order. The combined strict cross-service check passed 15 tests across four files after these changes. The ordering fixture still demonstrates why the former positional assumption was invalid; it is no longer an open A5 assertion defect. The original review evidence follows.
+
 # Track B cross-service release evidence
 
 Baseline: `6ff8a0642fc14dfd23842456d124a4b84f5e040a`. Four children ran in separate T3 worktrees using Codex Sol `gpt-6.1-sol`, high reasoning; no further delegation and no ECC. Lead integrated all four commits and composed one scoped runner. Only `tests/track-b/cross-service-release/**` and this document changed. Production and original tests remained read-only.

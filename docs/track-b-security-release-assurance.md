@@ -1,3 +1,9 @@
+## Parent fixes
+
+Parent implementation fixes D1/D2/D3 and C1 by pinning projection plans, checkpoint keys, review inputs and retained adapter authority across awaits. Reader checkpoint keys are immutable, preserving refusal of an adapter that mutates a lookup. ROT-1 screens persisted cost metadata before accounting replay. P1 preserves canonical scenario/run locations and treats unknown legacy locations as opaque excerpts. P2 requires literal source substrings for trace citations. Historical artifacts are retained; no cost is erased or treated as zero.
+
+Strict combined security check passed all 38 tests after these changes. ROT-2 remained delegated to the Naïve recovery implementation at this checkpoint; original review below records pre-fix behavior. Tests for fixed findings now assert rejection or accurate snapshots.
+
 # Track B security and release assurance
 
 Base production source: `6ff8a0642fc14dfd23842456d124a4b84f5e040a`.

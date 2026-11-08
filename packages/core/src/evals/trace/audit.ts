@@ -127,11 +127,11 @@ export interface TraceAuditDeps {
 
 const normWs = (s: string) => s.replace(/\s+/g, " ").trim();
 
-/** A citation is valid only if the event exists and the quote is verbatim (whitespace-insensitive). */
+/** A citation is valid only if the event exists and the quote is a literal substring of retained source. */
 export function verifyCitation(trace: NormalizedTrace, eventId: string, quote: string): TraceEvent | null {
   const ev = trace.events.find((e) => e.id === eventId);
   if (!ev || quote.trim().length === 0) return null;
-  return normWs(ev.text).includes(normWs(quote)) ? ev : null;
+  return ev.text.includes(quote) ? ev : null;
 }
 
 /** JSON for embedding in a prompt; `<` escaped so data cannot close the untrusted_data tag. */

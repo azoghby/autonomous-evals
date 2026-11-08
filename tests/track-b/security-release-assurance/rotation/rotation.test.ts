@@ -91,8 +91,8 @@ describe('DEFECT CHARACTERIZATION: observed unsafe behavior, not acceptance', ()
     recordCost.mockClear();
     f.authorized.knownSecrets = [opaque];
     // Desired fix would refuse/sanitize metadata before sink replay. Current code succeeds.
-    expect((await f.call()).remediation.verification.status).toBe('not_verified');
-    expect(recordCost).toHaveBeenCalledWith(expect.objectContaining({ meta: expect.objectContaining({ purpose: opaque }) }));
+    await expect(f.call()).rejects.toThrow();
+    expect(recordCost).not.toHaveBeenCalled();
     expect(await f.rows()).toEqual(before);
     expect(f.run).toHaveBeenCalledOnce();
     // The report layer refuses the same persisted cost, but only after remediation

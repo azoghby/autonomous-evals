@@ -12,14 +12,12 @@ import { database, digestA, digestB, plan, projector, runValue, save, scope } fr
 const engines: Awaited<ReturnType<typeof database>>['engine'][] = [], roots: string[] = [];
 afterEach(async () => { await Promise.all(engines.splice(0).map(e => e.close())); await Promise.all(roots.splice(0).map(r => rm(r, { recursive: true, force: true }))); });
 async function fixture() { const f = await database(); engines.push(f.engine); return f; }
-// These tests assert observed defects. A production fix should fail these assertions;
-// replace them with rejection/original-snapshot acceptance tests at that time.
-describe('DEFECT CHARACTERIZATION: mutable identity across await boundaries', () => {
+// Regression coverage for detached authorization and checkpoint identities.
+describe('Regression: identity is pinned across await boundaries', () => {
   it('D1 accepts live SQL evidence after the resolved test plan environment is mutated during read', async () => {
     const f = await fixture(), p = plan(); await save(f.store, p.checkpoints[0]!.key, runValue('live'));
     expect(p.environment).toBe('test');
-    const result = await projector(p, f.store, undefined, () => { p.environment = 'live'; }).project(scope);
-    expect(result.phases).toMatchObject([{ state: 'completed' }]);
+    await expect(projector(p, f.store, undefined, () => { p.environment = 'live'; }).project(scope)).rejects.toThrow();
   });
   it('D2 SQL checkpoint get validates a changed digest rather than the digest captured at invocation', async () => {
     const f = await fixture(), p = plan(), key = { ...p.checkpoints[0]!.key };
@@ -31,7 +29,7 @@ describe('DEFECT CHARACTERIZATION: mutable identity across await boundaries', ()
       return result;
     } };
     expect(key.inputDigest).toBe(digestA);
-    expect(await new PostgresTextCheckpointStore(gated).get(key)).toEqual({ state: 'completed', value: { marker: 'different-input' } });
+    await expect(new PostgresTextCheckpointStore(gated).get(key)).rejects.toThrow('identity_conflict');
     expect(selectedDigest).toBe(digestA);
     // Unmutated control must refuse the same persisted row.
     await expect(f.store.get({ ...key, inputDigest: digestA })).rejects.toThrow('identity_conflict');
@@ -53,7 +51,7 @@ describe('DEFECT CHARACTERIZATION: mutable identity across await boundaries', ()
       },
     } });
     // Initially valid input is rejected because post-await verification uses a new digest.
-    await expect(reader.readReview(request)).rejects.toThrow('ledger binding mismatch');
+    expect((await reader.readReview(request)).status).toBe('decided');
     expect(request.digest).not.toBe(original.digest);
     expect((await intake.readReview(original)).status).toBe('decided');
   });

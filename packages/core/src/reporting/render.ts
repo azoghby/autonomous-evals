@@ -110,7 +110,7 @@ export function renderReport(input: ReportInput): RenderedReport {
     operatorNotes: (input.operatorSummary?.finding_notes ?? []).map((n) => ({ findingId: n.finding_id, note: n.note })),
     nextSteps: input.operatorSummary?.recommended_next_steps ?? [],
     limitations: input.limitations,
-    costs: { knownMicroUsd, entries: input.costs ?? [], unknown },
+    costs: { knownMicroUsd, entries: structuredClone(input.costs ?? []), unknown },
     monitoringPitch: pitch,
     details: input.details ?? {},
     evaluationStatus: input.evaluationStatus ?? null,
@@ -138,7 +138,7 @@ export function renderReport(input: ReportInput): RenderedReport {
     for (const e of f.evidence) {
       if (e.kind === "check") md.push("", `- Check ${mdText(e.checkId)}: ${mdText(e.detail)}`);
       else {
-        const where = e.kind === "trace_event" ? `log event ${e.eventId}` : `scenario ${e.scenarioId}, run ${e.runId}`;
+        const where = e.kind === "legacy_excerpt" ? `Legacy location: ${e.location || "unspecified"}` : e.kind === "trace_event" ? `log event ${e.eventId}` : `scenario ${e.scenarioId}, run ${e.runId}`;
         md.push("", `- ${mdText(where)}${e.truncated ? " (excerpt)" : ""}:`, "", mdFence(e.quote));
       }
     }
@@ -170,7 +170,7 @@ function renderHtml(r: ReportJson, labels: Record<FindingLabel, string>, notes: 
         .map((e) =>
           e.kind === "check"
             ? `<li>Check ${h(e.checkId)}: ${h(e.detail)}</li>`
-            : `<li>${h(e.kind === "trace_event" ? `log event ${e.eventId}` : `scenario ${e.scenarioId}, run ${e.runId}`)}${e.truncated ? " (excerpt)" : ""}<pre><code>${h(e.quote)}</code></pre></li>`,
+            : `<li>${h(e.kind === "legacy_excerpt" ? `Legacy location: ${e.location || "unspecified"}` : e.kind === "trace_event" ? `log event ${e.eventId}` : `scenario ${e.scenarioId}, run ${e.runId}`)}${e.truncated ? " (excerpt)" : ""}<pre><code>${h(e.quote)}</code></pre></li>`,
         )
         .join("");
       const note = notes.get(f.id);

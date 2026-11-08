@@ -143,17 +143,16 @@ describe('Acceptance: custom retained adapter contract fails closed', () => {
   });
 });
 
-describe('DEFECT CHARACTERIZATION: custom adapter identity mutates during retained read', () => {
+describe('Regression: custom adapter identity is pinned before retained read', () => {
   it('accepts evidence matching a replacement identity rather than the identity committed before execution', async () => {
     const adapter = custom(); const original = structuredClone(adapter.retainedIdentity!);
     const replacement = structuredClone(artifacts[0]); replacement.investigation = { substituted: true };
     adapter.execute = async () => { adapter.retainedIdentity = { runId: replacement.run.runId, digest: digest(replacement) }; return replacement; };
     await composed(adapter, async ({ compare, current, pg }) => {
-      const result = await compare();
-      expect(result.baseline.artifact.investigation).toEqual({ substituted: true }); expect(current).toHaveBeenCalledTimes(1);
+      await expect(compare()).rejects.toMatchObject({ code: 'needs_operator' });
+      expect(current).not.toHaveBeenCalled();
       const rows = await pg.query<{ value: { baseline: { retainedIdentity: typeof original } } }>('SELECT value FROM text_integration.checkpoints WHERE kind=$1', ['rich_comparison_identity']);
       expect(rows.rows[0].value.baseline.retainedIdentity).toEqual(original);
-      expect(result.baseline.identity.retainedIdentity).not.toEqual(original);
       await expect(compare()).rejects.toThrow(); // Later replay detects drift, but first result already escaped.
     });
   });

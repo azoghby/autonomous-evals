@@ -62,6 +62,7 @@ export class PostgresTextCheckpointStore implements TextCheckpointStore {
   constructor(private readonly db: AgentTransactionalSql) {}
 
   async claim(key: CheckpointKey): Promise<CheckpointClaim> {
+    key = { ...key };
     const params = identityParams(key);
     const token = randomUUID();
     return this.db.transaction(async tx => {
@@ -79,6 +80,7 @@ export class PostgresTextCheckpointStore implements TextCheckpointStore {
   }
 
   async get(key: CheckpointLookup): Promise<CheckpointValue | null> {
+    key = { ...key };
     const params = identityParams(key);
     const row = (await this.db.query<Row>('SELECT * FROM text_integration.checkpoints WHERE job_id = $1 AND kind = $2 AND id = $3', params)).rows[0];
     if (!row) return null;
@@ -87,6 +89,7 @@ export class PostgresTextCheckpointStore implements TextCheckpointStore {
   }
 
   async complete(key: CheckpointKey, token: string, value: unknown): Promise<void> {
+    key = { ...key };
     const params = identityParams(key);
     const encoded = encode(value);
     await this.db.transaction(async tx => {
@@ -106,6 +109,7 @@ export class PostgresTextCheckpointStore implements TextCheckpointStore {
   }
 
   async release(key: CheckpointKey, token: string): Promise<void> {
+    key = { ...key };
     const params = identityParams(key);
     const deleted = await this.db.query<{ input_digest: string }>(`UPDATE text_integration.checkpoints SET state = 'ready'
       WHERE job_id = $1 AND kind = $2 AND id = $3 AND token = $4 AND input_digest = $5 AND state = 'pending' RETURNING input_digest`, [...params, token, key.inputDigest]);
@@ -113,6 +117,7 @@ export class PostgresTextCheckpointStore implements TextCheckpointStore {
   }
 
   async markAmbiguous(key: CheckpointKey, token: string): Promise<void> {
+    key = { ...key };
     const params = identityParams(key);
     const saved = await this.db.query<Row>(`UPDATE text_integration.checkpoints SET state = 'ambiguous'
       WHERE job_id = $1 AND kind = $2 AND id = $3 AND token = $4 AND input_digest = $5 AND state IN ('pending', 'ambiguous') RETURNING *`, [...params, token, key.inputDigest]);

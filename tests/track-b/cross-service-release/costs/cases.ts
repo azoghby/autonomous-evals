@@ -148,9 +148,9 @@ export async function reportSnapshotCharacterization(path: string) {
     assert.match(report.summary, /Evaluation incomplete/);
     const reread = await b.listJobCosts(job.jobId); reread[0].microUsd = 999_999;
     assert.equal(report.json.costs.entries[0].microUsd, 125_001); // SQL reads are detached.
-    // CURRENT DEFECT, not acceptance: renderer aliases the supplied cost list/objects.
+    // The report retains a detached cost snapshot.
     costs[0].microUsd = 999_999;
-    assert.equal(report.json.costs.entries[0].microUsd, 999_999);
+    assert.equal(report.json.costs.entries[0].microUsd, 125_001);
     assert.equal(report.json.costs.knownMicroUsd, 125_001);
     assert.match(report.markdown, /\$0\.13/);
     assert.equal((await b.listJobCosts(job.jobId))[0].microUsd, 125_001);

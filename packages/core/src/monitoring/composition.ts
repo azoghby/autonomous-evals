@@ -150,6 +150,16 @@ export function createComparisonMonitoringService(deps: ComparisonMonitoringDeps
     async compare(ctx: ServiceContext, input: ComparisonRequest) {
       let request: ComparisonRequest; let a: AuthorizedComparison;
       try { request = requestSchema.parse(input); a = await deps.resolve(ctx, copy(request)); } catch { return reject(); }
+      // Adapter properties are trusted configuration, but may still be caller-owned and mutable.
+      // Pin their authority and methods before any adapter await.
+      const snapshotBinding = (b: VersionBinding): VersionBinding => ({
+        version: b.version, targetId: b.targetId, branchId: b.branchId,
+        adapter: { readOnly: b.adapter.readOnly,
+          retainedIdentity: b.adapter.retainedIdentity === undefined ? undefined : copy(b.adapter.retainedIdentity),
+          getSuite: b.adapter.getSuite.bind(b.adapter), execute: b.adapter.execute.bind(b.adapter) },
+      });
+      a = { ...a, scenarioIds: copy(a.scenarioIds), knownSecrets: a.knownSecrets ? [...a.knownSecrets] : undefined,
+        baseline: snapshotBinding(a.baseline), current: snapshotBinding(a.current) };
       const safe = <T>(v: T): T => { assertJson(v, a.knownSecrets); return copy(v); };
       const durable = async <T>(fn: () => Promise<T>): Promise<T> => { try { return await fn(); } catch { return ambiguous(); } };
       const frozen = suite(a.suite);

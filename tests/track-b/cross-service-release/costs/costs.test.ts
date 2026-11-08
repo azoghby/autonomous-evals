@@ -7,7 +7,7 @@ for (const [name, run] of [
   ['acceptance: failed qualification and schema-failed operator costs survive disk reopen and report replay', failedServicesRetainMeasuredCosts],
   ['acceptance: pending reserves without fabricated costs, then settles once across resume', pendingThenSettledCosts],
   ['acceptance: committed cost with lost ACK replays once after disk reopen', lostCostAcknowledgement],
-  ['CURRENT DEFECT: JSON report aliases caller cost rows while totals and rendered snapshots stay fixed', reportSnapshotCharacterization],
+  ['Regression: JSON report costs stay consistent with totals and rendered snapshots', reportSnapshotCharacterization],
 ] as const) it(name, async () => {
   const path = await mkdtemp(join(tmpdir(), 'release-cost-sql-'));
   try { await run(path); } finally { await rm(path, { recursive: true, force: true }); }

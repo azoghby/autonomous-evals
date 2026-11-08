@@ -315,6 +315,7 @@ export const FindingBasisSchema = z.enum(["objective", "heuristic", "agent", "ju
 export type FindingBasis = z.infer<typeof FindingBasisSchema>;
 
 export const EvidenceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("legacy_excerpt"), location: z.string(), quote: z.string(), truncated: z.literal(true) }),
   z.object({ kind: z.literal("trace_event"), eventId: z.string(), quote: z.string(), truncated: z.boolean() }),
   z.object({
     kind: z.literal("scenario_response"),

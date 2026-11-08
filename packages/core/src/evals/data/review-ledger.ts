@@ -55,6 +55,7 @@ export function createAuthenticatedDataReviewLedger(config: {
       await config.operations.complete(key, digest, review);
     },
     async readReview(request) {
+      request = structuredClone(request);
       screen(request);
       if (request.digest !== dataReviewRequestDigest(request.task, request.data)) throw new Error('Independent review request mismatch');
       const record = await config.operations.get(keyFor(request.digest));

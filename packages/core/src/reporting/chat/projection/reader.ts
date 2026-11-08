@@ -26,7 +26,10 @@ export function createDurableProgressReader(port: ConsistentProgressReadPort): P
   return {
     read: plan => port.withRead(plan, async view => {
       const checkpoints: DurableProgressRead['checkpoints'] = [];
-      for (const p of plan.checkpoints) checkpoints.push({ key: { ...p.key }, record: await view.checkpoints.get(p.key) });
+      for (const p of plan.checkpoints) {
+        const key = Object.freeze({ ...p.key });
+        checkpoints.push({ key, record: await view.checkpoints.get(key) });
+      }
       const acquisition: DurableProgressRead['acquisition'] = [];
       for (const taskId of plan.acquisitionTaskIds) acquisition.push({ taskId, record: await view.acquisition.get(taskId) });
       return { scope: { ...plan.scope }, observedAt: view.observedAt, job: view.job, costs: view.costs, unknownCosts: view.unknownCosts, checkpoints, acquisition };

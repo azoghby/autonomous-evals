@@ -110,7 +110,9 @@ export function toContractFinding(f: Finding): ContractFinding {
     description: description.slice(0, 5_000),
     scenarioId: f.evidence.find((e) => e.kind === "scenario_response")?.scenarioId,
     evidence: f.evidence.map((e) =>
-      e.kind === "trace_event"
+      e.kind === "legacy_excerpt"
+        ? { kind: "response", excerpt: e.quote.slice(0, 10_000), location: e.location }
+        : e.kind === "trace_event"
         ? { kind: "trace_excerpt", excerpt: e.quote.slice(0, 10_000), location: `event ${e.eventId}` }
         : e.kind === "scenario_response"
           ? { kind: "response", excerpt: e.quote.slice(0, 10_000), location: `scenario ${e.scenarioId} run ${e.runId}` }
@@ -133,7 +135,13 @@ export function fromContractFinding(f: ContractFinding): Finding {
     summary: f.description,
     evidence: f.evidence.map((e) => {
       const loc = e.location ?? "";
-      if (e.kind === "response") return { kind: "scenario_response", scenarioId: f.scenarioId ?? loc, runId: loc, quote: e.excerpt, truncated: false };
+      if (e.kind === "response") {
+        const canonical = /^scenario (S(?:0[1-9]|1[0-2])) run ([A-Za-z0-9_.:-]{1,128})$/.exec(loc);
+        if (canonical && (!f.scenarioId || f.scenarioId === canonical[1])) return {
+          kind: "scenario_response", scenarioId: canonical[1]!, runId: canonical[2]!, quote: e.excerpt, truncated: true,
+        };
+        return { kind: "legacy_excerpt", location: loc, quote: e.excerpt, truncated: true };
+      }
       if (e.kind === "judge" || e.kind === "state_diff") return { kind: "check", checkId: loc || e.kind, detail: e.excerpt };
       return { kind: "trace_event", eventId: loc.replace(/^event /, "") || "?", quote: e.excerpt, truncated: false };
     }),

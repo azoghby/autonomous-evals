@@ -225,7 +225,7 @@ describe('ACCEPTANCE — locally composed durable seams', () => {
       expect(rendered.json.details.calendar).toMatchObject({ run, investigation });
       const c = chat(await runPlan(job, 'calendar_run', run, suite.hash, run.results.map(r => r.scenarioId), run.branchId));
       const progress = await c.projection.project({ subjectId: 'owner', jobId: job.jobId });
-      expect(progress.phases[0]?.outcomes).toContain(fixed ? 'passed' : 'product_failure');
+      expect(progress.phases.find(p => p.phase === 'running')?.outcomes).toContain(fixed ? 'passed' : 'product_failure');
       expect(progress.snapshot.status).toBe('running');
       const dispatched = calls;
       expect(await restart().runSuite(ctx, request)).toEqual(run);
