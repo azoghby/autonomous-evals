@@ -1,4 +1,6 @@
 import { MONITORING_PRICE_CENTS_MONTHLY, PER_FINDING_CAP_CENTS, PER_FINDING_CENTS, PRICE_CENTS } from "@ae/core/contracts/index";
+import { Spotlight } from "./extras/Spotlight";
+import { PayFootnote } from "./extras/PayFootnote";
 import { Button, NudgeArrow, Reveal, Section, SectionHeader } from "../ui";
 
 const usd = (c: number) => `$${c % 100 ? (c / 100).toFixed(2) : c / 100}`;
@@ -42,7 +44,7 @@ export function Pricing() {
       </Reveal>
       <Reveal className="mt-14 md:mt-20">
         <div className="grid border border-line-2 md:grid-cols-2">
-          <div className="flex flex-col gap-6 p-6 sm:p-8">
+          <Spotlight className="flex flex-col gap-6 p-6 sm:p-8">
             <span className={label}>Fixed</span>
             <div className="flex items-baseline gap-2">
               <span className="text-[13px] text-muted">from</span>
@@ -59,9 +61,8 @@ export function Pricing() {
             <div className="mt-auto pt-2">
               <Button href="/start" variant="outline" className="group">Get an eval <NudgeArrow /></Button>
             </div>
-          </div>
-          <div className="relative flex flex-col gap-6 border-t border-line-2 p-6 sm:p-8 md:border-l md:border-t-0">
-            <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-accent md:-top-px" />
+          </Spotlight>
+          <Spotlight className={`pr-rec flex flex-col gap-6 border-t border-line-2 p-6 sm:p-8 md:border-l md:border-t-0`}>
             <span className={label}>Per confirmed finding</span>
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-[44px] leading-none tracking-[-0.04em] text-white">{usd(PER_FINDING_CENTS)}</span>
@@ -77,8 +78,9 @@ export function Pricing() {
             <div className="mt-auto pt-2">
               <Button href="/start?pricing=per_finding" className="group">Get an eval <NudgeArrow /></Button>
             </div>
-          </div>
+          </Spotlight>
         </div>
+        <PayFootnote />
       </Reveal>
     </Section>
   );

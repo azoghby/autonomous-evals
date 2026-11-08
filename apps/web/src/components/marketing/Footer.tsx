@@ -10,11 +10,20 @@ const COLS = [
 
 export function ClosingCta() {
   return (
-    <section aria-labelledby="cta-h" className="border-t border-line-2 bg-bg-band py-20 md:py-32">
-      <Container className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
-        <h2 id="cta-h" className="t-h1 max-w-[18ch] text-fg text-balance">Hand us your agent. <span className="text-muted">Get findings back.</span></h2>
+    <section aria-labelledby="cta-h" className="relative overflow-hidden border-t border-line-2 bg-bg-band py-24 md:py-40">
+      <div className="blue-light" aria-hidden="true" />
+      <div className="grid-lines" aria-hidden="true" />
+      <Container className="relative flex flex-col gap-12 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 id="cta-h" className="text-balance text-[clamp(44px,7vw,104px)] leading-[0.98] tracking-[-0.045em] text-fg">
+            Hand us your agent.<br /><span className="text-muted">Get findings back.</span>
+          </h2>
+          <div className="cta-line" aria-hidden="true"><span className="cta-sweep" /></div>
+        </div>
         <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-          <Button href="/start" size="lg">Get an eval <NudgeArrow size={18} /></Button>
+          <span className="cta-cta">
+            <Button href="/start" size="lg" className="bolt-sweep relative">Get an eval <NudgeArrow size={18} /></Button>
+          </span>
           <Button href="/sample" variant="quiet" className="group">See a sample report <NudgeArrow /></Button>
         </div>
       </Container>

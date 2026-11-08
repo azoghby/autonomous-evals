@@ -13,7 +13,7 @@ export function SectionHeader({
     <header className={cn("grid gap-6 lg:grid-cols-12 lg:gap-8", className)}>
       <div className="flex flex-col gap-6 lg:col-span-4">
         <Eyebrow>{eyebrow}</Eyebrow>
-        {index && <span aria-hidden className="t-numeral select-none">{index}</span>}
+        {index && <span aria-hidden className="t-numeral numeral-reveal select-none">{index}</span>}
       </div>
       <div className="flex flex-col gap-5 lg:col-span-8">
         <h2 id={id} className="t-h2 max-w-[22ch] text-fg text-balance sm:max-w-[26ch]">{title}</h2>

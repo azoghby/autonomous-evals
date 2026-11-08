@@ -1,11 +1,12 @@
+import { Pipeline } from "./how-it-works/Pipeline";
 import { Reveal, Section, SectionHeader, Terminal, type TerminalLine } from "../ui";
 
 const STEPS = [
-  ["Submit", "A trace, or an endpoint."],
-  ["Qualify & quote", "Scoped and priced in minutes."],
-  ["Test", "Suites run under a hard budget."],
-  ["Find & fix", "Failures confirmed, patches verified."],
-  ["Report", "Evidence you can re-run."],
+  { title: "Submit", body: "A trace, or an endpoint.", detail: "trace · endpoint" },
+  { title: "Qualify & quote", body: "Scoped and priced in minutes.", detail: "6 tools · $5.00 fixed" },
+  { title: "Test", body: "Suites run under a hard budget.", detail: "32 scenarios · 24 attacks" },
+  { title: "Find & fix", body: "Failures confirmed, patches verified.", detail: "3/3 reproduced · 2/4 → 4/4" },
+  { title: "Report", body: "Evidence you can re-run.", detail: "report · PR #42" },
 ] as const;
 
 const TRACE: TerminalLine[] = [
@@ -33,15 +34,7 @@ export function HowItWorks() {
         />
       </Reveal>
       <Reveal className="mt-14 md:mt-20">
-        <ol className="grid grid-cols-1 border-y border-line-2 sm:grid-cols-2 lg:grid-cols-5">
-          {STEPS.map(([t, d], i) => (
-            <li key={t} className={`flex flex-col gap-3 border-line-2 py-6 sm:px-5 sm:first:pl-0 ${i > 0 ? "border-t sm:border-t-0" : ""} ${i % 2 === 1 ? "sm:border-l" : ""} lg:border-l lg:first:border-l-0 lg:border-t-0 ${i >= 2 ? "sm:border-t lg:border-t-0" : ""}`}>
-              <span className="font-mono text-[11px] text-accent-text">0{i + 1}</span>
-              <h3 className="t-h3 text-fg">{t}</h3>
-              <p className="t-small text-muted">{d}</p>
-            </li>
-          ))}
-        </ol>
+        <Pipeline steps={STEPS} />
       </Reveal>
       <Reveal className="mt-8">
         <Terminal title="run · support-bot · workflow_eval" lines={TRACE} animate />

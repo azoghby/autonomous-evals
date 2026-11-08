@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { CodeBlock, NudgeArrow, Reveal, Section, SectionHeader } from "../ui";
+import { PRICE_CENTS } from "@ae/core/contracts/index";
+import { McpTerminal } from "./extras/McpTerminal";
+import { NudgeArrow, Reveal, Section, SectionHeader } from "../ui";
 
 const CMD = `claude mcp add --transport http autonomous-evals https://autonomous-evals.vercel.app/api/mcp/mcp --header "Authorization: Bearer ae_..."`;
 const CAN = ["Get a quote for a job", "Submit a job and pay by key", "Fetch the finished report"] as const;
@@ -17,7 +19,7 @@ export function McpSection() {
       </Reveal>
       <Reveal className="mt-14 grid gap-8 md:mt-20 lg:grid-cols-12 lg:gap-8">
         <div className="min-w-0 lg:col-span-8 lg:col-start-5">
-          <CodeBlock label="Add the MCP server" code={CMD} />
+          <McpTerminal command={CMD} quote={`$${PRICE_CENTS.trace_audit / 100}`} />
         </div>
         <ul className="flex flex-col gap-3 lg:col-span-4 lg:col-start-1 lg:row-start-1">
           {CAN.map((c) => (
