@@ -9,6 +9,8 @@ export { createRemediationServices } from './remediation';
 export type { RemediationDeps, AuthorizedRemediation, RemediationResult, AppliedReceipt } from './remediation';
 export { createTargetServices } from '../targets/adapters';
 export { createTextTarget } from '../targets/text';
+export { createRemediationTarget } from '../targets/remediation';
+export type { RemediationTargetDeps } from '../targets/remediation';
 export { createBranchServices } from '../simulator/adapters';
 export { AgentSessionService } from '../agents/session-service';
 export { createPostgresAgentRuntime, withAgentCostDelivery } from '../agents/runtime';

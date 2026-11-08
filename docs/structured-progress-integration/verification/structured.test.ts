@@ -42,6 +42,22 @@ describe('actual app durable SQL reader over local PostgreSQL engine',()=>{
   const p=checkpoint('text_investigation');plan.checkpoints=[p];await inventory();await save(p,{investigatorStatus:'credential_refused',findings:[],testDefects:[],reproductions:[],reason:'PRIVATE TOKEN'});
   const s=await read();expect(s!.blockers.length).toBeGreaterThan(0);expect(JSON.stringify(s)).not.toContain('PRIVATE');
  });
+ it.each(['text','calendar'])('projects persisted confirmed %s findings through actual SQL without private prose',async kind=>{
+  const calendar=kind==='calendar';
+  if(calendar)await db.query('UPDATE jobs SET package=$1',['workflow_eval']);
+  const base=checkpoint(calendar?'calendar_run':'text_run');
+  const investigation=checkpoint(calendar?'calendar_investigation':'text_investigation');
+  investigation.key.id='run'; plan.checkpoints=[base,investigation];await inventory();
+  if(calendar){
+   const original=calendarValue('product_failure');const source=original.results[0];
+   const rerun={...source,scope:{...source.scope,runId:'repro-run'}};
+   await save(base,original);await save(investigation,{original,pendingScenarioIds:[],reproductions:[{originalScenarioId:'S01',result:rerun}],findings:[{id:'f1',scenarioId:'S01',status:'confirmed',severity:'medium',reproductions:1,description:'PRIVATE',association:{jobId:'job',branchId:'branch',suiteHash:'suite',scope:source.scope,reproductionScope:rerun.scope}}]});
+  }else{
+   const original=textValue('fail');const reproduction={...original.run.executions[0],runId:'repro-run',attempt:'reproduction'};
+   await save(base,original);await save(investigation,{investigatorStatus:'completed',testDefects:[],reproductions:[reproduction],findings:[{id:'text:S01:S01.o1',source:'text_eval',category:'explicit_constraint',title:'PRIVATE',summary:'PRIVATE',label:'confirmed',severity:'high',basis:'objective',investigatorNote:null,evidence:[{kind:'check',checkId:'S01.o1',detail:'PRIVATE'}],reproduction:{attempted:true,reproduced:true,runId:'repro-run'}}]});
+  }
+  const result=await read();expect(result!.findings).toHaveLength(1);expect(result!.findings[0].status).toBe('confirmed');expect(result!.findings[0].id).toMatch(/^ev_[a-f0-9]{64}$/);expect(JSON.stringify(result)).not.toContain('PRIVATE');
+ });
  it('preserves Calendar infrastructure uncertainty and rejects frozen branch mismatch',async()=>{
   await db.query('UPDATE jobs SET package=$1',['workflow_eval']);const p=checkpoint('calendar_run');plan.checkpoints=[p];await inventory();await save(p,calendarValue());
   const s=await read();expect(s!.blockers.length).toBeGreaterThan(0);expect(JSON.stringify(s)).not.toContain('PRIVATE');

@@ -71,7 +71,7 @@ export function createRemediationTarget(deps: RemediationTargetDeps): Trial {
     if (endpoint.kind !== 'stateless_chat_completions' || endpoint.isolation !== 'request_messages_only') refused();
     targetUrl(endpoint.url);
     if (!endpoint.model || endpoint.model.length > 200 || !isPersistableText(endpoint.model)) refused();
-    if (endpoint.apiKey !== undefined && (!endpoint.apiKey || endpoint.apiKey.length > 8192 || /[^\x21-\x7e]/.test(endpoint.apiKey))) refused();
+    if (endpoint.apiKey !== undefined && (endpoint.apiKey.length < 4 || endpoint.apiKey.length > 8192 || /[^\x21-\x7e]/.test(endpoint.apiKey))) refused();
     limit(limits.timeoutMs, 1, 30_000); limit(limits.maxCompletionTokens, 16, 32_768);
     limit(limits.maxRequestBytes, 1, 256_000); limit(limits.maxResponseBytes, 1, 1_000_000);
     scope.original.suite = verifyAdmittedFrozenSuite(scope.original.suite);

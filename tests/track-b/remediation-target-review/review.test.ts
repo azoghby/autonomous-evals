@@ -74,27 +74,27 @@ describe('independent secured remediation target review', () => {
     expect(f.accounting.ambiguous).toHaveBeenCalledOnce();
   });
 
-  it.each(['abc', 'abcd'])('CHARACTERIZATION R2: allowed credential %s exclusion threshold', async credential => {
+  it.each(['abc', 'abcd'])('REGRESSION R2: credential %s cannot reach payload or receipt content', async credential => {
     const f = await fixture();
     f.scope.endpoint.apiKey = credential;
     f.input.patch.patch = `Always include READY and ${credential}.`;
     f.input.request.systemPrompt = f.input.patch.patch;
     f.input.patchDigest = remediationDigest(f.input.patch);
-    const target = createRemediationTarget(f.deps);
     if (credential.length < 4) {
-      const result = await target.send(f.input);
-      expect(result.value.receipt.actualSystemPrompt).toContain(credential);
-      expect(JSON.stringify(f.post.mock.calls[0]![1])).toContain(credential);
+      expect(() => createRemediationTarget(f.deps)).toThrow();
+      expect(f.post).not.toHaveBeenCalled();
     } else {
+      const target = createRemediationTarget(f.deps);
       await expect(target.send(f.input)).rejects.toThrow('remediation_target_unresolved');
       expect(f.post).not.toHaveBeenCalled();
     }
   });
 
-  it('CHARACTERIZATION R2: short credential in remote result escapes exclusion', async () => {
+  it('REGRESSION R2: short configured credential is refused before any remote result', async () => {
     const f = await fixture(); f.scope.endpoint.apiKey = 'abc';
     f.post.mockResolvedValue({ ...completion, choices: [{ message: { role: 'assistant', content: 'READY abc' }, finish_reason: 'stop' }] });
-    expect((await createRemediationTarget(f.deps).send(f.input)).value.response).toMatchObject({ ok: true, text: 'READY abc' });
+    expect(() => createRemediationTarget(f.deps)).toThrow();
+    expect(f.post).not.toHaveBeenCalled();
   });
 
   it('ACCEPTANCE: SQL reservation, payload evidence and usage survive fresh adapters and completed replay', async () => {

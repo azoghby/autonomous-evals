@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 const here=dirname(fileURLToPath(import.meta.url));
 const repo=execFileSync('git',['rev-parse','--show-toplevel'],{cwd:here,encoding:'utf8'}).trim();
 const base='2dff9d8af8cccdd171d78760a0d74136d138fcb4';
-const core='e47a852737e7aca7d2fa984c363abe58f5c0ad05';
+const core='de6a7985e72b57fce79ef7f69f533b0b2da126a7';
 const stage=mkdtempSync(join(tmpdir(),'structured-progress-'));
 function archive(ref,paths=[]){const data=execFileSync('git',['archive',ref,...paths],{cwd:repo,maxBuffer:128*1024*1024});execFileSync('tar',['-x','-C',stage],{input:data});}
 function apply(file){execFileSync('git',['apply','--check',file],{cwd:stage});execFileSync('git',['apply',file],{cwd:stage});}
@@ -15,7 +15,7 @@ archive(base);
 apply(join(repo,'docs/progress-chat-integration/combined.patch'));
 // Explicit immutable Track B source prerequisite. Extraction overlays core sources;
 // Track A-only contracts/composition stay present. This is a test composition, not
-// a production merge artifact, and does NOT include the parent's pending fixes.
+// a production merge artifact. This pin includes the parent's finding/report fixes.
 archive(core,['packages/core/src']);
 const patch=resolve(process.argv.slice(2).find(a=>!a.startsWith('--'))??join(here,'../backend/structured-progress.patch'));
 if(!existsSync(patch))throw new Error(`Required reviewed backend patch missing: ${patch}`);

@@ -7,7 +7,7 @@ These files are artifacts only. This commit changes only `docs/structured-progre
 ## Application order
 
 1. Reconstruct the exact Track A pin in a disposable archive for review, or use the owner's authorized checkout. Check/apply the prior `combined.patch`.
-2. Integrate the compatible Track B core modules. Offline validation explicitly uses immutable core source pin `e47a852737e7aca7d2fa984c363abe58f5c0ad05`; it is not part of the application patch. Integrate the parent's separate omitted-findings and report-basis corrections before release. [Prerequisites](PREREQUISITES.md) identify the remaining gaps and required evidence.
+2. Integrate the compatible Track B core modules. Offline validation explicitly uses immutable core source pin `de6a7985e72b57fce79ef7f69f533b0b2da126a7`; it is not part of the application patch. This core pin includes the parent's omitted-findings and report-basis corrections. [Prerequisites](PREREQUISITES.md) identify the remaining gaps and required evidence.
 3. Check/apply `backend/structured-progress.patch`. Review `backend/001-structured-progress.sql` as a separate private migration artifact alongside existing core checkpoint/acquisition/conversation migrations. No runtime path applies DDL.
 4. Bind the rich factory calls and complete expected inventory through the owner's Workflow. The pinned legacy Workflow cannot produce these identities yet. Do not enable a historical structured job by manufacturing an inventory from its suite blob, descriptions or progress events.
 5. Run the offline validator below, then the owner's full application checks and authenticated live checks after actual integration. Offline success does not establish rendered or deployed acceptance.
@@ -16,9 +16,15 @@ The server reader composes `createDurableProgressProjection` and `createDurableP
 
 The existing route, private user/job conversation scopes, current credential policy and HMAC references are retained. Stored checkpoint prose, data cases and raw responses never become chat text. Costs use the existing bounded app ledger with unknown additional/final cost retained; no measured core session is invented from an app ledger row. The persisted inventory observation watermark bounds freshness; request time is never progress evidence.
 
-Text and Calendar run/investigation formats and evaluation-data blockers are covered. The core engine remains literal twelve; Track A's appended rt_* pack and up-to-32 contract capacity remain an unknown separate scope. The parent's core finding projection/report-basis repairs are mandatory separate prerequisites; no empty finding projection is accepted as evidence of a clean product.
+Text and Calendar run/investigation formats and evaluation-data blockers are covered. The core engine remains literal twelve; Track A's appended rt_* pack and up-to-32 contract capacity remain an unknown separate scope. The pinned core includes the parent's finding projection/report-basis repairs; positive SQL tests now require visible Text and Calendar confirmed findings. No empty finding projection is accepted as evidence of a clean product.
 
 ## Reproduce offline
+
+Parent revalidation with core `de6a798`: **96 tests passed**, none skipped, and
+targeted strict server TypeScript passed. Added positive SQL cases prove saved
+confirmed Text and Calendar findings reach the bounded private projection without
+raw evidence. The original verification results remain historical. Real Neon SDK,
+session, Workflow producer and deployed/rendered acceptance remain outstanding.
 
 ```sh
 node docs/structured-progress-integration/verification/validate.mjs

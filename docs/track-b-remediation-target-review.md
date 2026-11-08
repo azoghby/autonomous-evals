@@ -1,5 +1,12 @@
 # Independent remediation target review
 
+Parent fix: configured API keys shorter than four characters are now refused at
+construction, before accounting or transport. The three R2 characterizations are
+refusal regressions. Strict revalidation passed **627 tests with one explicit G1
+expected failure**, none skipped. G1 remains the deliberate dishonest privileged
+port/remote-attestation trust limitation, not a passing security guarantee.
+The concrete adapter is exported through the server-only `evals/index.ts` entry.
+
 Reviewed original `e0033a40a4fc37a9eba326975ed81f608ce2bc6e`, cherry-picked without conflict as `5d07f8764d4a74a732bfe0f11a1783614f5e083a` onto review base `e47a852`. Production code and original tests were not edited. The separate review artifact commit owns only this document and `tests/track-b/remediation-target-review/**`. ECC was disabled. An independent security child performed read-only inspection; the reviewer integrated its finding and executable repros.
 
 Disposition: one low-severity bounded credential exclusion defect (R2) should receive a small parent fix. The local serialization and durable intent boundaries otherwise pass the stated offline checks. This does not accept a production accounting deployment or remotely attest target behavior.

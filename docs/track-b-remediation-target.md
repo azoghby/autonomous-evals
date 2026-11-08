@@ -1,7 +1,9 @@
 # Secured remediation request adapter
 
-`packages/core/src/targets/remediation.ts` exports `createRemediationTarget` directly.
-No shared exports or factory changes are needed. This is an explicit server-only
+`packages/core/src/targets/remediation.ts` exports `createRemediationTarget` directly;
+the server-only `evals/index.ts` entry also exports it and `RemediationTargetDeps`.
+Configured API keys must contain at least four printable characters, aligning
+credential-content exclusion with the known-secret policy. This is an explicit server-only
 constructor, without ambient credentials, resolver lookup strings or singleton state.
 It supplies `AuthorizedRemediation.trial`; it does not supply authentication or
 application bootstrap. Base: `9e27307` (parent R1 recovery fix included).
