@@ -9,7 +9,7 @@ import { PLANS, checkEnvironmentAllowance, checkTrialAllowance, usageWindowStart
 import { GATEWAY_TARGET_MODELS, GATEWAY_TARGET_URL, SAMPLE_RUN_ID, type DraftScenario, type SandboxDraft, type SandboxIntakeInput, type SandboxRunReport, type ScenarioReviewInput } from "@/components/sandbox/contract";
 import type { SandboxService } from "../sandbox-service";
 import { buildCustom, buildFromIntake, buildPrebuilt, type BuiltEnvironment, type CustomWorld } from "./env-build";
-import { runScenarios, suiteScenarios, type RunListItem, type SandboxStore } from "./store";
+import { runScenarios, suiteScenarios, type RunListItem, type RunRow, type SandboxStore } from "./store";
 import { SandboxInputError } from "./target";
 import { draftView, environmentSummary, runReportView } from "./views";
 
@@ -121,13 +121,20 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
   const runCap = deps.runBudgetMicroUsd ?? runBudgetMicroUsd();
   const suiteCap = deps.suiteBudgetMicroUsd ?? suiteBudgetMicroUsd();
 
-  /** Remaining monthly model-spend allowance for capped plans (micro-USD), or null when the plan has no cap. */
-  async function spendHeadroom(ownerId: string, plan: PlanId): Promise<number | null> {
+  /**
+   * Remaining monthly model-spend allowance for capped plans (micro-USD), or null when the plan has no cap. Budget
+   * already reserved by unfinished suites/runs counts as spent, so parallel starts cannot each claim the full headroom.
+   */
+  async function spendHeadroom(s: SandboxStore, ownerId: string, plan: PlanId): Promise<number | null> {
     const cap = PLANS[plan].limits.monthlyModelSpendCapMicroUsd;
     if (cap == null) return null;
-    const used = await store.usageSince(ownerId, usageWindowStart(deps.now?.() ?? new Date()));
-    return Math.max(0, cap - used.costMicroUsd);
+    const used = await s.usageSince(ownerId, usageWindowStart(deps.now?.() ?? new Date()));
+    return Math.max(0, cap - used.costMicroUsd - (used.reservedMicroUsd ?? 0));
   }
+
+  /** Plan checks + the insert they guard run under the owner's advisory lock (one transaction) when the store has one. */
+  const underOwnerLock = <T>(ownerId: string, fn: (s: SandboxStore) => Promise<T>): Promise<T> =>
+    store.withOwnerLock ? store.withOwnerLock(ownerId, fn) : fn(store);
 
   const SPEND_CAP_REACHED = (plan: PlanId) =>
     `The ${PLANS[plan].name} plan's monthly model budget is used up. It resets on the 1st (UTC), or upgrade to Pro at /pricing.`;
@@ -150,16 +157,18 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
   }
 
   async function startSuite(ownerId: string, environmentId: string, seed?: { scenarios: DraftScenario[]; brief: BriefScenarioRequest }) {
-    const active = await store.countActive(ownerId);
-    if (active.suites >= MAX_ACTIVE_SUITES) throw new SandboxInputError(`You already have ${active.suites} suites generating. Wait for one to finish.`, 429);
-    let budgetMicroUsd = suiteCap;
-    if (deps.planFor) {
-      const plan = await deps.planFor(ownerId);
-      const headroom = await spendHeadroom(ownerId, plan);
-      if (headroom !== null && headroom <= 0) throw new SandboxInputError(SPEND_CAP_REACHED(plan), 402);
-      if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
-    }
-    const suite = await store.insertSuite({ id: `drf_${randomUUID()}`, environmentId, ownerId, status: "generating", budgetMicroUsd, ...(seed ? { scenarios: seed.scenarios } : {}) });
+    const plan = deps.planFor ? await deps.planFor(ownerId) : null;
+    const suite = await underOwnerLock(ownerId, async (s) => {
+      const active = await s.countActive(ownerId);
+      if (active.suites >= MAX_ACTIVE_SUITES) throw new SandboxInputError(`You already have ${active.suites} suites generating. Wait for one to finish.`, 429);
+      let budgetMicroUsd = suiteCap;
+      if (plan) {
+        const headroom = await spendHeadroom(s, ownerId, plan);
+        if (headroom !== null && headroom <= 0) throw new SandboxInputError(SPEND_CAP_REACHED(plan), 402);
+        if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
+      }
+      return s.insertSuite({ id: `drf_${randomUUID()}`, environmentId, ownerId, status: "generating", budgetMicroUsd, ...(seed ? { scenarios: seed.scenarios } : {}) });
+    });
     try {
       const wf = seed ? await executor.startBriefScenario!(suite.id, seed.brief) : await executor.startSuite(suite.id);
       if (wf) await store.updateSuite(suite.id, { workflowRunId: wf });
@@ -300,25 +309,29 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
       const k = Math.min(MAX_RUN_K, Math.max(1, Math.floor(opts.k)));
       const plan = deps.planFor ? await deps.planFor(ownerId) : null;
       const maxActiveRuns = plan ? PLANS[plan].limits.concurrentRuns : MAX_ACTIVE_RUNS;
-      const active = await store.countActive(ownerId);
-      if (active.runs >= maxActiveRuns) return { ok: false, status: 429, error: `You already have ${active.runs} runs in progress. Wait for one to finish.` };
       const envRow = await store.getEnvironment(ownerId, suite.environmentId);
       if (!envRow) return { ok: false, status: 404, error: "Draft not found" };
       const scenarios = chosen.map((d) => d.scenario);
-      let budgetMicroUsd = runCap;
-      if (plan) {
-        const used = await store.usageSince(ownerId, usageWindowStart(deps.now?.() ?? new Date()));
-        const allowance = checkTrialAllowance(plan, used.trials, scenarios.length * k);
-        if (!allowance.ok) return { ok: false, status: 402, error: `${allowance.reason} See /pricing.` };
-        const headroom = await spendHeadroom(ownerId, plan);
-        if (headroom !== null && headroom <= 0) return { ok: false, status: 402, error: SPEND_CAP_REACHED(plan) };
-        if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
-      }
-      const run = await store.insertRun({
-        id: `run_${randomUUID()}`, ownerId, environmentId: envRow.id, suiteId: suite.id, status: "queued", k, scenarios,
-        gates: chosen.map((d) => ({ scenarioId: d.scenario.id, validated: d.validated ?? false, reasons: d.gateReasons ?? [] })),
-        budgetMicroUsd, trialsTotal: scenarios.length * k,
+      const reserved = await underOwnerLock(ownerId, async (s): Promise<StartRunResult | RunRow> => {
+        const active = await s.countActive(ownerId);
+        if (active.runs >= maxActiveRuns) return { ok: false, status: 429, error: `You already have ${active.runs} runs in progress. Wait for one to finish.` };
+        let budgetMicroUsd = runCap;
+        if (plan) {
+          const used = await s.usageSince(ownerId, usageWindowStart(deps.now?.() ?? new Date()));
+          const allowance = checkTrialAllowance(plan, used.trials, scenarios.length * k);
+          if (!allowance.ok) return { ok: false, status: 402, error: `${allowance.reason} See /pricing.` };
+          const headroom = await spendHeadroom(s, ownerId, plan);
+          if (headroom !== null && headroom <= 0) return { ok: false, status: 402, error: SPEND_CAP_REACHED(plan) };
+          if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
+        }
+        return s.insertRun({
+          id: `run_${randomUUID()}`, ownerId, environmentId: envRow.id, suiteId: suite.id, status: "queued", k, scenarios,
+          gates: chosen.map((d) => ({ scenarioId: d.scenario.id, validated: d.validated ?? false, reasons: d.gateReasons ?? [] })),
+          budgetMicroUsd, trialsTotal: scenarios.length * k,
+        });
       });
+      if ("ok" in reserved) return reserved;
+      const run = reserved;
       try {
         const wf = await executor.startRun(run.id);
         if (wf) await store.updateRun(run.id, { workflowRunId: wf });

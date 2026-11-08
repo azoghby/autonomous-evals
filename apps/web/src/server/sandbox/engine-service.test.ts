@@ -399,6 +399,25 @@ describe("plan limits (planFor)", () => {
     expect(await scale.startRun(OWNER_A, suite.id, { k: 1 })).toMatchObject({ ok: false, status: 429 });
   });
 
+  it("Developer: budget reserved by an in-flight suite counts against the monthly headroom", async () => {
+    const s = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(1));
+    await m.store.insertSuite({ id: "drf_inflight", environmentId: suite.environmentId, ownerId: OWNER_A, status: "generating", budgetMicroUsd: 1_500_000 });
+    const r = await s.startRun(OWNER_A, suite.id, { k: 1 });
+    expect(m.runs.get(runIdOf(r))!.budgetMicroUsd).toBe(500_000); // $2 cap - $1.50 reserved
+    // the in-flight run now reserves the rest: a second suite is refused rather than granted the full headroom again
+    await m.store.updateRun(runIdOf(r), { status: "running" });
+    await expect(s.generateSuite(OWNER_A, suite.environmentId)).rejects.toMatchObject({ status: 402 });
+  });
+
+  it("Developer: parallel starts are serialized by the owner lock (one run, not two)", async () => {
+    const s = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(1));
+    const results = await Promise.all([s.startRun(OWNER_A, suite.id, { k: 1 }), s.startRun(OWNER_A, suite.id, { k: 1 })]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toMatchObject({ status: 429 });
+  });
+
   it("usage from a previous month does not count", async () => {
     const s = withPlan("developer", new Date("2026-07-02T00:00:00Z"));
     const suite = await seedSuite(OWNER_A, accepted(5));
