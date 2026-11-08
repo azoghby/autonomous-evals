@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Latest copilot dispatch candidate (2026-11-08)
+
+`naive-copilot-dispatch-integration` adds six source/test paths and SQL over internal MCP13, without adopting either candidate. It connects encrypted request replay storage, atomic shared model-ledger reservation, fenced dispatch, uncertain-create lookup recovery, measured terminal settlement/outbox, current owner/pin grounded publication and actual application cost delivery. 26 focused and 3,990 full staged tests pass (zero failures/two skips), web types and production build (57 steps/four workflows). Parent verified 19 composed postimages/2,234 baseline pins and independent patch/reproducible assembly. Actual source remains at the earlier Gateway chat implementation; no hosted call or activation is claimed.
+
+The plan's conversation migration remains open: bridge model reservations with Workflow/Gateway budgets, support cumulative session accounting and `sessions.send` with renewed turn capabilities, mount runtime/history/pending/streaming UI, and implement authenticated idle reconciliation. The current artifact permits only the first create per conversation; it does not replace later turns with new sessions. Native PostgreSQL/hosted gates and the full phase sequence remain required. Its conservative deterministic-equivalence verifier does not prove the plan's under-1% mismatch acceptance criterion. See the artifact README for terminal revocation and held-budget limitations.
+
 ## Latest repository checkpoint
 
 Track A main `61e46bc` is preserved in `track-a` merge `5d2dbd9`, including leaderboard/agent-shim changes and earlier security/billing work. Required merged source web TypeScript passes; the original npm suite passes **3,887 tests, zero failures and two documented opt-in skips** including the new receipt tests. Earlier checkpoint counts and missing-executable statements below are historical.

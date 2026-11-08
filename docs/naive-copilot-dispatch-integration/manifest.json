@@ -1,0 +1,54 @@
+{
+  "reviewedRepositoryCommit": "2f921db",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-internal-mcp-integration",
+  "dependencyHashes": {
+    "manifest.json": "1db18aa4285558f48f144cc51275d67d27209643739d5e992c83c40ca307888d",
+    "assemble.py": "98c7b1c8c0cecba5012cd34138cef59c13e55594d23e2a674dbf63e9e2b0f568",
+    "validation/baseline-pins.json": "d05417b382b5153ef7ad8b1cea939ddd71361369962da3ffcdb2edef166de43d"
+  },
+  "files": [
+    {
+      "path": "apps/web/src/server/naive-copilot-accounting.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-accounting.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "6f3562045ae57c3e8bde3bb4d6e1ea5cf0b2e4933c200f14b72d3254018ee7a3"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-accounting.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-accounting.ts",
+      "beforeSha256": null,
+      "afterSha256": "43a13945811344449f6ebdd21204ebeb31b3421dae1c9553a76928a4061fcfd0"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-dispatch.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-dispatch.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "9994933582f4adb2d795063b3d9845162455b5ddd9891a7d6005111e1199c66b"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-dispatch.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-dispatch.ts",
+      "beforeSha256": null,
+      "afterSha256": "1b7fa6d46a918bb7664840859f1c8b1f811ec735b1e30a92425078437a136440"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-store.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-store.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "0379a56fade2cf3e9fa9a7335dacd594df6a2eec13ad0beecb709df030b7c510"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-store.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-store.ts",
+      "beforeSha256": null,
+      "afterSha256": "a2b855e4e35eb7e43d04139637aa10a8e06d5b0382bb12fb6f9b6f115843413b"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-copilot-dispatch.sql",
+      "sha256": "ace3695ed7c6a396f44e8ee959a0530f307578e2afc9a8a9e45369497e728778"
+    }
+  ]
+}

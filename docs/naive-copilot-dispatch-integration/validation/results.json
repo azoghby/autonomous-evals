@@ -1,0 +1,47 @@
+{
+  "status": "verified_unapplied_candidate",
+  "repositoryCommit": "2f921db",
+  "originMain": "5da0635",
+  "prerequisite": "../naive-internal-mcp-integration",
+  "sourcePaths": 6,
+  "composedSourcePaths": 19,
+  "baselinePins": 2234,
+  "focused": {
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "composedSuite": {
+    "passed": 3990,
+    "failed": 0,
+    "skipped": 2
+  },
+  "webTypes": {
+    "exitCode": 0,
+    "routeTypesGenerated": true
+  },
+  "productionBuild": {
+    "exitCode": 0,
+    "steps": 57,
+    "workflows": 4,
+    "offlineFontFixture": true
+  },
+  "reproducibleAssembly": true,
+  "independentIncrementalPatchApplication": true,
+  "allPinnedBaselineAndPostimagesMatch": true,
+  "actualCodeDiffFromDependencyBaseline": [],
+  "dependencies": "retained local node_modules; not a fresh install",
+  "providerTransport": "fake; actual SQL/encryption/token/projection/conversation/cost adapters tested",
+  "nativePostgresConcurrencyVerified": false,
+  "sourceAdopted": false,
+  "migrationApplied": false,
+  "providerCallsMade": false,
+  "deployed": false,
+  "manifestSha256": "79a9022b34217a1c8ea41bdf0af9a80c82330097007b6d7a8af86040665bdc92",
+  "rootVerification": {
+    "passed": 3932,
+    "failed": 0,
+    "skipped": 2,
+    "webTypes": true
+  }
+}
