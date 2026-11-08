@@ -1,0 +1,176 @@
+▲ Next.js 16.4.5 (webpack)
+✓ Compiled workflows in 566ms (48 steps, 1 workflow)
+✓ Running next.config.ts took 634ms
+- Experiments (use with caution):
+  · extensionAlias
+
+  Creating an optimized production build ...
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 1.3ms
+  Running TypeScript ...
+  Finished TypeScript in 5.9s ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/41) ...
+  Generating static pages using 9 workers (10/41)
+  Generating static pages using 9 workers (20/41)
+  Generating static pages using 9 workers (30/41)
+✓ Generating static pages using 9 workers (41/41) in 976ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)                                                  Revalidate  Expire
+┌ ○ /                                                                5m      1y
+├ ○ /_not-found
+├ ƒ /.well-known/oauth-authorization-server/[[...path]]
+├ ƒ /.well-known/oauth-protected-resource/[[...path]]
+├ ƒ /.well-known/workflow/v1/flow
+├ ƒ /.well-known/workflow/v1/webhook/[token]
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/request-link
+├ ƒ /api/auth/verify
+├ ƒ /api/cron/cleanup
+├ ƒ /api/cron/follow-ups
+├ ƒ /api/cron/monitoring
+├ ƒ /api/cron/public-agents
+├ ƒ /api/cron/reconcile-payments
+├ ƒ /api/cron/review-resumption
+├ ƒ /api/cron/stale-jobs
+├ ƒ /api/dev/simulate-payment
+├ ƒ /api/expert/opt-out/[token]
+├ ƒ /api/expert/r/[token]
+├ ƒ /api/expert/r/[token]/book
+├ ƒ /api/expert/r/[token]/cancel-booking
+├ ƒ /api/expert/r/[token]/ics
+├ ƒ /api/expert/r/[token]/slots
+├ ƒ /api/experts/signup
+├ ƒ /api/internal/track-b-acceptance/buggy/chat/completions
+├ ƒ /api/internal/track-b-acceptance/fixed/chat/completions
+├ ƒ /api/internal/track-b-calendar/buggy/chat/completions
+├ ƒ /api/internal/track-b-calendar/fixed/chat/completions
+├ ƒ /api/internal/track-b-remediation/chat/completions
+├ ƒ /api/jobs
+├ ƒ /api/jobs/[jobId]
+├ ƒ /api/jobs/[jobId]/accept-quote
+├ ƒ /api/jobs/[jobId]/artifacts/[kind]
+├ ƒ /api/jobs/[jobId]/cancel
+├ ƒ /api/jobs/[jobId]/chat
+├ ƒ /api/jobs/[jobId]/comparison
+├ ƒ /api/jobs/[jobId]/data-review
+├ ƒ /api/jobs/[jobId]/findings/[findingId]/rerun
+├ ƒ /api/jobs/[jobId]/github
+├ ƒ /api/jobs/[jobId]/live
+├ ƒ /api/jobs/[jobId]/messages
+├ ƒ /api/jobs/[jobId]/monitoring
+├ ƒ /api/jobs/[jobId]/progress
+├ ƒ /api/jobs/[jobId]/remediations/[remediationId]/pr
+├ ƒ /api/jobs/[jobId]/retest
+├ ƒ /api/jobs/[jobId]/share
+├ ƒ /api/keys
+├ ƒ /api/keys/[id]
+├ ƒ /api/leaderboard
+├ ƒ /api/leaderboard/submit
+├ ƒ /api/leaderboard/unsubscribe
+├ ƒ /api/leaderboard/verify
+├ ƒ /api/mcp/[transport]
+├ ƒ /api/operator/experts
+├ ƒ /api/operator/experts/engagements/[id]/mark-paid
+├ ƒ /api/operator/experts/engagements/[id]/notes
+├ ƒ /api/operator/experts/invite
+├ ƒ /api/operator/experts/requests
+├ ƒ /api/operator/experts/slots
+├ ƒ /api/operator/experts/slots/[id]
+├ ƒ /api/operator/infra
+├ ƒ /api/operator/interventions
+├ ƒ /api/operator/jobs/[jobId]/comparison-binding
+├ ƒ /api/operator/jobs/[jobId]/comparison-reconcile
+├ ƒ /api/operator/jobs/[jobId]/workflow-binding
+├ ƒ /api/operator/jobs/[jobId]/workflow-pack
+├ ƒ /api/operator/live
+├ ƒ /api/operator/outreach/[id]/approve
+├ ƒ /api/operator/outreach/[id]/reject
+├ ƒ /api/operator/outreach/approve-all
+├ ƒ /api/operator/overview
+├ ƒ /api/sandbox/drafts
+├ ƒ /api/sandbox/drafts/[draftId]
+├ ƒ /api/sandbox/drafts/[draftId]/runs
+├ ƒ /api/sandbox/drafts/[draftId]/scenarios/[scenarioId]
+├ ƒ /api/sandbox/runs/[runId]
+├ ƒ /api/stats/revenue
+├ ƒ /api/stripe/webhook
+├ ƒ /api/v1/regression-runs
+├ ƒ /api/v1/regression-runs/[runId]
+├ ƒ /api/webhooks/agentmail
+├ ƒ /api/x402/jobs/[jobId]/pay
+├ ƒ /expert/book/[token]
+├ ƒ /expert/opt-out/[token]
+├ ƒ /expert/r/[token]
+├ ○ /experts
+├ ƒ /jobs
+├ ƒ /jobs/[jobId]
+├ ○ /leaderboard                                                     5m      1y
+├ ƒ /leaderboard/[slug]
+├ ƒ /leaderboard/[slug]/badge.svg
+├ ƒ /leaderboard/owner/[token]
+├ ○ /leaderboard/submit
+├ ○ /leaderboard/unsubscribed
+├ ƒ /leaderboard/verify/[token]
+├ ƒ /oauth/authorize
+├ ƒ /oauth/authorize/decision
+├ ƒ /oauth/register
+├ ƒ /oauth/revoke
+├ ƒ /oauth/token
+├ ○ /opengraph-image
+├ ƒ /operator
+├ ƒ /operator/outreach/approve-all
+├ ƒ /r/[token]
+├ ƒ /r/[token]/badge.svg
+├ ○ /robots.txt
+├ ○ /sample
+├ ○ /sample/suite.json
+├ ○ /sandbox
+├ ƒ /sandbox/new
+├ ƒ /sandbox/runs/[runId]
+├ ƒ /settings/keys
+├ ƒ /signin
+├ ƒ /signin/confirm
+├ ○ /sitemap.xml
+└ ƒ /start
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+<w> [webpack.cache.PackFileCacheStrategy] Skipped not serializable cache item 'Compilation/modules|/private/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!/private/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!/private/tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-8HCy9W/apps/web/src/app/globals.css': No serializer registered for Warning
+<w> while serializing webpack/lib/cache/PackFileCacheStrategy.PackContentItems -> webpack/lib/NormalModule -> Array { 3 items } -> webpack/lib/ModuleWarning -> Warning
+⚠ Compiled with warnings in 11.7s
+
+./src/app/globals.css.webpack[javascript/auto]!=!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!./src/app/globals.css
+Warning
+
+(2:63400) autoprefixer: Gradient has outdated direction syntax. New syntax is like `closest-side at 0 0` instead of `0 0, closest-side`.
+
+Import trace for requested module:
+./src/app/globals.css.webpack[javascript/auto]!=!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!./src/app/globals.css
+./src/app/globals.css
+
+./src/app/globals.css.webpack[javascript/auto]!=!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!./src/app/globals.css
+Warning
+
+(2:63459) autoprefixer: Gradient has outdated direction syntax. New syntax is like `closest-side at 0 0` instead of `0 0, closest-side`.
+
+Import trace for requested module:
+./src/app/globals.css.webpack[javascript/auto]!=!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!./src/app/globals.css
+./src/app/globals.css
+
+./src/app/globals.css.webpack[javascript/auto]!=!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!./src/app/globals.css
+Warning
+
+(2:71563) autoprefixer: Gradient has outdated direction syntax. New syntax is like `closest-side at 0 0` instead of `0 0, closest-side`.
+
+Import trace for requested module:
+./src/app/globals.css.webpack[javascript/auto]!=!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[2]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[15].oneOf[10].use[3]!../../../../../../../../tmp/workflow-bootstrap.JpxCTM/node_modules/@tailwindcss/turbopack/dist/index.js??ruleSet[1].rules[26].oneOf[0].use[0]!./src/app/globals.css
+./src/app/globals.css
+
+[leaderboard] load failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set

@@ -1,0 +1,28 @@
+{
+  "pins": {
+    "judgedTrackA": "aa94505fd535f5c0f586cc6325b49b71a1683761",
+    "ownerTrackA": "875ceef6a743df41736ee55c4145ca794e0854a8",
+    "core": "e4686a84f248bfe8be9bcda4ed534b0807379714"
+  },
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-8HCy9W",
+  "commands": [
+    {
+      "label": "sql-security",
+      "exit": 0
+    },
+    {
+      "label": "test-typecheck",
+      "exit": 0
+    },
+    {
+      "label": "company-and-server",
+      "exit": 0
+    },
+    {
+      "label": "full-build",
+      "exit": 0
+    }
+  ],
+  "releaseAccepted": false,
+  "liveRunPerformed": false
+}

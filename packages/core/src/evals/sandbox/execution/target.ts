@@ -120,7 +120,8 @@ export function createToolLoopTarget(deps: ToolLoopTargetDeps): ToolLoopTarget {
         await accounting.observed(evidence!, usage(response));
         return response;
       }, limits.timeoutMs, input.signal);
-      if (Buffer.byteLength(JSON.stringify(raw)) > limits.maxResponseBytes || containsSecret(JSON.stringify(raw), [...secrets, ...latest])) fail();
+      const responseSecrets = await readSecrets();
+      if (Buffer.byteLength(JSON.stringify(raw)) > limits.maxResponseBytes || containsSecret(JSON.stringify(raw), [...secrets, ...latest, ...responseSecrets])) fail();
       const parsed = Response.parse(raw), choice = parsed.choices[0]!;
       if (choice.message.refusal || (choice.finish_reason === 'tool_calls' && !choice.message.tool_calls?.length)
         || (choice.finish_reason === 'stop' && choice.message.tool_calls?.length)) fail();

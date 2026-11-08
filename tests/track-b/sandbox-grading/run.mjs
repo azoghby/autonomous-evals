@@ -12,7 +12,8 @@ const modules = resolve(process.env.SANDBOX_GRADING_NODE_MODULES ?? join(here, '
 const contract = 'packages/core/src/sandbox/spec.ts';
 const source = 'packages/core/src/evals/sandbox/grading';
 const tests = 'tests/track-b/sandbox-grading';
-const ref = 'aa94505';
+// Default remains the pinned contract; an explicit owner compatibility check may stage a newer exact spec.
+const ref = process.env.TRACK_A_REF ?? 'aa94505';
 
 function command(program, args, options = {}) {
   const result = spawnSync(program, args, { cwd: repo, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, ...options });
@@ -22,7 +23,7 @@ function command(program, args, options = {}) {
 }
 
 async function main() {
-  if (process.argv.length !== 2) throw new Error('Usage: node tests/track-b/sandbox-grading/run.mjs (contract fixed at aa94505)');
+  if (process.argv.length !== 2) throw new Error('Usage: node tests/track-b/sandbox-grading/run.mjs (default contract aa94505; TRACK_A_REF for compatibility)');
   for (const required of ['typescript/bin/tsc', 'zod/package.json', '@types/node/package.json']) {
     try { await stat(join(modules, required)); }
     catch { throw new Error(`Missing installed ${required}; set SANDBOX_GRADING_NODE_MODULES to an existing compatible node_modules. No dependencies were installed.`); }
