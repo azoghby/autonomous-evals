@@ -1,0 +1,33 @@
+// Offline source tests only: no SQL execution, provider calls, installs or builds.
+import {execFileSync,spawnSync} from 'node:child_process';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,symlinkSync,copyFileSync} from 'node:fs';
+import {join,resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+import {stageSeries,root} from './stage.mjs';
+const here=dirname(fileURLToPath(import.meta.url));
+const stage=stageSeries();
+const intake=join(root,'docs/data-production-integration/intake/track-a.patch');
+const refused=spawnSync('git',['apply','--check',intake],{cwd:stage,encoding:'utf8'});
+assert.notEqual(refused.status,0,'Original duplicate export must reproduce refusal');
+assert.match(refused.stderr,/integration\/eval-services.ts/);
+console.log('Reproduced original duplicate buildAgentDeps export refusal.');
+const patch=join(root,'docs/chat-workflow-release/servercompat/0001-current-core-server.patch');
+for(const args of [['apply','--check',patch],['apply',patch]])execFileSync('git',args,{cwd:stage});
+const installed=resolve(process.env.SERVERCOMPAT_INSTALLED_WORKSPACE??'/tmp/workflow-bootstrap.JpxCTM');
+const deps=join(installed,'node_modules');
+// Existing actual workspace dependencies, never installed by this runner.
+mkdirSync(join(stage,'node_modules'));
+for(const entry of readdirSync(deps))if(entry!=='@ae')symlinkSync(join(deps,entry),join(stage,'node_modules',entry));
+mkdirSync(join(stage,'node_modules/@ae'));symlinkSync(join(stage,'packages/core'),join(stage,'node_modules/@ae/core'));
+for(const part of ['apps/web','packages/core'])symlinkSync(join(installed,part,'node_modules'),join(stage,part,'node_modules'));
+mkdirSync(join(stage,'servercompat-tests'));
+copyFileSync(join(here,'cost-delivery.test.ts'),join(stage,'servercompat-tests/cost-delivery.test.ts'));
+writeFileSync(join(stage,'servercompat-tests/empty.ts'),'export {};');
+writeFileSync(join(stage,'servercompat-tests/job-store.ts'),'export async function recordCost(_value: unknown) { throw new Error("Unmocked sink prohibited"); }');
+const aliases=[{find:'@data-cost',replacement:join(stage,'apps/web/src/server/data-production-cost.ts')},{find:'./job-store',replacement:join(stage,'servercompat-tests/job-store.ts')},{find:'@job-store',replacement:join(stage,'servercompat-tests/job-store.ts')},{find:'server-only',replacement:join(stage,'servercompat-tests/empty.ts')}];
+writeFileSync(join(stage,'vitest.servercompat.config.mjs'),`export default {resolve:{alias:[...${JSON.stringify(aliases)},{find:/^@ae\\/core\\/(.*)$/,replacement:${JSON.stringify(join(stage,'packages/core/src/$1'))}}]},test:{include:['servercompat-tests/*.test.ts'],maxWorkers:1}};`);
+execFileSync(process.execPath,[join(deps,'vitest/vitest.mjs'),'run','--config','vitest.servercompat.config.mjs'],{cwd:stage,stdio:'inherit',env:{...process.env,SERVERCOMPAT_STAGE:stage}});
+writeFileSync(join(stage,'tsconfig.servercompat.json'),JSON.stringify({compilerOptions:{target:'ES2022',module:'ESNext',moduleResolution:'Bundler',strict:true,noEmit:true,skipLibCheck:true,esModuleInterop:true,types:['node'],baseUrl:'.',paths:{'@ae/core/*':['packages/core/src/*'],'@/*':['apps/web/src/*']},ignoreDeprecations:'6.0'},include:['apps/web/src/server/**/*.ts','apps/web/src/workflows/**/*.ts','apps/web/src/app/api/jobs/[jobId]/data-review/route.ts'],exclude:['**/*.test.ts']},null,2));
+execFileSync(process.execPath,[join(deps,'typescript/bin/tsc'),'-p','tsconfig.servercompat.json'],{cwd:stage,stdio:'inherit'});
+console.log(`Targeted actual server/Workflow and data-review route TypeScript passed.\nStage: ${stage}`);

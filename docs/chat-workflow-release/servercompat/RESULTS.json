@@ -1,0 +1,21 @@
+{
+  "baseCore": "48519bf",
+  "workflowSeriesCommit": "5f513d1",
+  "historicalReadOnlyEvidenceCommit": "d7cd083",
+  "sourceTestExecutions": 7,
+  "sourceTestsPassed": 7,
+  "targetedServerWorkflowAndReviewRouteTypecheck": "passed",
+  "originalDuplicateExportRefusalReproduced": true,
+  "sqlExecuted": false,
+  "providerCalls": false,
+  "installs": false,
+  "broadBuilds": false,
+  "releaseAccepted": false,
+  "boundary": "Actual applied helper, core conversion/safety code and installed SDK types; mocked canonical cost sink. No native database or migration proof.",
+  "sha256": {
+    "docs/chat-workflow-release/servercompat/0001-current-core-server.patch": "16445f6d72d07f0c1b86d5c558de93a782de920912a9ec8dbdcb5204582d5513",
+    "tests/track-b/chat-workflow-release/servercompat/cost-delivery.test.ts": "ff9c3cf99a0502e47a234929909a5084ee19dc04b9117ca8a99aaf7d16cdaa6b",
+    "tests/track-b/chat-workflow-release/servercompat/run.mjs": "3cd9b82a2e5f0bd50bff610a715612ff019c26d3072de6ab3a9fb39901b2cf5a",
+    "tests/track-b/chat-workflow-release/servercompat/stage.mjs": "976aaa25c2409bc952f74109c884ff84d01bb089bd4cf1b51cf195d55ffa8407"
+  }
+}
