@@ -1,0 +1,13 @@
+{
+  "scope": "Offline chat/build/package/controlled-route patch application and canonical migration plan generation on fresh stageComplete archive",
+  "sourceParent": "4948c74f6b2fde2541f4088f5ba8295b81a90916",
+  "checks": [
+    {"command": "node --check docs/track-b-final-composition/chat/apply.mjs", "exit": 0},
+    {"command": "stageComplete(); applyChat(stage)", "exit": 0, "patches": 6},
+    {"command": "apply pack migration-only hunk; writeMigrationManifest(stage)", "exit": 0, "applicationSqlArtifacts": 28, "separateSimulatorSqlArtifacts": 1}
+  ],
+  "fullFinalCompositionBuild": "Parent-owned validation; this record is not full combined TypeScript/Next evidence",
+  "sqlExecuted": false,
+  "liveRunPerformed": false,
+  "deploymentAccepted": false
+}

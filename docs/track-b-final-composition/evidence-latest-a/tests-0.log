@@ -1,0 +1,70 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-3CRijQ[39m
+
+ [32m✓[39m final-verification/bridge/workflow-data.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 50418[2mms[22m[39m
+   [32m✓[39m actual applied durable Workflow data composition [2m(12)[22m
+     [33m[2m✓[22m[39m registers expected task before dispatch even before task storage exists[33m 18494[2mms[22m[39m
+     [33m[2m✓[22m[39m commits actual expected task inventory before production can write its first task[33m 6968[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves exact waiting_for_data snapshot with no ready admission[33m 3255[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves exact waiting_for_review snapshot with no ready admission[33m 1979[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves exact reconciliation_required snapshot with no ready admission[33m 2173[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves exact cost_delivery_pending snapshot with no ready admission[33m 2374[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves exact mapping_blocked snapshot with no ready admission[33m 2315[2mms[22m[39m
+     [33m[2m✓[22m[39m replays exact ready suite/provenance after reconstruction without production redispatch[33m 3349[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks unknown tasks and never dispatches without the exact authorized plan[33m 1893[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks cross-tenant, stale Workflow and rotated secret plans before production[33m 2038[2mms[22m[39m
+     [33m[2m✓[22m[39m refreshes inventory on production failure and retains no fabricated ready state[33m 2194[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses mismatched returned task and detects private ready payload mutation[33m 3379[2mms[22m[39m
+ [32m✓[39m tests/track-b/pack-integration/execution.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 23166[2mms[22m[39m
+   [32m✓[39m appended packs with real PostgreSQL checkpoint SQL (PGlite) [2m(11)[22m
+     [33m[2m✓[22m[39m authenticates external review authority before persisting or dispatching a pack[33m 3298[2mms[22m[39m
+     [33m[2m✓[22m[39m pins caller-owned run identity before asynchronous authorization[33m 2314[2mms[22m[39m
+     [33m[2m✓[22m[39m retains complete immutable expected inventory, independent base status and fresh-adapter restart evidence[33m 1731[2mms[22m[39m
+     [33m[2m✓[22m[39m fences lost responses as ambiguous and never redispatches them after restart[33m 2384[2mms[22m[39m
+     [33m[2m✓[22m[39m never replays a still-pending dispatch from a second worker[33m 1987[2mms[22m[39m
+     [33m[2m✓[22m[39m quarantines unsupported runner capability without dispatch, including after restart[33m 2094[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses same-run changed expected inventory/version and changed actual target before dispatch[33m 2233[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses empty/forged passing runner evidence and preserves infrastructure distinction[33m 1831[2mms[22m[39m
+     [33m[2m✓[22m[39m derives result status from complete checks instead of trusting a claimed pass[33m 1742[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps successful historical frozen12 separate from appended quarantines[33m 1959[2mms[22m[39m
+     [33m[2m✓[22m[39m compares only consistent assessed pairs while retaining all expected cases[33m 1588[2mms[22m[39m
+ [32m✓[39m final-verification/remediation/app-remediation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 11294[2mms[22m[39m
+   [32m✓[39m app saved-baseline remediation composition [2m(5)[22m
+     [33m[2m✓[22m[39m retains all twelve actual serialized payload receipts, durable unknown usage, and replay without dispatch[33m 4026[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps unsupported isolation unverified with no target dispatch or usage fabrication[33m 1744[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps tool-schema proposals unverified and refuses Trace-only canonical jobs[33m 2531[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses request finding substitution and target revision drift before proposal/dispatch[33m 1409[2mms[22m[39m
+     [33m[2m✓[22m[39m uses global cost keys and rejects cross-job/changed monetary facts atomically[33m 1581[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/remediation/remediation.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 3392[2mms[22m[39m
+ [32m✓[39m final-verification/bridge/global-costs.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 3072[2mms[22m[39m
+   [33m[2m✓[22m[39m atomically deduplicates exact measured costs across fresh calls and rejects drift[33m 1845[2mms[22m[39m
+   [33m[2m✓[22m[39m rolls back the dedup key when the canonical ledger insert fails[33m 1225[2mms[22m[39m
+ [32m✓[39m final-verification/bridge/service-hook.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1921[2mms[22m[39m
+   [33m[2m✓[22m[39m actual patched service executes retained approved suite through SQL and reports without design/refreeze/checkpoint fabrication[33m 1920[2mms[22m[39m
+ [32m✓[39m final-verification/execution/adapter.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 1787[2mms[22m[39m
+ [32m✓[39m packages/core/src/targets/remediation.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 2386[2mms[22m[39m
+   [32m✓[39m secured request-scoped remediation target [2m(31)[22m
+     [33m[2m✓[22m[39m composes actual text/chat serialization with the remediation factory for all twelve frozen scenarios and SQL replay[33m 2108[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/remediation/accounting/accounting.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1971[2mms[22m[39m
+ [32m✓[39m storage.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2939[2mms[22m[39m
+   [33m[2m✓[22m[39m round-trips complete private pack scopes through actual artifact SQL with immutable replay and tenant isolation[33m 2937[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/data-production.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2566[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/integration/approved-suite.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 77[2mms[22m[39m
+ [32m✓[39m final-verification/combined/pack-route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/track-b/pack-integration/contract.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m projection.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/jobs/[jobId]/data-review/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m final-verification/combined/structured-plan.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m final-verification/complete/cross-flow.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m final-verification/execution/rich-step.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m final-verification/combined/combined-driver.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m final-verification/bridge/rich-driver.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/track-b/pack-integration/secured-ports.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m23 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[32m182 passed[39m[22m[90m (182)[39m
+[2m   Start at [22m 17:40:55
+[2m   Duration [22m 117.02s[2m (tests 93%, import 4%, transform 3%)[22m
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bb9730fd/docs/track-b-final-composition/evidence-latest-a/tests-0.json

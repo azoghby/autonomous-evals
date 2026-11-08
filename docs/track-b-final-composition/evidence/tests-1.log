@@ -1,0 +1,18 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y[39m
+
+ [32m✓[39m final-verification/chat/route-security.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 7639[2mms[22m[39m
+   [33m[2m✓[22m[39m dispatches actual route/adapter/core/SQL while running and delivered, with immutable retry and paginated history[33m 1296[2mms[22m[39m
+   [33m[2m✓[22m[39m uses actual SQL ownership, keeps operator conversation distinct, and denies public-share authentication[33m 1161[2mms[22m[39m
+   [33m[2m✓[22m[39m rescreens stored history and stable retries against newly configured current credentials[33m 1001[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects cross-origin, injected caller identity, oversized body and invalid pagination without writing[33m 1044[2mms[22m[39m
+   [33m[2m✓[22m[39m fails closed without authoritative structured inventory; missing checkpoint becomes a bounded blocker[33m 950[2mms[22m[39m
+   [33m[2m✓[22m[39m delivers persisted confirmed text findings through actual authenticated route without checkpoint prose[33m 951[2mms[22m[39m
+   [33m[2m✓[22m[39m delivers persisted confirmed calendar findings through actual authenticated route without checkpoint prose[33m 1235[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 17:38:33
+[2m   Duration [22m 7.91s[2m (tests 98%, transform 1%, import 1%)[22m
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bb9730fd/docs/track-b-final-composition/evidence/tests-1.json

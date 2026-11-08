@@ -1,0 +1,47 @@
+import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,symlinkSync,existsSync,cpSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {stageFinal,root} from './stage.mjs';
+import {migrationRenames} from './chat/apply.mjs';
+import {prepareFinalTests} from '../../tests/track-b/final-composition/prepare.mjs';
+const out=resolve(process.env.FINAL_OUTPUT??join(root,'docs/track-b-final-composition/evidence'));mkdirSync(out,{recursive:true});
+const result=process.env.FINAL_STAGE ? JSON.parse(readFileSync(join(process.env.FINAL_STAGE,'FINAL-COMPOSITION.json'))) : stageFinal(),{stage}=result;
+const installed=resolve(process.env.WORKFLOW_INSTALLED_WORKSPACE??'/tmp/workflow-bootstrap.JpxCTM'),deps=join(installed,'node_modules');
+if(!existsSync(join(deps,'vitest/vitest.mjs')))throw Error('Missing preinstalled offline dependencies: set WORKFLOW_INSTALLED_WORKSPACE');
+mkdirSync(join(stage,'node_modules/@ae'),{recursive:true});
+for(const entry of readdirSync(deps))if(entry!=='@ae'&&!existsSync(join(stage,'node_modules',entry)))symlinkSync(join(deps,entry),join(stage,'node_modules',entry));
+if(!existsSync(join(stage,'node_modules/@ae/core')))symlinkSync(join(stage,'packages/core'),join(stage,'node_modules/@ae/core'));
+for(const sub of ['apps/web','packages/core'])if(existsSync(join(installed,sub,'node_modules'))&&!existsSync(join(stage,sub,'node_modules')))symlinkSync(join(installed,sub,'node_modules'),join(stage,sub,'node_modules'));
+const fonts=resolve(process.env.CHAT_FONT_CACHE??'/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next');
+if(!existsSync(join(fonts,'static/css')))throw Error('Missing retained Geist cache: set CHAT_FONT_CACHE to prior .next directory; do not fetch fonts');
+const css=readdirSync(join(fonts,'static/css')).filter(n=>n.endsWith('.css')).map(n=>readFileSync(join(fonts,'static/css',n),'utf8')).join('\n');
+const blocks=(css.match(/@font-face\{[^}]+\}/g)??[]).filter(b=>/font-family:Geist(?: Mono)?;/.test(b)).map(b=>b.replaceAll('/_next/static/media/',join(fonts,'static/media')+'/'));
+if(!blocks.length)throw Error('Retained Geist cache has no font faces');
+writeFileSync(join(stage,'offline-fonts.cjs'),`module.exports=new Proxy({}, {get:(_,url)=>String(url).includes('Geist+Mono')?${JSON.stringify(blocks.filter(b=>b.includes('font-family:Geist Mono;')).join('\n'))}:${JSON.stringify(blocks.filter(b=>b.includes('font-family:Geist;')).join('\n'))}});`);
+cpSync(join(root,'tests/track-b/chat-workflow-release/ui/offline.cjs'),join(stage,'offline.cjs'));
+const env={PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR,NEXT_TELEMETRY_DISABLED:'1',NEXT_FONT_GOOGLE_MOCKED_RESPONSES:join(stage,'offline-fonts.cjs'),NODE_OPTIONS:`--require=${join(stage,'offline.cjs')}`,WORKFLOW_STAGE:stage,BRIDGE_STAGE:stage,BRIDGE_ROOT:root,ACCEPTANCE_DEPENDENCIES:deps};
+const summary={...result,node:process.version,commands:[],fontBoundary:'Retained real Geist CSS/woff2 replaces remote Next font request; not a clean uncached build',dependencyBoundary:'Preinstalled offline dependency tree; no install. Versions recorded separately from application lock.',releaseAccepted:false};
+function run(label,args,cwd=stage){
+ console.log(`Running ${label} in ${cwd}`);
+ const r=spawnSync(process.execPath,args,{cwd,env,encoding:'utf8',maxBuffer:48*1024*1024});
+ writeFileSync(join(out,label+'.log'),(r.stdout??'')+(r.stderr??'')+(r.error?.stack??''));
+ summary.commands.push({label,command:[process.execPath,...args],exit:r.status});
+ writeFileSync(join(out,'RESULTS.json'),JSON.stringify(summary,null,2)+'\n');
+ if(r.status!==0)throw Error(`${label} failed (${r.status}); inspect ${out}/${label}.log; stage retained at ${stage}`);
+}
+const prepared=prepareFinalTests(stage,root,migrationRenames);
+Object.assign(env,prepared.env,{PACK_TRACK_A_REVISION:result.pins.trackB});
+for(const [i,config] of (process.argv.includes('--build-only')?[]:prepared.configs).entries())run('tests-'+i,[join(deps,'vitest/vitest.mjs'),'run','--config',config,'--reporter=default','--reporter=json',`--outputFile.json=${join(out,'tests-'+i+'.json')}`]);
+run('calendar-tests',['--test',join(root,'tests/track-b/final-composition/calendar-budget.test.mjs'),join(root,'tests/track-b/final-composition/calendar-route.test.mjs')]);
+writeFileSync(join(stage,'packages/core/tsconfig.final.json'),JSON.stringify({extends:'./tsconfig.json',exclude:['node_modules','**/*.test.ts','**/*.test.tsx','**/*.spec.ts']},null,2));
+run('core-typecheck',[join(deps,'typescript/bin/tsc'),'-p','tsconfig.final.json'],join(stage,'packages/core'));
+
+run('next-typegen',[join(deps,'next/dist/bin/next'),'typegen'],join(stage,'apps/web'));
+run('app-typecheck',[join(deps,'typescript/bin/tsc'),'--noEmit'],join(stage,'apps/web'));
+run('next-workflow-build',[join(deps,'next/dist/bin/next'),'build','--webpack'],join(stage,'apps/web'));
+summary.versions=Object.fromEntries(['next','react','react-dom','typescript','workflow','@usenaive-sdk/managed-agents'].map(n=>[n,JSON.parse(readFileSync(join(deps,n,'package.json'))).version]));
+summary.tests=summary.commands.filter(c=>c.label.startsWith('tests-')).map(c=>{const r=JSON.parse(readFileSync(join(out,c.label+'.json')));if(r.numPendingTests||r.numFailedTests||!r.numPassedTests)throw Error('Skipped/failed/empty test suite: '+c.label);return {suite:c.label,passed:r.numPassedTests,failed:r.numFailedTests,skipped:r.numPendingTests};});
+summary.outputSha256=createHash('sha256').update(readFileSync(join(stage,'FINAL-COMPOSITION.json'))).digest('hex');
+writeFileSync(join(out,'RESULTS.json'),JSON.stringify(summary,null,2)+'\n');
+console.log(JSON.stringify(summary,null,2));

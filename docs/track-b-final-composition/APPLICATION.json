@@ -1,0 +1,15 @@
+{
+  "pins": {
+    "trackA": "530af32067279497161c22ab00006247851d9200",
+    "trackB": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+    "applicationBaseline": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "historicalCore": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b",
+    "acceptanceIntegration": "449c05df550afa0ac1f8b6030cc9fc8bbadbf52e"
+  },
+  "patch": "application.patch",
+  "sha256": "398dac21981859ca378fdb2941210360abe20eefd4d1c892ed4b5bd0cffffbec",
+  "bytes": 856381,
+  "applicationInventorySha256": "14de5a851cf5ff11d3583edb9c81c8404e3aaaa01bbe9869f93a9608570a92cb",
+  "verified": "Fresh pinned A archive git apply --check/apply and every delivered source byte compared",
+  "noDeployment": true
+}

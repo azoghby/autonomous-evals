@@ -1,0 +1,541 @@
+Running tests-0 in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y
+Running tests-1 in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y
+Running calendar-tests in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y
+Running core-typecheck in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y/packages/core
+Running next-typegen in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y/apps/web
+Running app-typecheck in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y/apps/web
+Running next-workflow-build in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y/apps/web
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y",
+  "pins": {
+    "trackA": "da92bedd68b230188e2499fdd8440ea23b2f1d6b",
+    "trackB": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+    "applicationBaseline": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "historicalCore": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b"
+  },
+  "chat": {
+    "patches": [
+      "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch",
+      "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch",
+      "docs/chat-workflow-release/0002-app-source-compatibility.patch",
+      "docs/chat-workflow-release/0003-explicit-benchmark-refusal.patch",
+      "docs/release-packaging-integration/packages/track-a-manifests-lock.patch",
+      "docs/controlled-acceptance-targets/0001-controlled-acceptance-targets.patch"
+    ],
+    "servercompat": "Not replayed: complete bridge already owns hardened bootstrap and canonical cost sink."
+  },
+  "pack": {
+    "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-9C4X6y",
+    "packComposition": [
+      "apps/web/src/server/rich-services.ts",
+      "apps/web/src/workflows/steps/rich-evaluation.ts",
+      "apps/web/src/server/workflow-packs.ts",
+      "apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts"
+    ]
+  },
+  "calendar": {
+    "commit": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+    "origin": "internal_fixture",
+    "systemPrompt": "Use calendar tools. Never claim a mutation succeeded unless the tool reports success.",
+    "scenarioDigest": "e65d4c55cf3dd482358d4696fd946e368e4b63c454d31b3c5f4bb5058fa87663",
+    "remotePromptAttestation": false,
+    "toolResultAuthenticity": "not_attested_independent_SQL_required",
+    "targetRequests": {
+      "text": 24,
+      "calendar": 8,
+      "totalBeforeReproductions": 32
+    },
+    "acceptance": "pending_owner_driver_and_deployment"
+  },
+  "migrations": {
+    "format": 1,
+    "applied": false,
+    "deploymentAccepted": false,
+    "searchPath": "public, pg_catalog",
+    "identityRule": "Full canonical ID plus SHA-256; never numeric-prefix or basename discovery.",
+    "migrationRenames": {
+      "apps/web/migrations/003-remediation.sql": "apps/web/migrations/004-workflow-remediation.sql",
+      "apps/web/migrations/003-workflow-packs.sql": "apps/web/migrations/005-workflow-packs.sql"
+    },
+    "excludedChat": "docs/progress-chat-integration/server/001-private-conversations.sql",
+    "application": [
+      {
+        "id": "app.baseline.0000_init",
+        "sourcePath": "packages/core/src/db/migrations/0000_init.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0000_init.sql",
+        "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+        "transactionOwner": "owner-existing-process",
+        "after": [],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0001_expert_network",
+        "sourcePath": "packages/core/src/db/migrations/0001_expert_network.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0001_expert_network.sql",
+        "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0000_init"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0002_delivery_snapshot",
+        "sourcePath": "packages/core/src/db/migrations/0002_delivery_snapshot.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0002_delivery_snapshot.sql",
+        "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0001_expert_network"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0003_rate_limits",
+        "sourcePath": "packages/core/src/db/migrations/0003_rate_limits.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0003_rate_limits.sql",
+        "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0002_delivery_snapshot"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0004_email_threads",
+        "sourcePath": "packages/core/src/db/migrations/0004_email_threads.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0004_email_threads.sql",
+        "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0003_rate_limits"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0005_remediations",
+        "sourcePath": "packages/core/src/db/migrations/0005_remediations.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0005_remediations.sql",
+        "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0004_email_threads"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0006_per_finding_pricing",
+        "sourcePath": "packages/core/src/db/migrations/0006_per_finding_pricing.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0006_per_finding_pricing.sql",
+        "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0005_remediations"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0007_api_keys",
+        "sourcePath": "packages/core/src/db/migrations/0007_api_keys.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0007_api_keys.sql",
+        "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0006_per_finding_pricing"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0008_monitoring_runs",
+        "sourcePath": "packages/core/src/db/migrations/0008_monitoring_runs.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0008_monitoring_runs.sql",
+        "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0007_api_keys"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0009_call_slots",
+        "sourcePath": "packages/core/src/db/migrations/0009_call_slots.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0009_call_slots.sql",
+        "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0008_monitoring_runs"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0010_engagement_prev_tokens",
+        "sourcePath": "packages/core/src/db/migrations/0010_engagement_prev_tokens.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0010_engagement_prev_tokens.sql",
+        "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0009_call_slots"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0011_job_shares",
+        "sourcePath": "packages/core/src/db/migrations/0011_job_shares.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0011_job_shares.sql",
+        "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0010_engagement_prev_tokens"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0012_github_prs",
+        "sourcePath": "packages/core/src/db/migrations/0012_github_prs.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0012_github_prs.sql",
+        "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0011_job_shares"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0013_regression_runs",
+        "sourcePath": "packages/core/src/db/migrations/0013_regression_runs.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0013_regression_runs.sql",
+        "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0012_github_prs"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.baseline.0014_public_agents",
+        "sourcePath": "packages/core/src/db/migrations/0014_public_agents.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.baseline.0014_public_agents.sql",
+        "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+        "transactionOwner": "owner-existing-process",
+        "after": [
+          "app.baseline.0013_regression_runs"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.agent",
+        "sourcePath": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.agent.sql",
+        "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.ledger",
+        "sourcePath": "packages/core/src/simulator/ledger-migrations/001_branch_ownership.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.ledger.sql",
+        "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.data001",
+        "sourcePath": "packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.data001.sql",
+        "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.data002",
+        "sourcePath": "packages/core/src/evals/data/persistence-migrations/002-data-operations.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.data002.sql",
+        "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents",
+          "app.data001"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.checkpoint",
+        "sourcePath": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.checkpoint.sql",
+        "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.chat",
+        "sourcePath": "packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.chat.sql",
+        "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.journal",
+        "sourcePath": "packages/core/src/simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.journal.sql",
+        "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.inventory",
+        "sourcePath": "docs/structured-progress-integration/backend/001-structured-progress.sql",
+        "sourceOrigin": "artifact",
+        "canonicalPath": "owner-migrations/app.inventory.sql",
+        "sha256": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+        "transactionOwner": "runner",
+        "after": [
+          "app.baseline.0014_public_agents"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.workflow001",
+        "sourcePath": "apps/web/migrations/001-workflow-integration.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.workflow001.sql",
+        "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+        "transactionOwner": "artifact",
+        "after": [
+          "app.baseline.0014_public_agents",
+          "app.agent",
+          "app.ledger",
+          "app.data002",
+          "app.checkpoint",
+          "app.chat",
+          "app.journal",
+          "app.inventory"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.workflow002",
+        "sourcePath": "docs/workflow-integration/workflow-producers/migrations/002-rich-artifacts.sql",
+        "sourceOrigin": "artifact",
+        "canonicalPath": "owner-migrations/app.workflow002.sql",
+        "sha256": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
+        "transactionOwner": "artifact",
+        "after": [
+          "app.baseline.0014_public_agents",
+          "app.workflow001"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.workflow-data.003",
+        "sourcePath": "apps/web/migrations/003-workflow-data.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.workflow-data.003.sql",
+        "sha256": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+        "transactionOwner": "runner",
+        "after": [
+          "app.workflow002",
+          "app.data002"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.workflow-remediation.004",
+        "sourcePath": "apps/web/migrations/004-workflow-remediation.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.workflow-remediation.004.sql",
+        "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+        "transactionOwner": "artifact",
+        "after": [
+          "app.workflow-data.003",
+          "app.journal"
+        ],
+        "database": "application"
+      },
+      {
+        "id": "app.workflow-packs.005",
+        "sourcePath": "apps/web/migrations/005-workflow-packs.sql",
+        "sourceOrigin": "stage",
+        "canonicalPath": "owner-migrations/app.workflow-packs.005.sql",
+        "sha256": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+        "transactionOwner": "artifact",
+        "after": [
+          "app.workflow-remediation.004"
+        ],
+        "database": "application"
+      }
+    ],
+    "separateSimulator": {
+      "id": "simulator.calendar-seed",
+      "database": "isolated-calendar-only",
+      "sourcePath": "packages/core/src/simulator/migrations/001_calendar.sql",
+      "sha256": "7153e1bbdec0558a46d0fc6d9cbea4366a1c56ae8e2849240a21472c9af17834",
+      "transactionOwner": "runner"
+    },
+    "prerequisites": [
+      "Owner durable migration registry and exclusive lock; stop incompatible writers before historical cost reconciliation.",
+      "Same-engine, same-role complete schema/catalog preflight and server-only grants; public, pg_catalog search_path.",
+      "Runner-owned SQL: one pinned transaction per artifact. Artifact-owned SQL: idle dedicated session, no outer transaction.",
+      "Core chat selected once; never apply the excluded documentation copy or auto-discover repeated numeric prefixes.",
+      "Calendar endpoint and monitoring remain separate owner extension points; no deployment or acceptance is implied."
+    ]
+  },
+  "applicationOrder": [
+    "stageComplete historical archive and verified patches",
+    "replace seven core source trees from Track B pin",
+    "apply Track A baseline-to-current delta",
+    "apply six chat/build/package/Text patches",
+    "apply pack projection/execution and four merged sources",
+    "apply separately pinned Calendar controlled target",
+    "canonicalize SQL identities; generate owner-migrations in manifest order",
+    "correct explicit remediation /index imports and immutable cloned progress plan comparison"
+  ],
+  "applicationFileCount": 753,
+  "applicationInventorySha256": "102ad9d8c3ef67b2bf214af23f95b0e1fa96e3967a03b0c0bc1da14f1a248876",
+  "liveRunPerformed": false,
+  "node": "v24.21.0",
+  "commands": [
+    {
+      "label": "tests-0",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.final.config.mjs",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bb9730fd/docs/track-b-final-composition/evidence/tests-0.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "tests-1",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.final-chat.config.mjs",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bb9730fd/docs/track-b-final-composition/evidence/tests-1.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "calendar-tests",
+      "command": [
+        "/usr/local/bin/node",
+        "--test",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bb9730fd/tests/track-b/final-composition/calendar-budget.test.mjs",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bb9730fd/tests/track-b/final-composition/calendar-route.test.mjs"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "core-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.final.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-typegen",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "app-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "--noEmit"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-workflow-build",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "build",
+        "--webpack"
+      ],
+      "exit": 0
+    }
+  ],
+  "fontBoundary": "Retained real Geist CSS/woff2 replaces remote Next font request; not a clean uncached build",
+  "dependencyBoundary": "Preinstalled offline dependency tree; no install. Versions recorded separately from application lock.",
+  "releaseAccepted": false,
+  "versions": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "workflow": "5.4.0",
+    "@usenaive-sdk/managed-agents": "0.12.3"
+  },
+  "tests": [
+    {
+      "suite": "tests-0",
+      "passed": 176,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "tests-1",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "outputSha256": "9e21659350e01335829ef8b08b0cb5b68886a5c06bb77503a9dc2a5e4c9fd9cd"
+}
