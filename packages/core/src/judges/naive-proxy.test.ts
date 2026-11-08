@@ -24,7 +24,7 @@ function fixture() {
     usage:{input:10,output:5,cache_read:0,cache_write:0,reasoning:0},stop:'end_turn',response:{text:response.content[0].text,tool_calls:[]},request:{model:body.model,system:body.system,max_output_tokens:body.max_tokens,messages:body.messages}}));
   const reserve=vi.fn(async()=>true),settle=vi.fn(async()=>{}),recordCost=vi.fn(async(_c:NaiveProxyCost)=>{}),authorize=vi.fn(async()=>({knownSecrets:secrets}));
   const judge=createNaiveProxyJudge({jobId:'job',model:'test-model',maxOutputTokens:1000,reservationMicroUsd:300000,checkpoints:store,budget:{reserve,settle},authorize,recordCost,client:()=>({proxy:{messages,call}} as unknown as Pick<VettaClient,'proxy'>)});
-  return {judge,input,messages,call,reserve,settle,recordCost,authorize,response,setSecrets:(v:string[])=>{secrets=v;}};
+  return {judge,input,messages,call,reserve,settle,recordCost,authorize,response,rows,setSecrets:(v:string[])=>{secrets=v;}};
 }
 describe('Naive proxy Jude',()=>{
  it('reconciles billed price (not vendor cost), settles and replays the same receipt without dispatch',async()=>{
@@ -48,6 +48,40 @@ describe('Naive proxy Jude',()=>{
  });
  it('refuses changed input and revoked current authorization on completed replay',async()=>{
   const f=fixture();await f.judge(f.input);await expect(f.judge({...f.input,rubric:'changed'})).rejects.toThrow();f.authorize.mockRejectedValueOnce(Error('revoked'));await expect(f.judge(f.input)).rejects.toThrow('revoked');expect(f.messages).toHaveBeenCalledTimes(1);
+ });
+ it('retains only a nonsecret receipt and records incurred usage after response-time revocation',async()=>{
+  const f=fixture(),original=f.messages.getMockImplementation()!;
+  f.messages.mockImplementationOnce(async body=>{const result=await original(body);f.authorize.mockRejectedValue(Error('revoked'));return result;});
+  await expect(f.judge(f.input)).rejects.toThrow('revoked');
+  expect(f.recordCost).toHaveBeenCalledTimes(1);expect(f.settle).toHaveBeenCalledTimes(1);
+  const received=[...f.rows.entries()].find(([key])=>key.startsWith('naive_proxy_judge:'))![1].value;
+  expect(received).toMatchObject({state:'completed',value:{requestId:f.response.id,text:null,usable:false}});
+  expect(JSON.stringify(received)).not.toContain('Tone concern');
+  await expect(f.judge(f.input)).rejects.toThrow('revoked');
+  expect(f.messages).toHaveBeenCalledTimes(1);expect(f.recordCost).toHaveBeenCalledTimes(2);
+ });
+ it('reconciles a delayed trace on revoked replay without publishing or redispatching',async()=>{
+  const f=fixture(),original=f.messages.getMockImplementation()!,trace=f.call.getMockImplementation()!;
+  f.messages.mockImplementationOnce(async body=>{const result=await original(body);f.authorize.mockRejectedValue(Error('revoked'));return result;});
+  f.call.mockImplementationOnce(async()=>({...await trace(),billed_micro_usd:null}) as never);
+  await expect(f.judge(f.input)).rejects.toThrow('unavailable');expect(f.recordCost).not.toHaveBeenCalled();
+  await expect(f.judge(f.input)).rejects.toThrow('revoked');expect(f.recordCost).toHaveBeenCalledTimes(1);
+  expect(f.messages).toHaveBeenCalledTimes(1);expect(f.call).toHaveBeenCalledTimes(2);
+ });
+ it('does not claim, reserve or dispatch a new operation after revocation',async()=>{
+  const f=fixture();f.authorize.mockRejectedValue(Error('revoked'));
+  await expect(f.judge(f.input)).rejects.toThrow('revoked');
+  expect(f.rows.size).toBe(0);expect(f.reserve).not.toHaveBeenCalled();expect(f.messages).not.toHaveBeenCalled();
+ });
+ it('treats a falsy thrown authorization failure as revoked',async()=>{
+  const f=fixture();f.authorize.mockRejectedValue(undefined);
+  let denied=false;try{await f.judge(f.input);}catch{denied=true;}
+  expect(denied).toBe(true);expect(f.messages).not.toHaveBeenCalled();expect(f.rows.size).toBe(0);
+ });
+ it('retains valid request identity when immediate usage is malformed and bills from the audited trace',async()=>{
+  const f=fixture();f.response.usage.input_tokens=NaN;
+  await f.judge(f.input);expect(f.recordCost.mock.calls[0][0].microUsd).toBe(17);
+  expect([...f.rows.entries()].find(([key])=>key.startsWith('naive_proxy_judge:'))![1].value).toMatchObject({state:'completed',value:{requestId:f.response.id,usage:null}});
  });
  it('returns factual inconclusive without a paid call if reference is missing',async()=>{
   const f=fixture();expect((await f.judge({...f.input,assessesFactualCorrectness:true})).outcome).toBe('inconclusive');expect(f.messages).not.toHaveBeenCalled();expect(f.reserve).not.toHaveBeenCalled();

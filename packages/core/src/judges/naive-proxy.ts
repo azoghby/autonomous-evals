@@ -40,7 +40,7 @@ export class NaiveProxyJudgeUnavailableError extends Error {
   constructor() { super('Naive rubric judge unavailable; retain evidence as inconclusive and reconcile the existing operation.'); }
 }
 const unavailable = (): never => { throw new NaiveProxyJudgeUnavailableError(); };
-interface Received { requestId: string; text: string | null; usable: boolean; usage: { input: number; output: number; cache_read: number; cache_write: number } }
+interface Received { requestId: string; text: string | null; usable: boolean; usage: { input: number; output: number; cache_read: number; cache_write: number } | null }
 /** Uses proxy.call (audit:read) to reconcile billed usage; null usage is never measured zero.
  * max_tokens bounds output, not total monetary debit. Live price/cap policy remains an owner gate. */
 export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
@@ -55,8 +55,10 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
       if (containsSecret(JSON.stringify({ input, value: value ?? null }), policy.knownSecrets)) unavailable();
       return policy.knownSecrets;
     }
-    await authorized();
-    if (input.assessesFactualCorrectness && !input.reference?.trim()) return { outcome: 'inconclusive', explanation: 'Factual correctness was not assessed because no reference material was supplied.', evidenceQuotes: [] };
+    let publicationDenied = false;
+    let publicationError: unknown;
+    try { await authorized(); } catch (error) { publicationDenied = true; publicationError = error; }
+    if (input.assessesFactualCorrectness && !input.reference?.trim()) { if (publicationDenied) throw publicationError; return { outcome: 'inconclusive', explanation: 'Factual correctness was not assessed because no reference material was supplied.', evidenceQuotes: [] }; }
     const user = JSON.stringify({ rubric: input.rubric, response: input.response, reference: input.reference ?? null });
     const body: ProxyMessageCreate = { model, system, max_tokens: maxOutputTokens, messages: [{ role: 'user', content: user }] };
     const inputDigest = hash({ input, body, reservationMicroUsd });
@@ -65,7 +67,10 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
     const reservationId = `naive-proxy:${operationHash}`;
     const client = deps.client(hash({ key }));
     let received: Received;
-    const claim = await deps.checkpoints.claim(key);
+    // Revocation blocks new writes, but does not erase an already incurred provider debit.
+    const existing = await deps.checkpoints.get(key);
+    if (publicationDenied && existing?.state !== 'completed') throw publicationError;
+    const claim = existing ?? await deps.checkpoints.claim(key);
     if (claim.state === 'completed') received = claim.value as Received;
     else {
       if (claim.state !== 'claimed') return unavailable();
@@ -75,17 +80,22 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
       try {
         const response = await client.proxy.messages(body, 'immediate');
         if (!requestId.test(response.id)) unavailable();
+        const usage = response.usage && [response.usage.input_tokens, response.usage.output_tokens, response.usage.cache_read_input_tokens, response.usage.cache_creation_input_tokens].every(v => Number.isSafeInteger(v) && v >= 0)
+          ? { input: response.usage.input_tokens, output: response.usage.output_tokens, cache_read: response.usage.cache_read_input_tokens, cache_write: response.usage.cache_creation_input_tokens } : null;
         const usable = response.model === model && response.stop_reason === 'end_turn' && response.content.length === 1 && response.content[0]?.type === 'text';
         const text = usable && response.content[0]?.type === 'text' ? response.content[0].text : null;
-        const secrets = (await deps.authorize()).knownSecrets;
-        if (!Array.isArray(secrets) || secrets.some(s => typeof s !== 'string' || s.length < 4)) unavailable();
-        const safeText = text !== null && Buffer.byteLength(text) <= 64000 && !containsSecret(text, secrets) ? text : null;
-        received = { requestId: response.id, text: safeText, usable: usable && safeText !== null, usage: { input: response.usage.input_tokens, output: response.usage.output_tokens, cache_read: response.usage.cache_read_input_tokens, cache_write: response.usage.cache_creation_input_tokens } };
+        // Capture only request identity/usage if current publication authority disappeared.
+        // Never retain unreviewed response text under stale secret-screening policy.
+        let safeText: string | null = null;
+        try {
+          const secrets = await authorized();
+          safeText = text !== null && Buffer.byteLength(text) <= 64000 && !containsSecret(text, secrets) ? text : null;
+        } catch (error) { publicationDenied = true; publicationError = error; }
+        received = { requestId: response.id, text: safeText, usable: usable && safeText !== null, usage };
         await deps.checkpoints.complete(key, claim.token, received);
       } catch { await deps.checkpoints.markAmbiguous(key, claim.token).catch(() => undefined); return unavailable(); }
     }
     if (!received || !requestId.test(received.requestId) || typeof received.usable !== 'boolean' || (received.text !== null && typeof received.text !== 'string')) unavailable();
-    await authorized(received);
     const billingKey = { ...key, kind: 'naive_proxy_billing' };
     let receipt: NaiveProxyCost;
     const retained = await deps.checkpoints.get(billingKey);
@@ -96,20 +106,19 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
       let trace: Awaited<ReturnType<VettaClient['proxy']['call']>>;
       try { trace = await client.proxy.call(received.requestId); } catch { return unavailable(); }
       if (trace.id !== received.requestId || trace.source !== 'proxy' || trace.session_id !== null || trace.dialect !== 'anthropic' || trace.model !== model || trace.window !== 'immediate' || trace.billed_micro_usd === null || !Number.isSafeInteger(trace.billed_micro_usd) || trace.billed_micro_usd < 0 ||
-        !received.usage || Object.entries(received.usage).some(([k,v]) => !Number.isSafeInteger(v) || v < 0 || trace.usage[k as keyof typeof received.usage] !== v) ||
+        !trace.usage || [trace.usage.input, trace.usage.output, trace.usage.cache_read, trace.usage.cache_write].some(v => !Number.isSafeInteger(v) || v < 0) ||
+        received.usage !== null && Object.entries(received.usage).some(([k,v]) => !Number.isSafeInteger(v) || v < 0 || trace.usage[k as 'input' | 'output' | 'cache_read' | 'cache_write'] !== v) ||
         (received.usable && (trace.stop !== 'end_turn' || trace.response?.text !== received.text || trace.response.is_error || trace.response.partial || trace.response.tool_calls.length !== 0)) ||
         trace.content_scope !== 'full' || trace.truncated || trace.request?.system !== system || trace.request.model !== model || trace.request.max_output_tokens !== maxOutputTokens || trace.request.messages.length !== 1 || trace.request.messages[0]?.role !== 'user' || trace.request.messages[0]?.content !== user) return unavailable();
       receipt = { source: 'naive_proxy', jobId, operationId: input.operationId, model, requestId: received.requestId, microUsd: trace.billed_micro_usd, measured: true, idempotencyKey: `naive_proxy:${received.requestId}` };
-      await authorized(receipt);
       const billing = await deps.checkpoints.claim(billingKey);
       if (billing.state === 'claimed') await deps.checkpoints.complete(billingKey, billing.token, receipt);
       else if (billing.state !== 'completed' || canonicalJson(billing.value) !== canonicalJson(receipt)) unavailable();
     }
     if (receipt.source !== 'naive_proxy' || receipt.jobId !== jobId || receipt.operationId !== input.operationId || receipt.model !== model || receipt.requestId !== received.requestId || receipt.measured !== true || receipt.idempotencyKey !== `naive_proxy:${received.requestId}` || !Number.isSafeInteger(receipt.microUsd) || receipt.microUsd < 0) unavailable();
-    await authorized(receipt);
     await deps.budget.settle({ reservationId, receipt: structuredClone(receipt) });
-    await authorized(receipt);
     await deps.recordCost(structuredClone(receipt));
+    if (publicationDenied) throw publicationError;
     await authorized(received);
     if (!received.usable || received.text === null) return unavailable();
     try {
