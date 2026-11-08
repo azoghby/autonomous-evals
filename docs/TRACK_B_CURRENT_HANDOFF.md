@@ -1,6 +1,6 @@
 # Current Track B adoption handoff
 
-Updated November 7, 2026 after integration of the judged-release artifact (`b8cce34`) and acceptance-plan correction (`9b61183`). This index distinguishes deployable-source artifacts from verification and production acceptance. No production deployment is claimed.
+Updated November 7, 2026 after integrated sandbox security/stateful/media work and autonomous adoption artifacts. This index distinguishes deployable-source artifacts from verification and production acceptance. No production deployment is claimed.
 
 ## Text/Calendar application composition
 
@@ -27,7 +27,7 @@ The second command passed 140 tests after the correction. The two extra Gateway 
 
 Core modules under `agents/autonomy` and `evals/data/autonomy` plus the [owner adapter](autonomous-company-integration/README.md) are on main (`b1d0265`). Parent re-ran 44 tests with strict transitive TypeScript against the current report renderer. Real local SQL and actual four-role services exercise intake, payment wait, independent data admission, twelve-case evaluation, publication and outbox without per-job founder intervention. Providers are scripted, not live.
 
-Owner startup/cron/report-route mapping, authorized source permissions, genuine provider/receipt transports and hosted recovery remain required. Autonomous app adoption is a separate extension in progress; the legacy judged patch does not claim to enable it. Customer payment/clarification remains external input; unknown usage/permissions do not become successful evidence.
+Owner startup/cron/report-route mapping, authorized source permissions, genuine provider/receipt transports and hosted recovery remain required. The [autonomy adoption extension](autonomy-release-adoption/README.md) preserves newer Track A `875ceef` and includes authenticated server composition with local SQL/build evidence; owner route/cron registration remains required. The [shared paid reservation policy](autonomy-shared-accounting/README.md) has 48-test local verification but still needs adoption by legacy paid application call sites; the legacy judged patch does not claim to enable it. Customer payment/clarification remains external input; unknown usage/permissions do not become successful evidence.
 
 ## Alex's sandbox engine
 
@@ -38,4 +38,4 @@ The shared contract and new plan are Track A `aa94505`, unchanged. Main now cont
 - [Execution](track-b-sandbox-engine/execution.md): bounded isolated tool-loop runner, secure target and constrained simulator adapters; 21 focused tests.
 - [Grading/statistics](track-b-sandbox-engine/grading.md): state/process/output/security/perception checks, unknown handling, Wilson intervals and version-matched comparison; 22 focused tests after parent snapshot fixes.
 
-Composition, stateful row-level collateral evidence, multimodal adapters and independent security review are in progress. These leaf checks do not prove a complete sandbox evaluation or live media acceptance. Track A owns ingest, runtime/world provisioning, REST/MCP, microVMs, app UI and deployment. v1's table-only allowed changes cannot by itself prove a write touched only authorized rows; the engine must retain unknown outcomes until bound row-level evidence exists.
+Engine [composition](track-b-sandbox-engine/integration.md), [stateful row authority](track-b-sandbox-engine/stateful-grading.md), [multimodal adapters](track-b-sandbox-engine/multimodal.md), and [security review plus fixes](track-b-sandbox-engine/security-review.md) are integrated. Parent verification passed 13 current-A integration, 29 stateful grading and 22 security tests. Runtime snapshot capture and media lifecycle/report composition are the next integration tasks. These leaf checks do not prove a complete sandbox evaluation or live media acceptance. Track A owns ingest, runtime/world provisioning, REST/MCP, microVMs, app UI and deployment. v1's table-only allowed changes cannot by itself prove a write touched only authorized rows; the engine must retain unknown outcomes until bound row-level evidence exists.
