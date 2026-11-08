@@ -1,0 +1,27 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-qBH5h3
+
+ ✓ tests/track-b/workflow-judging-integration/judge.test.ts (11 tests) 6667ms
+   ✓ applied trusted app Gateway judge with serialized SQL (11)
+     ✓ reserves both scopes before actual adapter dispatch, binds meter, and replays across restart without cost fabrication 760ms
+     ✓ settles only authenticated measured money through the shared keyed protocol and replays a lost acknowledgement once 569ms
+     ✓ denies exhausted global budget before any outbound call 606ms
+     ✓ fences concurrent claims and refuses same identity with changed input 646ms
+     ✓ rechecks current secret guards after token resolution and before dispatch 591ms
+     ✓ holds ambiguous transport results and never repeats them on restart 561ms
+     ✓ rejects fabricated citations while retaining measured usage and unknown monetary hold 519ms
+     ✓ refuses a rejected parent meter and secret-bearing prompt/reference before network 641ms
+     ✓ aborts before dispatch and leaves factual checks without reference unassessed 570ms
+     ✓ retains all twelve original scenarios/objectives while actual judges assess valid reference rubrics 615ms
+     ✓ executes the immutable accepted live-designed base12 with every original rubric and objective retained 587ms
+ ✓ tests/track-b/app-acceptance-integration/adapter.test.ts (2 tests) 2091ms
+   ✓ real rich Text/remediation, SQL accounting and private artifact survive separate process restart 2089ms
+ ✓ tests/track-b/metered-acceptance/ports.test.ts (4 tests) 34ms
+ ✓ tests/track-b/metered-acceptance/construction.test.ts (1 test) 5ms
+
+ Test Files  4 passed (4)
+      Tests  18 passed (18)
+   Start at  18:09:28
+   Duration  9.97s (tests 91%, import 6%, transform 4%)
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-a436ac9e/docs/track-b-metered-acceptance/verification/tests.json

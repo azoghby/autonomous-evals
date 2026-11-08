@@ -1,0 +1,15 @@
+✔ unchanged cap refusal precedes private references, even expanded numbers do not grant authority (0.81325ms)
+✔ shared contention and durable restart count attempts, not successful receipts (16.45175ms)
+✔ abort and corrupt/torn ledger refuse before transport (5.74075ms)
+✔ persisted authority/deadline cannot reset on restart (10.303084ms)
+✔ actual fork ACK follows durable reservation and count survives worker restart (86.20525ms)
+✔ noncooperative fork is terminated after cancellation without extra dispatches (1249.155042ms)
+✔ fsync failure rejects durable admission before send and aborts subsequent work (7.742542ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1430.281375
