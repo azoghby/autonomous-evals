@@ -4,7 +4,7 @@ import { Button, Container, NudgeArrow, Wordmark } from "../ui";
 const COLS = [
   ["Product", [["Start an eval", "/start"], ["Demo", "/demo"], ["Sandbox evals", "/sandbox"], ["Sample report", "/sample"], ["Sandbox sample", "/sandbox/runs/sample"], ["Pricing", "/#pricing"]]],
   ["Agents", [["MCP", "/#mcp"], ["API keys", "/settings/keys"]]],
-  ["Network", [["Experts", "/experts"], ["Leaderboard", "/leaderboard"], ["Submit your agent", "/leaderboard/submit"]]],
+  ["Network", [["Experts", "/experts"], ["Leaderboard", "/leaderboard"], ["Submit your agent", "/leaderboard/submit"], ["Company", "/company"]]],
   ["Account", [["Dashboard", "/jobs"]]],
 ] as const;
 

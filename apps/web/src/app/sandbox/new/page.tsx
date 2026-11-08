@@ -4,6 +4,7 @@ import { getCurrentCustomer } from "@/server/session";
 import { Eyebrow } from "@/components/ui";
 import { SandboxShell } from "@/components/sandbox/SandboxShell";
 import { Wizard } from "@/components/sandbox/wizard/Wizard";
+import { OnboardingChat } from "@/components/sandbox/onboarding-chat";
 
 export const metadata: Metadata = { title: "New sandbox eval · Standard Evals" };
 
@@ -19,6 +20,7 @@ export default async function NewSandboxEvalPage() {
         <p className="t-lead mt-3 text-muted">Connect your agent, describe the world it works in, review the generated scenarios, then run them against a sandbox.</p>
       </header>
       <Wizard />
+      <OnboardingChat />
     </div>
     </SandboxShell>
   );
