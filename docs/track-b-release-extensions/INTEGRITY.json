@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "parent": "40014f4cf0c08bc8c6986b4a40aa28a53695172c",
+  "pins": {
+    "trackA": "530af32067279497161c22ab00006247851d9200",
+    "trackB": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+    "applicationBaseline": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "historicalCore": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b",
+    "acceptanceIntegration": "449c05df550afa0ac1f8b6030cc9fc8bbadbf52e"
+  },
+  "sha256": {
+    "docs/track-b-final-composition/INTEGRITY.json": "405e45d5a88c4d393e01734cbfefa41083d33e9e24872d56ed6b98135b06772c",
+    "docs/track-b-final-composition/stage.mjs": "665e87eef8e72410fe111eb3b57a32814f6a730711a11de986291fe8ae2c47ad",
+    "docs/track-b-release-extensions/stage.mjs": "78fdc197ba25f290c70f9cbff6873e12d99c241bd6d1ba0fdc8c8dbe4c2a602f",
+    "docs/track-b-release-extensions/source/rich-evaluation.ts": "bb21604804318180d76b9cde33b17f21c550435a94fe4f8e9f126ad7bd4e9ab4",
+    "docs/workflow-comparison-integration/app/004-rich-comparison.patch": "5420d5a54602a4c3fca447fdd5cbbff496dcb90c3c035f13ff32072331e6a181",
+    "docs/workflow-resumption-integration/resumption.patch": "03c3bce1d7a57ea0432a588d5b1d0f93378eb1c61bc86a23d6ad028e7f1e184e",
+    "docs/complete-workflow-integration/source/apps/web/src/workflows/steps/rich-evaluation.ts": "1f512e0518aa0cda5cf40e729392e01769c0df76e7ea27afac5c70a1a183448c",
+    "docs/workflow-resumption-integration/source/apps/web/src/workflows/steps/rich-evaluation.ts": "3bbe209de20a8365352982901af471be663c6c1750bd9bb06f1211a0e7d3faf8"
+  }
+}
