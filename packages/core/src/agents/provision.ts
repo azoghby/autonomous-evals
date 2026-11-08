@@ -7,7 +7,7 @@ import { DEFAULT_AGENT_MODEL, ROLE_DEFINITIONS } from "./roles";
 export type ExpectedAgentConfiguration = Required<Pick<AgentCreate,
   "model" | "window" | "system" | "description" | "budget" | "tools" |
   "mcp_servers" | "skills" | "multiagent" | "handoffs" | "metadata"
->> & Pick<AgentCreate, "model_selection">;
+>> & Pick<AgentCreate, "model_selection" | "structured_output_required">;
 
 export function buildAgentCreateBody(role: AgentRole, model: string = DEFAULT_AGENT_MODEL): AgentCreate & ExpectedAgentConfiguration {
   const def = ROLE_DEFINITIONS[role];
@@ -96,6 +96,11 @@ export function attestAgentConfiguration(
   };
   for (const field of ["model", "window", "system", "description", "budget", "mcp_servers", "skills", "multiagent", "handoffs"] as const) {
     check(field, actual[field], expected[field]);
+  }
+  // Legacy role bodies predate this setting. New manifests explicitly pin it;
+  // never infer a provider default or silently accept a missing observed value.
+  if (expected.structured_output_required !== undefined) {
+    check("structured_output_required", actual.structured_output_required, expected.structured_output_required);
   }
   if (!exactConfig(actual.model_selection ?? null, expected.model_selection ?? null)) changed.push("model_selection");
   // Normalize only the one documented SDK default, never permission/config options.

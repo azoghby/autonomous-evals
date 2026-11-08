@@ -104,6 +104,7 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 | Durable jobWorkflow, resumable runs, stale-job recovery | live | workflows/job.ts, workflows/events.ts, api/cron/stale-jobs |
 | Monitoring subscription ($49/mo) and follow-ups | live, test mode | api/cron/monitoring, api/cron/follow-ups, server/follow-ups.ts |
 | Eval engine (Track B) | mock by default; real wired behind EVAL_SERVICES=real (not enabled) | packages/core/src/integration/, server/services.ts |
+| Naïve Phase 0 provisioning | Current core/CLI implemented and locally tested; no provider creation or activation | agents/company-roles.ts, company-resources.ts, naive-provisioning.ts, naive-resources.ts; scripts/naive-provision.ts |
 | Track B rich-service integration and private chat artifacts | Offline validated; owner adoption/deployment remains pending | docs/current-company-payment-fixes, docs/current-company-main-adoption, docs/current-company-composition |
 | Fix, not just find (remediations, before/after verification) | mock-only (Track B proposeAndVerifyFix not implemented) | workflows, remediations table, report page |
 | Fix as GitHub PR (migration 0012) | merged; end-to-end not verified in this ledger | server/github-service.ts, server/github-pr.ts |
@@ -178,6 +179,8 @@ Security and compliance
 
 ## Next steps (hackathon)
 
+- Naïve migration: follow `docs/NAIVE_PLAN.md` and `docs/naive-phase0-acceptance.md`; finish staged provider provisioning and Track A staging/conformance gates. A private-key read-only inventory attempt returned HTTP 429; no remote resources changed.
+
 - Track B handoff: preserve the refund/receipt-queue corrections in `docs/current-company-payment-fixes` when adopting the current company composition. Reviewed app patches and SQL are not applied merely by merging their documentation. Production setup and hosted acceptance remain explicit gates.
 
 Freeze is Nov 8, 9:30 AM PT. Judging is Nov 8, 11:00 AM PT.
@@ -225,3 +228,5 @@ Times are PT, as recorded.
 - 2026-11-07 Naïve plan Phase 0: user selected newly pushed `docs/NAIVE_PLAN.md` as governing roadmap. Budget-zero adapter gate now refuses before runner/reservations; deterministic operator-disabled reports remain allowed, measured-cost positive-budget replay preserved. Qualify/outreach draft default caps now $0.30, explicit lower qualify limits unchanged. Strict agents/evals check passed 669 tests across 40 files, no skips. Progress and remaining provisioning/staging/live gates recorded in `docs/naive-plan-progress.md`; no API keys or provider/cloud operations used. Root checks attempted offline, still missing local TypeScript/Vitest executables.
 
 - 2026-11-07 Naïve handoff checkpoint: exact tool-bearing `attestAgentConfiguration` is now reused by legacy four-role provisioning; safe static diagnostics and 33 new regressions. Parent combined strict agents/evals harness passes 702 tests across 41 files, none skipped. SDK-stripped unknown fields remain unobservable; expanded roster/CLI and live Phase 0 acceptance remain open. Fresh Astra handoff at `docs/ASTRA_ORCHESTRATOR_HANDOFF.md` records authoritative NAIVE_PLAN, current A chat, historical patch limitations, ownership, keys and next assignments. No provider/cloud actions. Root executable limitations remain explicit.
+
+- 2026-11-07 Track B Phase 0 continuation: verified handoff `84ca7d2` against origin before editing; fast-forwarded Track A `2981bf4` BotID/target-model fixes intact. Added 15-role manifest, four skills/three outcomes, strict explicit structured-output attestation, six resource adapters and staged provisioning CLI with fsynced journal, complete discovery and fail-closed ambiguous creation. Existing agents/organization CEO are never updated; deployments create disabled. Current code is not a deployment receipt and historical Scout/Workflow patches remain separate. Root typecheck/test/build cannot run because checkout TypeScript/Vitest/Next executables are absent; retained strict combined agents/evals harness passed 748 tests across 45 files including final manifest hardening; CLI independently typechecked and exercised offline. Fresh key delivered privately, first read-only provider inventory returned HTTP 429. No provider mutation, paid session, cloud migration or activation. Remaining gates in progress tracker and new acceptance handoff.

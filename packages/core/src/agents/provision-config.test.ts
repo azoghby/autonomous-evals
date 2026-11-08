@@ -26,6 +26,24 @@ function rejected(change: (actual: any) => void, field: string) {
 }
 
 describe("exact tool-bearing role attestation", () => {
+  it.each([true, false])("pins explicitly specified structured-output policy %s", required => {
+    const wanted = { ...expected(), structured_output_required: required };
+    attestAgentConfiguration(structuredClone(wanted), wanted);
+    for (const observed of [undefined, !required, null, "true"]) {
+      try {
+        attestAgentConfiguration({ ...wanted, structured_output_required: observed }, wanted);
+        throw new Error("unexpected success");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentProvisioningError);
+        expect((error as AgentProvisioningError).diagnostic.fields).toEqual(["structured_output_required"]);
+        expect((error as AgentProvisioningError).diagnostic.code).toBe(observed === undefined ? "attestation_unavailable" : "configuration_mismatch");
+      }
+    }
+  });
+  it("preserves legacy unspecified structured-output semantics", () => {
+    const wanted = expected();
+    for (const observed of [undefined, true, false]) attestAgentConfiguration({ ...wanted, structured_output_required: observed }, wanted);
+  });
   it("accepts exact future-role config and provider-only fields", () => {
     const wanted = expected();
     attestAgentConfiguration({ ...wanted, id: "provider-id", version: 8, created_at: "timestamp", metadata: { ...wanted.metadata, provider_tag: "extra" } }, wanted);
