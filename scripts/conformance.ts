@@ -5,7 +5,12 @@
  * --services defaults to EVAL_SERVICES when it is "lite", else "real" (Track B).
  * --target-* enables the live runSuite check; the key is read from the named env var and never printed.
  * Exits non-zero on any failed check, or if the services module is missing.
+ * --services real resolves ctx.jobId against the `jobs` table, so each check gets a fresh internal-fixture
+ * draft job (environment "test", customer sandbox-e2e@example.com); --no-fixture-job uses CONFORMANCE_JOB_ID.
+ * Typed "pending" errors (Naïve rate limits, async branch deletion) are retried as the Workflow would.
  */
+import { randomUUID } from "node:crypto";
+import { ensureFixtureJob, withPendingRetry } from "./real-services-lib";
 import { runConformance, summarize } from "../packages/core/src/contracts/conformance";
 import type { EvalServices, ServiceContext } from "../packages/core/src/contracts/services";
 
@@ -57,7 +62,10 @@ function withSpendMeter(services: EvalServices): { services: EvalServices; spent
 async function main() {
   const args = process.argv.slice(2);
   const kind = flag(args, "--services") ?? (process.env.EVAL_SERVICES === "lite" ? "lite" : "real");
-  const metered = withSpendMeter(await loadServices(kind));
+  const real = kind === "real";
+  const fixtureJobs = real && !args.includes("--no-fixture-job");
+  const loaded = await loadServices(kind);
+  const metered = withSpendMeter(real ? withPendingRetry(loaded) : loaded);
   const targetUrl = flag(args, "--target-url");
   const keyEnv = flag(args, "--target-key-env");
   const runSuiteTarget = targetUrl ? {
@@ -69,6 +77,7 @@ async function main() {
   console.log(`services=${kind}${runSuiteTarget ? ` target=${new URL(runSuiteTarget.url).host} model=${runSuiteTarget.model} key=${runSuiteTarget.apiKey ? "set" : "none"}` : ""}`);
   const checks = await runConformance(metered.services, {
     skipBranching: args.includes("--skip-branching"), skipSuite: args.includes("--skip-suite"), runSuiteTarget,
+    ...(fixtureJobs ? { jobIdFor: () => ensureFixtureJob(randomUUID()) } : {}),
   });
   const icon = { pass: "PASS", fail: "FAIL", skip: "SKIP" } as const;
   const w = Math.max(...checks.map((c) => `${c.group}: ${c.name}`.length));

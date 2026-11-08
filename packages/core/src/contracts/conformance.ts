@@ -20,15 +20,21 @@ export interface ConformanceOptions {
   skipSuite?: boolean;
   /** If set, also run runSuite against this target (must be a harmless/real HTTPS endpoint). Skipped otherwise. */
   runSuiteTarget?: { url: string; model: string; apiKey?: string; systemPrompt: string };
+  /**
+   * Job id per check (default CONFORMANCE_JOB_ID for all). Durable implementations key agent tasks by
+   * job + role + purpose, so distinct requests on one job collide; the real-services runner passes fresh
+   * fixture jobs here. Also used for the branching check.
+   */
+  jobIdFor?: (group: string, name: string) => string | Promise<string>;
 }
 
 interface Recorder { ctx: ServiceContext; costs: Array<Omit<CostEntry, "jobId">>; progress: Array<{ milestone: string; message: string }> }
 
-export function makeRecordingContext(budgetMicroUsd = 3_000_000): Recorder {
+export function makeRecordingContext(budgetMicroUsd = 3_000_000, jobId: string = CONFORMANCE_JOB_ID): Recorder {
   const costs: Recorder["costs"] = [];
   const progress: Recorder["progress"] = [];
   const ctx: ServiceContext = {
-    jobId: CONFORMANCE_JOB_ID, environment: "test", budgetMicroUsd,
+    jobId, environment: "test", budgetMicroUsd,
     async recordCost(entry) { costs.push(entry); },
     async recordProgress(milestone, message) { progress.push({ milestone, message }); },
   };
@@ -46,9 +52,10 @@ type Run = (r: Recorder) => Promise<string | void>;
 
 class Collector {
   checks: ConformanceCheck[] = [];
-  async check(group: string, name: string, run: Run, rec: Recorder = makeRecordingContext()): Promise<void> {
+  constructor(private readonly jobIdFor?: ConformanceOptions["jobIdFor"]) {}
+  async check(group: string, name: string, run: Run, rec?: Recorder): Promise<void> {
     try {
-      const msg = await run(rec);
+      const msg = await run(rec ?? makeRecordingContext(undefined, this.jobIdFor ? await this.jobIdFor(group, name) : CONFORMANCE_JOB_ID));
       this.checks.push({ group, name, status: "pass", message: msg ?? "ok" });
     } catch (e) {
       this.checks.push({ group, name, status: "fail", message: e instanceof Error ? e.message : String(e) });
@@ -92,7 +99,7 @@ async function withFetchSpy<T>(fn: () => Promise<T>): Promise<{ result: T | unde
 }
 
 export async function runConformance(services: EvalServices, opts: ConformanceOptions = {}): Promise<ConformanceCheck[]> {
-  const c = new Collector();
+  const c = new Collector(opts.jobIdFor);
 
   // qualify
   for (const [label, intake] of [["trace_audit", traceIntake(TRACE_UNSUPPORTED_CLAIM_JSON)], ["text_eval", textIntake()]] as const) {
@@ -230,8 +237,8 @@ export async function runConformance(services: EvalServices, opts: ConformanceOp
   if (opts.skipBranching) {
     for (const n of ["createJobBranch", "deleteJobBranch", "getJobBranchConnection"]) c.skip(n, "branching", "opts.skipBranching");
   } else {
-    await c.check("branching", "create -> connection -> delete", async () => {
-      const b = parse(z.object({ branchId: z.string().min(1), connectionString: z.string().min(1) }), await services.createJobBranch(CONFORMANCE_JOB_ID), "createJobBranch");
+    await c.check("branching", "create -> connection -> delete", async (r) => {
+      const b = parse(z.object({ branchId: z.string().min(1), connectionString: z.string().min(1) }), await services.createJobBranch(r.ctx.jobId), "createJobBranch");
       try {
         assert(typeof services.getJobBranchConnection === "function", "getJobBranchConnection must be present when createJobBranch is");
         const conn = await services.getJobBranchConnection(b.branchId);
