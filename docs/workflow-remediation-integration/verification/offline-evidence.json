@@ -1,0 +1,1765 @@
+{
+  "mode": "offline_fixture_only",
+  "remoteAttestation": false,
+  "baseline": {
+    "suite": {
+      "schemaVersion": "text_suite.v1",
+      "jobId": "app-remediation-job",
+      "versionLabel": "fixture-v1",
+      "frozenAt": "2026-11-07T20:00:00.000Z",
+      "systemPrompt": "Follow the explicit user constraints.",
+      "referenceText": null,
+      "scenarios": [
+        {
+          "id": "S01",
+          "title": "Fixture 1",
+          "category": "ordinary",
+          "userMessage": "You answer questions about S01.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S01.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S02",
+          "title": "Fixture 2",
+          "category": "ordinary",
+          "userMessage": "You answer questions about S02.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S02.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S03",
+          "title": "Fixture 3",
+          "category": "ordinary",
+          "userMessage": "You answer questions about S03.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S03.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S04",
+          "title": "Fixture 4",
+          "category": "ordinary",
+          "userMessage": "You answer questions about S04.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S04.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S05",
+          "title": "Fixture 5",
+          "category": "instruction_edge",
+          "userMessage": "You answer questions about S05.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S05.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S06",
+          "title": "Fixture 6",
+          "category": "instruction_edge",
+          "userMessage": "You answer questions about S06.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S06.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S07",
+          "title": "Fixture 7",
+          "category": "instruction_edge",
+          "userMessage": "You answer questions about S07.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S07.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S08",
+          "title": "Fixture 8",
+          "category": "instruction_edge",
+          "userMessage": "You answer questions about S08.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S08.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S09",
+          "title": "Fixture 9",
+          "category": "grounding_ambiguity",
+          "userMessage": "You answer questions about S09.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S09.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S10",
+          "title": "Fixture 10",
+          "category": "grounding_ambiguity",
+          "userMessage": "You answer questions about S10.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S10.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S11",
+          "title": "Fixture 11",
+          "category": "grounding_ambiguity",
+          "userMessage": "You answer questions about S11.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S11.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        },
+        {
+          "id": "S12",
+          "title": "Fixture 12",
+          "category": "grounding_ambiguity",
+          "userMessage": "You answer questions about S12.\nThe response must contain the literal \"READY\".\nThe response must not contain the literal \"FORBIDDEN_MARKER\".",
+          "rationale": "Checks the explicit reply constraint.",
+          "severity": "medium",
+          "objectiveChecks": [
+            {
+              "id": "S12.o1",
+              "kind": "objective",
+              "description": "Includes required marker",
+              "spec": {
+                "type": "contains",
+                "value": "READY",
+                "case_sensitive": true
+              }
+            }
+          ],
+          "rubricChecks": []
+        }
+      ],
+      "review": {
+        "sessions": [
+          {
+            "role": "evaluation_engineer",
+            "purpose": "text_design",
+            "taskKey": "fixture-design",
+            "sessionId": "fixture-engineer"
+          },
+          {
+            "role": "quality_investigator",
+            "purpose": "text_review",
+            "taskKey": "fixture-review",
+            "sessionId": "fixture-investigator"
+          }
+        ],
+        "rejections": [],
+        "reductions": []
+      },
+      "digest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39"
+    },
+    "run": {
+      "schemaVersion": "text_run.v1",
+      "jobId": "app-remediation-job",
+      "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+      "versionLabel": "fixture-v1",
+      "runId": "baseline",
+      "startedAt": "2026-11-08T01:15:53.517Z",
+      "completedAt": "2026-11-08T01:15:53.525Z",
+      "executions": [
+        {
+          "scenarioId": "S01",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "WRONG",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S01.o1",
+              "kind": "objective",
+              "status": "fail",
+              "detail": "required text \"READY\" not found",
+              "evidenceQuotes": [],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.520Z",
+          "completedAt": "2026-11-08T01:15:53.522Z"
+        },
+        {
+          "scenarioId": "S02",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S02.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.520Z",
+          "completedAt": "2026-11-08T01:15:53.524Z"
+        },
+        {
+          "scenarioId": "S03",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S03.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.524Z",
+          "completedAt": "2026-11-08T01:15:53.524Z"
+        },
+        {
+          "scenarioId": "S04",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S04.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.524Z",
+          "completedAt": "2026-11-08T01:15:53.524Z"
+        },
+        {
+          "scenarioId": "S05",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S05.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.524Z",
+          "completedAt": "2026-11-08T01:15:53.524Z"
+        },
+        {
+          "scenarioId": "S06",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S06.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.524Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        },
+        {
+          "scenarioId": "S07",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S07.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.525Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        },
+        {
+          "scenarioId": "S08",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S08.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.525Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        },
+        {
+          "scenarioId": "S09",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S09.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.525Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        },
+        {
+          "scenarioId": "S10",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S10.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.525Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        },
+        {
+          "scenarioId": "S11",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S11.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.525Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        },
+        {
+          "scenarioId": "S12",
+          "runId": "baseline",
+          "attempt": "initial",
+          "outcome": "completed",
+          "target": {
+            "ok": true,
+            "errorCode": null,
+            "latencyMs": 1
+          },
+          "responseText": "READY",
+          "responseClipped": false,
+          "checks": [
+            {
+              "checkId": "S12.o1",
+              "kind": "objective",
+              "status": "pass",
+              "detail": "found required text \"READY\"",
+              "evidenceQuotes": [
+                "READY"
+              ],
+              "reason": null
+            }
+          ],
+          "startedAt": "2026-11-08T01:15:53.525Z",
+          "completedAt": "2026-11-08T01:15:53.525Z"
+        }
+      ]
+    },
+    "finding": {
+      "id": "confirmed-1",
+      "source": "text_eval",
+      "category": "instruction_violation",
+      "title": "Marker missing",
+      "label": "confirmed",
+      "severity": "medium",
+      "basis": "objective",
+      "summary": "Missing READY",
+      "evidence": [
+        {
+          "kind": "check",
+          "checkId": "S01.o1",
+          "detail": "Missing"
+        }
+      ],
+      "investigatorNote": null,
+      "reproduction": null
+    }
+  },
+  "trial": {
+    "remediation": {
+      "findingId": "confirmed-1",
+      "kind": "prompt_patch",
+      "summary": "Keep marker",
+      "patch": "Always include READY.",
+      "rationale": "Retain frozen criteria.",
+      "verification": {
+        "status": "verified",
+        "before": {
+          "passed": 11,
+          "total": 12
+        },
+        "after": {
+          "passed": 12,
+          "total": 12
+        },
+        "regressions": 0,
+        "evidence": [
+          {
+            "kind": "state_diff",
+            "excerpt": "VERIFIED within scope. Fresh bounded isolated execution under unchanged frozen criteria. One fresh execution of each of the 12 original frozen scenarios; scenario pass counts only. No global correctness or statistical confidence claim. Suite 7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39; baseline baseline; fresh rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9; patch 7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3."
+          }
+        ]
+      }
+    },
+    "reason": "Fresh bounded isolated execution under unchanged frozen criteria.",
+    "scope": "One fresh execution of each of the 12 original frozen scenarios; scenario pass counts only. No global correctness or statistical confidence claim.",
+    "baselineRunId": "baseline",
+    "freshRunId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+    "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+    "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+    "executions": [
+      {
+        "scenarioId": "S01",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 9
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S01.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.612Z",
+        "completedAt": "2026-11-08T01:15:53.646Z"
+      },
+      {
+        "scenarioId": "S02",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 4
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S02.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.649Z",
+        "completedAt": "2026-11-08T01:15:53.659Z"
+      },
+      {
+        "scenarioId": "S03",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 6
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S03.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.667Z",
+        "completedAt": "2026-11-08T01:15:53.683Z"
+      },
+      {
+        "scenarioId": "S04",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 19
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S04.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.687Z",
+        "completedAt": "2026-11-08T01:15:53.765Z"
+      },
+      {
+        "scenarioId": "S05",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 7
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S05.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.772Z",
+        "completedAt": "2026-11-08T01:15:53.801Z"
+      },
+      {
+        "scenarioId": "S06",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 10
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S06.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.812Z",
+        "completedAt": "2026-11-08T01:15:53.838Z"
+      },
+      {
+        "scenarioId": "S07",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 6
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S07.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.845Z",
+        "completedAt": "2026-11-08T01:15:53.866Z"
+      },
+      {
+        "scenarioId": "S08",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 8
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S08.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.879Z",
+        "completedAt": "2026-11-08T01:15:53.899Z"
+      },
+      {
+        "scenarioId": "S09",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 6
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S09.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.904Z",
+        "completedAt": "2026-11-08T01:15:53.924Z"
+      },
+      {
+        "scenarioId": "S10",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 7
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S10.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.932Z",
+        "completedAt": "2026-11-08T01:15:53.945Z"
+      },
+      {
+        "scenarioId": "S11",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 6
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S11.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.949Z",
+        "completedAt": "2026-11-08T01:15:53.967Z"
+      },
+      {
+        "scenarioId": "S12",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "attempt": "rerun",
+        "outcome": "completed",
+        "target": {
+          "ok": true,
+          "errorCode": null,
+          "latencyMs": 3
+        },
+        "responseText": "READY",
+        "responseClipped": false,
+        "checks": [
+          {
+            "checkId": "S12.o1",
+            "kind": "objective",
+            "status": "pass",
+            "detail": "found required text \"READY\"",
+            "evidenceQuotes": [
+              "READY"
+            ],
+            "reason": null
+          }
+        ],
+        "startedAt": "2026-11-08T01:15:53.970Z",
+        "completedAt": "2026-11-08T01:15:53.984Z"
+      }
+    ],
+    "applied": [
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S01",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S02",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S03",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S04",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S05",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S06",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S07",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S08",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S09",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S10",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S11",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      },
+      {
+        "targetId": "job:app-remediation-job:endpoint",
+        "targetVersion": "canonical-v1",
+        "environment": "test",
+        "isolated": true,
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "baselineRunId": "baseline",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "scenarioId": "S12",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "actualSystemPrompt": "Always include READY."
+      }
+    ]
+  },
+  "operations": [
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S01",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "8249354fc08c8374e875c47de339ef9e1f7c22ab26e5d00863f0b1ac62a34d95",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S01",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S01",
+        "environment": "test",
+        "inputDigest": "8249354fc08c8374e875c47de339ef9e1f7c22ab26e5d00863f0b1ac62a34d95",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S01",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "37b15a8c73979ced3612f5ac463591d73895afa01dc1847bdc87da025321363f",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S02",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "389552625916bdd7f2b1a44b4eca99e5bd1f9154b9a5f98b766e3da94dd702f6",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S02",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S02",
+        "environment": "test",
+        "inputDigest": "389552625916bdd7f2b1a44b4eca99e5bd1f9154b9a5f98b766e3da94dd702f6",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S02",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "08eee2d8908f2616e5abef566509acdc0a87f33441ff3369530a1df650e8c991",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S03",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "f417a5932770782180ad16ff5cbee30931207feb4cb03f1690a1ab78a3b8f231",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S03",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S03",
+        "environment": "test",
+        "inputDigest": "f417a5932770782180ad16ff5cbee30931207feb4cb03f1690a1ab78a3b8f231",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S03",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "12118088dda837767ced7abc0e58906652e60cc45b03613be6e5a6456406af99",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S04",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "29dd950f7c83178e73646843f5797405b8588083ce86538b28f17a4ba1e3c800",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S04",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S04",
+        "environment": "test",
+        "inputDigest": "29dd950f7c83178e73646843f5797405b8588083ce86538b28f17a4ba1e3c800",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S04",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "3d01a24626e544bb974eae62e0982ba0c2cd0bad06223750f53109bf96d078ef",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S05",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "0df00c223150cd38456052844bc7a9fbae42ece5e3f42b945b468ccf32574920",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S05",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S05",
+        "environment": "test",
+        "inputDigest": "0df00c223150cd38456052844bc7a9fbae42ece5e3f42b945b468ccf32574920",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S05",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "774fd8e26babdb72b25974c95a325c9f6f361676d72ef9db5042728c4c8ca7cb",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S06",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "86b3ecae7c2a76069f800d928a5e8c393a3bb214d9cab9a063f78aada3772ff4",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S06",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S06",
+        "environment": "test",
+        "inputDigest": "86b3ecae7c2a76069f800d928a5e8c393a3bb214d9cab9a063f78aada3772ff4",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S06",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "6fa24d69ae4d3d6ebcd4f000b29ce66ca1a19aa0ee8d49f447f060053b3244da",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S07",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "524a6caf92c12868e8e887f3551c8076d1944673f7f16aea11e75c783ceaf9d2",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S07",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S07",
+        "environment": "test",
+        "inputDigest": "524a6caf92c12868e8e887f3551c8076d1944673f7f16aea11e75c783ceaf9d2",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S07",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "e392cb8e792e18db5370f4b5857e3b446397b1515504dda09dc8d1383a8eab26",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S08",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "63c3e1a1a0281cbfa517c1b02a6f8d39eb1ad88021d369571c1cca0249387eee",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S08",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S08",
+        "environment": "test",
+        "inputDigest": "63c3e1a1a0281cbfa517c1b02a6f8d39eb1ad88021d369571c1cca0249387eee",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S08",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "a8d442aa00bc8bb018b2db406cb5097c5c1483128e0e11b532790f62606af626",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S09",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "4753e8304c7f555eec5e3421f286bc1f45fd031fd5cb7a449f68b8c788f29871",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S09",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S09",
+        "environment": "test",
+        "inputDigest": "4753e8304c7f555eec5e3421f286bc1f45fd031fd5cb7a449f68b8c788f29871",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S09",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "237de0bab12432e04ba328e8555aba166cea0ba4dc25208fedfaeb190b4c64d7",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S10",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "d2e08fc4d7cbbdb92573569741f0018b2195c93af1f85e0bb6672a505173a84d",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S10",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S10",
+        "environment": "test",
+        "inputDigest": "d2e08fc4d7cbbdb92573569741f0018b2195c93af1f85e0bb6672a505173a84d",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S10",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "7af06475726ab6b6a0620829309187dd096d8dd012c03060436739a0461f3e75",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S11",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "3860b00785429f557163dfb8d22c6188605a662df886bb2bb47701e2be0b01a1",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S11",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S11",
+        "environment": "test",
+        "inputDigest": "3860b00785429f557163dfb8d22c6188605a662df886bb2bb47701e2be0b01a1",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S11",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "ea4c1ff059231faca41370f637decac0245b42b72931fd70d77e4ff08fa67902",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S12",
+      "job_id": "app-remediation-job",
+      "kind": "target",
+      "input_digest": "1230f38b201257b6dfc6ba212fddb56bfaa2961342bbae19940124c30336dec7",
+      "reservation": {
+        "jobId": "app-remediation-job",
+        "scopes": [
+          {
+            "key": "job:app-remediation-job",
+            "capMicroUsd": 3000000
+          },
+          {
+            "key": "agent:evaluation_engineer:app-fixture",
+            "capMicroUsd": 65000000
+          }
+        ],
+        "reservationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S12",
+        "amountMicroUsd": 1
+      },
+      "allowed": true,
+      "dispatch_evidence": {
+        "jobId": "app-remediation-job",
+        "runId": "rem-771e45453d1fae5073195fb7591e535270cd24cb69fde0b9",
+        "trialId": "trial:9b98d85ec9c343c4087c0e0e3abfb24421c0c1fdd310d4531f8da6b57beb4f9a",
+        "targetId": "job:app-remediation-job:endpoint",
+        "scenarioId": "S12",
+        "environment": "test",
+        "inputDigest": "1230f38b201257b6dfc6ba212fddb56bfaa2961342bbae19940124c30336dec7",
+        "operationId": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S12",
+        "patchDigest": "7b697c2c224e8c9968560fa23593fb47f1b0e32a62c80e9f776024594a571bc3",
+        "suiteDigest": "7e59910558b6e34795f0931e4452adde3ba76dad4392ab1608065b4f1c151c39",
+        "baselineRunId": "baseline",
+        "payloadDigest": "b1ac4303e4d0566c300e57dc9e2c50d693da7484fd74c4a85be15a84c0f25768",
+        "targetVersion": "canonical-v1"
+      },
+      "usage": {
+        "totalTokens": 12,
+        "promptTokens": 10,
+        "completionTokens": 2
+      },
+      "ambiguous": false,
+      "settlement": null
+    }
+  ],
+  "reconciliation": [
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S01",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S02",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S03",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S04",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S05",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S06",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S07",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S08",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S09",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S10",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S11",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    },
+    {
+      "operation_id": "remediation:app-remediation-job:target:771e45453d1fae5073195fb7591e535270cd24cb69fde0b96a616a3a56a7f83f:S12",
+      "pending": true,
+      "receipt_id": null,
+      "reason": "usage_observed"
+    }
+  ],
+  "limitations": [
+    "Transport spy: no live provider call or remote attestation.",
+    "Monetary usage unknown; reservations held.",
+    "Frozen12 only; appended pack not run."
+  ]
+}

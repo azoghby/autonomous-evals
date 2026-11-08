@@ -1,0 +1,64 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-aq1IJy
+
+ ✓ remediation-verification/app-remediation.test.ts (5 tests) 11533ms
+   ✓ app saved-baseline remediation composition (5)
+     ✓ retains all twelve actual serialized payload receipts, durable unknown usage, and replay without dispatch 4160ms
+     ✓ keeps unsupported isolation unverified with no target dispatch or usage fabrication 2067ms
+     ✓ keeps tool-schema proposals unverified and refuses Trace-only canonical jobs 1819ms
+     ✓ refuses request finding substitution and target revision drift before proposal/dispatch 1848ms
+     ✓ uses global cost keys and rejects cross-job/changed monetary facts atomically 1638ms
+ ✓ packages/core/src/evals/remediation/remediation.test.ts (23 tests) 6735ms
+   ✓ remediation: SQL persistence and offline isolated target trials (23)
+     ✓ verifies a known buggy target fixed by actual isolated prompt application under unchanged frozen criteria 417ms
+     ✓ replays target cost delivery after lost acknowledgement without another target dispatch 1138ms
+ ✓ packages/core/src/evals/remediation/accounting/accounting.test.ts (6 tests) 2858ms
+ ✓ packages/core/src/targets/remediation.test.ts (31 tests) 3488ms
+   ✓ secured request-scoped remediation target (31)
+     ✓ composes actual text/chat serialization with the remediation factory for all twelve frozen scenarios and SQL replay 3233ms
+
+ Test Files  4 passed (4)
+      Tests  65 passed (65)
+   Start at  17:15:48
+   Duration  26.80s (tests 95%, import 3%, transform 3%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-aq1IJy/results.json
+Strict new accounting and applied remediation app/Workflow entrypoint typecheck passed (transitive source included; server-only marker declared).
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-aq1IJy",
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "core": "5906961c2a70c0d6d2999cf7086689402ff60f5b",
+  "patches": [
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-8634fb16/docs/progress-chat-integration/combined.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-8634fb16/docs/structured-progress-integration/backend/structured-progress.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-8634fb16/docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-8634fb16/docs/workflow-integration/workflow-producers/002-workflow-producers.patch"
+  ],
+  "remediationBase": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "append": [
+    "docs/workflow-remediation-integration/app/003-remediation.patch"
+  ],
+  "passed": 65,
+  "files": [
+    {
+      "file": "/private/remediation-verification/app-remediation.test.ts",
+      "passed": 5,
+      "status": "passed"
+    },
+    {
+      "file": "/private/packages/core/src/targets/remediation.test.ts",
+      "passed": 31,
+      "status": "passed"
+    },
+    {
+      "file": "/private/packages/core/src/evals/remediation/remediation.test.ts",
+      "passed": 23,
+      "status": "passed"
+    },
+    {
+      "file": "/private/packages/core/src/evals/remediation/accounting/accounting.test.ts",
+      "passed": 6,
+      "status": "passed"
+    }
+  ]
+}

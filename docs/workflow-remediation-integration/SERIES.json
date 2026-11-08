@@ -1,0 +1,7 @@
+{
+  "base": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "prerequisiteSeries": "docs/workflow-integration/SERIES.json",
+  "append": ["docs/workflow-remediation-integration/app/003-remediation.patch"],
+  "coreAddition": "packages/core/src/evals/remediation/accounting",
+  "migrationPolicy": "Review optional SQL artifact separately; no runtime DDL or deployment"
+}

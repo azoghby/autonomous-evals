@@ -1,0 +1,27 @@
+// Offline composition only. Uses preinstalled dependencies; no network or DDL deployment.
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { stageRemediation } from '../stage.mjs';
+const here = dirname(fileURLToPath(import.meta.url));
+const root = resolve(here, '../../..');
+const deps = resolve(process.env.WORKFLOW_NODE_MODULES ?? '/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-6dfdf18b/tests/track-b/node_modules');
+for (const name of ['vitest/vitest.mjs', 'typescript/bin/tsc', '@electric-sql/pglite/package.json']) if (!existsSync(join(deps, name))) throw new Error('Set WORKFLOW_NODE_MODULES to existing offline dependencies');
+const assembled = stageRemediation();
+const { stage } = assembled;
+symlinkSync(deps, join(stage, 'node_modules'), 'dir');
+writeFileSync(join(stage, 'package.json'), '{"private":true,"type":"module"}');
+const tests = join(root, 'docs/workflow-remediation-integration/app/tests');
+if (existsSync(tests)) cpSync(tests, join(stage, 'remediation-verification'), { recursive: true });
+mkdirSync(join(stage, 'remediation-verification'), { recursive: true });
+writeFileSync(join(stage, 'remediation-verification/empty.ts'), 'export {};\n');
+const aliases = [{ find: 'server-only', replacement: join(stage, 'remediation-verification/empty.ts') }, { find: '@/', replacement: join(stage, 'apps/web/src/') }];
+writeFileSync(join(stage, 'vitest.remediation.config.mjs'), `export default { resolve: { alias: [...${JSON.stringify(aliases)}, {find:/^@ae\\/core\\/(.*)$/, replacement:${JSON.stringify(join(stage, 'packages/core/src/$1'))}}] }, test: {include:['remediation-verification/**/*.test.ts','packages/core/src/evals/remediation/**/*.test.ts','packages/core/src/targets/remediation.test.ts'],maxWorkers:1} };`);
+const resultPath = join(stage, 'results.json');
+execFileSync(process.execPath, [join(deps, 'vitest/vitest.mjs'), 'run', '--config', 'vitest.remediation.config.mjs', '--reporter=default', '--reporter=json', `--outputFile.json=${resultPath}`], { cwd: stage, stdio: 'inherit', env: { ...process.env, WORKFLOW_STAGE: stage } });
+const report = JSON.parse(readFileSync(resultPath, 'utf8'));
+if (report.numFailedTests || report.numPendingTests || report.numTodoTests || !report.numPassedTests) throw new Error('Required tests must pass without skips');
+if (existsSync(join(stage, 'remediation-evidence.json'))) copyFileSync(join(stage, 'remediation-evidence.json'), join(here, 'offline-evidence.json'));
+execFileSync(process.execPath, [join(here, 'typecheck.mjs'), stage], { cwd: root, stdio: 'inherit' });
+console.log(JSON.stringify({ ...assembled, passed: report.numPassedTests, files: report.testResults.map(t => ({ file: t.name.replace(stage, ''), passed: t.assertionResults.length, status: t.status })) }, null, 2));
