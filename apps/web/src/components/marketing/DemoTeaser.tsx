@@ -1,9 +1,12 @@
 import Link from "next/link";
-import type { DemoRun, DemoTrial } from "@/components/demo/demo-run-types";
+import type { DemoTrial } from "@/components/demo/demo-run-types";
+import { toRecording } from "@/components/demo/recording";
 import raw from "../../../../../data/demo/real-run.json";
 import { Button, NudgeArrow, Reveal, Section } from "../ui";
 
-const run = raw as unknown as DemoRun;
+const recording = toRecording(raw);
+/** Teaser shows the first recorded run (real agent app × model). */
+const run = recording.runs[0];
 const MAX_LINE = 96;
 
 type Line = { who: "user" | "agent" | "tool"; text: string };
@@ -15,7 +18,7 @@ const clip = (s: string) => {
 
 /** First passing trial of the first scenario: the excerpt is real recorded output, never invented. */
 function excerpt(): { lines: Line[]; trial?: DemoTrial } {
-  const trial = run.scenarios.flatMap((s) => s.trials).find((t) => t.passed && t.events.length > 0);
+  const trial = run?.scenarios.flatMap((s) => s.trials).find((t) => t.passed && t.events.length > 0);
   if (!trial) return { lines: [] };
   const lines: Line[] = [];
   for (const e of trial.events) {
@@ -36,7 +39,7 @@ export function DemoTeaser() {
         <Reveal className="flex flex-col gap-6 lg:col-span-5">
           <h2 id="demo-h" className="t-h2 text-balance text-fg">A real run, replayed. <span className="text-muted">Nothing scripted.</span></h2>
           <p className="t-lead max-w-[30rem]">
-            {run.agent.model.replace(/^[^/]+\//, "")} handles a support queue. Watch every message, tool call and database change as it happened.
+            {run?.source?.name ?? "A real open-source agent"} on {run?.agent.model.replace(/^[^/]+\//, "") ?? "a frontier model"}. Watch every message, tool call and database change as it happened.
           </p>
           <div><Button href="/demo" variant="outline" className="group">Watch the run <NudgeArrow /></Button></div>
         </Reveal>

@@ -1,9 +1,9 @@
 /**
- * Shape of data/demo/real-run.json: one REAL recorded sandbox run (real model output), replayed by /demo.
- * Written by scripts/record-demo-run.ts. All `t` values are ms relative to the start of their trial.
+ * Shape of data/demo/real-run.json: REAL recorded sandbox runs (real model output), one per agent model, replayed by
+ * /demo. Written by scripts/record-demo-run.ts. All `t` values are ms relative to the start of their trial.
  */
 
-export type DemoStoryRole = "clean" | "boundary" | "injection";
+export type DemoStoryRole = "clean" | "boundary" | "injection" | "exchange" | "trap";
 
 export type DemoEvent =
   | { t: number; type: "user"; text: string }
@@ -66,6 +66,10 @@ export interface DemoTrial {
 export interface DemoScenario {
   id: string;
   title: string;
+  /** Public benchmark task id when the scenario comes from one (e.g. "33" for τ²-bench retail task 33). */
+  taskId?: string;
+  /** Short story label shown in the picker (e.g. "Partial-cancel trap"). */
+  storyLabel?: string;
   storyRole: DemoStoryRole;
   category: string;
   workflowId: string;
@@ -81,8 +85,31 @@ export interface DemoScenario {
   trials: DemoTrial[];
 }
 
+/** The real open-source agent app under test (credit + honest note on how it was run). */
+export interface DemoSource {
+  /** Stable key used to group runs of the same agent app (e.g. "openai-cs-agents"). */
+  key: string;
+  name: string;
+  url: string;
+  license: string;
+  /** e.g. "OpenAI Agents SDK", "Google ADK". */
+  framework?: string;
+  /** Honest caveat, e.g. "Tools patched to call our sandbox; prompts and agent logic untouched." */
+  note: string;
+}
+
+/** The file: real agent apps × models, each one recorded run. */
+export interface DemoRecording {
+  schema: "demo-recording-v1";
+  recordedAt: string;
+  runs: DemoRun[];
+  totalCostUsd: number;
+}
+
+/** One (agent app × model) recorded run. */
 export interface DemoRun {
   schema: "demo-run-v1";
+  source?: DemoSource;
   /** Honest provenance line. */
   provenance: string;
   recordedAt: string;

@@ -41,7 +41,7 @@ export function Picker({
                 }`}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className={`t-eyebrow ${active ? "text-accent-text" : "text-muted"}`}>{roleLabel(s.storyRole)}</span>
+                  <span className={`t-eyebrow ${active ? "text-accent-text" : "text-muted"}`}>{s.storyLabel ? str(s.storyLabel) : roleLabel(s.storyRole)}</span>
                   <Chip tone={sum.tone}>{sum.label}</Chip>
                 </span>
                 <span className="mt-2 block break-words text-[14px] leading-[1.4] text-fg [overflow-wrap:anywhere]">{str(s.title)}</span>
