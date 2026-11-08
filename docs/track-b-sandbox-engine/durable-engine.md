@@ -68,3 +68,9 @@ Repository-wide commands were attempted as instructed: `npx tsc -p apps/web --no
 - Added disjoint native-child SQL engine verification tests; repaired only the existing native runner's source/dependency staging, preserving its 14 tests.
 - Re-ran both focused suites after final schema changes: 14 native plus seven engine/schema tests passed. Root checks remain blocked as recorded above.
 - Ownership excludes root LEDGER.md; this log records the change under the explicitly assigned documentation path. No push, deployment, provider calls, or cloud changes.
+
+## Parent combined verification
+
+After integrating outcome policy `354d7f3`, parent verification passed strict staged TypeScript and all seven durable-engine/schema tests against current A `6b9ee17`. The receipt assertion now expects quality pass with null money under no cost gate; voice remains unknown because its perception evidence does not pass. The tests assert the emitted outcome rule and policy digest, then reopen SQL and compare the complete report without redispatch. The initial combined run exposed this outdated expected outcome; no production rule was weakened to satisfy it.
+
+The repaired original persistence runner also passed all 14 native PostgreSQL checks against `a0d24f6`, including independent connections and full server restart. Separately, parent receipt admission passed strict compilation and 22 tests against `01c0507`. These are scoped offline results, not hosted acceptance. Generation continuation is now available as a separate factory (`6b9ee17`); adopting it inside engine generation with legacy-claim protection is still in progress.

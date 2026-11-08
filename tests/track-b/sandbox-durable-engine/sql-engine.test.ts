@@ -74,7 +74,12 @@ for (const kind of ['receipt','voice'] as const) it(`${kind}: admitted SQL lifec
  const report=await engine.run(request);
  expect(events).toEqual(['allocate','capture','dispose','grade']);expect(runtime.tools).toBe(1);
  expect(report.grade?.verdict,JSON.stringify({execution:report.execution,unresolved:report.unresolved})).toBe('pass');expect(report.media?.kind).toBe(kind);
- expect(report.outcome.status).toBe('unknown');expect(report.money.microUsd).toBeNull();
+ // Receipt quality is fully proven without a customer cost gate. Voice still
+ // lacks passing tool-argument perception; neither invents settled money.
+ expect(report.outcome.status).toBe(kind==='receipt'?'pass':'unknown');expect(report.money.microUsd).toBeNull();
+ expect(report.outcomeRule).toBe('sandbox-quality-outcome-v2');
+ expect(report.qualityCostPolicy).toBeNull();
+ expect(report.policyDigest).toBe(gateDigest({outcomeRule:report.outcomeRule,qualityCostPolicy:null}));
  expect(await engine.readPrivateReport(request.trial.trialId,report.execution.identityDigest)).toEqual(report);
  assertMediaCorruptionRejected(report);
  const bytes=privateSandboxReportDigest(report),count=dispatched;
