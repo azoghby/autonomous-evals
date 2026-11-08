@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts",
+      "beforeSha256": "be2b9179fb20cdfd7181e65cca38bef0c94dc1579c9019dd022de6a4be16ef8c",
+      "afterSha256": "225d3685b91e3c23a73b9f6364665839e8575aaa7ef93de1b62e91014f03be51"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-integration/run.mjs",
+      "beforeSha256": "b18fa3e476891f9d833931b227a548cd625d19730637442f04b6b8b657412e01",
+      "afterSha256": "3ffb5ac794580de30f4023db1fddedde432decf3aa019c65c540d5b54720e8f6"
+    }
+  ],
+  "patchSha256": "32b530adb98aa81dcb1cbd4ea403cac2408ebde076eae72b7a47d1057041103c",
+  "productionSourceChanged": false
+}

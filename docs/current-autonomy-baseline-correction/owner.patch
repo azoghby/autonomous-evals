@@ -1,0 +1,23 @@
+diff --git a/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts b/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts
+--- a/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts
++++ b/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts
+@@ -9,6 +9,7 @@
+ const state=vi.hoisted(()=>({bootstrap:vi.fn(async()=>{throw Error('legacy construction forbidden');}),send:vi.fn(async()=>({ok:true as const,text:'READY',latencyMs:1})),package:'text_eval' as 'text_eval'|'workflow_eval'}));
+ vi.mock('@/server/job-store',()=>({getJobWithDecryptedCredentials:async()=>({job:{id:'fixture',customerId:'tenant',workflowRunId:'workflow',environment:'test',isMock:false,state:'running',retestOfJobId:null,neonBranchId:'fixture-branch'},credentials:{},intake:{package:state.package,authorizedToTest:true,endpoint:{url:'https://fixture.invalid/chat/completions',model:'fixture',systemPrompt:'fixture'}}}),recordCost:vi.fn()}));
+ vi.mock('@ae/core/integration/eval-services',()=>({buildAgentDeps:state.bootstrap,evalServices:{}}));
++vi.mock('@/server/current-agent-deps',()=>({buildAgentDeps:state.bootstrap}));
+ vi.mock('@ae/core/targets/text',()=>({createTextTarget:()=>({send:state.send})}));
+ import {createRichWorkflowServices} from '@/server/rich-services';
+ async function fixture(){
+diff --git a/tests/track-b/current-autonomy-integration/run.mjs b/tests/track-b/current-autonomy-integration/run.mjs
+--- a/tests/track-b/current-autonomy-integration/run.mjs
++++ b/tests/track-b/current-autonomy-integration/run.mjs
+@@ -38,7 +38,7 @@
+ for(const sub of ['apps/web','packages/core'])if(existsSync(join(installed,sub,'node_modules'))&&!existsSync(join(stage,sub,'node_modules')))symlinkSync(join(installed,sub,'node_modules'),join(stage,sub,'node_modules'));
+ cpSync(here,join(stage,'tests/track-b/current-autonomy-integration'),{recursive:true,filter:p=>!p.includes('/evidence')});
+ write(join(stage,'empty-server-only.mjs'),'export {};\n');
+-write(join(stage,'current-autonomy-vitest.config.mjs'),`export default {resolve:{alias:{'@ae/core':${JSON.stringify(join(stage,'packages/core/src'))},'@':${JSON.stringify(join(stage,'apps/web/src'))},'server-only':${JSON.stringify(join(stage,'empty-server-only.mjs'))}}},test:{exclude:['tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts'],include:['tests/track-b/autonomous-company/**/*.test.ts','tests/track-b/autonomy-release-adoption/**/*.test.ts','tests/track-b/autonomy-paid-app-integration/**/*.test.ts','tests/track-b/current-autonomy-integration/**/*.test.ts'],maxWorkers:1,testTimeout:30000,hookTimeout:30000}};`);
++write(join(stage,'current-autonomy-vitest.config.mjs'),`export default {resolve:{alias:{'@ae/core':${JSON.stringify(join(stage,'packages/core/src'))},'@':${JSON.stringify(join(stage,'apps/web/src'))},'server-only':${JSON.stringify(join(stage,'empty-server-only.mjs'))}}},test:{include:['tests/track-b/autonomous-company/**/*.test.ts','tests/track-b/autonomy-release-adoption/**/*.test.ts','tests/track-b/autonomy-paid-app-integration/**/*.test.ts','tests/track-b/current-autonomy-integration/**/*.test.ts'],maxWorkers:1,testTimeout:30000,hookTimeout:30000}};`);
+ write(join(stage,'tsconfig.current-autonomy-tests.json'),JSON.stringify({compilerOptions:{target:'ES2022',module:'ESNext',moduleResolution:'Bundler',strict:true,noEmit:true,skipLibCheck:true,esModuleInterop:true,types:['node'],paths:{'@ae/core/*':['./packages/core/src/*'],'@/*':['./apps/web/src/*']}},include:['tests/track-b/autonomous-company/**/*.ts','tests/track-b/autonomy-release-adoption/**/*.ts','tests/track-b/autonomy-paid-app-integration/**/*.ts','tests/track-b/current-autonomy-integration/**/*.ts']}));
+ const guard=join(stage,'offline-current-autonomy.cjs');cpSync(join(here,'offline.cjs'),guard);env.NODE_OPTIONS='--require='+JSON.stringify(guard);
+ run('test-typecheck',[join(deps,'typescript/bin/tsc'),'-p','tsconfig.current-autonomy-tests.json']);
