@@ -54,6 +54,49 @@ describe("resolvePriceId", () => {
   });
 });
 
+describe("createPlanCheckout trial", () => {
+  it("adds trial_period_days and metadata when trialDays is set", async () => {
+    await createPlanCheckout({ customerId: "c1", customerEmail: "a@b.co", plan: "pro", interval: "month", trialDays: 14, ...URLS });
+    const [arg] = stripeMock.checkout.sessions.create.mock.calls[0];
+    expect(arg.subscription_data.trial_period_days).toBe(14);
+    expect(arg.subscription_data.metadata.trial_days).toBe("14");
+  });
+  it("omits trial fields when trialDays is 0 or absent", async () => {
+    await createPlanCheckout({ customerId: "c1", customerEmail: "a@b.co", plan: "pro", interval: "month", trialDays: 0, ...URLS });
+    const [arg] = stripeMock.checkout.sessions.create.mock.calls[0];
+    expect(arg.subscription_data).not.toHaveProperty("trial_period_days");
+    expect(arg.metadata).not.toHaveProperty("trial_days");
+  });
+  it("treats a trialing subscription as entitled and mirrors trial_end", async () => {
+    expect(effectivePlanFor({ plan: "pro", planStatus: "trialing" })).toBe("pro");
+    selects = [[{ id: "c1", stripeSubscriptionId: "sub_1" }]];
+    const trialEnd = 1_800_000_000;
+    await syncSubscription({
+      id: "sub_1", status: "trialing", trial_end: trialEnd, customer: "cus_1", metadata: {},
+      items: { data: [{ current_period_end: trialEnd, price: { lookup_key: "se_pro_monthly_v1" } }] },
+    } as unknown as Stripe.Subscription);
+    expect(updates[0]).toMatchObject({ planStatus: "trialing", plan: "pro", planTrialEnd: new Date(trialEnd * 1000) });
+  });
+  it("clears planTrialEnd once the subscription is active", async () => {
+    selects = [[{ id: "c1", stripeSubscriptionId: "sub_1" }]];
+    await syncSubscription({
+      id: "sub_1", status: "active", trial_end: 1_800_000_000, customer: "cus_1", metadata: {},
+      items: { data: [{ current_period_end: 1_802_000_000, price: { lookup_key: "se_pro_monthly_v1" } }] },
+    } as unknown as Stripe.Subscription);
+    expect(updates[0]).toMatchObject({ planStatus: "active", planTrialEnd: null });
+  });
+  it("records a trial purchase as trialing", async () => {
+    selects = [[{ sub: null, status: null }]];
+    await recordPlanPurchase({
+      id: "cs_t", payment_status: "no_payment_required", customer: "cus_1", subscription: "sub_1", amount_total: 0, currency: "usd", livemode: false,
+      metadata: { kind: "plan", plan: "pro", interval: "month", customer_id: "c1", trial_days: "14" }, customer_email: "a@b.co",
+    } as unknown as Stripe.Checkout.Session);
+    expect(inserts[0]).toMatchObject({ status: "trialing" });
+    expect(updates[0]).toMatchObject({ planStatus: "trialing", plan: "pro" });
+    expect(updates[0]!.planTrialEnd).toBeInstanceOf(Date);
+  });
+});
+
 describe("createPlanCheckout", () => {
   it("creates a subscription session with metadata, promo codes and customer_email", async () => {
     const out = await createPlanCheckout({ customerId: "c1", customerEmail: "a@b.co", plan: "pro", interval: "month", ...URLS });
