@@ -1,0 +1,58 @@
+{
+  "artifact": "f88811c8fb7509dc5996bb8cd1d148e4c23f3de3",
+  "integrated": "28356f2e655a2559a5e5ca144439e71fc765370c",
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "changes": {
+    "apps/web/src/app/api/cron/autonomy/route.ts": {
+      "preimage": "43aac7801ab75977a31b9dd998a7a852d504f6a629013f11132c858003ce28de",
+      "sha256": "e89c00e1f522be2c24ad27602d05f00647e18ba2f409ad3182505e5a9174672f",
+      "bytes": 577
+    },
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": {
+      "preimage": "19f6c7183c31102a35f5df5c215a05a1a5fea287b6625445819791e5a13f4290",
+      "sha256": "5e609197aa4f11b679418158a40fc63c9832e76bd5f173dccecf37d510d93a9a",
+      "bytes": 385
+    },
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts": {
+      "preimage": "73130b387aecd76789f3717dc3e44c4448ecf901682574cfcfd6e22727949ea2",
+      "sha256": "cb011fc8e9e28a11f0cd57720245464afce47e7405249a348ea7ac8bbf90567a",
+      "bytes": 384
+    },
+    "apps/web/src/app/api/stripe/webhook/route.ts": {
+      "preimage": "119510bbc871af0a98db71e5bd8503dacd3e065e5a1f2ecf891fe50d53653a97",
+      "sha256": "f77094afea138f1a32e99edabe25083146ccf611d2ff2bd64c91c8907673e8e2",
+      "bytes": 4890
+    },
+    "apps/web/src/server/current-autonomy-runtime.ts": {
+      "preimage": "fbe3f5377cab93c98d16f5db3e41b57c9eac169fa01e2719ab4f7c4b39e00c60",
+      "sha256": "3f763e57fadf21e5f4677ed9359da6a9ab9620d824112ea1c38f61d1e8935e18",
+      "bytes": 638
+    },
+    "apps/web/src/workflows/current-autonomy.ts": {
+      "preimage": "0d98c4a798bfd69f3f6a857fade0e53d6dffdaad3262e34cc2d7c14f61ee2eaf",
+      "sha256": "1802db89b2ee2f3527f2a4a3aaef5f644feddf8244519e5e351db8869bb21c8a",
+      "bytes": 619
+    }
+  },
+  "additions": {
+    "apps/web/src/server/current-payment.ts": {
+      "sha256": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
+      "bytes": 13166
+    },
+    "apps/web/src/server/current-autonomy-owner.ts": {
+      "sha256": "299e8b26c4bc0d15bcf8f370f4b365c1ac31ade25adbf0cdcfc1ed4ad8ae314a",
+      "bytes": 893
+    },
+    "apps/web/src/server/current-payment-startup.ts": {
+      "sha256": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
+      "bytes": 4794
+    },
+    "apps/web/src/server/current-stripe-payment.ts": {
+      "sha256": "7c3015b39f9e104880cfbd1789e2ddd32b3d63351ce7d7082c0cc50e88e26ae6",
+      "bytes": 742
+    }
+  },
+  "sql": "sql/001-current-payment.sql",
+  "releaseAccepted": false,
+  "liveRunPerformed": false
+}

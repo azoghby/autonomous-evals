@@ -1,0 +1,63 @@
+{
+  "review": {
+    "total": 222,
+    "passed": 221,
+    "failed": 1,
+    "skipped": 0
+  },
+  "baselineSlice": {
+    "passed": 164,
+    "failed": 0
+  },
+  "independentReviewSlice": {
+    "passed": 57,
+    "failed": 0
+  },
+  "newRefundRegression": {
+    "failed": 1,
+    "cause": "Fixture omitted real workflow cost_keys/provider_costs migrations; SQL42P01 confirmed in diagnostic evaluator."
+  },
+  "finalGates": {
+    "review-types": {
+      "exitCode": 0
+    },
+    "review-tests": {
+      "exitCode": 1,
+      "testSummary": {
+        "total": 222,
+        "passed": 221,
+        "failed": 1,
+        "pending": 0,
+        "todo": 0
+      }
+    },
+    "combined-types": {
+      "exitCode": 0
+    },
+    "core-types": {
+      "exitCode": 0
+    },
+    "next-typegen": {
+      "exitCode": 0
+    },
+    "application-types": {
+      "exitCode": 0
+    },
+    "root-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 2624,
+        "passed": 2622,
+        "failed": 0,
+        "pending": 2,
+        "todo": 0
+      }
+    },
+    "production-build": {
+      "exitCode": 0
+    }
+  },
+  "sourcePostBuildHashesVerified": 2607,
+  "fixtureDdlControlPassed": true,
+  "runtimeSourceChangedForFixtureCorrection": false
+}

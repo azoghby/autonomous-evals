@@ -1,0 +1,8 @@
+{
+  "source": "docs/current-company-payment-fixes",
+  "files": {
+    "README.md": "c88a10f077a672d17fe6d7b1c48c27879f5caf5b83e6e5daa0244a5d2f271067",
+    "verification.log": "22481ad24e9433754d299ab5eb9c8af294ba9b6b8f8af8fd5de9527538f06c57"
+  },
+  "scope": "Parent historical222-test check; independently verified current-main separately"
+}

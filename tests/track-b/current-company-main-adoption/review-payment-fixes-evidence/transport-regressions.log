@@ -1,0 +1,25 @@
+✔ safe control: only canonical loopback destination, HTTP, explicit nondefault port, no credentials/query/fragment (43.916333ms)
+✔ safe control: successful JSON, byte-accurate content length, no pooling, pinned host (11.422125ms)
+✔ safe control: bounded response destroys stream at first excess byte (9.752291ms)
+✔ safe control: redirects refused without a second request (6.924625ms)
+✔ safe control: circular/BigInt serialization errors stay local (8.13675ms)
+✔ safe control: malformed response and request/response errors settle (26.811917ms)
+✔ undefined/function/symbol JSON results reject before network with invalid_request (5.987ms)
+✔ request byte cap uses UTF-8 bytes and admits exactly the limit (21.257084ms)
+✔ invalid credentials are rejected before construction (14.485209ms)
+✔ encoded responses refuse without decompression (4.591917ms)
+✔ absolute timeout cancels a continuously streaming response (disposable loopback) (75.14375ms)
+✔ safe control: credential validation rejects CRLF before connecting (5.820208ms)
+✔ safe control: native idle timeout and mid-response socket abort reject and release sockets (73.893083ms)
+✔ safe controls: default lite deps secure; allowLoopback only bypasses validation when explicitly true (66.384417ms)
+✔ invalid configuration cannot disable bounds (6.1675ms)
+✔ settlement cancels deadline and ignores later events (41.816584ms)
+✔ synchronous request construction failure is safely mapped (5.444209ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 548.901417

@@ -1,0 +1,572 @@
+{
+  "adoptionPin": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "excludedUpstream": "d6203b61e157df3558e7d6a7df2d8637d82f821d",
+  "upstreamDeltaFrom": "72d523b",
+  "sourceRawDiffSha256": "0f979eda69672646d232e312f5bcf3f4e5c541b4dbbb0ce012da883699f03820",
+  "paths": [
+    {
+      "path": "LEDGER.md",
+      "status": "M",
+      "previousUpstreamBlob": "335e182e5184558de8ecb8b76727c898efa77cbd",
+      "newUpstreamBlob": "e08a0807a7c5e1575ec3dcdbbf07b53e872e4527",
+      "pinned3fOwnerBlob": "335e182e5184558de8ecb8b76727c898efa77cbd",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/cron/founder-report/route.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "bdf62fbb92221dfa9d2c044306ed03b795c1cf62",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/notify/decide/route.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "a8a5b14faf1a7ff5664d051478a2078a0255b4fe",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/notify/decide/route.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "f4c85ff4f5bd9947599307d30a9950fcb25809b2",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/notify/telegram/route.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "114bff13fce3b96a3086b10465fe3960117f5e3d",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/notify/telegram/route.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "494e292ee391cf3064f4456b391680e6bc23de6b",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/notify/whatsapp/route.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "bf62d77079a418f46dde5dd7cfc16ce82687a2f0",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/notify/whatsapp/route.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "57b11434bf2bfe48597315bfd1540def7862cb69",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/operator/notify/route.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "f33f10ca87fd75f724850399d946c44dd6632480",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/operator/outreach/[id]/reject/route.ts",
+      "status": "M",
+      "previousUpstreamBlob": "6626d19dd1b26f077f81ccdeb7414cda2585a1cf",
+      "newUpstreamBlob": "5d08e9ee96f58d7e88834fdb24e7b79b90b7704d",
+      "pinned3fOwnerBlob": "6626d19dd1b26f077f81ccdeb7414cda2585a1cf",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/api/stripe/webhook/route.ts",
+      "status": "M",
+      "previousUpstreamBlob": "f7e2331c19fa1eff24a372de37780062f53844b8",
+      "newUpstreamBlob": "3d35abe327fa32a98c7211c89507177788e89881",
+      "pinned3fOwnerBlob": "f7e2331c19fa1eff24a372de37780062f53844b8",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/globals.css",
+      "status": "M",
+      "previousUpstreamBlob": "a936c77d25d5a01d555d2b154086a1078b59a3bf",
+      "newUpstreamBlob": "4ecb32396fa07219e67272af957a548da81217b2",
+      "pinned3fOwnerBlob": "a936c77d25d5a01d555d2b154086a1078b59a3bf",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/leaderboard/Methodology.tsx",
+      "status": "M",
+      "previousUpstreamBlob": "72fa55601021893ab9df02c33d3a6e6b3867ef36",
+      "newUpstreamBlob": "3c7170a5289d609ac1ff45b503f8c8c2de5fd3ef",
+      "pinned3fOwnerBlob": "72fa55601021893ab9df02c33d3a6e6b3867ef36",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/notify/decide/DecideButton.tsx",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "d47513ff0f1e66df9a97c805d8d580313195483c",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/notify/decide/page.tsx",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "72295315afb4cacb0b8fb3d5188fb1c295d76286",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/app/page.tsx",
+      "status": "M",
+      "previousUpstreamBlob": "9e75a3a2be8404d6b1a9d301202af4fee60d47d1",
+      "newUpstreamBlob": "fcd5323263fc1d67ddaa85fe4e752494ec5e14a2",
+      "pinned3fOwnerBlob": "9e75a3a2be8404d6b1a9d301202af4fee60d47d1",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/components/app/operator-console.tsx",
+      "status": "M",
+      "previousUpstreamBlob": "409751d3c83f3b71a743a1c060b6d83d34bf1444",
+      "newUpstreamBlob": "a9c2dd39ba914cd7d8aa7b0133740a9384200f5d",
+      "pinned3fOwnerBlob": "409751d3c83f3b71a743a1c060b6d83d34bf1444",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/components/app/operator-notifications.tsx",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "b11ba47d62376fbde95ccf6761edf561eba0876e",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/components/marketing/sandbox-showcase/SandboxDiagram.tsx",
+      "status": "M",
+      "previousUpstreamBlob": "c04074ab0df902cb2a781d6cd40e63fc17361cca",
+      "newUpstreamBlob": "28dafc8928e029b7d8da0c9236a301cbba66f475",
+      "pinned3fOwnerBlob": "c04074ab0df902cb2a781d6cd40e63fc17361cca",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/components/marketing/team/MeetTheTeam.tsx",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "7831e2362ae7233b95668147b0aa51f869f85b5e",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/components/marketing/team/roster.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "b37ec09c17aceaca5a0cf0028b33c252647e0ee8",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/agent-invites.ts",
+      "status": "M",
+      "previousUpstreamBlob": "88fe03e516e37bd9d8471e96222437fab039e075",
+      "newUpstreamBlob": "7d6c7509ddb1f9acd11c49042cf17a8de216da0b",
+      "pinned3fOwnerBlob": "88fe03e516e37bd9d8471e96222437fab039e075",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/experts.ts",
+      "status": "M",
+      "previousUpstreamBlob": "b3e1b08980a74c029477aaefc4390d8cd6ba1e43",
+      "newUpstreamBlob": "1adedbf280da30421618c9bfbe65dd7b6e32f32f",
+      "pinned3fOwnerBlob": "b3e1b08980a74c029477aaefc4390d8cd6ba1e43",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/inbound-email.test.ts",
+      "status": "M",
+      "previousUpstreamBlob": "811e4793076d8ce9b7e5a2eeb2d6247585ad3642",
+      "newUpstreamBlob": "f785d188a526dbada083fdb94c32937ab2419ccc",
+      "pinned3fOwnerBlob": "811e4793076d8ce9b7e5a2eeb2d6247585ad3642",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/inbound-email.ts",
+      "status": "M",
+      "previousUpstreamBlob": "b7b32ebc65b8ab431b927b7b33aa69ae2723e1ed",
+      "newUpstreamBlob": "57e7b85362b95cbebad3366e3525c7a7f1947125",
+      "pinned3fOwnerBlob": "b7b32ebc65b8ab431b927b7b33aa69ae2723e1ed",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/approvals-logic.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "4a1cc19d823fb1a1e7ec17d8bd2b292f98bd1c37",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/approvals-logic.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "21e537b526503d8b31a0adf45ccc681f3aac8ba4",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/approvals.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "063d8baf1fe7da3df32b3c9d710302fa08c9d84f",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/channels.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "e873498de8d53561a1b367ceb6e8bec5c19f6acf",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/channels.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "4c5f9b9b007e4e2de0633bb80f7b07b696c03d7f",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/daily-plan.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "203e42983e9c11d912a0543e6fc969b23e3bcb54",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/daily-report-logic.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "bfb8b57b4e3a66375c0d14bd572987a3b13f1ea0",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/daily-report-logic.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "25afa221821e3e204b63a9b760e172ec9a501743",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/daily-report.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "a2ff4f14d7716b51cb99a2e0d56cebb3e9a5a529",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email-logic.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "e6607a634cf121e1060979fdf0f54daeb638c96d",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email-logic.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "b30e6391673362329c7b8acaf8afcaf94b792c65",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email-reply.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "e824801f68f48fef8d84baf780ff497749d72910",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email-reply.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "00f3eb6994452cf4d1c5097bb7f7b1f5e3b25a45",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "a948e8887b68d2aa250a331a2032923908d3b2db",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/handlers.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "169e338beb87ea8dee807e6ba043292761ee3551",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/hooks.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "9fb1ab0dfddcac3fddcac2776700b8a4b1f612df",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/registry.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "84459330c82bdc0c104225dbaba357b608f100b1",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/sync.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "e536fc2f81420e6f84317efaaa9458a842fc6744",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/telegram.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "40ebf0d3ca5e922bf1542b4da1a259f3cded3297",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/telegram.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "1ba6887ff2a8ee057249332134e1c32e7048a3c2",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/types.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "c502a1571b5e1854f572a83029c00bb4eb452519",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/whatsapp.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "8dfbfe3b20b4ecd782c7499365b4c91a39c641ca",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/notify/whatsapp.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "ac598bfa68e34c582c4e415900beba139533327d",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/operator-alerts.ts",
+      "status": "M",
+      "previousUpstreamBlob": "71261023bb4edb0d1dbff73afe311db09a8f3482",
+      "newUpstreamBlob": "3366bdebf133a7c8b5f3907aa56b15ecd4bdaaed",
+      "pinned3fOwnerBlob": "71261023bb4edb0d1dbff73afe311db09a8f3482",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/outreach-approve.ts",
+      "status": "M",
+      "previousUpstreamBlob": "d5aee3b3e808595c9c8e7c2a94d43496b94e1458",
+      "newUpstreamBlob": "bfc60cea2937ae48fbf664c0ed58e374ca101fcf",
+      "pinned3fOwnerBlob": "d5aee3b3e808595c9c8e7c2a94d43496b94e1458",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/owner-policy.ts",
+      "status": "M",
+      "previousUpstreamBlob": "0dfcfef649a0ab81d8120fb9ddeced4644b6f2b9",
+      "newUpstreamBlob": "7764cbc83113a29b17326fbb779dba1aa7003c37",
+      "pinned3fOwnerBlob": "0dfcfef649a0ab81d8120fb9ddeced4644b6f2b9",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/src/server/sales-leads.ts",
+      "status": "M",
+      "previousUpstreamBlob": "a9f82e11be668bb11fe4a79cdf04e7778ef7482f",
+      "newUpstreamBlob": "9c34c0a9c16bc5e9d0e17d5828348e258ffe2b53",
+      "pinned3fOwnerBlob": "a9f82e11be668bb11fe4a79cdf04e7778ef7482f",
+      "includedInAdoption": false
+    },
+    {
+      "path": "apps/web/vercel.json",
+      "status": "M",
+      "previousUpstreamBlob": "3b7f123f9051d2a5707e84cacb35189ffd0cbf6a",
+      "newUpstreamBlob": "bd59aaf4a48b8035fae3cf0efeab5b0f0c5a2896",
+      "pinned3fOwnerBlob": "3b7f123f9051d2a5707e84cacb35189ffd0cbf6a",
+      "includedInAdoption": false
+    },
+    {
+      "path": "data/public-agents.json",
+      "status": "M",
+      "previousUpstreamBlob": "79d5576ade26c18da60eab5b509834831329cf0c",
+      "newUpstreamBlob": "d4b02e0613fda7b0245cf4db91cd52073067401c",
+      "pinned3fOwnerBlob": "79d5576ade26c18da60eab5b509834831329cf0c",
+      "includedInAdoption": false
+    },
+    {
+      "path": "docs/FOUNDER_APPROVALS.md",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "6a350034411df4446f026fce9ce80528909d58a1",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/db/migrations/0019_founder_approvals.sql",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "b1dea580f2945dacf832a21a1c28042c3ca496f6",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/db/migrations/0020_founder_email.sql",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "197389d120856dd10677924a388237960b294310",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0019_snapshot.json",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "d4ee3990685446f57076651546e2569cbc7a395b",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0020_snapshot.json",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "e7a52d9a8b74748b2ce27b59ba04e63ef847b32f",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/_journal.json",
+      "status": "M",
+      "previousUpstreamBlob": "d3d149895f03935718356b890777c35db1d98f23",
+      "newUpstreamBlob": "6f704f3645c71b3447e88203ce859f34c0faa97d",
+      "pinned3fOwnerBlob": "d3d149895f03935718356b890777c35db1d98f23",
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "status": "M",
+      "previousUpstreamBlob": "f0f469e280f139580c887686a1edbd490df0f159",
+      "newUpstreamBlob": "dbc666e8784cdb87542a7a2d88bb5d8e8b7e1eec",
+      "pinned3fOwnerBlob": "f0f469e280f139580c887686a1edbd490df0f159",
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/email/auth-parse.test.ts",
+      "status": "A",
+      "previousUpstreamBlob": "0000000000000000000000000000000000000000",
+      "newUpstreamBlob": "02715bd3016aa5febb276e86308db76a8a3e10dd",
+      "pinned3fOwnerBlob": null,
+      "includedInAdoption": false
+    },
+    {
+      "path": "packages/core/src/email/webhook.ts",
+      "status": "M",
+      "previousUpstreamBlob": "1f5f03e8faead0e12450f28c8db4edd54f1dbf6a",
+      "newUpstreamBlob": "f2bc02a34fc4837b0fa6a4ec816ae2667f165ad9",
+      "pinned3fOwnerBlob": "1f5f03e8faead0e12450f28c8db4edd54f1dbf6a",
+      "includedInAdoption": false
+    },
+    {
+      "path": "scripts/demo/shims/adk_cs_sandbox_shim.py",
+      "status": "M",
+      "previousUpstreamBlob": "e28a86378f931c11dc84e7fdc3e86da5313e4ea0",
+      "newUpstreamBlob": "e657a1628062eacfcb4e4efeacc9cb0f9a2e3f88",
+      "pinned3fOwnerBlob": "e28a86378f931c11dc84e7fdc3e86da5313e4ea0",
+      "includedInAdoption": false
+    },
+    {
+      "path": "scripts/demo/shims/cs_agents_sandbox_shim.py",
+      "status": "M",
+      "previousUpstreamBlob": "549366a624d26c35467afaa7aa4f692724c8338d",
+      "newUpstreamBlob": "cf4341f90c3f37738b891700b329cb0d943eea96",
+      "pinned3fOwnerBlob": "549366a624d26c35467afaa7aa4f692724c8338d",
+      "includedInAdoption": false
+    }
+  ],
+  "stripeWebhook": {
+    "included": false,
+    "addedImport": "notifyPlanPurchase from @/server/notify/hooks",
+    "addedBehavior": "after recordPlanPurchase, if inserted await notifyPlanPurchase with sessionId/kind/product/amount/environment/email; retain audit alert and plan routing",
+    "newBlob": "3d35abe327fa32a98c7211c89507177788e89881",
+    "ownerAdoptionGate": "Recompose from a new immutable owner pin preserving this hook, subscription/plan routing, current autonomy ingestion and refund semantics; never replace with this earlier webhook postimage"
+  },
+  "approvalSettings": {
+    "included": false,
+    "tables": [
+      "founder_approvals",
+      "founder_notify_settings",
+      "founder_email_threads",
+      "founder_notes"
+    ],
+    "migrations": [
+      "0019_founder_approvals.sql",
+      "0020_founder_email.sql"
+    ],
+    "settings": [
+      "FOUNDER_EMAIL",
+      "FOUNDER_NOTIFY_EMAIL",
+      "OPERATOR_EMAILS",
+      "TELEGRAM_*",
+      "TWILIO_*",
+      "FOUNDER_WHATSAPP_TO",
+      "DAILY_SPEND_BUDGET_USD"
+    ],
+    "routes": [
+      "/api/operator/notify",
+      "/api/notify/decide",
+      "/api/notify/telegram",
+      "/api/notify/whatsapp",
+      "/api/cron/founder-report"
+    ]
+  },
+  "otherExcluded": [
+    "marketing team section",
+    "email inbound authentication/reply integration",
+    "demo shim safety-block scoring",
+    "updated migration journal/snapshots"
+  ],
+  "differentOwnerTreeRefused": true,
+  "releaseAccepted": false
+}

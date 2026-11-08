@@ -1,0 +1,26 @@
+{
+  "historicalParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "scoutExcluded": true,
+  "initialMain": "a7851f848ecea7621b227cf71744f888985d9f7b",
+  "currentMain": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "upstreamPricing": "ab30446",
+  "observedAnomalousHead": "e4686a84f248bfe8be9bcda4ed534b0807379714",
+  "mergedMain": "15a38e0f9fe606a62bbb3734d4f6a19e9ab37d07",
+  "tree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc",
+  "previousAdoptionPin": "b331cc9729fd86c21268ad802d276b0081110da1",
+  "adoptionPins": [
+    "a7851f848ecea7621b227cf71744f888985d9f7b",
+    "15a38e0f9fe606a62bbb3734d4f6a19e9ab37d07",
+    "b66a3e2973382403e571e4003054cca9a46492d9",
+    "384d09ab60a1cd1c41a260e43a91518cb0a8ea0d",
+    "b331cc9729fd86c21268ad802d276b0081110da1",
+    "3f0bd8a589101c9902ad50d402b7948b6dee4c68"
+  ],
+  "mergedUpstream": "72d523b",
+  "stableParents": {
+    "companyReview": "441d018",
+    "payment": "d55699f7e831a2192441ecab97ffdbefe55ebe60",
+    "transport": "3f0bd8a589101c9902ad50d402b7948b6dee4c68"
+  },
+  "excludedUpstream": "d6203b61e157df3558e7d6a7df2d8637d82f821d"
+}

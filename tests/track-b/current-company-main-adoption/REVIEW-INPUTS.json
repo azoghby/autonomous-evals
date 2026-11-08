@@ -1,0 +1,714 @@
+{
+  "reviewCommit": "8756a5a",
+  "reviewRoot": "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-2fbc49fe",
+  "mapping": [
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
+      "sha256": "baec3608d638d59d40a0333c8e381a51eb03d615361b175150f3cb9b6a5c759b",
+      "bytes": 11860,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/calendar.invariants.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
+      "sha256": "42b5dac2c979dbb0544c6408cecc2bbbe4c9fee5c330434366c78bce0aaadb01",
+      "bytes": 16469,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/composed.invariants.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+      "sha256": "d7ad0120faaea2172a39a12f261525920810a7d93cd7c4a36e16e70b4289c8df",
+      "bytes": 5125,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/findings.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/fixture.ts",
+      "sha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
+      "bytes": 9637,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
+      "sha256": "b925cffd29845b7f441e5b471aace2bea632b42426f995060670f6c4b755d70f",
+      "bytes": 4554,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/payment.characterization.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
+      "sha256": "678209ae71a54b63671f1ee1cf327c594c5d863b160a7748e4181c58824b34cd",
+      "bytes": 4018,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/calendar-identity.characterization.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "sha256": "dc94abbc00f57ea2d6bae25d1e3b6ce0d5f5768286100fb430e856fa1c053a9e",
+      "bytes": 10110,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/calendar-identity.invariants.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
+      "sha256": "f9c8ea2b1d5e6979c5cb19441003f9c1eb254bbc2d6a3d9751c6181fd4b509b5",
+      "bytes": 6807,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/calendar-replay.invariants.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+      "sha256": "12a37f0d2a14126b969814719980acc197a6f55ec1e47b61bb00232906e05bb2",
+      "bytes": 6300,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/current-app-calendar.invariants.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/fixture.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/fixture.ts",
+      "sha256": "26b01f2f5f4fae5568990717a75d35c126d1684de7dd0b730407f95ffbe950d5",
+      "bytes": 8650,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/fixture.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+      "sha256": "2a2929ce09548c653f2ed3fcb247deb1bb06914ddc38b7ec6bad1e316fa7b39f",
+      "bytes": 4859,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/payment-fixture.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
+      "sha256": "5d5b3555c8406eb9abc68b642a721faca94b11d1e30e93eb2faa32f682e1e090",
+      "bytes": 1412,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain-starvation.repro.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+      "sha256": "e83e7839741204d2a6c9955debc73b093e16a498c33c182d52d33d5f060d7985",
+      "bytes": 1571,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain.characterization.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
+      "sha256": "a6ca247579b54f2ffca2832e7ad78adbdf86e46f562889de3443c78c7638c367",
+      "bytes": 1688,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/startup.characterization.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
+      "sha256": "d333aa74049ebe91c8495b962f1fa7c7a5af823a83ee0fa6df47ae9aad9de6a6",
+      "bytes": 3816,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/startup.invariants.test.ts"
+    },
+    {
+      "path": "tests/track-b/current-company-review/run.mjs",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/run.mjs",
+      "sha256": "d8f9270f2838333c1f76403a31bd502ae949940b272da92acf1e4d1c9d135f2e",
+      "bytes": 6018,
+      "kind": "immutable-review",
+      "stagePath": "tests/track-b/current-company-adoption-review/run.mjs"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/APPLICATION.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/APPLICATION.json",
+      "sha256": "a3112fcb7238ab2d3ef776cb2762873b3f42c8769b20b8a4b0144160df966b77",
+      "bytes": 2493,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/CANDIDATE.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/CANDIDATE.json",
+      "sha256": "606c2128e034e759c046cba4d390522e73eb776b46127f92226e0e4b78223445",
+      "bytes": 3826,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/COMMIT-BLOCKED.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/COMMIT-BLOCKED.md",
+      "sha256": "b43a82f2ec9fea7a208966e7ee03bcd24f35944c17297506abd200cffb88549e",
+      "bytes": 822,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/FILES.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/FILES.json",
+      "sha256": "6eba4e3cf2ea5a874d4b71c37826cdce5692f7993ed741f2a959af483fdf6b14",
+      "bytes": 2691,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/HANDOFF.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/HANDOFF.json",
+      "sha256": "29efefc30c0c0a99ebe57cde32eaa71ef29be0ee166f3dd27676c7f69ca945cd",
+      "bytes": 2348,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/LEDGER.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/LEDGER.md",
+      "sha256": "3812a36fe84de7be55dc005c55af671bfe67f7360fd9a04c0b14789ebdf6b459",
+      "bytes": 1742,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/README.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/README.md",
+      "sha256": "d89fa46facf1c6cf8f3b67a91c7015e04ea593f80f5d6331aa128e9b2d85c752",
+      "bytes": 7111,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/VERIFICATION.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/VERIFICATION.md",
+      "sha256": "2e12fd7e1675cb7d1d7f4701e3c59ded8b950ff7f4f32c5874f3da9b9fcc3ca1",
+      "bytes": 3202,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/application.patch",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/application.patch",
+      "sha256": "5980a5ef898a9c7c4b18fdb8a2e27a262dce334ae1afd82108896192396c4233",
+      "bytes": 28821,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/bridge/README.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/bridge/README.md",
+      "sha256": "1a117735dcf66f183eb97d5301d2f1af924196e827eb1d5c42aaaa9b7994baff",
+      "bytes": 3647,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment.ts",
+      "sha256": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
+      "bytes": 13166,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/build-artifact.mjs",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/build-artifact.mjs",
+      "sha256": "a3ffbef75a70b20090df87e214eacc0506c431db9b6d1fc668f72cbe876f477e",
+      "bytes": 1835,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/sql/001-current-payment.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/sql/001-current-payment.sql",
+      "sha256": "59ce4e894c5415e47adfc9bf9fda996614daf84de2b9c9a3e04eb934024addb1",
+      "bytes": 10020,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/sql/README.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/sql/README.md",
+      "sha256": "e4d9f216f5fb57616a6bc9e80c1f688b2bb61ac083ca78aecfebcd7258c914b4",
+      "bytes": 2945,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/stage.mjs",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/stage.mjs",
+      "sha256": "643397cdf1b3631e1da9d4419985f7c48953e948e04950c46312139447ed4484",
+      "bytes": 5178,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/HANDOFF.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/HANDOFF.md",
+      "sha256": "79be260f4b4f744f116eb8cbb69d668cde93e8aa6be43c32356f50ab48061775",
+      "bytes": 4232,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/cron/autonomy/route.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/cron/autonomy/route.ts",
+      "sha256": "e89c00e1f522be2c24ad27602d05f00647e18ba2f409ad3182505e5a9174672f",
+      "bytes": 577,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts",
+      "sha256": "5e609197aa4f11b679418158a40fc63c9832e76bd5f173dccecf37d510d93a9a",
+      "bytes": 385,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts",
+      "sha256": "cb011fc8e9e28a11f0cd57720245464afce47e7405249a348ea7ac8bbf90567a",
+      "bytes": 384,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/stripe/webhook/route.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/stripe/webhook/route.ts",
+      "sha256": "f77094afea138f1a32e99edabe25083146ccf611d2ff2bd64c91c8907673e8e2",
+      "bytes": 4890,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-owner.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-owner.ts",
+      "sha256": "299e8b26c4bc0d15bcf8f370f4b365c1ac31ade25adbf0cdcfc1ed4ad8ae314a",
+      "bytes": 893,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-runtime.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-runtime.ts",
+      "sha256": "3f763e57fadf21e5f4677ed9359da6a9ab9620d824112ea1c38f61d1e8935e18",
+      "bytes": 638,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-payment-startup.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-payment-startup.ts",
+      "sha256": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
+      "bytes": 4794,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-stripe-payment.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-stripe-payment.ts",
+      "sha256": "7c3015b39f9e104880cfbd1789e2ddd32b3d63351ce7d7082c0cc50e88e26ae6",
+      "bytes": 742,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/workflows/current-autonomy.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/workflows/current-autonomy.ts",
+      "sha256": "1802db89b2ee2f3527f2a4a3aaef5f644feddf8244519e5e351db8869bb21c8a",
+      "bytes": 619,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.agent.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.agent.sql",
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+      "bytes": 1075,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0000_init.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0000_init.sql",
+      "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+      "bytes": 10796,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0001_expert_network.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0001_expert_network.sql",
+      "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+      "bytes": 4454,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0002_delivery_snapshot.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0002_delivery_snapshot.sql",
+      "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+      "bytes": 58,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0003_rate_limits.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0003_rate_limits.sql",
+      "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+      "bytes": 167,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0004_email_threads.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0004_email_threads.sql",
+      "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+      "bytes": 889,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0005_remediations.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0005_remediations.sql",
+      "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+      "bytes": 874,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0006_per_finding_pricing.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0006_per_finding_pricing.sql",
+      "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+      "bytes": 342,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0007_api_keys.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0007_api_keys.sql",
+      "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+      "bytes": 752,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0008_monitoring_runs.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0008_monitoring_runs.sql",
+      "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+      "bytes": 1422,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0009_call_slots.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0009_call_slots.sql",
+      "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+      "bytes": 763,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0010_engagement_prev_tokens.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0010_engagement_prev_tokens.sql",
+      "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+      "bytes": 105,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0011_job_shares.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0011_job_shares.sql",
+      "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+      "bytes": 652,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0012_github_prs.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0012_github_prs.sql",
+      "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+      "bytes": 1491,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0013_regression_runs.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0013_regression_runs.sql",
+      "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+      "bytes": 798,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0014_public_agents.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0014_public_agents.sql",
+      "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+      "bytes": 1372,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.chat.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.chat.sql",
+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+      "bytes": 1301,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.checkpoint.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.checkpoint.sql",
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+      "bytes": 587,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.data001.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.data001.sql",
+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+      "bytes": 1023,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.data002.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.data002.sql",
+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+      "bytes": 2070,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.inventory.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.inventory.sql",
+      "sha256": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+      "bytes": 644,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.journal.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.journal.sql",
+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+      "bytes": 710,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.ledger.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.ledger.sql",
+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+      "bytes": 1028,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.rich-comparison.006.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.rich-comparison.006.sql",
+      "sha256": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+      "bytes": 1304,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-data.003.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-data.003.sql",
+      "sha256": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+      "bytes": 968,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-finding-reruns.008.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-finding-reruns.008.sql",
+      "sha256": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+      "bytes": 851,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-packs.005.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-packs.005.sql",
+      "sha256": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+      "bytes": 683,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+      "bytes": 825,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-resumption.007.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-resumption.007.sql",
+      "sha256": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
+      "bytes": 564,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+      "bytes": 1575,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow002.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow002.sql",
+      "sha256": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
+      "bytes": 380,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.access.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.access.sql",
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "bytes": 3536,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.communications.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.communications.sql",
+      "sha256": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
+      "bytes": 455,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.json",
+      "sha256": "ea7fc7adf25eebd840dd012b94463332ec6c567ec7eec5a5e0357316f3379461",
+      "bytes": 1181,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.operations.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.operations.sql",
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "bytes": 1618,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/manifest.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/manifest.json",
+      "sha256": "a78942f41acfccca32ca6303526a5361282e78f01436ecd9243cac7dd5b375c1",
+      "bytes": 17089,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.sql",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.sql",
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "bytes": 3536,
+      "kind": "fixture-input"
+    },
+    {
+      "path": "docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.ts",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.ts",
+      "sha256": "1ddcac91fc2cdc28d9e04f4e919f252b1680c2f68b0644c4f1aa4817007732f3",
+      "bytes": 13882,
+      "kind": "fixture-input"
+    }
+  ],
+  "immutableReviewerFiles": 16,
+  "existingBaselineStage": "/private/tmp/current-company-main-adoption-validated-20261107",
+  "absentFromBaselineStage": [
+    "tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
+    "tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
+    "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+    "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+    "tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+    "tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
+    "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+    "tests/track-b/current-company-review/replay-verification/fixture.ts",
+    "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+    "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
+    "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
+    "tests/track-b/current-company-review/run.mjs"
+  ],
+  "differentInBaselineStage": [],
+  "fixtureCompatibility": {
+    "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+    "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
+    "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
+    "afterSha256": "f2c449293b06f41bd38ab4f1f4d389eac6a864703d22a30264558e4a831e4fb2",
+    "assertionsBefore": 0,
+    "assertionsAfter": 0,
+    "change": "canonical-price/additive002 fixture"
+  },
+  "reviewReports": [
+    {
+      "path": "docs/current-company-review/FINDINGS.json",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/FINDINGS.json",
+      "sha256": "367aa8d4b1fda5f134fae77c4871bc806a70bc64d516fe3fa975e3d6c53e2627",
+      "bytes": 2660
+    },
+    {
+      "path": "docs/current-company-review/README.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/README.md",
+      "sha256": "64b23249552269e135b95c4f5d332fd3c05f90ecda267feff6abd19e7396076c",
+      "bytes": 14822
+    },
+    {
+      "path": "docs/current-company-review/children/authorization-payment.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/children/authorization-payment.md",
+      "sha256": "a40c67d6497cf9dd003d210fd740ae97de7f8b0c5a1085a33b70cd5cd9ad6c0d",
+      "bytes": 11067
+    },
+    {
+      "path": "docs/current-company-review/children/replay-verification.md",
+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/children/replay-verification.md",
+      "sha256": "bf4f6c1c299da7428916f7fa39e382ed6ff9751af75fa366afd0a2320b84b69c",
+      "bytes": 14184
+    }
+  ],
+  "fixtureCompatibilityVariants": {
+    "baseline": [
+      {
+        "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
+        "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
+        "afterSha256": "f2c449293b06f41bd38ab4f1f4d389eac6a864703d22a30264558e4a831e4fb2",
+        "assertionsBefore": 0,
+        "assertionsAfter": 0,
+        "change": "canonical-price/additive002 fixture"
+      }
+    ],
+    "paymentFixes": [
+      {
+        "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
+        "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
+        "afterSha256": "6f03cae013c50905bbd7f1d9b4d000731719d3955251dae0c6ff974c57a06875",
+        "assertionsBefore": 0,
+        "assertionsAfter": 0,
+        "change": "canonical-price/additive002 fixture"
+      },
+      {
+        "path": "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/payment-fixture.ts",
+        "beforeSha256": "2a2929ce09548c653f2ed3fcb247deb1bb06914ddc38b7ec6bad1e316fa7b39f",
+        "afterSha256": "250f46a4d2a64f2fed48ffd5e750b2707f9e92d49f7cb64b7fd590e7035b69c2",
+        "assertionsBefore": 0,
+        "assertionsAfter": 0,
+        "change": "additive002 fixture"
+      },
+      {
+        "path": "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/findings.test.ts",
+        "beforeSha256": "d7ad0120faaea2172a39a12f261525920810a7d93cd7c4a36e16e70b4289c8df",
+        "afterSha256": "c7a81a6aa79880870e6b7c8c665acf926d09a105ba2efa9588a9ffae13591d35",
+        "assertionsBefore": 7,
+        "assertionsAfter": 7,
+        "change": "parent-supplied4corrected-queueassertions"
+      },
+      {
+        "path": "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain.characterization.test.ts",
+        "beforeSha256": "e83e7839741204d2a6c9955debc73b093e16a498c33c182d52d33d5f060d7985",
+        "afterSha256": "66d58d997ef07071d28f5e9c23d053dfacc5cba9c19ca2861fc47a8d40322f1e",
+        "assertionsBefore": 7,
+        "assertionsAfter": 7,
+        "change": "parent-supplied4corrected-queueassertions"
+      },
+      {
+        "path": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+        "stagePath": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+        "beforeSha256": "886c432841e3039eea9beeb71be028da301589e7cd3e4205d3dec41bc4a6b792",
+        "afterSha256": "6d23f2c2a33e8b460b0662edc0de84c7f40640b3be63fce891fdb53ff0387855",
+        "assertionsBefore": 16,
+        "assertionsAfter": 16,
+        "change": "actual-application-bridge-import"
+      }
+    ]
+  },
+  "parentProvidedReviewCommit": "441d018",
+  "preserveOriginalNamespace": true,
+  "executionNamespace": "tests/track-b/current-company-adoption-review",
+  "committedRegressionFixtureInputs": [
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
+      "stagePath": "owner-migrations/app.workflow001.sql",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+      "bytes": 1575,
+      "kind": "committed-regression-fixture",
+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
+      "stagePath": "owner-migrations/app.workflow-remediation.004.sql",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+      "bytes": 825,
+      "kind": "committed-regression-fixture",
+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
+    }
+  ]
+}

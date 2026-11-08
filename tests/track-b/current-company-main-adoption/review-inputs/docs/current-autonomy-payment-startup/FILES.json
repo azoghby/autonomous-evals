@@ -1,0 +1,29 @@
+{
+  "sha256": {
+    "APPLICATION.json": "a3112fcb7238ab2d3ef776cb2762873b3f42c8769b20b8a4b0144160df966b77",
+    "CANDIDATE.json": "606c2128e034e759c046cba4d390522e73eb776b46127f92226e0e4b78223445",
+    "COMMIT-BLOCKED.md": "b43a82f2ec9fea7a208966e7ee03bcd24f35944c17297506abd200cffb88549e",
+    "HANDOFF.json": "29efefc30c0c0a99ebe57cde32eaa71ef29be0ee166f3dd27676c7f69ca945cd",
+    "LEDGER.md": "3812a36fe84de7be55dc005c55af671bfe67f7360fd9a04c0b14789ebdf6b459",
+    "README.md": "d89fa46facf1c6cf8f3b67a91c7015e04ea593f80f5d6331aa128e9b2d85c752",
+    "VERIFICATION.md": "2e12fd7e1675cb7d1d7f4701e3c59ded8b950ff7f4f32c5874f3da9b9fcc3ca1",
+    "application.patch": "5980a5ef898a9c7c4b18fdb8a2e27a262dce334ae1afd82108896192396c4233",
+    "bridge/README.md": "1a117735dcf66f183eb97d5301d2f1af924196e827eb1d5c42aaaa9b7994baff",
+    "bridge/source/apps/web/src/server/current-payment.ts": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
+    "build-artifact.mjs": "a3ffbef75a70b20090df87e214eacc0506c431db9b6d1fc668f72cbe876f477e",
+    "sql/001-current-payment.sql": "59ce4e894c5415e47adfc9bf9fda996614daf84de2b9c9a3e04eb934024addb1",
+    "sql/README.md": "e4d9f216f5fb57616a6bc9e80c1f688b2bb61ac083ca78aecfebcd7258c914b4",
+    "stage.mjs": "643397cdf1b3631e1da9d4419985f7c48953e948e04950c46312139447ed4484",
+    "startup/HANDOFF.md": "79be260f4b4f744f116eb8cbb69d668cde93e8aa6be43c32356f50ab48061775",
+    "startup/source/apps/web/src/app/api/cron/autonomy/route.ts": "e89c00e1f522be2c24ad27602d05f00647e18ba2f409ad3182505e5a9174672f",
+    "startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": "5e609197aa4f11b679418158a40fc63c9832e76bd5f173dccecf37d510d93a9a",
+    "startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts": "cb011fc8e9e28a11f0cd57720245464afce47e7405249a348ea7ac8bbf90567a",
+    "startup/source/apps/web/src/app/api/stripe/webhook/route.ts": "f77094afea138f1a32e99edabe25083146ccf611d2ff2bd64c91c8907673e8e2",
+    "startup/source/apps/web/src/server/current-autonomy-owner.ts": "299e8b26c4bc0d15bcf8f370f4b365c1ac31ade25adbf0cdcfc1ed4ad8ae314a",
+    "startup/source/apps/web/src/server/current-autonomy-runtime.ts": "3f763e57fadf21e5f4677ed9359da6a9ab9620d824112ea1c38f61d1e8935e18",
+    "startup/source/apps/web/src/server/current-payment-startup.ts": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
+    "startup/source/apps/web/src/server/current-stripe-payment.ts": "7c3015b39f9e104880cfbd1789e2ddd32b3d63351ce7d7082c0cc50e88e26ae6",
+    "startup/source/apps/web/src/workflows/current-autonomy.ts": "1802db89b2ee2f3527f2a4a3aaef5f644feddf8244519e5e351db8869bb21c8a"
+  },
+  "releaseAccepted": false
+}

@@ -1,0 +1,40 @@
+{
+  "parent": "b66a3e2973382403e571e4003054cca9a46492d9",
+  "patchSha256": "d65fd5d1ac8dbe08fff0239ddc573f72023a8cfed8befa491d1adf96486e0691",
+  "gitMetadataMutated": false,
+  "checks": [
+    {
+      "stage": "/private/tmp/current-company-main-adoption-reproduced-final-20261107",
+      "verifiedFiles": 2573,
+      "drift": []
+    },
+    {
+      "stage": "/private/tmp/current-company-main-adoption-builder-recheck-20261107",
+      "verifiedFiles": 2573,
+      "drift": []
+    }
+  ],
+  "releaseAccepted": false,
+  "finalPaymentFixed": {
+    "stage": "/private/tmp/current-company-main-adoption-payment-reproduced-20261107",
+    "verifiedFiles": 2607,
+    "drift": [],
+    "patchSha256": "d7e80d23ccc0cd1a43ceb1a5f24ca3e069c419344b71d0864fb233e98d13b97d"
+  },
+  "finalCurrentMain": {
+    "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+    "patchSha256": "763c1e3ea688ab2a7e9fd61aa12f2e28a2f79899527fe016882e269e45c816e0",
+    "checks": [
+      {
+        "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
+        "files": 2669,
+        "drift": []
+      },
+      {
+        "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-reproduced-20261107",
+        "files": 2669,
+        "drift": []
+      }
+    ]
+  }
+}

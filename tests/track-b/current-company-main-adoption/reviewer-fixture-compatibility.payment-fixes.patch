@@ -1,0 +1,86 @@
+--- a/tests/track-b/current-company-review/authorization-payment/fixture.ts
++++ b/tests/track-b/current-company-review/authorization-payment/fixture.ts
+@@ -1,3 +1,4 @@
++import {PRICE_CENTS} from '@ae/core/contracts';
+ /** Composed current owner startup over actual SQL (PGlite). Real modules: current-payment-startup,
+  * current-payment bridge, current-stripe-payment, current-autonomy, autonomy-release, autonomous-paid
+  * and the payment/release/paid migrations. Scripted only: Stripe signature SDK (provider boundary),
+@@ -25,6 +26,7 @@
+   'apps/web/src/server/autonomy-release.sql','apps/web/src/server/autonomous-paid-authority.sql',
+   'docs/current-autonomy-payment-startup/sql/001-current-payment.sql','apps/web/src/server/autonomous-paid.sql',
+   'packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'])await engine.exec(read(p));
++ await engine.exec(read('docs/current-company-payment-fixes/sql/002-payment-recovery.sql'));
+  const sql:AgentTransactionalSql={query:(q,p)=>engine.query(q,p) as never,transaction:fn=>engine.transaction(tx=>fn({query:(q,p)=>tx.query(q,p) as never}))};
+  return {engine,sql};
+ }
+@@ -39,17 +41,17 @@
+  await engine.query('INSERT INTO customers(id,email) VALUES($1,$2) ON CONFLICT DO NOTHING',[ids.tenant,`${ids.tenant}@example.invalid`]);
+  await engine.query(`INSERT INTO jobs(id,customer_id,package,state,intake,workflow_run_id) VALUES($1,$2,'text_eval',$3,$4::jsonb,'run_durable')`,
+   [ids.job,ids.tenant,ids.state??'awaiting_payment',JSON.stringify({package:'text_eval',authorizedToTest:true,notes:'Check response quality',endpoint:{url:'https://target.invalid/v1',systemPrompt:'Be helpful'}})]);
+- await engine.query(`INSERT INTO quotes(job_id,version,package,price_cents,scope_summary,deliverables,accepted_at,stripe_checkout_session_id) VALUES($1,1,'text_eval',500,$2,$3::jsonb,now(),$4)`,
++ await engine.query(`INSERT INTO quotes(job_id,version,package,price_cents,scope_summary,deliverables,accepted_at,stripe_checkout_session_id) VALUES($1,1,'text_eval',${PRICE_CENTS.text_eval},$2,$3::jsonb,now(),$4)`,
+   [ids.job,SCOPE,JSON.stringify(deliverables),session]);
+  return session;
+ }
+ /** The row recordPaymentFromSession persists before autonomy ingestion. */
+ export async function recordPayment(engine:PGlite,ids:{payment:string;job:string;session:string;pi:string;event:string}){
+  await engine.query(`INSERT INTO payments(id,job_id,quote_version,stripe_event_id,stripe_checkout_session_id,stripe_payment_intent_id,amount_cents,currency,environment,kind,status)
+-  VALUES($1,$2,1,$3,$4,$5,500,'usd','test','one_time','paid')`,[ids.payment,ids.job,ids.event,ids.session,ids.pi]);
++  VALUES($1,$2,1,$3,$4,$5,${PRICE_CENTS.text_eval},'usd','test','one_time','paid')`,[ids.payment,ids.job,ids.event,ids.session,ids.pi]);
+ }
+ export const paidEvent=(o:{id:string;job:string;session:string;pi:string;amount?:number})=>({id:o.id,type:'checkout.session.completed',livemode:false,pending_webhooks:1,
+- data:{object:{id:o.session,object:'checkout.session',mode:'payment',payment_status:'paid',livemode:false,client_reference_id:o.job,amount_total:o.amount??500,currency:'usd',payment_intent:o.pi,
++ data:{object:{id:o.session,object:'checkout.session',mode:'payment',payment_status:'paid',livemode:false,client_reference_id:o.job,amount_total:o.amount??PRICE_CENTS.text_eval,currency:'usd',payment_intent:o.pi,
+   metadata:{job_id:o.job,quote_version:'1',environment:'test',pricing_mode:'fixed'}}}});
+ export const refundEvent=(o:{id:string;pi:string;type?:string})=>({id:o.id,type:o.type??'charge.refunded',livemode:false,pending_webhooks:1,
+  data:{object:{id:`ch_${o.id}`,object:'charge',livemode:false,amount_refunded:100,payment_intent:o.pi}}});
+--- a/tests/track-b/current-company-review/replay-verification/payment-fixture.ts
++++ b/tests/track-b/current-company-review/replay-verification/payment-fixture.ts
+@@ -15,6 +15,7 @@
+  const db=new PGlite();
+  for(const p of ['app.baseline.0000_init.sql','app.baseline.0006_per_finding_pricing.sql','autonomy-release.access.sql'])await db.exec(read('docs/current-autonomy-integration/dependencies/owner-migrations/'+p));
+  await db.exec(read('docs/current-autonomy-payment-startup/sql/001-current-payment.sql'));
++ await db.exec(read('docs/current-company-payment-fixes/sql/002-payment-recovery.sql'));
+  const sql:AgentTransactionalSql={query:(s,p)=>db.query(s,p) as never,transaction:fn=>db.transaction(tx=>fn({query:(s,p)=>tx.query(s,p) as never}))};
+  const bridge=createCurrentPaymentBridge({sql,now:()=>0,authorize:async()=>true,verifyStripe:()=>{throw Error('not used: verified events are injected at the SQL boundary');}});
+  const ingest=(t:string,j:string,eid:string,status:'paid'|'refunded',session:string,payment:string)=>db.query<{result:string}>('SELECT current_autonomy_payment.ingest_event($1,$2,1,$3,$4,$5,$6,$7,500,$8,$9,$10,$11) AS result',[t,j,'stripe','test',eid,(status==='paid'?'c':'d').repeat(64),session,'USD',status,qd,payment]).then(r=>r.rows[0].result);
+--- a/tests/track-b/current-company-review/authorization-payment/findings.test.ts
++++ b/tests/track-b/current-company-review/authorization-payment/findings.test.ts
+@@ -33,7 +33,7 @@
+  const dueMain=()=>f.engine.query('UPDATE company_autonomy_release.job_bindings SET next_tick_at=0 WHERE job_id=$1',[f.job]);
+  await f.startup.advanceDueJobs();await dueMain();await f.startup.advanceDueJobs();
+  const stuck=(await f.engine.query<{n:number}>(`SELECT count(*)::int AS n FROM current_autonomy_payment.outbox o JOIN current_autonomy_payment.events e USING(provider,environment,event_id) WHERE NOT o.delivered AND e.status='refunded'`)).rows[0].n;
+- expect(stuck).toBe(25); // root cause: revocation rows are never acknowledged
++ expect(stuck).toBe(0); // permanently revoked rows are acknowledged
+  // Control: the same receipt is valid; a job-targeted drain (the bootstrap path) publishes it.
+  await f.startup.bridge.drainReceipts(f.tenant,f.job);await dueMain();await f.startup.advanceDueJobs();
+  expect(seen).toEqual(['paid','paid','paid']);
+--- a/tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts
++++ b/tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts
+@@ -11,13 +11,13 @@
+  const healthy=await f.job(1000,'ffffffff');
+  await f.ingest(healthy.tenant,healthy.id,'evt_late','paid',healthy.session,healthy.payment);
+  const {outcomes}=await f.bridge.drainPendingReceipts();
+- expect(outcomes).toHaveLength(25);expect(outcomes.at(-1)).toEqual({jobId:healthy.id,checked:1});
++ expect(outcomes).toHaveLength(1);expect(outcomes.at(-1)).toEqual({jobId:healthy.id,checked:1});
+  expect(await f.published(healthy.tenant,healthy.id,'evt_late')).toBe(true);
+ },60000);
+ it('CHARACTERIZATION: a refund event outbox row is never marked delivered; each tick re-selects that job (permanent drain-window occupant)',async()=>{
+  const f=await paymentFixture();dbs.push(f.db);const j=await f.refundedJob(1);
+- for(let tick=0;tick<3;tick++)expect((await f.bridge.drainPendingReceipts()).outcomes).toEqual([{jobId:j.id,checked:1}]);
+- expect(await f.undelivered()).toBe(1);expect(await f.valid(j.tenant,j.id,'evt_pay_1')).toBe(false);
++ for(let tick=0;tick<3;tick++)expect((await f.bridge.drainPendingReceipts()).outcomes).toEqual([]);
++ expect(await f.undelivered()).toBe(0);expect(await f.valid(j.tenant,j.id,'evt_pay_1')).toBe(false);
+  // Bootstrap's per-job drain is the only path that still works for an affected later job.
+  expect(await f.publish(j.tenant,j.id,'evt_refund_1')).toBe('waiting_or_revoked');
+ },60000);
+--- a/tests/track-b/current-autonomy-payment-startup/bridge.test.ts
++++ b/tests/track-b/current-autonomy-payment-startup/bridge.test.ts
+@@ -1,6 +1,6 @@
+ import { PRICE_CENTS } from '../../../packages/core/src/contracts';
+ import { describe, it, expect, vi } from 'vitest';
+-import { createCurrentPaymentBridge } from '../../../docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment';
++import { createCurrentPaymentBridge } from '@/server/current-payment';
+ import { buildQuote } from '../../../packages/core/src/agents/commercial';
+ import type { AgentTransactionalSql } from '../../../packages/core/src/agents/postgres-ports';
+ 

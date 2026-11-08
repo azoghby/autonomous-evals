@@ -1,0 +1,99 @@
+{
+  "parentPaymentPin": {
+    "parent": "039851736eabb94e85c2c111bbccc78374716275",
+    "patchSha256": "fb5e1802969c73aef0698f3d39f0d1d7ed9bce5041bc2fb63a5fd5f898f20b43",
+    "sqlSha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
+    "paths": {
+      "apps/web/src/server/autonomous-paid.ts": {
+        "before": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
+        "after": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c"
+      },
+      "apps/web/src/server/autonomy-release.ts": {
+        "before": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f",
+        "after": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb"
+      },
+      "apps/web/src/server/current-payment-startup.ts": {
+        "before": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
+        "after": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5"
+      },
+      "apps/web/src/server/current-payment.ts": {
+        "before": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
+        "after": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae"
+      }
+    }
+  },
+  "files": [
+    {
+      "path": "tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts",
+      "sha256": "992d2ff3118cbb8377db26083c0f21d693b612286029693fba9dda004368c3b2",
+      "bytes": 2901,
+      "kind": "payment-regression"
+    },
+    {
+      "path": "tests/track-b/current-company-payment-fixes/run.mjs",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/run.mjs",
+      "sha256": "5020b906cc900fde90e8dae2de5a7524336340b57459734e3bdb91554cbc3d4f",
+      "bytes": 8709,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/PIN.json",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/PIN.json",
+      "sha256": "8bba5421172ec995671eecaae2b013c18400aafde95a6a59f49581ee1349c8a3",
+      "bytes": 1137,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/README.md",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/README.md",
+      "sha256": "6961161bb35256fa0041f06961810e34f24b44170e2d27f3ee8352cd25791555",
+      "bytes": 3268,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/owner.patch",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/owner.patch",
+      "sha256": "fb5e1802969c73aef0698f3d39f0d1d7ed9bce5041bc2fb63a5fd5f898f20b43",
+      "bytes": 9153,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/sql/002-payment-recovery.sql",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/sql/002-payment-recovery.sql",
+      "sha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
+      "bytes": 1584,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/source/autonomous-paid.ts",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/autonomous-paid.ts",
+      "sha256": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c",
+      "bytes": 9173,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/source/autonomy-release.ts",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/autonomy-release.ts",
+      "sha256": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb",
+      "bytes": 16536,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/source/current-payment-startup.ts",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/current-payment-startup.ts",
+      "sha256": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5",
+      "bytes": 4865,
+      "kind": "parent-extension-evidence"
+    },
+    {
+      "path": "docs/current-company-payment-fixes/source/current-payment.ts",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/current-payment.ts",
+      "sha256": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae",
+      "bytes": 14818,
+      "kind": "parent-extension-evidence"
+    }
+  ],
+  "runtimePostimagesVerified": 4,
+  "sqlVerified": true
+}

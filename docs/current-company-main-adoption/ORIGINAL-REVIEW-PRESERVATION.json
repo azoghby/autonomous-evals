@@ -1,0 +1,24 @@
+{
+  "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "files": [
+    "tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
+    "tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
+    "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+    "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+    "tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+    "tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
+    "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+    "tests/track-b/current-company-review/replay-verification/fixture.ts",
+    "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+    "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
+    "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
+    "tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
+    "tests/track-b/current-company-review/run.mjs"
+  ],
+  "preservedExactly": true,
+  "executionNamespace": "tests/track-b/current-company-adoption-review",
+  "regressionNamespace": "tests/track-b/current-company-adoption-payment-fixes"
+}

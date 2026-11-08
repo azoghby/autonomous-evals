@@ -1,0 +1,85 @@
+{
+  "reviewCommit": "8756a5a",
+  "files": [
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
+      "gitBlob": "930e4a109202a47caf662e2f42a621097a92fbdd",
+      "sha256": "baec3608d638d59d40a0333c8e381a51eb03d615361b175150f3cb9b6a5c759b"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
+      "gitBlob": "6e9342de32e90d47e2fba9a5b5c7d0c997d46c43",
+      "sha256": "42b5dac2c979dbb0544c6408cecc2bbbe4c9fee5c330434366c78bce0aaadb01"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+      "gitBlob": "329888439e64efa2b2609ab4a714a387d0de78b4",
+      "sha256": "d7ad0120faaea2172a39a12f261525920810a7d93cd7c4a36e16e70b4289c8df"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+      "gitBlob": "565a214226b093b535283cf2d37e04b4f8bc238b",
+      "sha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd"
+    },
+    {
+      "path": "tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
+      "gitBlob": "e409c1a3cb4bd0bd1d47936d7def74d107821e4c",
+      "sha256": "b925cffd29845b7f441e5b471aace2bea632b42426f995060670f6c4b755d70f"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
+      "gitBlob": "94bab00399250d00aa7d4bba862746f85f7c2ea3",
+      "sha256": "678209ae71a54b63671f1ee1cf327c594c5d863b160a7748e4181c58824b34cd"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "gitBlob": "396222a9cec9bb5d0f40c4a42f23b1d28a7498ee",
+      "sha256": "dc94abbc00f57ea2d6bae25d1e3b6ce0d5f5768286100fb430e856fa1c053a9e"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
+      "gitBlob": "de6a934bd41bbc301ce8f6842b07a1fe1d1d15b8",
+      "sha256": "f9c8ea2b1d5e6979c5cb19441003f9c1eb254bbc2d6a3d9751c6181fd4b509b5"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+      "gitBlob": "6e4581b18bb18134321c3f66810cf9ddb57a06e9",
+      "sha256": "12a37f0d2a14126b969814719980acc197a6f55ec1e47b61bb00232906e05bb2"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/fixture.ts",
+      "gitBlob": "cbcd7750a0d3c1372dfefe0bd476feda724e0624",
+      "sha256": "26b01f2f5f4fae5568990717a75d35c126d1684de7dd0b730407f95ffbe950d5"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+      "gitBlob": "8c587e6ae569c68d4545b70a759707da65868484",
+      "sha256": "2a2929ce09548c653f2ed3fcb247deb1bb06914ddc38b7ec6bad1e316fa7b39f"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
+      "gitBlob": "1fd6dddc036fa85b222fe58fe506057c5a338788",
+      "sha256": "5d5b3555c8406eb9abc68b642a721faca94b11d1e30e93eb2faa32f682e1e090"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+      "gitBlob": "8b9c5e06cb7bf3f1c66873662ca4507a14b31763",
+      "sha256": "e83e7839741204d2a6c9955debc73b093e16a498c33c182d52d33d5f060d7985"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
+      "gitBlob": "84cdf46744fa18409d57e9b61003af3d3fd85ede",
+      "sha256": "a6ca247579b54f2ffca2832e7ad78adbdf86e46f562889de3443c78c7638c367"
+    },
+    {
+      "path": "tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
+      "gitBlob": "bc2d5a867ba366e34b1f67bd1213fba86faa6766",
+      "sha256": "d333aa74049ebe91c8495b962f1fa7c7a5af823a83ee0fa6df47ae9aad9de6a6"
+    },
+    {
+      "path": "tests/track-b/current-company-review/run.mjs",
+      "gitBlob": "d3928613a6696c0a4ed3cbf263a097115965b0c3",
+      "sha256": "d8f9270f2838333c1f76403a31bd502ae949940b272da92acf1e4d1c9d135f2e"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "artifact": "f88811c8fb7509dc5996bb8cd1d148e4c23f3de3",
+  "integrated": "28356f2e655a2559a5e5ca144439e71fc765370c",
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "changes": {},
+  "additions": {
+    "apps/web/src/server/current-payment.ts": {
+      "sha256": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
+      "bytes": 13166
+    },
+    "apps/web/src/server/current-autonomy-owner.ts": {
+      "sha256": "299e8b26c4bc0d15bcf8f370f4b365c1ac31ade25adbf0cdcfc1ed4ad8ae314a",
+      "bytes": 893
+    },
+    "apps/web/src/server/current-payment-startup.ts": {
+      "sha256": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
+      "bytes": 4794
+    },
+    "apps/web/src/server/current-stripe-payment.ts": {
+      "sha256": "7c3015b39f9e104880cfbd1789e2ddd32b3d63351ce7d7082c0cc50e88e26ae6",
+      "bytes": 742
+    }
+  },
+  "sql": "sql/001-current-payment.sql",
+  "releaseAccepted": false,
+  "liveRunPerformed": false,
+  "reviewChanges": {}
+}

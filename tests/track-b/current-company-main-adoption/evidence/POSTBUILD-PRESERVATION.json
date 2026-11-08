@@ -1,0 +1,10 @@
+{
+  "applicationManifestSha256": "472a9702856d1a079b9307bf6d2e36488f36dc8b962ac5ea12a25bc5ba44efd0",
+  "parent": "b66a3e2973382403e571e4003054cca9a46492d9",
+  "preserved": 2460,
+  "changes": 21,
+  "additions": 92,
+  "total": 2573,
+  "drift": [],
+  "sourceHashErrors": []
+}

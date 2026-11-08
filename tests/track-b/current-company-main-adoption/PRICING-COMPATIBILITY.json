@@ -1,0 +1,37 @@
+[
+  {
+    "path": "tests/track-b/autonomous-company/communications.test.ts",
+    "beforeSha256": "497bf7790fc7a39f53b1f2c4bb0cfde71c31f98089c35cf07ae5143f3280d133",
+    "afterSha256": "e75e4bd88ae945c9990a847c73e4ebb432b716701d8b7aa3a53516900de4c611",
+    "assertionsBefore": 33,
+    "assertionsAfter": 33
+  },
+  {
+    "path": "tests/track-b/autonomous-company/company.test.ts",
+    "beforeSha256": "0d88cb9c69d297066d6d82deb995de252cfe9ae9b3ab90d677690e7b8033bbee",
+    "afterSha256": "0408413e7be2be9fdaccca5d5698ae8433eef76362a71b472eec271753b2e212",
+    "assertionsBefore": 34,
+    "assertionsAfter": 34
+  },
+  {
+    "path": "tests/track-b/autonomy-paid-app-integration/acceptance-authority.test.ts",
+    "beforeSha256": "245bd611e8c737169210eb277f81a30c37cc02cd1d54321150edc8c3bfa7ed0f",
+    "afterSha256": "f8e8fc796cf310b532298b12cfeb6b2645834085a3ad1100bd847fe5cd1f9894",
+    "assertionsBefore": 58,
+    "assertionsAfter": 58
+  },
+  {
+    "path": "tests/track-b/autonomy-release-adoption/server.test.ts",
+    "beforeSha256": "743ecd4f30ccf000fe3b1174754e04cce91de3f7c81b95151112e741a723c204",
+    "afterSha256": "694fafc3a030707ba59d7411ee44edb6cbfab4158f6dc8a781730cfcc423ccfd",
+    "assertionsBefore": 36,
+    "assertionsAfter": 36
+  },
+  {
+    "path": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+    "beforeSha256": "d9430e537880d2592dea3c13e72e683ee02c5a6b81a74c0a165b7992f2dcc0ca",
+    "afterSha256": "886c432841e3039eea9beeb71be028da301589e7cd3e4205d3dec41bc4a6b792",
+    "assertionsBefore": 16,
+    "assertionsAfter": 16
+  }
+]

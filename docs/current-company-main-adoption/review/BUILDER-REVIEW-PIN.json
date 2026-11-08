@@ -1,0 +1,10 @@
+{
+  "pin": "b66a3e2973382403e571e4003054cca9a46492d9",
+  "tree": "d75da3fde972559ed359fe7d7ce99da1489806e2",
+  "files": {
+    "docs/current-company-main-adoption/build.py": "d25f62f687a658d7bf00f3dc21d1ba56d5de04959cee6aa27426bf00848d17f1",
+    "docs/current-company-main-adoption/stage.mjs": "d400bf90b9bc06c5d3eb31b80b41f6f80b171642a3d1bd800905ff4507ade9da",
+    "docs/current-company-main-adoption/snapshot.py": "a2ae0a68df95de1e89d02e19a9a6fd3234bbce1c490ad9136fe439bc74430da2",
+    "tests/track-b/current-company-main-adoption/pricing-compatibility.py": "09e478bd03079bf9de071dbd8e762516c73436ccd2134f335172829589b49d67"
+  }
+}

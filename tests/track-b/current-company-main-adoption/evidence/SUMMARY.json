@@ -1,0 +1,88 @@
+{
+  "parent": "b66a3e2973382403e571e4003054cca9a46492d9",
+  "stage": "/private/tmp/current-company-main-adoption-validated-20261107",
+  "gates": {
+    "combined-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 164,
+        "passed": 164,
+        "failed": 0,
+        "pending": 0,
+        "todo": 0
+      }
+    },
+    "combined-types": {
+      "exitCode": 0
+    },
+    "core-types": {
+      "exitCode": 0
+    },
+    "application-types": {
+      "exitCode": 0
+    },
+    "root-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 2624,
+        "passed": 2622,
+        "failed": 0,
+        "pending": 2,
+        "todo": 0
+      }
+    },
+    "production-build": {
+      "exitCode": 0
+    },
+    "next-typegen": {
+      "exitCode": 0
+    }
+  },
+  "postBuildPreservation": {
+    "applicationManifestSha256": "472a9702856d1a079b9307bf6d2e36488f36dc8b962ac5ea12a25bc5ba44efd0",
+    "parent": "b66a3e2973382403e571e4003054cca9a46492d9",
+    "preserved": 2460,
+    "changes": 21,
+    "additions": 92,
+    "total": 2573,
+    "drift": [],
+    "sourceHashErrors": []
+  },
+  "analytics": {
+    "path": "/private/tmp/workflow-bootstrap.JpxCTM/apps/web/node_modules/@vercel/analytics",
+    "version": "2.0.1",
+    "packageSha256": "7e086320da536a30cade99499c91052e0ff02d231108f2e0f07c7ae47d696701"
+  },
+  "combinedFiles": 23,
+  "combinedTests": {
+    "passed": 164,
+    "failed": 0,
+    "skipped": 0
+  },
+  "rootTests": {
+    "passed": 2622,
+    "failed": 0,
+    "existingOptInSkipped": 2,
+    "total": 2624
+  },
+  "existingOptInSkips": [
+    "scripts/tau2/tasks-to-scenarios.test.ts: tau2 retail regeneration",
+    "packages/core/src/sandbox/runtime/runtime.live.test.ts: Neon live runtime"
+  ],
+  "initialSetupFailures": [
+    {
+      "gate": "application-types",
+      "reason": "Missing existing app-level Analytics dependency link and generated LayoutProps; repaired disposable setup and ran documented Next typegen."
+    },
+    {
+      "gate": "production-build",
+      "reason": "Workflow plugin required app cwd; corrected harness cwd to apps/web."
+    }
+  ],
+  "sourceEditsDuringValidation": false,
+  "installs": false,
+  "sharedCacheEdits": false,
+  "liveProviders": false,
+  "releaseAccepted": false,
+  "hostedAcceptance": false
+}

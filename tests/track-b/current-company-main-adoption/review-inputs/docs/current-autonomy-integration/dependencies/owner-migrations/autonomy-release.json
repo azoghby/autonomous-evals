@@ -1,0 +1,38 @@
+{
+  "namespace": "autonomy-release",
+  "existingRegistryUnchanged": true,
+  "prerequisiteIdentityMappingRequired": true,
+  "migrations": [
+    {
+      "id": "autonomy-release.operations",
+      "path": "owner-migrations/autonomy-release.operations.sql",
+      "after": [
+        "agent.persistence.001",
+        "data.operations.002"
+      ],
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "autonomy-release.communications",
+      "path": "owner-migrations/autonomy-release.communications.sql",
+      "after": [
+        "autonomy-release.operations"
+      ],
+      "sha256": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "autonomy-release.access",
+      "path": "owner-migrations/autonomy-release.access.sql",
+      "after": [
+        "autonomy-release.communications"
+      ],
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    }
+  ]
+}

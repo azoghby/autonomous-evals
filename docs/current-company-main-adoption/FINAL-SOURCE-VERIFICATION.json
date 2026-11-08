@@ -1,0 +1,19 @@
+{
+  "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "applicationSha256": "2ce331afeb2162b4bc12f0d1fee75f44475d7b85bb47d6615d9d20a8a40e769d",
+  "patchSha256": "763c1e3ea688ab2a7e9fd61aa12f2e28a2f79899527fe016882e269e45c816e0",
+  "checks": [
+    {
+      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
+      "files": 2669,
+      "drift": []
+    },
+    {
+      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-reproduced-20261107",
+      "files": 2669,
+      "drift": []
+    }
+  ],
+  "originalReviewAndCommittedRegressionPreserved": true,
+  "releaseAccepted": false
+}

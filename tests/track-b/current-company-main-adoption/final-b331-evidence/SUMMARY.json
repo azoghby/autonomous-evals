@@ -1,0 +1,173 @@
+{
+  "parent": "b331cc9729fd86c21268ad802d276b0081110da1",
+  "tree": "9f5787e50205ad97893592ac71e354ef75e740f1",
+  "initialMain": "a7851f848ecea7621b227cf71744f888985d9f7b",
+  "historicalParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "priorValidatedPin": "384d09ab60a1cd1c41a260e43a91518cb0a8ea0d",
+  "stage": "/private/tmp/current-company-main-adoption-b331cc9-final-20261107",
+  "allFinalGates": {
+    "review-types": {
+      "exitCode": 0
+    },
+    "review-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 222,
+        "passed": 222,
+        "failed": 0,
+        "pending": 0,
+        "todo": 0
+      }
+    },
+    "combined-types": {
+      "exitCode": 0
+    },
+    "core-types": {
+      "exitCode": 0
+    },
+    "next-typegen": {
+      "exitCode": 0
+    },
+    "application-types": {
+      "exitCode": 0
+    },
+    "root-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 2653,
+        "passed": 2651,
+        "failed": 0,
+        "pending": 2,
+        "todo": 0
+      }
+    },
+    "production-build": {
+      "exitCode": 0
+    }
+  },
+  "combinedTests": {
+    "total": 222,
+    "passed": 222,
+    "failed": 0,
+    "skipped": 0,
+    "files": 36,
+    "slices": {
+      "baseline": {
+        "files": 23,
+        "tests": 164,
+        "passed": 164,
+        "failed": 0,
+        "skipped": 0
+      },
+      "regression": {
+        "files": 1,
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "review": {
+        "files": 12,
+        "tests": 57,
+        "passed": 57,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "rootTests": {
+    "total": 2653,
+    "passed": 2651,
+    "failed": 0,
+    "existingOptInSkipped": 2,
+    "skips": [
+      {
+        "file": "/private/tmp/current-company-main-adoption-b331cc9-final-20261107/scripts/tau2/tasks-to-scenarios.test.ts",
+        "test": "tau2 retail scenarios (regeneration) regenerates the committed suite"
+      },
+      {
+        "file": "/private/tmp/current-company-main-adoption-b331cc9-final-20261107/packages/core/src/sandbox/runtime/runtime.live.test.ts",
+        "test": "neon sandbox runtime (live) isolates two trials, diffs collateral writes, and cleans up"
+      }
+    ]
+  },
+  "postBuildPreservation": {
+    "parent": "b331cc9729fd86c21268ad802d276b0081110da1",
+    "tree": "9f5787e50205ad97893592ac71e354ef75e740f1",
+    "applicationManifestSha256": "5e0d5fbab0c1c20487220c0b7f64b7725e173c5d3fad212a1b9e476725b24d1a",
+    "sourceFiles": 2636,
+    "preserved": 2489,
+    "changes": 21,
+    "additions": 126,
+    "drift": [],
+    "sourceHashErrors": []
+  },
+  "fourCorrectedRuntimePostimages": {
+    "apps/web/src/server/autonomous-paid.ts": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c",
+    "apps/web/src/server/autonomy-release.ts": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb",
+    "apps/web/src/server/current-payment-startup.ts": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5",
+    "apps/web/src/server/current-payment.ts": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae"
+  },
+  "paymentRecoverySqlSha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
+  "productionInventorySha256": "eb61fb60472734e3daafa327c39050c641836932f71f4926cf3b3bc773b183dd",
+  "runnerSha256": "8b6636a1e7c7d7fb8cc858ab4f8b9a6523557c7cf52cad472539f4d33180cf6f",
+  "stagedRunnerSha256": "8b6636a1e7c7d7fb8cc858ab4f8b9a6523557c7cf52cad472539f4d33180cf6f",
+  "testInputsSha256": "67b221248d6e2b5d3a9baa9280605cb6de70912a4e4d5ddddb39dfa76336e4a8",
+  "postBuildInputsSha256": "a9de3a5316ac51a46a431312365ef824fa5f74120d9646f6aba27f3ba48f990f",
+  "restoredCalendarInvariants": [
+    {
+      "test": "paid Calendar with a SQL port other than the exact workflowSql() refuses construction before branch, simulator, target or reservation",
+      "status": "passed"
+    },
+    {
+      "test": "paid Calendar whose retained binding has no reviewed suite (removed baseline fixture shape) refuses freezeSuite before branch/target/reservation",
+      "status": "passed"
+    },
+    {
+      "test": "a scheduler run id or empty id never substitutes for the job's durable Workflow run identity",
+      "status": "passed"
+    },
+    {
+      "test": "real paid completeRound refuses scheduler/scenario-only/UUID/cross-scope identities with no reservation or target call; a valid engine identity dispatches exactly once and is never blindly re-called",
+      "status": "passed"
+    },
+    {
+      "test": "paid standalone rerun and investigation without durable operation identity refuse before simulator/target work",
+      "status": "passed"
+    },
+    {
+      "test": "current-app Calendar evaluate reaches real rich services with the job's existing durable Workflow identity, meters SQL, and replays without target calls",
+      "status": "passed"
+    },
+    {
+      "test": "evaluate uses the canonical job workflowRunId: a rebound (new) run id refuses after retained phases instead of minting fresh paid work",
+      "status": "passed"
+    },
+    {
+      "test": "missing durable job Workflow binding refuses before context, services, branch or reservation (real factory, no deps.rich)",
+      "status": "passed"
+    }
+  ],
+  "forgedIdentityCaseCount": 15,
+  "build": {
+    "next": "16.4.5",
+    "workflowSteps": 53,
+    "workflows": 4,
+    "webpack": true
+  },
+  "sourceEditsDuringValidation": false,
+  "installs": false,
+  "sharedCacheEdits": false,
+  "uncommittedTrackBTransportCorrectionAdopted": false,
+  "liveProviders": false,
+  "releaseAccepted": false,
+  "hostedAcceptance": false,
+  "ownerAdaptersConfigured": false,
+  "upstreamPreservation": {
+    "files": 50,
+    "drift": 0,
+    "manifestSha256": "e3b5e5c0bc3cba07c69c30ee67652a5f8f2a4ef56ca2707d73aa319059bd620e",
+    "postBuildCheckSha256": "3ae7f8f8cd0107e7212e50d3efdbfc9a10452ae58dcece882d53ad7ba9e7f2ba",
+    "allPreservedExactly": true
+  }
+}

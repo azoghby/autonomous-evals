@@ -1,0 +1,11 @@
+{
+  "parent": "384d09ab60a1cd1c41a260e43a91518cb0a8ea0d",
+  "tree": "66ca5358420364fce15a38db660d6d24c67cb2de",
+  "applicationManifestSha256": "2e92cede646c5ecc78e818ccae633e8a43940a13b13a691270ba39f4f2a14a53",
+  "sourceFiles": 2607,
+  "preserved": 2460,
+  "changes": 21,
+  "additions": 126,
+  "drift": [],
+  "sourceHashErrors": []
+}

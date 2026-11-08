@@ -1,0 +1,67 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/current-company-main-adoption/diagnostics[39m
+
+ [31m❯[39m refund-reconciliation.instrumented.test.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 735[2mms[22m[39m
+[31m   [31m×[31m refund fences new dispatch but an authenticated receipt can still settle prior spend; revoked owner cannot reconcile[39m[33m 735[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 21:09:46
+[2m   Duration [22m 1.63s[2m (tests 47%, import 34%, transform 19%)[22m
+
+[90mstderr[2m | refund-reconciliation.instrumented.test.ts[2m > [22m[2mrefund fences new dispatch but an authenticated receipt can still settle prior spend; revoked owner cannot reconcile
+[22m[39mDIAGNOSTIC_EVALUATOR_ERROR error: relation "workflow_integration.cost_keys" does not exist
+    at pe.Oe (file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/[4m@electric-sql/pglite[24m/dist/chunk-7WWLJV32.js:1:18174)
+    at pe.tt (file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/[4m@electric-sql/pglite[24m/dist/chunk-7WWLJV32.js:1:15560)
+    at pe.parse (file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/[4m@electric-sql/pglite[24m/dist/chunk-7WWLJV32.js:1:14234)
+    at q.Ce (file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/[4m@electric-sql/pglite[24m/dist/chunk-O74Z5DUS.js:5:1759)
+    at file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/[4m@electric-sql/pglite[24m/dist/chunk-O74Z5DUS.js:5:1151
+    at wasm://wasm/022a9842:wasm-function[10951]:0x52a924
+    at wasm://wasm/022a9842:wasm-function[3597]:0x215883
+    at wasm://wasm/022a9842:wasm-function[3639]:0x21ccfb
+    at wasm://wasm/022a9842:wasm-function[3649]:0x21cf30
+    at wasm://wasm/022a9842:wasm-function[9933]:0x4d6fd7 {
+  length: [33m129[39m,
+  severity: [32m'ERROR'[39m,
+  code: [32m'42P01'[39m,
+  detail: [90mundefined[39m,
+  hint: [90mundefined[39m,
+  position: [32m'13'[39m,
+  internalPosition: [90mundefined[39m,
+  internalQuery: [90mundefined[39m,
+  where: [90mundefined[39m,
+  schema: [90mundefined[39m,
+  table: [90mundefined[39m,
+  column: [90mundefined[39m,
+  dataType: [90mundefined[39m,
+  constraint: [90mundefined[39m,
+  file: [32m'parse_relation.c'[39m,
+  line: [32m'1480'[39m,
+  routine: [32m'parserOpenTable'[39m,
+  query: [32m'INSERT INTO workflow_integration.cost_keys(job_id,key,payload)\n'[39m +
+    [32m'    VALUES($1,$2,$3::jsonb) ON CONFLICT(key) DO NOTHING RETURNING key'[39m,
+  params: [
+    [32m'00000000-0000-4000-8000-0000000000b1'[39m,
+    [32m'autonomous-target:autonomous-text:refund-reconcile'[39m,
+    [32m'{"idempotencyKey":"autonomous-target:autonomous-text:refund-reconcile","jobId":"00000000-0000-4000-8000-0000000000b1","kind":"target","microUsd":7,"operationId":"autonomous-text:refund-reconcile","receiptId":"genuine-fixture-receipt","source":"target_http"}'[39m
+  ],
+  queryOptions: [90mundefined[39m
+}
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m refund-reconciliation.instrumented.test.ts[2m > [22mrefund fences new dispatch but an authenticated receipt can still settle prior spend; revoked owner cannot reconcile
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m refund-reconciliation.instrumented.test.ts:[2m35:21[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+

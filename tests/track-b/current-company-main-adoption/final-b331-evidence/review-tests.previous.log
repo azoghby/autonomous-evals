@@ -1,0 +1,210 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/private/tmp/current-company-main-adoption-384d09a-final-20261107[39m
+
+ [32m✓[39m packages/core/src/evals/calendar-integration/services.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 1054[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-calendar/calendar.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 7937[2mms[22m[39m
+   [33m[2m✓[22m[39m runs all 12 actual SQL scenarios through paid current app services and replays after reconstruction without target calls[33m 1316[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves product failures and investigation identity separately from baseline; unknown costs remain held[33m 951[2mms[22m[39m
+   [33m[2m✓[22m[39m retains lost target replies as infrastructure with no reproduction or blind redispatch[33m 945[2mms[22m[39m
+   [33m[2m✓[22m[39m refuses changed canonical and cross-scope identities before another paid call[33m 933[2mms[22m[39m
+   [33m[2m✓[22m[39m holds whole-phase ambiguity when durable completion is unavailable and never resumes individual targets[33m 971[2mms[22m[39m
+   [33m[2m✓[22m[39m snapshots mutable constructor authority and context so mutation cannot remove paid accounting[33m 941[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps unknown target charges held until verified receipt reconciliation and rejects changed accounting facts[33m 987[2mms[22m[39m
+   [33m[2m✓[22m[39m root role and job cap denial prevents target dispatch and a completed phase cannot retry denied calls[33m 892[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts [2m([22m[2m28 tests[22m[2m)[22m[33m 13558[2mms[22m[39m
+   [32m✓[39m owner/session revocation and pending publication [2m(5)[22m
+     [33m[2m✓[22m[39m job ownership transfer: old owner 404, new owner 409; payload never serialized[33m 669[2mms[22m[39m
+     [33m[2m✓[22m[39m current target/policy authorization revoked: 409 without payload[33m 483[2mms[22m[39m
+     [33m[2m✓[22m[39m cancelled canonical job: 409 without payload[33m 465[2mms[22m[39m
+     [33m[2m✓[22m[39m session revoked after the durable read but before serialization: 401 (publication reauthorization patch present)[33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m scheduler report notification is refused after ownership transfer; owner outbox never called[33m 481[2mms[22m[39m
+   [32m✓[39m shared paid authority: revocation before each paid dispatch [2m(5)[22m
+     [33m[2m✓[22m[39m ownership transfer mid-evaluation refuses the next paid target call and leaves its reservation unspent[33m 513[2mms[22m[39m
+     [33m[2m✓[22m[39m current authorization revoked mid-evaluation refuses the next paid target call and leaves its reservation unspent[33m 508[2mms[22m[39m
+     [33m[2m✓[22m[39m job cancelled mid-evaluation refuses the next paid target call and leaves its reservation unspent[33m 515[2mms[22m[39m
+     [33m[2m✓[22m[39m release binding disabled mid-evaluation refuses the next paid target call and leaves its reservation unspent[33m 502[2mms[22m[39m
+     [33m[2m✓[22m[39m startup refuses distinct release and payment SQL adapters; paid guard refuses a foreign SQL port[33m 480[2mms[22m[39m
+   [32m✓[39m canonical payment binding over actual SQL [2m(17)[22m
+     [33m[2m✓[22m[39m altered amount is refused and retains no event or outbox work[33m 488[2mms[22m[39m
+     [33m[2m✓[22m[39m altered currency is refused and retains no event or outbox work[33m 424[2mms[22m[39m
+     [33m[2m✓[22m[39m altered PaymentIntent is refused and retains no event or outbox work[33m 429[2mms[22m[39m
+     [33m[2m✓[22m[39m altered quote version is refused and retains no event or outbox work[33m 428[2mms[22m[39m
+     [33m[2m✓[22m[39m altered job metadata is refused and retains no event or outbox work[33m 422[2mms[22m[39m
+     [33m[2m✓[22m[39m altered client reference is refused and retains no event or outbox work[33m 418[2mms[22m[39m
+     [33m[2m✓[22m[39m altered object livemode is refused and retains no event or outbox work[33m 413[2mms[22m[39m
+     [33m[2m✓[22m[39m altered metadata environment is refused and retains no event or outbox work[33m 463[2mms[22m[39m
+     [33m[2m✓[22m[39m altered unpaid status is refused and retains no event or outbox work[33m 428[2mms[22m[39m
+     [33m[2m✓[22m[39m canonical payment row drift (amount/status/environment) is refused by SQL/bridge[33m 1294[2mms[22m[39m
+     [33m[2m✓[22m[39m altered duplicate provider event identity is rejected and does not replace the retained event or receipt[33m 503[2mms[22m[39m
+     [33m[2m✓[22m[39m refund after current authorization revoked is still persisted as permanent revocation; restoration cannot revive the receipt[33m 491[2mms[22m[39m
+     [33m[2m✓[22m[39m refund after job cancelled is still persisted as permanent revocation; restoration cannot revive the receipt[33m 465[2mms[22m[39m
+     [33m[2m✓[22m[39m cancellation after viewer session gone is still persisted as permanent revocation; restoration cannot revive the receipt[33m 447[2mms[22m[39m
+     [33m[2m✓[22m[39m late/out-of-order: refund before the paid webhook retry, then a distinct later completion, never yields paid[33m 460[2mms[22m[39m
+     [33m[2m✓[22m[39m per-finding, subscription, unsupported-mode and USDC paths refuse explicitly rather than becoming prepaid authority[33m 416[2mms[22m[39m
+   [32m✓[39m held unknown costs [2m(1)[22m
+     [33m[2m✓[22m[39m scripted target responses never settle; unverified receipts refuse; reservations stay held at the pinned job cap[33m 501[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomy-paid-app-integration/acceptance-sql.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 4287[2mms[22m[39m
+   [33m[2m✓[22m[39m actual Naive session, baseline target and Gateway judge share identical SQL root/role/job caps[33m 643[2mms[22m[39m
+   [33m[2m✓[22m[39m lost target reply retains money and permanent fence after reconstructing the context[33m 439[2mms[22m[39m
+   [33m[2m✓[22m[39m permanent target identity refuses changed input and never emits the target again[33m 409[2mms[22m[39m
+   [33m[2m✓[22m[39m paid context binds tenant/job/SQL and revocation blocks target and judge before dispatch[33m 399[2mms[22m[39m
+   [33m[2m✓[22m[39m Gateway unknown receipt holds, keyed authoritative settlement replays once and conflicts reject[33m 404[2mms[22m[39m
+   [33m[2m✓[22m[39m explicit legacy judge mode retains existing two-scope accounting and permanent ambiguity fence[33m 440[2mms[22m[39m
+   [33m[2m✓[22m[39m target reconciliation verifies retained receipt and atomically delivers exactly one keyed cost[33m 395[2mms[22m[39m
+   [33m[2m✓[22m[39m monitoring target and judge share an additional immutable per-tick ceiling[33m 387[2mms[22m[39m
+   [33m[2m✓[22m[39m enabled context cannot be cloned or raise a pinned Naive job cap, and lower-level runner is guarded[33m 384[2mms[22m[39m
+   [33m[2m✓[22m[39m target budget denial is permanently retained even when other SQL holds later settle[33m 385[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomy-paid-app-integration/acceptance-authority.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 6827[2mms[22m[39m
+   [32m✓[39m authenticated autonomous owner composition (offline PostgreSQL) [2m(11)[22m
+     [33m[2m✓[22m[39m rejects unauthenticated scheduler before enumerating or dispatching jobs[33m 590[2mms[22m[39m
+     [33m[2m✓[22m[39m bootstrap authenticates and resolves canonical job instead of accepting request authority[33m 430[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses a changed request and policy under an existing durable binding[33m 530[2mms[22m[39m
+     [33m[2m✓[22m[39m scheduler scans bounded SQL and rechecks current tenant authorization[33m 431[2mms[22m[39m
+     [33m[2m✓[22m[39m source permission absence and expiry remain unassessed and block target execution[33m 412[2mms[22m[39m
+     [33m[2m✓[22m[39m authorized exact source digest reaches data admission but revocation before evaluation refuses[33m 411[2mms[22m[39m
+     [33m[2m✓[22m[39m payment requires exact quote, settled amount and authoritative verification; missing stays waiting[33m 402[2mms[22m[39m
+     [33m[2m✓[22m[39m receipt absence never fabricates provider success or redispatches evaluation[33m 385[2mms[22m[39m
+     [33m[2m✓[22m[39m unverified provider receipt never reaches retained evaluation recovery[33m 392[2mms[22m[39m
+     [33m[2m✓[22m[39m reauthorizes durable publication reads and keeps automated authority distinct from legacy human[33m 444[2mms[22m[39m
+     [33m[2m✓[22m[39m guards effects after authorization changes during a tick[33m 408[2mms[22m[39m
+   [33m[2m✓[22m[39m release evaluation receives an issued context pinned to canonical company/job and the same guarded runner[33m 388[2mms[22m[39m
+   [33m[2m✓[22m[39m changing the server paid policy during a tick refuses evaluation before any adapter dispatch[33m 407[2mms[22m[39m
+   [33m[2m✓[22m[39m durable bootstrap pins company-policy across a fresh server instance even when version stays the same[33m 412[2mms[22m[39m
+   [33m[2m✓[22m[39m durable bootstrap pins paid-policy across a fresh server instance even when version stays the same[33m 392[2mms[22m[39m
+   [33m[2m✓[22m[39m preexisting release bindings without reviewed authority digest remain refused and never backfill on bootstrap[33m 390[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/company.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2483[2mms[22m[39m
+   [32m✓[39m unattended company acceptance: offline real SQL + actual text services [2m(5)[22m
+     [33m[2m✓[22m[39m runs intake, fixed quote, payment receipt, data admission, 12-case design/review/evaluate, report and durable outbox with zero founder interventions[33m 711[2mms[22m[39m
+     [33m[2m✓[22m[39m acquires missing sources and generates candidate cases before independent admission and report delivery[33m 466[2mms[22m[39m
+     [33m[2m✓[22m[39m resumes asynchronous agent work automatically before target dispatch without duplicate sessions[33m 486[2mms[22m[39m
+     [33m[2m✓[22m[39m ambiguous evaluation acknowledgement never blindly dispatches again[33m 413[2mms[22m[39m
+     [33m[2m✓[22m[39m asks the customer for clarification without founder approval and keeps manual mode compatible[33m 406[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 2014[2mms[22m[39m
+   [33m[2m✓[22m[39m Calendar refuses a paid capability minted over any SQL adapter other than the application workflowSql() port, before any target call[33m 1118[2mms[22m[39m
+   [33m[2m✓[22m[39m revocation during a Calendar run stops every further paid target call; only the in-flight intent is retained and its cost stays held[33m 896[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomy-release-adoption/server.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 4609[2mms[22m[39m
+   [32m✓[39m authenticated autonomous owner composition (offline PostgreSQL) [2m(11)[22m
+     [33m[2m✓[22m[39m rejects unauthenticated scheduler before enumerating or dispatching jobs[33m 575[2mms[22m[39m
+     [33m[2m✓[22m[39m bootstrap authenticates and resolves canonical job instead of accepting request authority[33m 417[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses a changed request and policy under an existing durable binding[33m 439[2mms[22m[39m
+     [33m[2m✓[22m[39m scheduler scans bounded SQL and rechecks current tenant authorization[33m 386[2mms[22m[39m
+     [33m[2m✓[22m[39m source permission absence and expiry remain unassessed and block target execution[33m 391[2mms[22m[39m
+     [33m[2m✓[22m[39m authorized exact source digest reaches data admission but revocation before evaluation refuses[33m 397[2mms[22m[39m
+     [33m[2m✓[22m[39m payment requires exact quote, settled amount and authoritative verification; missing stays waiting[33m 392[2mms[22m[39m
+     [33m[2m✓[22m[39m receipt absence never fabricates provider success or redispatches evaluation[33m 387[2mms[22m[39m
+     [33m[2m✓[22m[39m unverified provider receipt never reaches retained evaluation recovery[33m 385[2mms[22m[39m
+     [33m[2m✓[22m[39m reauthorizes durable publication reads and keeps automated authority distinct from legacy human[33m 427[2mms[22m[39m
+     [33m[2m✓[22m[39m guards effects after authorization changes during a tick[33m 410[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomy-paid-app-integration/acceptance-comparison.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 5962[2mms[22m[39m
+   [32m✓[39m actual app + engine + durable SQL checkpoints (offline fixtures) [2m(12)[22m
+     [33m[2m✓[22m[39m claims tick before dispatch, retains rich results and replays without targets[33m 655[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses tenant before dispatch/replay[33m 414[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses environment before dispatch/replay[33m 391[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses payment before dispatch/replay[33m 400[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses subscription before dispatch/replay[33m 417[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses pack before dispatch/replay[33m 403[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses hidden-pack before dispatch/replay[33m 386[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses changed-binding before dispatch/replay[33m 444[2mms[22m[39m
+     [33m[2m✓[22m[39m requires a monitoring subscription and protects private reads[33m 397[2mms[22m[39m
+     [33m[2m✓[22m[39m reopens durable app/core checkpoints without dispatch after process storage restart[33m 691[2mms[22m[39m
+     [33m[2m✓[22m[39m serializes duplicate dispatchers behind one durable tick claim[33m 452[2mms[22m[39m
+     [33m[2m✓[22m[39m fences lost workers permanently[33m 445[2mms[22m[39m
+   [33m[2m✓[22m[39m applied autonomous comparison meters all twelve targets under shared SQL scopes including monitoring, then replays without dispatch[33m 465[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 5402[2mms[22m[39m
+   [33m[2m✓[22m[39m paid Calendar with a SQL port other than the exact workflowSql() refuses construction before branch, simulator, target or reservation[33m 1119[2mms[22m[39m
+   [33m[2m✓[22m[39m paid Calendar whose retained binding has no reviewed suite (removed baseline fixture shape) refuses freezeSuite before branch/target/reservation[33m 890[2mms[22m[39m
+   [33m[2m✓[22m[39m a scheduler run id or empty id never substitutes for the job's durable Workflow run identity[33m 1598[2mms[22m[39m
+   [33m[2m✓[22m[39m real paid completeRound refuses scheduler/scenario-only/UUID/cross-scope identities with no reservation or target call; a valid engine identity dispatches exactly once and is never blindly re-called[33m 821[2mms[22m[39m
+   [33m[2m✓[22m[39m paid standalone rerun and investigation without durable operation identity refuse before simulator/target work[33m 974[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/communications.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 6495[2mms[22m[39m
+   [32m✓[39m offline SQL communications outbox [2m(16)[22m
+     [33m[2m✓[22m[39m durably deduplicates across restart and concurrent dispatch with fixed template claims[33m 576[2mms[22m[39m
+     [33m[2m✓[22m[39m atomically reserves daily cap on concurrent enqueues including retries[33m 412[2mms[22m[39m
+     [33m[2m✓[22m[39m reconciles ambiguous provider delivery after restart without another send[33m 417[2mms[22m[39m
+     [33m[2m✓[22m[39m pauses unknown dispatch instead of blindly retrying or inventing a receipt[33m 393[2mms[22m[39m
+     [33m[2m✓[22m[39m only retries an authoritative not-sent receipt within the attempt and time bounds[33m 381[2mms[22m[39m
+     [33m[2m✓[22m[39m rechecks current optout at dispatch[33m 388[2mms[22m[39m
+     [33m[2m✓[22m[39m rechecks current secret at dispatch[33m 400[2mms[22m[39m
+     [33m[2m✓[22m[39m rechecks current policy at dispatch[33m 386[2mms[22m[39m
+     [33m[2m✓[22m[39m rechecks current tenant at dispatch[33m 420[2mms[22m[39m
+     [33m[2m✓[22m[39m rechecks current recipient at dispatch[33m 378[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects cross-tenant authority, model body injection, manual mode and unsolicited marketing/experts[33m 380[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses unsupported report-ready and quote claims against authoritative job state[33m 386[2mms[22m[39m
+     [33m[2m✓[22m[39m uses code-owned prices and records reason and policy on all transitions[33m 390[2mms[22m[39m
+     [33m[2m✓[22m[39m fences a stale worker after recovery has persisted a receipt[33m 384[2mms[22m[39m
+     [33m[2m✓[22m[39m bounds a hung provider and preserves unknown cost for recovery[33m 387[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses expired messages and prior-day reservations rather than exceeding a delivery-day cap[33m 416[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-integration/current-app.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/operations.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 3452[2mms[22m[39m
+   [32m✓[39m durable autonomous operating authority [2m(7)[22m
+     [33m[2m✓[22m[39m pins policy and exact agent identity, refuses injected authority and cross-user access[33m 614[2mms[22m[39m
+     [33m[2m✓[22m[39m restarts and concurrently reserves once; receipt replay never adds spending[33m 428[2mms[22m[39m
+     [33m[2m✓[22m[39m enforces aggregate job and role budgets, retaining unknown cost[33m 816[2mms[22m[39m
+     [33m[2m✓[22m[39m freezes per-job package authority and deduplicates decision timestamps[33m 402[2mms[22m[39m
+     [33m[2m✓[22m[39m queries ambiguous paid receipts without redispatch and accounts for measured overage[33m 389[2mms[22m[39m
+     [33m[2m✓[22m[39m bounds an unresponsive authoritative receipt lookup without dispatch retry[33m 406[2mms[22m[39m
+     [33m[2m✓[22m[39m bounds receipt recovery, honestly closes ambiguity, and releases undispatched expiry only[33m 396[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/data.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 595[2mms[22m[39m
+   [32m✓[39m autonomous evidence admission [2m(8)[22m
+     [33m[2m✓[22m[39m persists independent authority on real PostgreSQL through concurrent replicas and restart[33m 585[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-integration/current-baseline.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1507[2mms[22m[39m
+   [33m[2m✓[22m[39m actual baseline/pack Text send meters shared SQL and never constructs legacy runner[33m 655[2mms[22m[39m
+   [33m[2m✓[22m[39m actual Calendar rejects missing application SQL before target or legacy construction[33m 441[2mms[22m[39m
+   [33m[2m✓[22m[39m actual autonomous rich data call selects explicit refusing dispatch instead of legacy acquisition[33m 410[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3144[2mms[22m[39m
+   [33m[2m✓[22m[39m baseline phase lost mid-execution holds the whole phase after reconstruction; no target is re-called[33m 1156[2mms[22m[39m
+   [33m[2m✓[22m[39m investigation lost after its journal intent holds the whole investigation after reconstruction; no reproduction is re-sent[33m 1024[2mms[22m[39m
+   [33m[2m✓[22m[39m a single lost reply inside a phase is retained as infrastructure; the completed phase replays over retained SQL without target calls[33m 964[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/acquisition.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/paid-budget.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1101[2mms[22m[39m
+   [33m[2m✓[22m[39m Naive and target reservations share one SQL role/root/job budget across fresh adapters[33m 634[2mms[22m[39m
+   [33m[2m✓[22m[39m mixed paid and agent requests cannot exceed their common job cap across roles[33m 465[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3178[2mms[22m[39m
+   [33m[2m✓[22m[39m current-app Calendar evaluate reaches real rich services with the job's existing durable Workflow identity, meters SQL, and replays without target calls[33m 1332[2mms[22m[39m
+   [33m[2m✓[22m[39m evaluate uses the canonical job workflowRunId: a rebound (new) run id refuses after retained phases instead of minting fresh paid work[33m 1035[2mms[22m[39m
+   [33m[2m✓[22m[39m missing durable job Workflow binding refuses before context, services, branch or reservation (real factory, no deps.rich)[33m 811[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1135[2mms[22m[39m
+   [33m[2m✓[22m[39m actual baseline/pack Text send meters shared SQL and never constructs legacy runner[33m 668[2mms[22m[39m
+   [33m[2m✓[22m[39m actual Calendar rejects missing application SQL before target or legacy construction[33m 467[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-integration/release-capability.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 620[2mms[22m[39m
+   [33m[2m✓[22m[39m current release delivers one minted authority to data, evaluation and consented outbox and guards revocation[33m 620[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-payment-startup/bridge.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-payment-startup/startup.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/authorization-payment/findings.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1512[2mms[22m[39m
+   [33m[2m✓[22m[39m AP-1: refunded jobs' permanently undeliverable outbox rows must not starve the bounded scheduler drain of later paid receipts[33m 876[2mms[22m[39m
+   [33m[2m✓[22m[39m AP-2: a signed refund recorded during an in-flight evaluation must fence the remaining paid target dispatches[33m 635[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2778[2mms[22m[39m
+   [33m[2m✓[22m[39m characterization: a signed refund arriving while canonical job ownership differs is refused by ingest_event (canonical_job_refused) and is not retained; restoring ownership revives the receipt[33m 798[2mms[22m[39m
+   [33m[2m✓[22m[39m characterization: after refund the company payment port reports waiting (not invalid); re-offering the same quote refuses[33m 557[2mms[22m[39m
+   [33m[2m✓[22m[39m characterization: charge.dispute.created (chargeback) is ignored by the bridge and the receipt remains valid[33m 492[2mms[22m[39m
+   [33m[2m✓[22m[39m characterization: a redelivered event with the same id whose only change is pending_webhooks is rejected as an identity conflict[33m 501[2mms[22m[39m
+   [33m[2m✓[22m[39m characterization: a completed autonomous publication is refused (409) once the canonical job state is delivered[33m 429[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1159[2mms[22m[39m
+   [33m[2m✓[22m[39m CHARACTERIZATION: a self-consistent identity for an operation that was never claimed (and an investigation with no journal intent) is dispatched by the hook itself[33m 1158[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-payment-startup/startup-webhook.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-integration/registration.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 732[2mms[22m[39m
+   [33m[2m✓[22m[39m refund fences new dispatch but an authenticated receipt can still settle prior spend; revoked owner cannot reconcile[33m 731[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-integration/data-dispatch.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 608[2mms[22m[39m
+   [33m[2m✓[22m[39m real Workflow data SQL publishes inventory before trusted refusal, retains cleanup and never falls back[33m 607[2mms[22m[39m
+ [32m✓[39m tests/track-b/autonomous-company/budget.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 642[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces configured lower role and aggregate root authority in the same SQL reservation[33m 642[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1203[2mms[22m[39m
+   [33m[2m✓[22m[39m CHARACTERIZATION: with 24 stuck jobs the same late receipt drains on the first tick (the 25-job window is the cause)[33m 717[2mms[22m[39m
+   [33m[2m✓[22m[39m CHARACTERIZATION: a refund event outbox row is never marked delivered; each tick re-selects that job (permanent drain-window occupant)[33m 485[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 781[2mms[22m[39m
+   [33m[2m✓[22m[39m RV-1: a receipt arriving after bootstrap is eventually drained by scheduler ticks even when 25 earlier jobs hold permanently undeliverable (refund) outbox rows[33m 781[2mms[22m[39m
+ [32m✓[39m tests/track-b/current-autonomy-payment-startup/composition.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 365[2mms[22m[39m
+   [33m[2m✓[22m[39m extends exact current artifact; preserves every frozen base byte except explicit owner postimages[33m 364[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m36 passed[39m[22m[90m (36)[39m
+[2m      Tests [22m [1m[32m222 passed[39m[22m[90m (222)[39m
+[2m   Start at [22m 21:15:30
+[2m   Duration [22m 93.94s[2m (tests 93%, import 7%, transform 1%)[22m
+
+JSON report written to /Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-tests.json
+[90mstderr[2m | tests/track-b/current-autonomy-payment-startup/startup-webhook.test.ts[2m > [22m[2mfixed bound receipt persistence failure is retryable before the legacy resume
+[22m[39mstripe webhook processing failed evt_test receipt_conflict
+

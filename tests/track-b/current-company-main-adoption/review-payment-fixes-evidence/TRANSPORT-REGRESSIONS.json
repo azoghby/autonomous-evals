@@ -1,0 +1,21 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "tests/track-b/loopback-transport-review/regression.cjs"
+  ],
+  "cwd": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
+  "exitCode": 0,
+  "logSha256": "f086be19b369efdb03ebdaee29b35c6b26b470e62a64ed57a373a736d5c48b5c",
+  "sourceSha256": "6e8ff372cc06cf062c5ae9a2970e9ca949f3a78fdf9469c7c87eca4637b06c09",
+  "regressionSha256": "0e92e5e13aef44bca6a300724ba924e18c852e143e59781cab41066114806e4a",
+  "rootTargetSuite": {
+    "files": 6,
+    "tests": 156,
+    "passed": 156
+  },
+  "tests": 17,
+  "passed": 17,
+  "failed": 0,
+  "skipped": 0
+}

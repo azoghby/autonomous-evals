@@ -1,0 +1,6 @@
+▲ Next.js 16.4.5 (webpack)
+⨯ Failed to load next.config.ts, see more info here https://nextjs.org/docs/messages/next-config-error
+
+> Build error occurred
+Error: Could not find Next.js app or pages directory. Expected one of: "app", "src/app", "pages", or "src/pages" to exist.
+    at ignore-listed frames

@@ -1,0 +1,86 @@
+{
+  "variants": {
+    "baseline": [
+      {
+        "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
+        "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
+        "afterSha256": "f2c449293b06f41bd38ab4f1f4d389eac6a864703d22a30264558e4a831e4fb2",
+        "assertionsBefore": 0,
+        "assertionsAfter": 0,
+        "change": "canonical-price/additive002 fixture"
+      }
+    ],
+    "paymentFixes": [
+      {
+        "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
+        "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
+        "afterSha256": "6f03cae013c50905bbd7f1d9b4d000731719d3955251dae0c6ff974c57a06875",
+        "assertionsBefore": 0,
+        "assertionsAfter": 0,
+        "change": "canonical-price/additive002 fixture"
+      },
+      {
+        "path": "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/payment-fixture.ts",
+        "beforeSha256": "2a2929ce09548c653f2ed3fcb247deb1bb06914ddc38b7ec6bad1e316fa7b39f",
+        "afterSha256": "250f46a4d2a64f2fed48ffd5e750b2707f9e92d49f7cb64b7fd590e7035b69c2",
+        "assertionsBefore": 0,
+        "assertionsAfter": 0,
+        "change": "additive002 fixture"
+      },
+      {
+        "path": "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/findings.test.ts",
+        "beforeSha256": "d7ad0120faaea2172a39a12f261525920810a7d93cd7c4a36e16e70b4289c8df",
+        "afterSha256": "c7a81a6aa79880870e6b7c8c665acf926d09a105ba2efa9588a9ffae13591d35",
+        "assertionsBefore": 7,
+        "assertionsAfter": 7,
+        "change": "parent-supplied4corrected-queueassertions"
+      },
+      {
+        "path": "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
+        "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain.characterization.test.ts",
+        "beforeSha256": "e83e7839741204d2a6c9955debc73b093e16a498c33c182d52d33d5f060d7985",
+        "afterSha256": "66d58d997ef07071d28f5e9c23d053dfacc5cba9c19ca2861fc47a8d40322f1e",
+        "assertionsBefore": 7,
+        "assertionsAfter": 7,
+        "change": "parent-supplied4corrected-queueassertions"
+      },
+      {
+        "path": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+        "stagePath": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+        "beforeSha256": "886c432841e3039eea9beeb71be028da301589e7cd3e4205d3dec41bc4a6b792",
+        "afterSha256": "6d23f2c2a33e8b460b0662edc0de84c7f40640b3be63fce891fdb53ff0387855",
+        "assertionsBefore": 16,
+        "assertionsAfter": 16,
+        "change": "actual-application-bridge-import"
+      }
+    ]
+  },
+  "paymentFixesPrerequisite": "docs/current-company-payment-fixes/sql/002-payment-recovery.sql",
+  "committedRegressionFixtureInputs": [
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
+      "stagePath": "owner-migrations/app.workflow001.sql",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+      "bytes": 1575,
+      "kind": "committed-regression-fixture",
+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
+    },
+    {
+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
+      "stagePath": "owner-migrations/app.workflow-remediation.004.sql",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+      "bytes": 825,
+      "kind": "committed-regression-fixture",
+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
+    }
+  ],
+  "correctedQueueAssertions": 4,
+  "forgedIdentitySqlAndRefusalTestBodiesChanged": false,
+  "originalReviewerNamespacePreserved": true
+}

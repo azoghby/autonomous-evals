@@ -1,0 +1,93 @@
+{
+  "total": 221,
+  "passed": 218,
+  "failed": 3,
+  "skipped": 0,
+  "strictReviewerTypes": true,
+  "expectedUnfixedPaymentRepros": [
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+      "test": "AP-1: refunded jobs' permanently undeliverable outbox rows must not starve the bounded scheduler drain of later paid receipts",
+      "message": [
+        "AssertionError: expected [ 'waiting', 'waiting', 'paid' ] to deeply equal [ 'paid', 'paid', 'paid' ]\n    at /private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/authorization-payment/findings.test.ts:39:15\n    at async file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/dist/chunks/run.CjdgFZiW.js:2801:20"
+      ]
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/authorization-payment/findings.test.ts",
+      "test": "AP-2: a signed refund recorded during an in-flight evaluation must fence the remaining paid target dispatches",
+      "message": [
+        "AssertionError: expected 'second_dispatch_allowed' to match /^second_dispatch_refused/\n    at /private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/authorization-payment/findings.test.ts:58:22\n    at async file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/dist/chunks/run.CjdgFZiW.js:2801:20"
+      ]
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
+      "test": "RV-1: a receipt arriving after bootstrap is eventually drained by scheduler ticks even when 25 earlier jobs hold permanently undeliverable (refund) outbox rows",
+      "message": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts:20:66\n    at async file:///private/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/dist/chunks/run.CjdgFZiW.js:2801:20"
+      ]
+    }
+  ],
+  "restoredCalendarInvariants": [
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "test": "paid Calendar with a SQL port other than the exact workflowSql() refuses construction before branch, simulator, target or reservation",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "test": "paid Calendar whose retained binding has no reviewed suite (removed baseline fixture shape) refuses freezeSuite before branch/target/reservation",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "test": "a scheduler run id or empty id never substitutes for the job's durable Workflow run identity",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "test": "real paid completeRound refuses scheduler/scenario-only/UUID/cross-scope identities with no reservation or target call; a valid engine identity dispatches exactly once and is never blindly re-called",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
+      "test": "paid standalone rerun and investigation without durable operation identity refuse before simulator/target work",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+      "test": "current-app Calendar evaluate reaches real rich services with the job's existing durable Workflow identity, meters SQL, and replays without target calls",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+      "test": "evaluate uses the canonical job workflowRunId: a rebound (new) run id refuses after retained phases instead of minting fresh paid work",
+      "status": "passed"
+    },
+    {
+      "file": "/private/tmp/current-company-main-adoption-review-20261107/tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
+      "test": "missing durable job Workflow binding refuses before context, services, branch or reservation (real factory, no deps.rich)",
+      "status": "passed"
+    }
+  ],
+  "allSourcePostrunHashesVerified": true,
+  "sourceFiles": 2604,
+  "releaseAccepted": false,
+  "forgedIdentityCaseCount": 15,
+  "forgedIdentityCases": [
+    "generated UUID run",
+    "scheduler run id",
+    "generated UUID scope (legacy engine scope)",
+    "scenario-only scope",
+    "operation rebound without run",
+    "foreign job",
+    "foreign scope job",
+    "foreign branch",
+    "wrong suite hash",
+    "unknown phase",
+    "round 0",
+    "round 7",
+    "fractional round",
+    "scenario outside reviewed suite",
+    "version/scope mismatch"
+  ]
+}

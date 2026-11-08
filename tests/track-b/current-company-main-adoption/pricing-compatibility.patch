@@ -1,0 +1,97 @@
+--- a/tests/track-b/autonomous-company/communications.test.ts
++++ b/tests/track-b/autonomous-company/communications.test.ts
+@@ -1,3 +1,4 @@
++import { PRICE_CENTS } from '../../../packages/core/src/contracts';
+ import { PGlite } from '@electric-sql/pglite';
+ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+ import { AUTONOMY_COMMUNICATIONS_SQL, PostgresCommunicationOutbox, type CommunicationPolicy, type CommunicationGuards, type CommunicationProvider, type CommunicationRequest, type ContactAuthorization } from '../../../packages/core/src/agents/autonomy/communications';
+@@ -80,7 +81,7 @@
+  });
+  it('uses code-owned prices and records reason and policy on all transitions', async () => {
+   const row = await outbox().enqueue({...request(),template:'quote',packageId:'trace_audit'},1000);
+-  expect(row.body).toContain('$5');
++  expect(row.body).toContain('$'+(PRICE_CENTS.trace_audit/100));
+   const done = await outbox().dispatch('message',provider,1001);
+   expect(done?.history.map(x => x.reason)).toEqual(['policy_authorized','provider_dispatch_intent','provider_receipt']);
+   expect(done?.history.every(x => x.policyVersion === 'policy1')).toBe(true);
+--- a/tests/track-b/autonomous-company/company.test.ts
++++ b/tests/track-b/autonomous-company/company.test.ts
+@@ -1,3 +1,4 @@
++import { PRICE_CENTS } from '../../../packages/core/src/contracts';
+ import {readFileSync} from 'node:fs';
+ import {PGlite} from '@electric-sql/pglite';
+ import {describe,it,expect} from 'vitest';
+@@ -60,7 +61,7 @@
+    h.setPaid(true);const result=await advanceAutonomousCompany(h.request,h.ports());expect(result).toMatchObject({state:'delivered',founderInterventions:0,costStatus:'unknown'});
+    expect(h.counts()).toBe(12);expect(h.naive.sessions.size).toBe(4);
+    const rows=await h.engine.query<{record:any}>('SELECT record FROM company_autonomy.messages');expect(rows.rows).toHaveLength(3);
+-   expect(rows.rows.every(r=>r.record.status==='queued')).toBe(true);expect(rows.rows.find(r=>r.record.request.template==='quote')!.record.body).toContain('$5');
++   expect(rows.rows.every(r=>r.record.status==='queued')).toBe(true);expect(rows.rows.find(r=>r.record.request.template==='quote')!.record.body).toContain('$'+(PRICE_CENTS.text_eval/100));
+    const artifact=await h.operations().get('autonomous-company:tenant_a:job_a:0:evaluation:retained-artifact');
+    expect((await h.operations().get('autonomous-company:tenant_a:job_a:0:published-report'))!.result).toHaveProperty('rendered.markdown');
+    expect((artifact!.result as any).suite.scenarios).toHaveLength(12);expect((artifact!.result as any).dataAuthority.authority).toBe('automated_data_policy_v1');
+--- a/tests/track-b/autonomy-paid-app-integration/acceptance-authority.test.ts
++++ b/tests/track-b/autonomy-paid-app-integration/acceptance-authority.test.ts
+@@ -1,3 +1,4 @@
++import { PRICE_CENTS } from '../../../packages/core/src/contracts';
+ import {readFileSync} from 'node:fs';
+ import {join} from 'node:path';
+ import {PGlite} from '@electric-sql/pglite';
+@@ -40,7 +41,7 @@
+  it('scheduler scans bounded SQL and rechecks current tenant authorization',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');h.revoke();expect((await h.app.scheduledTick('scheduler')).outcomes[0]).toMatchObject({state:'exception'});expect(dispatch.run).not.toHaveBeenCalled();});
+  it('source permission absence and expiry remain unassessed and block target execution',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.data('data')).toMatchObject({status:'not_assessed'});await expect(p.evaluate('eval','b'.repeat(64))).rejects.toThrow();return done;});await tick(h);await h.permission();h.advance();await h.engine.query('UPDATE company_autonomy_release.job_bindings SET next_tick_at=0');await tick(h);expect(h.config.data).not.toHaveBeenCalled();expect(h.config.evaluate).not.toHaveBeenCalled();});
+  it('authorized exact source digest reaches data admission but revocation before evaluation refuses',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.data('data')).toMatchObject({status:'ready'});await h.engine.query("UPDATE company_autonomy_release.source_permissions SET allowed=false");await expect(p.evaluate('eval','b'.repeat(64))).rejects.toThrow();return done;});await tick(h);expect(h.config.data).toHaveBeenCalledOnce();expect(h.config.evaluate).not.toHaveBeenCalled();});
+- it('payment requires exact quote, settled amount and authoritative verification; missing stays waiting',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');const quote={jobId:'job_a',version:1,package:'text_eval' as const,priceMicroUsd:5000000,priceCents:500,priceLabel:'$5',scopeSummary:'scope',deliverables:[],environment:'test' as const,countsAsRevenue:false};dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.payment(quote)).toBe('waiting');await h.engine.query("INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,record) VALUES('tenant_a','job_a','pending',false,$1::jsonb)",[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('waiting');await h.engine.query("INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,amount_micro_usd,record) VALUES('tenant_a','job_a','receipt',true,5000000,$1::jsonb)",[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('paid');vi.mocked(h.config.verifyPayment).mockResolvedValue(false);expect(await p.payment(quote)).toBe('invalid');return done;});await tick(h);expect(h.config.verifyPayment).toHaveBeenCalledTimes(2);});
++ it('payment requires exact quote, settled amount and authoritative verification; missing stays waiting',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');const quote={jobId:'job_a',version:1,package:'text_eval' as const,priceMicroUsd:PRICE_CENTS.text_eval*10000,priceCents:PRICE_CENTS.text_eval,priceLabel:'$'+(PRICE_CENTS.text_eval/100),scopeSummary:'scope',deliverables:[],environment:'test' as const,countsAsRevenue:false};dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.payment(quote)).toBe('waiting');await h.engine.query("INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,record) VALUES('tenant_a','job_a','pending',false,$1::jsonb)",[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('waiting');await h.engine.query(`INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,amount_micro_usd,record) VALUES('tenant_a','job_a','receipt',true,${quote.priceMicroUsd},$1::jsonb)`,[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('paid');vi.mocked(h.config.verifyPayment).mockResolvedValue(false);expect(await p.payment(quote)).toBe('invalid');return done;});await tick(h);expect(h.config.verifyPayment).toHaveBeenCalledTimes(2);});
+  it('receipt absence never fabricates provider success or redispatches evaluation',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.recoverEvaluation('eval')).toBeNull();return done;});await tick(h);expect(h.config.recoverEvaluation).not.toHaveBeenCalled();expect(h.config.evaluate).not.toHaveBeenCalled();});
+  it('unverified provider receipt never reaches retained evaluation recovery',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();await h.engine.query("INSERT INTO company_autonomy_release.provider_receipts(tenant_id,job_id,action_key,provider_id,receipt) VALUES('tenant_a','job_a','eval','provider',$1::jsonb)",[JSON.stringify({opaque:'receipt'})]);vi.mocked(h.config.verifyProviderReceipt).mockResolvedValue(false);dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.recoverEvaluation('eval')).toBeNull();return done;});await tick(h);expect(h.config.recoverEvaluation).not.toHaveBeenCalled();});
+  it('reauthorizes durable publication reads and keeps automated authority distinct from legacy human',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');const key='autonomous-company:tenant_a:job_a:0:published-report',record={tenantId:'tenant_a',jobId:'job_a',artifactId:'report_a',rendered:{markdown:'report'}};await h.operations.claim(key,autonomyDigest(record));await h.operations.complete(key,autonomyDigest(record),record);expect(await h.app.publication('customer','job_a')).toMatchObject({authority:'automated_review',publication:record});await expect(h.app.publication('other','job_a')).rejects.toThrow();h.revoke();await expect(h.app.publication('customer','job_a')).rejects.toThrow();});
+--- a/tests/track-b/autonomy-release-adoption/server.test.ts
++++ b/tests/track-b/autonomy-release-adoption/server.test.ts
+@@ -1,3 +1,4 @@
++import { PRICE_CENTS } from '../../../packages/core/src/contracts';
+ import {readFileSync} from 'node:fs';
+ import {PGlite} from '@electric-sql/pglite';
+ import {describe,it,expect,vi,afterEach} from 'vitest';
+@@ -36,7 +37,7 @@
+  it('scheduler scans bounded SQL and rechecks current tenant authorization',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');h.revoke();expect((await h.app.scheduledTick('scheduler')).outcomes[0]).toMatchObject({state:'exception'});expect(dispatch.run).not.toHaveBeenCalled();});
+  it('source permission absence and expiry remain unassessed and block target execution',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.data('data')).toMatchObject({status:'not_assessed'});await expect(p.evaluate('eval','b'.repeat(64))).rejects.toThrow();return done;});await tick(h);await h.permission();h.advance();await h.engine.query('UPDATE company_autonomy_release.job_bindings SET next_tick_at=0');await tick(h);expect(h.config.data).not.toHaveBeenCalled();expect(h.config.evaluate).not.toHaveBeenCalled();});
+  it('authorized exact source digest reaches data admission but revocation before evaluation refuses',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.data('data')).toMatchObject({status:'ready'});await h.engine.query("UPDATE company_autonomy_release.source_permissions SET allowed=false");await expect(p.evaluate('eval','b'.repeat(64))).rejects.toThrow();return done;});await tick(h);expect(h.config.data).toHaveBeenCalledOnce();expect(h.config.evaluate).not.toHaveBeenCalled();});
+- it('payment requires exact quote, settled amount and authoritative verification; missing stays waiting',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');const quote={jobId:'job_a',version:1,package:'text_eval' as const,priceMicroUsd:5000000,priceCents:500,priceLabel:'$5',scopeSummary:'scope',deliverables:[],environment:'test' as const,countsAsRevenue:false};dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.payment(quote)).toBe('waiting');await h.engine.query("INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,record) VALUES('tenant_a','job_a','pending',false,$1::jsonb)",[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('waiting');await h.engine.query("INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,amount_micro_usd,record) VALUES('tenant_a','job_a','receipt',true,5000000,$1::jsonb)",[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('paid');vi.mocked(h.config.verifyPayment).mockResolvedValue(false);expect(await p.payment(quote)).toBe('invalid');return done;});await tick(h);expect(h.config.verifyPayment).toHaveBeenCalledTimes(2);});
++ it('payment requires exact quote, settled amount and authoritative verification; missing stays waiting',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');const quote={jobId:'job_a',version:1,package:'text_eval' as const,priceMicroUsd:PRICE_CENTS.text_eval*10000,priceCents:PRICE_CENTS.text_eval,priceLabel:'$'+(PRICE_CENTS.text_eval/100),scopeSummary:'scope',deliverables:[],environment:'test' as const,countsAsRevenue:false};dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.payment(quote)).toBe('waiting');await h.engine.query("INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,record) VALUES('tenant_a','job_a','pending',false,$1::jsonb)",[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('waiting');await h.engine.query(`INSERT INTO company_autonomy_release.payment_receipts(tenant_id,job_id,receipt_id,settled,amount_micro_usd,record) VALUES('tenant_a','job_a','receipt',true,${quote.priceMicroUsd},$1::jsonb)`,[JSON.stringify({quoteDigest:autonomyDigest(quote)})]);expect(await p.payment(quote)).toBe('paid');vi.mocked(h.config.verifyPayment).mockResolvedValue(false);expect(await p.payment(quote)).toBe('invalid');return done;});await tick(h);expect(h.config.verifyPayment).toHaveBeenCalledTimes(2);});
+  it('receipt absence never fabricates provider success or redispatches evaluation',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.recoverEvaluation('eval')).toBeNull();return done;});await tick(h);expect(h.config.recoverEvaluation).not.toHaveBeenCalled();expect(h.config.evaluate).not.toHaveBeenCalled();});
+  it('unverified provider receipt never reaches retained evaluation recovery',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();await h.engine.query("INSERT INTO company_autonomy_release.provider_receipts(tenant_id,job_id,action_key,provider_id,receipt) VALUES('tenant_a','job_a','eval','provider',$1::jsonb)",[JSON.stringify({opaque:'receipt'})]);vi.mocked(h.config.verifyProviderReceipt).mockResolvedValue(false);dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{expect(await p.recoverEvaluation('eval')).toBeNull();return done;});await tick(h);expect(h.config.recoverEvaluation).not.toHaveBeenCalled();});
+  it('reauthorizes durable publication reads and keeps automated authority distinct from legacy human',async()=>{const h=await setup();await h.app.bootstrap('customer','job_a');const key='autonomous-company:tenant_a:job_a:0:published-report',record={tenantId:'tenant_a',jobId:'job_a',artifactId:'report_a',rendered:{markdown:'report'}};await h.operations.claim(key,autonomyDigest(record));await h.operations.complete(key,autonomyDigest(record),record);expect(await h.app.publication('customer','job_a')).toMatchObject({authority:'automated_review',publication:record});await expect(h.app.publication('other','job_a')).rejects.toThrow();h.revoke();await expect(h.app.publication('customer','job_a')).rejects.toThrow();});
+--- a/tests/track-b/current-autonomy-payment-startup/bridge.test.ts
++++ b/tests/track-b/current-autonomy-payment-startup/bridge.test.ts
+@@ -1,3 +1,4 @@
++import { PRICE_CENTS } from '../../../packages/core/src/contracts';
+ import { describe, it, expect, vi } from 'vitest';
+ import { createCurrentPaymentBridge } from '../../../docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment';
+ import { buildQuote } from '../../../packages/core/src/agents/commercial';
+@@ -6,9 +7,9 @@
+ function fixture() {
+   const job={id:'job',customer_id:'tenant',package:'text_eval',environment:'test',state:'quoted',is_mock:false,
+     workflow_run_id:'run',retest_of_job_id:null,intake:{package:'text_eval',authorizedToTest:true,notes:'Check response quality',endpoint:{url:'https://target.example/v1',systemPrompt:'Be helpful'}},
+-    scope_summary:'Text evaluation',deliverables:buildQuote({jobId:'job',customerId:'tenant',package:'text_eval',environment:'test',quoteVersion:1,linkedRetestOf:null,isFixture:false},'text_eval',1,'Text evaluation').deliverables,version:1,price_cents:500,pricing_mode:'fixed',stripe_checkout_session_id:'cs_1'};
+-  const payment={id:'pay',job_id:'job',quote_version:1,environment:'test',amount_cents:500,currency:'usd',status:'paid',kind:'one_time',stripe_checkout_session_id:'cs_1',stripe_payment_intent_id:'pi_1'};
+-  const event={id:'evt_1',type:'checkout.session.completed',livemode:false,data:{object:{id:'cs_1',mode:'payment',payment_status:'paid',livemode:false,client_reference_id:'job',amount_total:500,currency:'usd',payment_intent:'pi_1',metadata:{job_id:'job',quote_version:'1',environment:'test',pricing_mode:'fixed'}}}};
++    scope_summary:'Text evaluation',deliverables:buildQuote({jobId:'job',customerId:'tenant',package:'text_eval',environment:'test',quoteVersion:1,linkedRetestOf:null,isFixture:false},'text_eval',1,'Text evaluation').deliverables,version:1,price_cents:PRICE_CENTS.text_eval,pricing_mode:'fixed',stripe_checkout_session_id:'cs_1'};
++  const payment={id:'pay',job_id:'job',quote_version:1,environment:'test',amount_cents:PRICE_CENTS.text_eval,currency:'usd',status:'paid',kind:'one_time',stripe_checkout_session_id:'cs_1',stripe_payment_intent_id:'pi_1'};
++  const event={id:'evt_1',type:'checkout.session.completed',livemode:false,data:{object:{id:'cs_1',mode:'payment',payment_status:'paid',livemode:false,client_reference_id:'job',amount_total:PRICE_CENTS.text_eval,currency:'usd',payment_intent:'pi_1',metadata:{job_id:'job',quote_version:'1',environment:'test',pricing_mode:'fixed'}}}};
+   let allowed=true;
+   const query=vi.fn(async (q:string,_p?:unknown[])=>{
+     if(q.includes('FROM public.jobs'))return {rows:[job]};
+@@ -47,10 +48,10 @@
+     const f=fixture();f.verifier.mockImplementationOnce(()=>{throw Error('bad signature');});
+     await expect(f.bridge.ingestStripe('{}','bad')).rejects.toThrow('bad signature');
+     expect(f.query).not.toHaveBeenCalled();
+-    f.event.data.object.amount_total=501;
++    f.event.data.object.amount_total=PRICE_CENTS.text_eval+1;
+     await expect(f.bridge.ingestStripe('{}','signed')).rejects.toThrow('event_payment_mismatch');
+     expect(f.query.mock.calls.some(([q])=>q.includes('ingest_event'))).toBe(false);
+-    f.event.data.object.amount_total=500;
++    f.event.data.object.amount_total=PRICE_CENTS.text_eval;
+     expect(await f.bridge.ingestStripe('{}','signed')).toEqual({status:'queued'});
+     const ingest=f.query.mock.calls.find(([q])=>q.includes('ingest_event'))!;
+     expect(ingest[1]?.slice(0,6)).toEqual(['tenant','job',1,'stripe','test','evt_1']);

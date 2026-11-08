@@ -1,0 +1,23 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "patchSha256": "fb5e1802969c73aef0698f3d39f0d1d7ed9bce5041bc2fb63a5fd5f898f20b43",
+  "sqlSha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
+  "paths": {
+    "apps/web/src/server/autonomous-paid.ts": {
+      "before": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
+      "after": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c"
+    },
+    "apps/web/src/server/autonomy-release.ts": {
+      "before": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f",
+      "after": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb"
+    },
+    "apps/web/src/server/current-payment-startup.ts": {
+      "before": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
+      "after": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5"
+    },
+    "apps/web/src/server/current-payment.ts": {
+      "before": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
+      "after": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae"
+    }
+  }
+}

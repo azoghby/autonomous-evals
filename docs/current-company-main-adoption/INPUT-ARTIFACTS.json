@@ -1,0 +1,7 @@
+{
+  "docs/current-company-composition/CANDIDATE.json": "d191f8c984e7ae5616f4c5e1973fcb2bfa85c581ccaf57ece30e2c389981ca25",
+  "docs/current-company-composition/TEST-PIN.json": "014279a8b054f16b2c023c1a0c8176897a6bc6ab49b198f0e344e65fc4335747",
+  "docs/current-autonomy-baseline-correction/PIN.json": "6aefa5d96aba7506dc02b890196774266f3e862852f2665286215e9eb407d6a1",
+  "docs/current-autonomy-calendar/APPLICATION.json": "346375835b62e5584d297d9985410a79862294c9b91547dcbd347a7db2b972e3",
+  "tests/track-b/current-company-main-adoption/pricing-compatibility.py": "09e478bd03079bf9de071dbd8e762516c73436ccd2134f335172829589b49d67"
+}

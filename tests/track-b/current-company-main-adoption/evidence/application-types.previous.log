@@ -1,0 +1,2 @@
+apps/web/src/app/layout.tsx(3,27): error TS2307: Cannot find module '@vercel/analytics/next' or its corresponding type declarations.
+apps/web/src/app/layout.tsx(44,50): error TS2304: Cannot find name 'LayoutProps'.

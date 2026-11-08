@@ -1,0 +1,235 @@
+{
+  "stage": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+  "pin": {
+    "historicalParent": "039851736eabb94e85c2c111bbccc78374716275",
+    "scoutExcluded": true,
+    "initialMain": "a7851f848ecea7621b227cf71744f888985d9f7b",
+    "currentMain": "384d09ab60a1cd1c41a260e43a91518cb0a8ea0d",
+    "upstreamPricing": "ab30446",
+    "observedAnomalousHead": "e4686a84f248bfe8be9bcda4ed534b0807379714",
+    "mergedMain": "15a38e0f9fe606a62bbb3734d4f6a19e9ab37d07",
+    "tree": "66ca5358420364fce15a38db660d6d24c67cb2de",
+    "previousAdoptionPin": "b66a3e2973382403e571e4003054cca9a46492d9"
+  },
+  "offline": true,
+  "providers": false,
+  "installs": false,
+  "includes": [
+    "tests/track-b/autonomous-company/**/*.test.ts",
+    "tests/track-b/autonomy-release-adoption/**/*.test.ts",
+    "tests/track-b/autonomy-paid-app-integration/**/*.test.ts",
+    "tests/track-b/current-autonomy-integration/**/*.test.ts",
+    "tests/track-b/current-autonomy-calendar/**/*.test.ts",
+    "tests/track-b/current-autonomy-payment-startup/**/*.test.ts",
+    "packages/core/src/evals/calendar-integration/**/*.test.ts"
+  ],
+  "fontHashes": {
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/cf88f70a84ba24f0-s.woff2": "bf16ec84906d766728a6e1c6a1ac349fc50c6980937399fd99e125937bf1f9ae",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/263bd49be1e31f49-s.woff2": "92f4bd1d70c6eae07de259ed6d07b94ae57219a2c15b1839eea5c6ccd1a55dff",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/81c6b0d36721c7d2-s.woff2": "55144a413153e593c3379e47fc4c52605da3c898d19741f9d36bcc5503a52899",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/0f35e6b097a36a26-s.woff2": "9250ef2e7a9711d7bcb8a75ccc7e2a13b95774116beff5e3210bc4ba88c8fed1",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/0ad4fba8e8fccfc4-s.woff2": "646d1a69ead2037b05e89a6eaede387cba4a521b95881bbb8b470af76e0aadb8",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/6fb803f91f44aa45-s.p.woff2": "bf100fc1e8237c7dc5bdf5dd074c8dc5f637b8e0963b8700f94f4f7b585bafcc",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/f639721981034f88-s.woff2": "b7a545bbb08256bd809f11cfe66d88da3e22d169ea4407737b1ef0ec1ed3d791",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/9766a7e9e2e0ad5a-s.woff2": "6129fc8571c3e0cb0a4c41f5160c974a843b055009dc4ad8858bd808e18a2d86",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/b66cf8e69499582a-s.woff2": "f689f638f29fff460a2d5749edb5d5c38d7bef0389f32032d871f23fc6ebb008",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/aa016aab0e6d1295-s.woff2": "58a6b173d5ca1dec92166ea3c6cb1a84a4144556d10928ac14e8e6b40e4787bd",
+    "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/22a5144ee8d83bca-s.p.woff2": "9b6f5ff45b278c744b5f379a2c4ecbaf858a842b8eaf82ac8d21b699ca16c608"
+  },
+  "dependencies": {
+    "cache": "/private/tmp/track-b-company-composed-y74pmmb8/node_modules",
+    "ipaddr": "/private/tmp/sandbox-generation-deps.cBCEai/node_modules/ipaddr.js",
+    "analytics": {
+      "path": "/private/tmp/workflow-bootstrap.JpxCTM/apps/web/node_modules/@vercel/analytics",
+      "version": "2.0.1",
+      "packageSha256": "7e086320da536a30cade99499c91052e0ff02d231108f2e0f07c7ae47d696701"
+    }
+  },
+  "commands": [
+    {
+      "name": "review-types",
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.review.json",
+        "--noEmit"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+      "started": "2026-11-08T05:15:26.651Z",
+      "finished": "2026-11-08T05:15:29.799Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "review-tests",
+      "testSummary": {
+        "total": 222,
+        "passed": 222,
+        "failed": 0,
+        "pending": 0,
+        "todo": 0
+      },
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "review-vitest.config.mjs",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-tests.json"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+      "started": "2026-11-08T05:15:29.804Z",
+      "finished": "2026-11-08T05:17:05.516Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "827a7936a0db4c4dd54b4ff5be73c71bd3093bb23aff6fda15edc6087de13216"
+    },
+    {
+      "name": "combined-types",
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.combined-tests.json",
+        "--noEmit"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+      "started": "2026-11-08T05:17:06.571Z",
+      "finished": "2026-11-08T05:17:10.475Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "core-types",
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/typescript/bin/tsc",
+        "-p",
+        "packages/core/tsconfig.current-main-production.json",
+        "--noEmit"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+      "started": "2026-11-08T05:17:10.476Z",
+      "finished": "2026-11-08T05:17:13.719Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "next-typegen",
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107/apps/web",
+      "started": "2026-11-08T05:17:13.720Z",
+      "finished": "2026-11-08T05:17:15.901Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "d2c1ba909d97e894b386ab64a1b0879d6561330c26ee7dc7dd233256e0bf6fbe"
+    },
+    {
+      "name": "application-types",
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/typescript/bin/tsc",
+        "-p",
+        "apps/web",
+        "--noEmit"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+      "started": "2026-11-08T05:17:15.902Z",
+      "finished": "2026-11-08T05:17:21.750Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "root-tests",
+      "testSummary": {
+        "total": 2624,
+        "passed": 2622,
+        "failed": 0,
+        "pending": 2,
+        "todo": 0
+      },
+      "command": "npm",
+      "args": [
+        "test",
+        "--",
+        "--maxWorkers=2",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/root-tests.json"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107",
+      "started": "2026-11-08T05:17:21.753Z",
+      "finished": "2026-11-08T05:18:25.223Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "b37f7e643964efb286ff2bdc03de6a92df002c01c0ba10a762e51d6a5abd4db1"
+    },
+    {
+      "name": "production-build",
+      "command": "/usr/local/bin/node",
+      "args": [
+        "/private/tmp/current-company-main-adoption-384d09a-final-20261107/node_modules/next/dist/bin/next",
+        "build",
+        "--webpack"
+      ],
+      "cwd": "/private/tmp/current-company-main-adoption-384d09a-final-20261107/apps/web",
+      "started": "2026-11-08T05:18:25.225Z",
+      "finished": "2026-11-08T05:18:51.210Z",
+      "exitCode": 0,
+      "signal": null,
+      "logSha256": "407f1bd131f0c23a8950fbec197bc276f33c3ca9b193d286fd3e3d375298e323"
+    }
+  ],
+  "testInputsSha256": "ebba3a76b2fdda44ea2bf0e8758119eddf8656bec76ac537844f602f97a0115b",
+  "finalGates": {
+    "review-types": {
+      "exitCode": 0
+    },
+    "review-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 222,
+        "passed": 222,
+        "failed": 0,
+        "pending": 0,
+        "todo": 0
+      }
+    },
+    "combined-types": {
+      "exitCode": 0
+    },
+    "core-types": {
+      "exitCode": 0
+    },
+    "next-typegen": {
+      "exitCode": 0
+    },
+    "application-types": {
+      "exitCode": 0
+    },
+    "root-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 2624,
+        "passed": 2622,
+        "failed": 0,
+        "pending": 2,
+        "todo": 0
+      }
+    },
+    "production-build": {
+      "exitCode": 0
+    }
+  }
+}

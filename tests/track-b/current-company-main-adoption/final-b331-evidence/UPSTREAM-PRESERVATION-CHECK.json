@@ -1,0 +1,311 @@
+{
+  "parent": "b331cc9729fd86c21268ad802d276b0081110da1",
+  "tree": "9f5787e50205ad97893592ac71e354ef75e740f1",
+  "upstream": "72d523b",
+  "manifestSha256": "e3b5e5c0bc3cba07c69c30ee67652a5f8f2a4ef56ca2707d73aa319059bd620e",
+  "verifiedFiles": 50,
+  "files": {
+    "apps/web/src/app/demo/page.tsx": {
+      "sha256": "a24758c36adee61363d8f475aff38ef962097b6916ba00c0b6b7e65103d395b6",
+      "bytes": 1356,
+      "gitBlob": "7098e6f98196fe4e1580e461c207a41ee44fe983",
+      "preservedExactly": true
+    },
+    "apps/web/src/app/leaderboard/Methodology.tsx": {
+      "sha256": "81e1ab577bed289c1b5deb1136a1bc385fd13b132655aab3d3eb7683eb5bcdcf",
+      "bytes": 3110,
+      "gitBlob": "72fa55601021893ab9df02c33d3a6e6b3867ef36",
+      "preservedExactly": true
+    },
+    "apps/web/src/app/leaderboard/page.tsx": {
+      "sha256": "65314966ea766546e3a687934ce689742209fa732ed79b26d4b40fd54a01e071",
+      "bytes": 4490,
+      "gitBlob": "f5f3b3e416bad439addae709cf79ca93c736379a",
+      "preservedExactly": true
+    },
+    "apps/web/src/app/leaderboard/parts.tsx": {
+      "sha256": "aa8d25bfd320486b4ad72b1a3e7cd410005869e024421c1fecd877e18b9d704c",
+      "bytes": 2583,
+      "gitBlob": "22ebf8961f7494f79cc19c5b7acdc6317354d347",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/demo/DemoStage.tsx": {
+      "sha256": "bb126ed54c36624e2847b53daf414ba742f6deb6c70b1d355205bfc2b7fd27d6",
+      "bytes": 4938,
+      "gitBlob": "dadfe2825221d208ec6d02294b7d56f7318299d9",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/demo/Picker.tsx": {
+      "sha256": "4955af254afde49f069efcc4313621bc25985276f5f97008387ac6c341d79a78",
+      "bytes": 4043,
+      "gitBlob": "c086509f4dea6bc3ae018c31cce90fa96ea796dd",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/demo/demo-run-types.ts": {
+      "sha256": "9a07988f710a2b6c004c17f1a0bc1188748d88a9ebe9094ad89b259c912d536d",
+      "bytes": 4321,
+      "gitBlob": "e4b610f5d926c85f9a961659d52560db3d530910",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/demo/format.ts": {
+      "sha256": "5772fc2c1aad7df36136176e566d0675632dca770a599377655f962e90354f2f",
+      "bytes": 2951,
+      "gitBlob": "ecf1c86e3f97bdf5aeedb525be1ecf7a270422f9",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/demo/recording.test.ts": {
+      "sha256": "dff16474af5f95b1be32c8738ac8fdaa5f9900ae5ec5af5fa7b30a191bb1deac",
+      "bytes": 880,
+      "gitBlob": "8dc788964067feda26f06624306fed100fd680bc",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/demo/recording.ts": {
+      "sha256": "df1d0bc08540577758d14188ccda76e35fafc975e6a6e7b66b3c235b28f7c8ab",
+      "bytes": 856,
+      "gitBlob": "6b5c0087ed3a4f92a9650c475dedd00a6785978a",
+      "preservedExactly": true
+    },
+    "apps/web/src/components/marketing/DemoTeaser.tsx": {
+      "sha256": "c9be2361f158aea66b5f39ebbcea0981e596a09a31bdc99b7df12f3dcdd13022",
+      "bytes": 3590,
+      "gitBlob": "a73bfa6d2620ae4c9e4e598f60b9197cf8465782",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/leaderboard-agents.test.ts": {
+      "sha256": "56b6848ef48d6223f2f05174ebcfc94d257d090edd3b8e36f0bd925f1f46f1d1",
+      "bytes": 3811,
+      "gitBlob": "6c109cbb71940e5906d6f104c6a3fbd3f24473ca",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/leaderboard-agents.ts": {
+      "sha256": "9e071ac965b7656e04e73f6d936e40b6ea9a176b70b0f851ae492d8868f377a2",
+      "bytes": 3508,
+      "gitBlob": "0e0895d560ca0d640458482a18eebd12ed62e031",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/leaderboard-fixture.ts": {
+      "sha256": "b1a33acdd8d29993acad3ff34f231adfd7cc5e1ff63545ce9b00d7d6b80e8cbb",
+      "bytes": 3176,
+      "gitBlob": "6eea5e31862d423aec8ff4e324ca5d7559c44b0d",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/public-agent-cron.test.ts": {
+      "sha256": "d6b38398ea09c80c979df02c0c1cb34b83e40874548d160dfb2490a2a8f1ebdb",
+      "bytes": 5018,
+      "gitBlob": "18f93296d9f8ea352291e720ae20993960d63e91",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/public-agent-cron.ts": {
+      "sha256": "47c0e2be120910f2d4d8cabf97e45c638ddb576780f47d89d37e0ebcf24cc75e",
+      "bytes": 9507,
+      "gitBlob": "16837bdbdfc43c1b7d6d7832ddae9f034a91b3b1",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/public-agent-runner.test.ts": {
+      "sha256": "b6cc9be3f700fc86c7b39cefe7c121526a1f699e13bf071069e0f03cbfe40695",
+      "bytes": 2280,
+      "gitBlob": "5860255bbdd3104c9e33f0d218372f95dda8027b",
+      "preservedExactly": true
+    },
+    "apps/web/src/server/public-agent-runner.ts": {
+      "sha256": "b2d64f47dca3d4084e7a6b7aedcafb0dc2d08457b86898e13a7aaa06c918c975",
+      "bytes": 6866,
+      "gitBlob": "67b8d58e34521491af3956c2c567bddb0024fecd",
+      "preservedExactly": true
+    },
+    "data/demo/real-run.json": {
+      "sha256": "6a0501589374d93b9f3f5f12372d750ee42dd1e9d804a8e0542faa4b74be8590",
+      "bytes": 736098,
+      "gitBlob": "0289b139bebe9c8becb7fc81479e347119c9a4b5",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/LICENSE": {
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "bytes": 11356,
+      "gitBlob": "f49a4e16e68b128803cc2dcea614603632b04eac",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/NOTICE.md": {
+      "sha256": "54c5cbae2114d56c0be746e991a10ce9bbccc2785ed0cac10003dcd4d7237ed4",
+      "bytes": 4042,
+      "gitBlob": "1d6215af5f328d32f505969836c5726069321521",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/openapi.yaml": {
+      "sha256": "334253ed02e58f085dda5cb70806aeb8403def554fc72996c6c3e4e8e8851c31",
+      "bytes": 26828,
+      "gitBlob": "767e172e373628a59bc6c1784fda0f42afb8e060",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/policies.md": {
+      "sha256": "34bbe1bbc723c6f74f9c77f903bddce71750f71d1c1dde2f94e8a908de8a02eb",
+      "bytes": 4822,
+      "gitBlob": "296948ef5e75434288c6527a37027d3a0ecfc1d5",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/scenarios.json": {
+      "sha256": "0b7d4cb709503d10c8e13236db21d911969b3ef27f0a16a85311b472cac7b68d",
+      "bytes": 11500,
+      "gitBlob": "ef0966bee411e9632b3431d3fa5d01bf0ef6c9d3",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/schema.sql": {
+      "sha256": "df0e25a5d0e0adc35498a4daf7afa1e615f55289e32316e7d3e06b57ba250d80",
+      "bytes": 6194,
+      "gitBlob": "8d3519ea2381ca60d5ed4151f293116927689c92",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/seed.sql": {
+      "sha256": "22816b795fbf0895ee4902b14092c58990123bcf508d9ef26d47f528c848a854",
+      "bytes": 4639,
+      "gitBlob": "0fd1c434f6d11b3f678c0d5f7636066347bc7fcc",
+      "preservedExactly": true
+    },
+    "data/envs/adk-customer-service/workflows.json": {
+      "sha256": "edfaa6660348a5e3a1c1e824e5c1f17b210cff6590f202a0ae2dbb404fb29753",
+      "bytes": 3112,
+      "gitBlob": "b994a82a5c7eda35367f564485c37c9add7b58dd",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/LICENSE": {
+      "sha256": "fdd680f28af4ae4e155cc35b3d37da81d57ffa94359fceb53fcb4c11d5ce2c0d",
+      "bytes": 1053,
+      "gitBlob": "ad0abbc418591dbe85544150546714dd4603d78a",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/NOTICE.md": {
+      "sha256": "3791b1bee712dd62ef1c6bdbd3e201edf055151b95447e94537745b85680bc6b",
+      "bytes": 3495,
+      "gitBlob": "3133fff39c2b6b6ce27c9d60eaa1020f9c281488",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/openapi.yaml": {
+      "sha256": "ae41bb402d3640edc3cf9ccea66cc7439de043acea73ec7bc55ce5079e4ff835",
+      "bytes": 26527,
+      "gitBlob": "ba55597eacfe2eb77dd3167b29db9b6dbed80ed2",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/policies.md": {
+      "sha256": "d5ad3de065eb861d515bf08e1f8e09bb4aabfe1f1aef4cbda626c8844a9f4549",
+      "bytes": 6678,
+      "gitBlob": "c8ccf44b151614c056f348c4762a268fe5ceb9b6",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/scenarios.json": {
+      "sha256": "617098a839b8e93d1d61c5f91908c26e5ec8ad2305c481c22971a15af8465ae5",
+      "bytes": 15605,
+      "gitBlob": "0eb5b25e72c0f0a4821f58d27d8aecd18199d45d",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/schema.sql": {
+      "sha256": "58bac892c58de0b041b776fedef8ce1469cfaea19d14dd96ebf6842e052eb059",
+      "bytes": 4065,
+      "gitBlob": "64e440a17f0244b97712edf5264538c897a6d3de",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/seed.sql": {
+      "sha256": "1eb8d1a74d4d430e8022e19095dd830c844418f2c7779b670545c52855dfb55d",
+      "bytes": 2555,
+      "gitBlob": "77fdc82985a122b84638a3f71104b69fc3a84670",
+      "preservedExactly": true
+    },
+    "data/envs/cs-agents-airline/workflows.json": {
+      "sha256": "81f60111dc685c30c8494f15f9e1620aa5f16d772a3e0ca3576f44e8676e8660",
+      "bytes": 2934,
+      "gitBlob": "35b6445d231d58f1d1cff471c2c756d058f63bae",
+      "preservedExactly": true
+    },
+    "data/public-agents.json": {
+      "sha256": "2c504d718b1cd6c146793e5549ca779ac94ef543d68b73234665997570315217",
+      "bytes": 16915,
+      "gitBlob": "79d5576ade26c18da60eab5b509834831329cf0c",
+      "preservedExactly": true
+    },
+    "packages/core/src/lite/deps.ts": {
+      "sha256": "dee19bfad6358443d9fde7f873e60ffec7ad661f1b74d2dac2344fe4f09d9f61",
+      "bytes": 6710,
+      "gitBlob": "5c537c43481bac59558726684b56d0e4239b9439",
+      "preservedExactly": true
+    },
+    "packages/core/src/lite/run.ts": {
+      "sha256": "16de7f664436818d3e073452d406fb3270845907fd6ea9e38f90b585c1401850",
+      "bytes": 12114,
+      "gitBlob": "cde5518ea398c6641e040d74ccc9b428d5ef1121",
+      "preservedExactly": true
+    },
+    "packages/core/src/sandbox/ingest/adk-customer-service.test.ts": {
+      "sha256": "609101ec5b213e1f09f2776f70943df6c58fdf8309ac666fba3757fb1f094ed7",
+      "bytes": 10326,
+      "gitBlob": "165dcad60cc8c2b68d0c75ba5b4f20681ce23ba7",
+      "preservedExactly": true
+    },
+    "packages/core/src/sandbox/ingest/adk-customer-service.ts": {
+      "sha256": "6a4385f2110cc58172d62cacc169c788db36b2b1fb83f79e5f07d533845683c4",
+      "bytes": 1758,
+      "gitBlob": "da01528a8d039072782cacccc0b48f0e945d6849",
+      "preservedExactly": true
+    },
+    "packages/core/src/sandbox/ingest/cs-agents-airline.test.ts": {
+      "sha256": "a188ec7077c4680ed48c4ac6f8cf494b1d7b40030b910938e52370f0603d04b5",
+      "bytes": 11066,
+      "gitBlob": "c2edb30b87106731b0c064fe80ee5d2b10b346e8",
+      "preservedExactly": true
+    },
+    "packages/core/src/sandbox/ingest/cs-agents-airline.ts": {
+      "sha256": "fd693198e2941bb2b2582db75c199ba5766d4184f10dd5a5f311b677d429e8a5",
+      "bytes": 1438,
+      "gitBlob": "30ae42f6d77a1a1587cdd5cea4a339bab04da76b",
+      "preservedExactly": true
+    },
+    "packages/core/src/targets/transport.ts": {
+      "sha256": "6f9e2528e078d9eb9348ef0c58d11510f9798da4239defc467de75c62cc598cd",
+      "bytes": 9327,
+      "gitBlob": "9563c4b6e461387a5a1ba2091334d1ffbad83803",
+      "preservedExactly": true
+    },
+    "scripts/demo/bridge-agent.ts": {
+      "sha256": "f297a39dea99fa93695e1bf38584967eb54830983ef5d83f0b6e2e2b2000af08",
+      "bytes": 6034,
+      "gitBlob": "6faff878b1116bd9d38744b865ea34051cee813f",
+      "preservedExactly": true
+    },
+    "scripts/demo/shims/adk_cs_sandbox_shim.py": {
+      "sha256": "3438412f0d155340fec376947c7c90e49571b4e097d76da468c13720a6749f37",
+      "bytes": 12890,
+      "gitBlob": "e28a86378f931c11dc84e7fdc3e86da5313e4ea0",
+      "preservedExactly": true
+    },
+    "scripts/demo/shims/cs_agents_sandbox_shim.py": {
+      "sha256": "61c9ee17ad2534206a1973f1af6edb9ec2787141c7e260605002ed46aa9686c5",
+      "bytes": 16194,
+      "gitBlob": "549366a624d26c35467afaa7aa4f692724c8338d",
+      "preservedExactly": true
+    },
+    "scripts/demo/validate-adk-cs.ts": {
+      "sha256": "b8e08dde6260bfcf7957883cc7b502288350723b934df6a20be39155cf5658d5",
+      "bytes": 8473,
+      "gitBlob": "0f56dde66eb34eeef33132ec75a4cd0e8d7f67a2",
+      "preservedExactly": true
+    },
+    "scripts/demo/validate-cs-airline.ts": {
+      "sha256": "498862c3552e8e34b855ba92a8741b1f884db3ed114f2c9e189c656d9e657909",
+      "bytes": 5104,
+      "gitBlob": "7404a6f017acf365b92f5cf1b74cac5e650d89bf",
+      "preservedExactly": true
+    },
+    "scripts/public-agents.ts": {
+      "sha256": "6b6584e47d5f64e1e082e03964464be9032b052648439318219d812b5182001d",
+      "bytes": 7552,
+      "gitBlob": "64f48936147855a5ab03771097434a7ff710f371",
+      "preservedExactly": true
+    },
+    "scripts/record-demo-run.ts": {
+      "sha256": "3f853a29749f64ddc229622c2f993d8cb02e9732761c622cdb4703ebb7fbbb5e",
+      "bytes": 22433,
+      "gitBlob": "66db7280a718825bf6a774273edd6b4a4ebff687",
+      "preservedExactly": true
+    }
+  },
+  "drift": [],
+  "uncommittedTransportCorrectionAdopted": false
+}

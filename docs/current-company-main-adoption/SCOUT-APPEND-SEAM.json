@@ -1,0 +1,12 @@
+{
+  "applied": false,
+  "parentScoutCheckpoint": "a7851f848ecea7621b227cf71744f888985d9f7b",
+  "separateParentEvidence": {
+    "files": 2042,
+    "checks": 46,
+    "productionBuild": true
+  },
+  "appendOnto": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "requiredCandidateInventorySha256": "2ce331afeb2162b4bc12f0d1fee75f44475d7b85bb47d6615d9d20a8a40e769d",
+  "rule": "Review additive differential against final current-main/payment-fixed candidate; never overlay historical Scout snapshot"
+}

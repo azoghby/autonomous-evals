@@ -1,0 +1,32 @@
+import {readFileSync as read,writeFileSync as write,mkdirSync,existsSync,readdirSync,chmodSync} from 'node:fs';
+import {resolve,dirname,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const here=dirname(fileURLToPath(import.meta.url)),sha=b=>createHash('sha256').update(b).digest('hex');
+const args=process.argv.slice(2);
+if(args.length!==4||args[0]!=='--from'||args[2]!=='--out')throw Error('Usage: stage.mjs --from exact-owner-snapshot --out empty-directory');
+const source=resolve(args[1]),out=resolve(args[3]);
+if(source===out||out.startsWith(source+'/')||source.startsWith(out+'/'))throw Error('Separate output required');
+if(existsSync(out)&&readdirSync(out).length)throw Error('Output must be empty');
+const app=JSON.parse(read(join(here,'APPLICATION.json'))),base=JSON.parse(read(join(here,'BASE-INVENTORY.json')));
+const pin=JSON.parse(read(join(here,'PIN.json')));
+if(base.tree!==pin.tree||app.parent!==pin.currentMain)throw Error('Wrong immutable parent/tree');
+const domain=Object.keys({...app.preserved,...app.changes}).sort();
+if(JSON.stringify(domain)!==JSON.stringify(Object.keys(base.files).sort())||Object.keys(app.additions).some(p=>base.files[p]))throw Error('Incomplete preservation domain');
+const safe=p=>!p.startsWith('/')&&!p.split('/').some(x=>!x||x==='.'||x==='..');
+if([...Object.keys(base.files),...Object.keys(app.additions)].some(p=>!safe(p)))throw Error('Unsafe path');
+const patch=read(join(here,'owner.patch'));
+if(sha(patch)!==app.patchSha256)throw Error('Patch drift');
+const walk=(d,p='')=>readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(d,e.name),p+e.name+'/'):[p+e.name]);
+if(JSON.stringify(walk(source).sort())!==JSON.stringify(Object.keys(base.files).sort()))throw Error('Source domain differs from exact pinned snapshot; newer owner files require re-pinning');
+for(const [p,v]of Object.entries(base.files))if(sha(read(join(source,p)))!==v.sha256)throw Error('Owner preimage drift: '+p);
+mkdirSync(out,{recursive:true});
+for(const p of Object.keys(base.files)){mkdirSync(dirname(join(out,p)),{recursive:true});write(join(out,p),read(join(source,p)));chmodSync(join(out,p),base.files[p].mode==='100755'?0o755:0o644);}
+// git apply touches disposable files only; no repository, index, refs or branches.
+execFileSync('git',['apply','--check','--no-index','-'],{cwd:out,input:patch});
+execFileSync('git',['apply','--no-index','-'],{cwd:out,input:patch});
+for(const [p,v]of Object.entries({...app.preserved,...app.changes,...app.additions}))if(sha(read(join(out,p)))!==v.sha256)throw Error('Postimage drift: '+p);
+write(join(out,'CURRENT-COMPOSITION.json'),JSON.stringify(app,null,2)+'\n');
+write(join(out,'PAYMENT-COMPOSITION.json'),read(join(here,'PAYMENT-COMPOSITION.json')));
+console.log(JSON.stringify({stage:out,parent:app.parent,preserved:Object.keys(app.preserved).length,changes:Object.keys(app.changes).length,additions:Object.keys(app.additions).length}));

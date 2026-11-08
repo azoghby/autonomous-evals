@@ -1,0 +1,57 @@
+{
+  "baseArtifact": "f88811c8fb7509dc5996bb8cd1d148e4c23f3de3",
+  "integrated": "28356f2e655a2559a5e5ca144439e71fc765370c",
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "privateReview": {
+    "inventory": "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/docs/chat-current-authority/COMPOSITION.json",
+    "patches": [
+      {
+        "path": "docs/chat-current-authority/authority/0001-refresh-authority-policy.patch",
+        "sha256": "d50d4cf8e12eaae459187eeae8a11fd611b14e65553df03fef694d359de927a2"
+      },
+      {
+        "path": "docs/chat-current-authority/privacy/use-live-job-isolation.patch",
+        "sha256": "07f78f0b446814c2ba8ab333ff95aacaa459ba5f92c968e5ee189b386ee953c4"
+      },
+      {
+        "path": "docs/chat-current-authority/current-surfaces/recheck-artifact-authority.patch",
+        "sha256": "dc4697cf8b4c6a1da6f3bc8d4a391022734d41abacbf8cd17371b9a1dc559164"
+      },
+      {
+        "path": "docs/chat-current-authority/current-surfaces/0002-existing-owner-fixture.patch",
+        "sha256": "d070d714e41489db5e2161d11e94a4319a258a59f6b29f0a81bca87ad9238fa8"
+      },
+      {
+        "path": "docs/chat-current-authority/authority/0002-reauthorize-publication.patch",
+        "sha256": "5b568a2b8a857b206ca8da088a95132d3135dc2257d8ee7b808c9ea0430ae109"
+      }
+    ]
+  },
+  "ownerLoader": {
+    "target": "apps/web/src/server/current-autonomy-owner.ts",
+    "export": "loadCurrentAutonomyOwner",
+    "contract": "CurrentOwnerLoader from ./current-payment-startup",
+    "requiredAdapters": [
+      "config: Omit<CurrentAutonomyConfig,loadRequest|verifyPayment|enqueue>",
+      "bridge: Omit<BridgeOptions,verifyStripe>",
+      "dependencies: CurrentAutonomyDependencies",
+      "enqueue",
+      "enqueueQuote(request,key,quote,actualCheckoutAction,paid)",
+      "exclusiveDispatch(request): Promise<boolean>"
+    ]
+  },
+  "providerGates": [
+    "genuine pinned transport/recovery/payment evidence",
+    "configured mode and account signature verifier",
+    "refund/cancel event subscription",
+    "least privilege SQL grants",
+    "hosted replay verification"
+  ],
+  "unsupported": [
+    "per_finding autonomous prepaid receipt",
+    "USDC to USD release currency conversion",
+    "changed model scope over canonical current quote"
+  ],
+  "releaseAccepted": false,
+  "liveRunPerformed": false
+}

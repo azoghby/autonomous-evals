@@ -1,0 +1,203 @@
+{
+  "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "tree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc",
+  "initialMain": "a7851f848ecea7621b227cf71744f888985d9f7b",
+  "historicalParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "priorValidatedPin": "b331cc9729fd86c21268ad802d276b0081110da1",
+  "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
+  "allFinalGates": {
+    "review-types": {
+      "exitCode": 0
+    },
+    "review-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 222,
+        "passed": 222,
+        "failed": 0,
+        "pending": 0,
+        "todo": 0
+      }
+    },
+    "combined-types": {
+      "exitCode": 0
+    },
+    "core-types": {
+      "exitCode": 0
+    },
+    "next-typegen": {
+      "exitCode": 0
+    },
+    "application-types": {
+      "exitCode": 0
+    },
+    "root-tests": {
+      "exitCode": 0,
+      "testSummary": {
+        "total": 2653,
+        "passed": 2651,
+        "failed": 0,
+        "pending": 2,
+        "todo": 0
+      }
+    },
+    "production-build": {
+      "exitCode": 0
+    }
+  },
+  "combinedTests": {
+    "total": 222,
+    "passed": 222,
+    "failed": 0,
+    "skipped": 0,
+    "files": 36,
+    "slices": {
+      "baseline": {
+        "files": 23,
+        "tests": 164,
+        "passed": 164,
+        "failed": 0,
+        "skipped": 0
+      },
+      "regression": {
+        "files": 1,
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "review": {
+        "files": 12,
+        "tests": 57,
+        "passed": 57,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "rootTests": {
+    "total": 2653,
+    "passed": 2651,
+    "failed": 0,
+    "existingOptInSkipped": 2,
+    "skips": [
+      {
+        "file": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107/scripts/tau2/tasks-to-scenarios.test.ts",
+        "test": "tau2 retail scenarios (regeneration) regenerates the committed suite"
+      },
+      {
+        "file": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107/packages/core/src/sandbox/runtime/runtime.live.test.ts",
+        "test": "neon sandbox runtime (live) isolates two trials, diffs collateral writes, and cleans up"
+      }
+    ]
+  },
+  "postBuildPreservation": {
+    "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+    "tree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc",
+    "applicationManifestSha256": "2ce331afeb2162b4bc12f0d1fee75f44475d7b85bb47d6615d9d20a8a40e769d",
+    "sourceFiles": 2669,
+    "preserved": 2523,
+    "changes": 21,
+    "additions": 125,
+    "drift": [],
+    "sourceHashErrors": []
+  },
+  "originalReviewerFilesPreserved": 16,
+  "originalCommittedPaymentRegressionPreserved": true,
+  "executionNamespaces": [
+    "tests/track-b/current-company-adoption-review",
+    "tests/track-b/current-company-adoption-payment-fixes"
+  ],
+  "originalTestPreservationSha256": "70c3bef6944de1e88c4c3ee0c2c8861f462f619907a18f7d42d65640501f33ed",
+  "fourCorrectedRuntimePostimages": {
+    "apps/web/src/server/autonomous-paid.ts": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c",
+    "apps/web/src/server/autonomy-release.ts": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb",
+    "apps/web/src/server/current-payment-startup.ts": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5",
+    "apps/web/src/server/current-payment.ts": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae"
+  },
+  "paymentRecoverySqlSha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
+  "productionInventorySha256": "53e65ddefe8610dd5075068f1d02290740b75bd813340704ac3705922db315e8",
+  "runnerSha256": "bedd1b0e3e2709ddb929e2bbf896154f9e08a5ee083fffa0a2e70aabbae7ea96",
+  "stagedRunnerSha256": "bedd1b0e3e2709ddb929e2bbf896154f9e08a5ee083fffa0a2e70aabbae7ea96",
+  "testInputsSha256": "d174a7a82fee911980f5f96d48af86cac2b943dc25f8a8d3a2009b26e884188a",
+  "postBuildInputsSha256": "110b9271aaf676eeaec70a9ecf17c7c6fbacfd60149d76c24115116909f6a66d",
+  "restoredCalendarInvariants": [
+    {
+      "test": "paid Calendar with a SQL port other than the exact workflowSql() refuses construction before branch, simulator, target or reservation",
+      "status": "passed"
+    },
+    {
+      "test": "paid Calendar whose retained binding has no reviewed suite (removed baseline fixture shape) refuses freezeSuite before branch/target/reservation",
+      "status": "passed"
+    },
+    {
+      "test": "a scheduler run id or empty id never substitutes for the job's durable Workflow run identity",
+      "status": "passed"
+    },
+    {
+      "test": "real paid completeRound refuses scheduler/scenario-only/UUID/cross-scope identities with no reservation or target call; a valid engine identity dispatches exactly once and is never blindly re-called",
+      "status": "passed"
+    },
+    {
+      "test": "paid standalone rerun and investigation without durable operation identity refuse before simulator/target work",
+      "status": "passed"
+    },
+    {
+      "test": "current-app Calendar evaluate reaches real rich services with the job's existing durable Workflow identity, meters SQL, and replays without target calls",
+      "status": "passed"
+    },
+    {
+      "test": "evaluate uses the canonical job workflowRunId: a rebound (new) run id refuses after retained phases instead of minting fresh paid work",
+      "status": "passed"
+    },
+    {
+      "test": "missing durable job Workflow binding refuses before context, services, branch or reservation (real factory, no deps.rich)",
+      "status": "passed"
+    }
+  ],
+  "forgedIdentityCaseCount": 15,
+  "build": {
+    "next": "16.4.5",
+    "workflowSteps": 53,
+    "workflows": 4,
+    "webpack": true
+  },
+  "upstreamPreservation": {
+    "files": 50,
+    "drift": 0,
+    "manifestSha256": "f8028ee18b47bd7fd926c165880b9cb66483730845109233bfa67ea194428ef5",
+    "postBuildCheckSha256": "2ec13ed495fe28994e3d00218ab0c82ac6cf3015b3a084de23a20a60d23cb1ef",
+    "allPreservedExactlyFrom3fBase": true,
+    "transportProvenance": "Upstream72d followed by explicit parent-reviewed transport correction3f0bd8a; included as immutable base, not overwritten"
+  },
+  "transportVerification": {
+    "command": [
+      "node",
+      "--test",
+      "tests/track-b/loopback-transport-review/regression.cjs"
+    ],
+    "cwd": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
+    "exitCode": 0,
+    "logSha256": "f086be19b369efdb03ebdaee29b35c6b26b470e62a64ed57a373a736d5c48b5c",
+    "sourceSha256": "6e8ff372cc06cf062c5ae9a2970e9ca949f3a78fdf9469c7c87eca4637b06c09",
+    "regressionSha256": "0e92e5e13aef44bca6a300724ba924e18c852e143e59781cab41066114806e4a",
+    "rootTargetSuite": {
+      "files": 6,
+      "tests": 156,
+      "passed": 156
+    },
+    "tests": 17,
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0
+  },
+  "sourceEditsDuringValidation": false,
+  "installs": false,
+  "sharedCacheEdits": false,
+  "pendingFairnessCorrectionsAdopted": false,
+  "outsidePinD620DeltaAdopted": false,
+  "liveProviders": false,
+  "releaseAccepted": false,
+  "hostedAcceptance": false,
+  "ownerAdaptersConfigured": false
+}

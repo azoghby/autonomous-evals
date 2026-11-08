@@ -1,0 +1,73 @@
+{
+  "initialPin": "a7851f848ecea7621b227cf71744f888985d9f7b",
+  "finalPinRequired": "Owner-designated immutable merged commit 15a38e0 (resolve full SHA from verified owner pin; never use moving HEAD)",
+  "privacyInputs": [
+    {
+      "path": "docs/chat-current-authority/authority/0001-refresh-authority-policy.patch",
+      "sha256": "d50d4cf8e12eaae459187eeae8a11fd611b14e65553df03fef694d359de927a2",
+      "verified": true
+    },
+    {
+      "path": "docs/chat-current-authority/privacy/use-live-job-isolation.patch",
+      "sha256": "07f78f0b446814c2ba8ab333ff95aacaa459ba5f92c968e5ee189b386ee953c4",
+      "verified": true
+    },
+    {
+      "path": "docs/chat-current-authority/current-surfaces/recheck-artifact-authority.patch",
+      "sha256": "dc4697cf8b4c6a1da6f3bc8d4a391022734d41abacbf8cd17371b9a1dc559164",
+      "verified": true
+    },
+    {
+      "path": "docs/chat-current-authority/current-surfaces/0002-existing-owner-fixture.patch",
+      "sha256": "d070d714e41489db5e2161d11e94a4319a258a59f6b29f0a81bca87ad9238fa8",
+      "verified": true
+    },
+    {
+      "path": "docs/chat-current-authority/authority/0002-reauthorize-publication.patch",
+      "sha256": "5b568a2b8a857b206ca8da088a95132d3135dc2257d8ee7b808c9ea0430ae109",
+      "verified": true
+    }
+  ],
+  "calendarCorePreimages": {
+    "packages/core/src/evals/calendar-integration/index.ts": {
+      "currentSha256": "34954cc1063f162672ff4a94da139e4ee5042b83b2029bc17174fe2b1f1d53c4",
+      "matchesReviewedCalendarPreimage": true
+    },
+    "packages/core/src/simulator/runner.ts": {
+      "currentSha256": "a4eae5578d1c791d9241d216b8d4a01215e326b95896aea45fc7e00b5ac820fe",
+      "matchesReviewedCalendarPreimage": true
+    },
+    "packages/core/src/simulator/workflow/index.ts": {
+      "currentSha256": "7d807c446ff170ee8767c903d52125faa312a5c14d97ebded1dfaf4a4b84ebdd",
+      "matchesReviewedCalendarPreimage": true
+    }
+  },
+  "existingSurfacePreimages": {
+    "apps/web/next.config.ts": {
+      "currentSha256": "917c81385f48e989fd26f5838524a781063bccbb683ef9072ce8467331cc7ddc",
+      "matchesHistoricalPreimage": true
+    },
+    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx": {
+      "currentSha256": "193196cbc292bbff84021ba373c005d6e5030b66ae86c3e3a7e81efb794fd5ab",
+      "matchesHistoricalPreimage": true
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts": {
+      "currentSha256": "7ed2c88fa0086cbdc0aacc7592eeeb290d2aec595535fa6b5b71ee544e90cc08",
+      "matchesHistoricalPreimage": true
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts": {
+      "currentSha256": "5d91977306f6647bfce7643b1b616145be3eecfa84f9fc0aeb5d9b2e2782eddf",
+      "matchesHistoricalPreimage": true
+    },
+    "apps/web/src/components/app/job-view.tsx": {
+      "currentSha256": "9b3d5e11bb7a232aa4b3cfb5e29e034dde0585b0b7c9fc85d9affe47453f9ae2",
+      "matchesHistoricalPreimage": true
+    },
+    "apps/web/src/lib/client/use-live-job.ts": {
+      "currentSha256": "610f3740aa96bed573fd632ff91015e6673a4a973a5e88444af7d2763625d431",
+      "matchesHistoricalPreimage": true
+    }
+  },
+  "additionCollisions": [],
+  "workingTreeTrust": "Untrusted pending immutable-pin verification: owner reported concurrent HEAD unexpectedly moved to e4686; these preimage observations must be repeated against immutable archive."
+}

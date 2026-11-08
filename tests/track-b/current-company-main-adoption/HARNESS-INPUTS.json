@@ -1,0 +1,96 @@
+{
+  "sourceStage": "/private/tmp/current-company-main-adoption-validated-20261107",
+  "files": [
+    {
+      "path": "tsconfig.combined-tests.json",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tsconfig.combined-tests.json",
+      "sha256": "55dbb5126335023452872a1391571fd07971a484d839a72aad640e83ad1e102f",
+      "bytes": 598,
+      "kind": "baseline-harness"
+    },
+    {
+      "path": "combined-vitest.config.mjs",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/combined-vitest.config.mjs",
+      "sha256": "78562956e71293a1dc2e9e69307381bbc369c0609cc5e20ad7258a3331312653",
+      "bytes": 787,
+      "kind": "baseline-harness"
+    },
+    {
+      "path": "offline.cjs",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/offline.cjs",
+      "sha256": "dbce159c2523e672cff237ce5e4b4d63e85bdeb8eba009a0ff244688a06c7e76",
+      "bytes": 980,
+      "kind": "baseline-harness"
+    },
+    {
+      "path": "offline-fonts.cjs",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/offline-fonts.cjs",
+      "sha256": "00daa7a8b22a61beedb6fc0422b879f2557ea37bd30dea7c5aeeb3813a6db9da",
+      "bytes": 8298,
+      "kind": "baseline-harness"
+    },
+    {
+      "path": "empty-server-only.mjs",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/empty-server-only.mjs",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "bytes": 11,
+      "kind": "baseline-harness"
+    },
+    {
+      "path": "packages/core/tsconfig.current-main-production.json",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/packages/core/tsconfig.current-main-production.json",
+      "sha256": "119e5d460a8e18d6e10e561dee8e0b7623f4e5984f8926865dd1ca62b7020425",
+      "bytes": 150,
+      "kind": "baseline-harness"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-integration/data-dispatch.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-integration/data-dispatch.test.ts",
+      "sha256": "df96d37b6eb8897ea5dbf31d12b5be4415c636d59c63e18e4022a06a4f27a1ed",
+      "bytes": 2760,
+      "kind": "seven-supplemental"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-integration/release-capability.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-integration/release-capability.test.ts",
+      "sha256": "7c922d63439d3f6f4ac54008156fe80b7c88720708f3355ea7efcb92a9f1cec4",
+      "bytes": 5751,
+      "kind": "seven-supplemental"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-calendar/calendar.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-calendar/calendar.test.ts",
+      "sha256": "b9452dbf39118a5c215a089697dfc7270f857735bc2ad5f0a0c07a8318b4bab1",
+      "bytes": 19027,
+      "kind": "seven-supplemental"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
+      "sha256": "886c432841e3039eea9beeb71be028da301589e7cd3e4205d3dec41bc4a6b792",
+      "bytes": 5361,
+      "kind": "seven-supplemental"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-payment-startup/composition.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/composition.test.ts",
+      "sha256": "91fb460856df0a5bffbec6c33d88ffc49c1cbff7864685874ddf4190d48ab689",
+      "bytes": 1132,
+      "kind": "seven-supplemental"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-payment-startup/startup-webhook.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/startup-webhook.test.ts",
+      "sha256": "311488d0bda9460b44e744e366047ec664a1463beb221f6139c55745a160af96",
+      "bytes": 3421,
+      "kind": "seven-supplemental"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-payment-startup/startup.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/startup.test.ts",
+      "sha256": "77db76cd2c9962e96b159aa7d3d3a6812cd20037a2afee78cf4ba87659453e5b",
+      "bytes": 5180,
+      "kind": "seven-supplemental"
+    }
+  ]
+}
