@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "exportedBy": "SYNTHETIC DOCUMENTATION EXAMPLE; NOT OWNER EVIDENCE",
+  "databaseRefs": {
+    "application": "example-application-database",
+    "isolated-calendar-only": "example-isolated-calendar-database"
+  },
+  "records": []
+}
