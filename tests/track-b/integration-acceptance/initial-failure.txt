@@ -1,0 +1,62 @@
+Track B HEAD 74ac48672d9ef91dfb9dcbf4d0dd393aa6cadd5c; Track A eee9939b290190886fa9aa11fd32ff84442f05f2; providers disabled; one worker
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-D8NZwp
+
+ ❯ acceptance.test.ts (5 tests | 1 failed) 1924ms
+   ❯ ACCEPTANCE — locally composed durable seams (4)
+     × A1 Trace Audit uses Track A composition, preserves failed-tool evidence in report and deduplicates measured replay costs 62ms
+     ✓ A2 Text SQL checkpoints feed real reporting and authorized private persisted chat without replay target calls 173ms
+     ✓ A3 Calendar unresolved infrastructure evidence survives SQL replay, report and progress without a false pass or reproduction 126ms
+     ✓ A4 Missing data and expert verification stay durable blockers and cannot become factual Text design input 31ms
+   ✓ CHARACTERIZATION — open integration gaps, not acceptance (1)
+     ✓ G1 actual Track A composition refuses Text/Calendar legacy phases, rerun and verified remediation 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  acceptance.test.ts > ACCEPTANCE — locally composed durable seams > A1 Trace Audit uses Track A composition, preserves failed-tool evidence in report and deduplicates measured replay costs
+AssertionError: expected [ { id: 'F1', …(8) } ] to deeply equal [ { id: 'F1', …(8) } ]
+
+- Expected
++ Received
+
+@@ -3,11 +3,13 @@
+      "category": "unsupported_claim",
+      "description": "The assistant said \"The email was sent.\" but the latest relevant tool result reports an error. The log does not show the action succeeding.
+
+  Investigator: Failed send contradicts success.
+
+- Basis: objective.",
++ Basis: objective.
++
++ Basis: unspecified.",
+      "evidence": [
+        {
+          "excerpt": "The email was sent.",
+          "kind": "trace_excerpt",
+          "location": "event e3",
+
+ ❯ acceptance.test.ts:109:29
+    107|     const input = { intake: { package: 'trace_audit' as const, trace, …
+    108|     const report = await build().renderReport(ctx, input);
+    109|     expect(report.findings).toEqual(audit.findings);
+       |                             ^
+    110|     expect(report.markdown).toContain('smtp down');
+    111|     expect(report.html).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  16:27:05
+   Duration  2.58s (tests 78%, transform 15%, import 7%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-D8NZwp/results.json
+file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-b085a457/tests/track-b/integration-acceptance/run.mjs:39
+    if (r.error || r.status !== 0) throw r.error ?? new Error(`${tool} exited ${r.status}`);
+                                                    ^
+
+Error: vitest/vitest.mjs exited 1
+    at file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-b085a457/tests/track-b/integration-acceptance/run.mjs:39:53
+
+Node.js v24.21.0

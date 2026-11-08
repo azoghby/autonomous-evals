@@ -1,0 +1,15 @@
+Track B HEAD 74ac48672d9ef91dfb9dcbf4d0dd393aa6cadd5c; Track A 9cc9db954eb00fc16a5c8f832d4e75eb417f4cf9; providers disabled; one worker
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-OcZPpO
+
+ ✓ acceptance.test.ts (9 tests) 1518ms
+   ✓ ACCEPTANCE — locally composed durable seams (5)
+     ✓ A5 Calendar fixed reference passes SQL checks while a no-op fixture yields reproduced failures in the exported report 314ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  16:30:20
+   Duration  1.93s (tests 81%, transform 14%, import 5%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-OcZPpO/results.json
+Strict TypeScript passed. 9 tests executed, none skipped. Characterizations are explicitly labeled and are not acceptance.

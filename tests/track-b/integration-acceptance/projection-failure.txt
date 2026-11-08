@@ -1,0 +1,52 @@
+Track B HEAD 74ac48672d9ef91dfb9dcbf4d0dd393aa6cadd5c; Track A 9cc9db954eb00fc16a5c8f832d4e75eb417f4cf9; providers disabled; one worker
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-lWrDyo
+
+ ❯ acceptance.test.ts (8 tests | 1 failed) 1291ms
+   ❯ ACCEPTANCE — locally composed durable seams (5)
+     ✓ A1 Trace Audit uses Track A composition, preserves failed-tool evidence in report and deduplicates measured replay costs 37ms
+     × A2 Text SQL checkpoints feed real reporting and authorized private persisted chat without replay target calls 95ms
+     ✓ A3 Calendar unresolved infrastructure evidence survives SQL replay, report and progress without a false pass or reproduction 75ms
+     ✓ A5 Calendar fixed reference passes SQL checks while a no-op fixture yields reproduced failures in the exported report 188ms
+     ✓ A4 Missing data and expert verification stay durable blockers and cannot become factual Text design input 11ms
+   ✓ CHARACTERIZATION — open integration gaps, not acceptance (3)
+     ✓ G2 shared finding round trip appends unspecified basis to an objective Trace finding 0ms
+     ✓ G3 Track A accepts 32 shared scenarios but this establishes no appended red-team execution 1ms
+     ✓ G1 actual Track A composition refuses Text/Calendar legacy phases, rerun and verified remediation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  acceptance.test.ts > ACCEPTANCE — locally composed durable seams > A2 Text SQL checkpoints feed real reporting and authorized private persisted chat without replay target calls
+AssertionError: expected [] to have a length of 3 but got +0
+
+- Expected
++ Received
+
+- 3
++ 0
+
+ ❯ acceptance.test.ts:156:79
+    154|     expect(projected.phases[0]?.outcomes.length).toBeGreaterThan(0); e…
+    155|     expect(projected.snapshot.costs.reduce((n, cost) => n + cost.micro…
+    156|     expect(projected.snapshot.findings.filter(f => f.status === 'confi…
+       |                                                                               ^
+    157|     expect(projected.snapshot.unknownCosts).toBe(true); expect(JSON.st…
+    158|     const message = { jobId: job.jobId, messageId: 'question', questio…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  16:29:40
+   Duration  1.78s (tests 76%, transform 17%, import 7%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-lWrDyo/results.json
+file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-b085a457/tests/track-b/integration-acceptance/run.mjs:39
+    if (r.error || r.status !== 0) throw r.error ?? new Error(`${tool} exited ${r.status}`);
+                                                    ^
+
+Error: vitest/vitest.mjs exited 1
+    at file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-b085a457/tests/track-b/integration-acceptance/run.mjs:39:53
+
+Node.js v24.21.0
