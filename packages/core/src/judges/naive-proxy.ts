@@ -6,6 +6,7 @@ import type { RubricJudge, RubricJudgeInput } from '../evals/types';
 import type { TextCheckpointStore, CheckpointKey } from '../evals/integration/checkpoints';
 import { canonicalJson } from '../evals/text/freeze';
 import { containsSecret } from '../agents/redact';
+import { reconcileNaiveProxyBilling, proxyBillingDigest, type NaiveProxyBillingIntent } from './naive-proxy-reconcile';
 
 const Verdict = z.object({ outcome: z.enum(['passed','rubric_concern','inconclusive']), explanation: z.string().min(1).max(4000), evidenceQuotes: z.array(z.string().min(1).max(2000)).max(10) }).strict();
 const requestId = /^req_[0-9a-hjkmnp-tv-z]{26}$/;
@@ -74,6 +75,13 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
     if (claim.state === 'completed') received = claim.value as Received;
     else {
       if (claim.state !== 'claimed') return unavailable();
+      const intent: NaiveProxyBillingIntent = {schemaVersion:'naive_proxy_intent.v1',jobId,operationId:input.operationId,model,inputDigest,maxOutputTokens,
+        requestDigest:proxyBillingDigest({model,system,max_output_tokens:maxOutputTokens,messages:body.messages})};
+      await authorized(intent);
+      const intentKey={...key,kind:'naive_proxy_intent'};
+      const intentClaim=await deps.checkpoints.claim(intentKey);
+      if(intentClaim.state==='claimed')await deps.checkpoints.complete(intentKey,intentClaim.token,intent);
+      else if(intentClaim.state!=='completed'||canonicalJson(intentClaim.value)!==canonicalJson(intent))return unavailable();
       // Claim precedes reservation. A crash at any point fences automatic re-dispatch.
       if (!await deps.budget.reserve({ reservationId, jobId, operationId: input.operationId, inputDigest, amountMicroUsd: reservationMicroUsd })) unavailable();
       await authorized();
@@ -82,6 +90,12 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
         if (!requestId.test(response.id)) unavailable();
         const usage = response.usage && [response.usage.input_tokens, response.usage.output_tokens, response.usage.cache_read_input_tokens, response.usage.cache_creation_input_tokens].every(v => Number.isSafeInteger(v) && v >= 0)
           ? { input: response.usage.input_tokens, output: response.usage.output_tokens, cache_read: response.usage.cache_read_input_tokens, cache_write: response.usage.cache_creation_input_tokens } : null;
+        // First durable post-response write contains no model output or customer text.
+        const receiptKey={...key,kind:'naive_proxy_received'};
+        const identity={requestId:response.id,usage};
+        const identityClaim=await deps.checkpoints.claim(receiptKey);
+        if(identityClaim.state==='claimed')await deps.checkpoints.complete(receiptKey,identityClaim.token,identity);
+        else if(identityClaim.state!=='completed'||canonicalJson(identityClaim.value)!==canonicalJson(identity))return unavailable();
         const usable = response.model === model && response.stop_reason === 'end_turn' && response.content.length === 1 && response.content[0]?.type === 'text';
         const text = usable && response.content[0]?.type === 'text' ? response.content[0].text : null;
         // Capture only request identity/usage if current publication authority disappeared.
@@ -96,28 +110,9 @@ export function createNaiveProxyJudge(deps: NaiveProxyJudgeDeps): RubricJudge {
       } catch { await deps.checkpoints.markAmbiguous(key, claim.token).catch(() => undefined); return unavailable(); }
     }
     if (!received || !requestId.test(received.requestId) || typeof received.usable !== 'boolean' || (received.text !== null && typeof received.text !== 'string')) unavailable();
-    const billingKey = { ...key, kind: 'naive_proxy_billing' };
-    let receipt: NaiveProxyCost;
-    const retained = await deps.checkpoints.get(billingKey);
-    if (retained?.state === 'completed') receipt = retained.value as NaiveProxyCost;
-    else {
-      if (retained) unavailable();
-      // Read-only reconciliation can be repeated when a trace is delayed, unavailable or null-priced.
-      let trace: Awaited<ReturnType<VettaClient['proxy']['call']>>;
-      try { trace = await client.proxy.call(received.requestId); } catch { return unavailable(); }
-      if (trace.id !== received.requestId || trace.source !== 'proxy' || trace.session_id !== null || trace.dialect !== 'anthropic' || trace.model !== model || trace.window !== 'immediate' || trace.billed_micro_usd === null || !Number.isSafeInteger(trace.billed_micro_usd) || trace.billed_micro_usd < 0 ||
-        !trace.usage || [trace.usage.input, trace.usage.output, trace.usage.cache_read, trace.usage.cache_write].some(v => !Number.isSafeInteger(v) || v < 0) ||
-        received.usage !== null && Object.entries(received.usage).some(([k,v]) => !Number.isSafeInteger(v) || v < 0 || trace.usage[k as 'input' | 'output' | 'cache_read' | 'cache_write'] !== v) ||
-        (received.usable && (trace.stop !== 'end_turn' || trace.response?.text !== received.text || trace.response.is_error || trace.response.partial || trace.response.tool_calls.length !== 0)) ||
-        trace.content_scope !== 'full' || trace.truncated || trace.request?.system !== system || trace.request.model !== model || trace.request.max_output_tokens !== maxOutputTokens || trace.request.messages.length !== 1 || trace.request.messages[0]?.role !== 'user' || trace.request.messages[0]?.content !== user) return unavailable();
-      receipt = { source: 'naive_proxy', jobId, operationId: input.operationId, model, requestId: received.requestId, microUsd: trace.billed_micro_usd, measured: true, idempotencyKey: `naive_proxy:${received.requestId}` };
-      const billing = await deps.checkpoints.claim(billingKey);
-      if (billing.state === 'claimed') await deps.checkpoints.complete(billingKey, billing.token, receipt);
-      else if (billing.state !== 'completed' || canonicalJson(billing.value) !== canonicalJson(receipt)) unavailable();
-    }
-    if (receipt.source !== 'naive_proxy' || receipt.jobId !== jobId || receipt.operationId !== input.operationId || receipt.model !== model || receipt.requestId !== received.requestId || receipt.measured !== true || receipt.idempotencyKey !== `naive_proxy:${received.requestId}` || !Number.isSafeInteger(receipt.microUsd) || receipt.microUsd < 0) unavailable();
-    await deps.budget.settle({ reservationId, receipt: structuredClone(receipt) });
-    await deps.recordCost(structuredClone(receipt));
+    // New operations retain a prompt-free independent recovery intent. Historical completed
+    // checkpoints without it remain fenced for explicit owner reconciliation.
+    await reconcileNaiveProxyBilling({jobId,operationId:input.operationId},{checkpoints:deps.checkpoints,proxy:client.proxy,budget:deps.budget,recordCost:deps.recordCost});
     if (publicationDenied) throw publicationError;
     await authorized(received);
     if (!received.usable || received.text === null) return unavailable();

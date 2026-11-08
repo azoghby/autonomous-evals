@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-11-08T09:25:55.555606+00:00",
+  "sourceCommit": "9eb9e4c82a69be2ae9e997efdb747e8b6d658acd",
+  "mode": "read_only_inventory",
+  "matchedCompanyRoleEntries": [
+    {
+      "id": "agt_fdbkn5tgmm8jgn6rpq3gkrw4x4",
+      "version": 1,
+      "role": "company_operator"
+    },
+    {
+      "id": "agt_vgvrtnybp6n5325vwnfdfr9w7d",
+      "version": 1,
+      "role": "quality_investigator"
+    },
+    {
+      "id": "agt_qs8k88dbxbea704v2f49hgtq8h",
+      "version": 1,
+      "role": "evaluation_engineer"
+    },
+    {
+      "id": "agt_td46vftzqhb490emtnp92tdrth",
+      "version": 1,
+      "role": "commercial"
+    }
+  ],
+  "configurationAttested": false,
+  "resourcesCreated": false,
+  "sessionsRun": false,
+  "deploymentsChanged": false,
+  "note": "Existing privately retained key; fixed official SDK API origin. Matches only configured company-role names, not a claim about total organization inventory or application environment pins."
+}
