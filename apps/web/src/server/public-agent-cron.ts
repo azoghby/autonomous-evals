@@ -5,7 +5,7 @@
  */
 import { and, eq, gte, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
-import { PublicAgentInput, assertAuthorizedToTest } from "./leaderboard-agents";
+import { PublicAgentInput, assertAuthorizedToTest, isLocalKind } from "./leaderboard-agents";
 import { SUITE_VERSION } from "./leaderboard";
 import { loadStandardSuite, runPublicAgent, type RunOutcome } from "./public-agent-runner";
 
@@ -22,7 +22,7 @@ export const FAILURE_COST_SOURCE = "public_agent_cron_failure";
 export const ADVISORY_LOCK_KEY = 0x7075626167656e74n;
 
 export interface CandidateAgent {
-  slug: string; name: string; active: boolean; termsUrl?: string | null; authorizedNote?: string | null; authEnvVar?: string | null;
+  slug: string; name: string; active: boolean; kind?: string | null; termsUrl?: string | null; authorizedNote?: string | null; authEnvVar?: string | null;
   /** Optional owner-autopilot fields; absent on rows from a DB that has not been migrated yet. */
   status?: string | null; ownerEmail?: string | null; verifiedAt?: Date | string | null;
   /** Owner asked for a re-run (reply responder). Due when newer than the latest run, regardless of the interval. */
@@ -40,6 +40,7 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 }
 
 function isAuthorized(a: CandidateAgent): boolean {
+  if (isLocalKind(a.kind)) return false; // local_reference agents are operator/CLI-only (--allow-local); the cron never touches them
   if (a.status != null && a.status !== "active") return false; // paused / pending_verification / opted_out
   if (a.ownerEmail && !a.verifiedAt) return false; // owner-submitted agents must be verified
   try { assertAuthorizedToTest(a); return true; } catch { return false; }

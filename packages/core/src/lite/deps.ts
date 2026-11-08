@@ -12,6 +12,8 @@ export interface LiteDeps {
   /** SSRF-safe HTTPS JSON transport (Track B). Tests inject a fake. */
   transport: JsonTransport;
   now: () => Date;
+  /** Operator-only (CLI --allow-local): accept http://127.0.0.1:<port> targets. Pair with LoopbackJsonTransport. Never set on web/cron paths. */
+  allowLoopback?: boolean;
   /**
    * Durable fallback for the eval target when the in-memory TargetRegistry has no entry (serverless: workflow
    * steps run in separate invocations). Provided by the host app; resolves from the job's stored config/credentials.

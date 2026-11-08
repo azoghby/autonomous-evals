@@ -1,5 +1,6 @@
 import { lookup } from 'node:dns/promises';
 import { request } from 'node:https';
+import { request as httpRequest } from 'node:http';
 import { isIP } from 'node:net';
 import { checkServerIdentity } from 'node:tls';
 import ipaddr from 'ipaddr.js';
@@ -126,4 +127,43 @@ function bounded(value: number | undefined, maximum: number) {
   if (value === undefined) return maximum;
   if (!Number.isInteger(value) || value < 1 || value > maximum) throw new TargetError('invalid_limit');
   return value;
+}
+
+/** Strict loopback-only endpoint: http://127.0.0.1:<port>/<path>, no userinfo/query/hash. Used ONLY for operator-run local agents (CLI --allow-local). */
+export function isLoopbackEndpoint(endpoint: string): boolean {
+  let u: URL;
+  try { u = new URL(endpoint); } catch { return false; }
+  return u.protocol === 'http:' && u.hostname === '127.0.0.1' && !!u.port && !u.username && !u.password && !u.search && !u.hash;
+}
+
+/**
+ * JSON transport for operator-run local agents. It ONLY talks to http://127.0.0.1:<port>; any other endpoint is refused
+ * ('blocked_address'), so enabling it never widens SSRF exposure. Never constructed on the web/cron path.
+ */
+export class LoopbackJsonTransport implements JsonTransport {
+  constructor(private readonly options: { timeoutMs?: number; maxResponseBytes?: number } = {}) {}
+  post(endpoint: string, body: unknown, bearer?: string): Promise<unknown> {
+    if (!isLoopbackEndpoint(endpoint)) return Promise.reject(new TargetError('blocked_address'));
+    const url = new URL(endpoint);
+    const timeout = this.options.timeoutMs ?? 120_000;
+    const limit = this.options.maxResponseBytes ?? 1_000_000;
+    let payload: string;
+    try { payload = JSON.stringify(body); } catch { return Promise.reject(new TargetError('invalid_request')); }
+    return new Promise<unknown>((resolve, reject) => {
+      const req = httpRequest({
+        protocol: 'http:', hostname: '127.0.0.1', port: Number(url.port), path: url.pathname, method: 'POST', agent: false, timeout,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), Accept: 'application/json',
+          ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+      }, res => {
+        if ((res.statusCode ?? 0) < 200 || (res.statusCode ?? 0) >= 300) { res.destroy(); reject(new TargetError('provider_http_error')); return; }
+        let size = 0; const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => { size += c.length; if (size > limit) { res.destroy(); reject(new TargetError('response_too_large')); } else chunks.push(c); });
+        res.on('error', () => reject(new TargetError('transport_error')));
+        res.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(new TargetError('invalid_json')); } });
+      });
+      req.on('timeout', () => { req.destroy(); reject(new TargetError('timeout')); });
+      req.on('error', () => reject(new TargetError('transport_error')));
+      req.end(payload);
+    });
+  }
 }

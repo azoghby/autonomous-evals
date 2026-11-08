@@ -27,10 +27,11 @@ export function SeverityDot({ severity }: { severity: string }) {
 }
 
 export function KindTag({ kind }: { kind: string }) {
-  const ref = kind === "reference";
+  const ref = kind === "reference" || kind === "local_reference";
+  const label = kind === "local_reference" ? "Open-source agent" : ref ? "Reference baseline" : "Third-party";
   return (
     <span className={cn("inline-block rounded-[2px] border px-1.5 py-[3px] font-mono text-[11px] uppercase leading-none", ref ? "border-line-3 text-fg-2" : "border-accent/60 text-accent-text")}>
-      {ref ? "Reference baseline" : "Third-party"}
+      {label}
     </span>
   );
 }

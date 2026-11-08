@@ -1,0 +1,468 @@
+openapi: 3.1.0
+info:
+  title: OpenAI CS Agents Demo - Airline API
+  version: 1.0.0
+  description: >-
+    Airline customer-service backend converted from openai/openai-cs-agents-demo (MIT, OpenAI),
+    python-backend/airline/tools.py. One operation per tool the demo's agents use, with the same name and
+    arguments. Each x-sandbox-sql binding re-implements the tool's behaviour (including its context hydration,
+    apply_itinerary_defaults) against the sandbox tables and returns the tool's original reply text in `message`.
+servers:
+  - url: https://api.airline.example/v1
+paths:
+  /faq/lookup:
+    post:
+      operationId: faq_lookup_tool
+      summary: Lookup frequently asked questions.
+      description: Lookup frequently asked questions. Answers questions about baggage, compensation for delays, seats on the plane and wifi.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            SELECT CASE
+              WHEN lower(CAST(:question AS text)) LIKE '%bag%' THEN 'You are allowed to bring one bag on the plane. It must be under 50 pounds and 22 inches x 14 inches x 9 inches. If a bag is delayed or missing, file a baggage claim and we will track it for delivery.'
+              WHEN lower(CAST(:question AS text)) ~ '(compensation|delay|voucher)' THEN 'For lengthy delays we provide duty-of-care: hotel and meal vouchers plus ground transport where needed. If the delay is over 3 hours or causes a missed connection, we also open a compensation case and can offer miles or travel credit. A Refunds & Compensation agent can submit the case and share the voucher details with you.'
+              WHEN lower(CAST(:question AS text)) ~ '(seats|plane)' THEN 'There are 120 seats on the plane. There are 22 business class seats and 98 economy seats. Exit rows are rows 4 and 16. Rows 5-8 are Economy Plus, with extra legroom.'
+              WHEN lower(CAST(:question AS text)) LIKE '%wifi%' THEN 'We have free wifi on the plane, join Airline-Wifi'
+              ELSE 'I''m sorry, I don''t know the answer to that question.'
+            END AS message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  description: The customer's question.
+                  example: What is the compensation for a delay?
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+  /trips/details:
+    post:
+      operationId: get_trip_details
+      summary: Infer the disrupted Paris->New York->Austin trip from user text and hydrate context.
+      description: >-
+        Infer the disrupted Paris->New York->Austin trip from user text and hydrate context. If the user mentions
+        Paris, New York, or Austin, hydrate the context with the disrupted itinerary; otherwise hydrate the on-time
+        itinerary. Returns the detected flight and confirmation. (Sandbox: hydrates agent_context, reads bookings.)
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT CASE WHEN lower(CAST(:message AS text)) ~ '(paris|new york|austin)' THEN 'disrupted' ELSE 'on_time' END AS k) s
+            WHERE c.id = 1
+          - |-
+            SELECT c.scenario, c.confirmation_number, c.flight_number, b.passenger_name, b.seat_number,
+              'Hydrated ' || c.scenario || ' itinerary: flight ' || COALESCE(c.flight_number, 'None') || ', confirmation ' || COALESCE(c.confirmation_number, 'None')
+                || ', origin ' || COALESCE(seg.origin, 'None') || ', destination ' || COALESCE(seg.destination, 'None') || '. '
+                || COALESCE(seg.summary, 'No segment details available') AS message
+            FROM agent_context c
+            LEFT JOIN bookings b ON b.confirmation_number = c.confirmation_number
+            LEFT JOIN LATERAL (
+              SELECT (array_agg(f.origin ORDER BY s.seq))[1] AS origin, (array_agg(f.destination ORDER BY s.seq DESC))[1] AS destination,
+                string_agg(f.flight_number || ' ' || f.origin || ' -> ' || f.destination || ' status: ' || COALESCE(f.status, ''), '; ' ORDER BY s.seq) AS summary
+              FROM booking_segments s JOIN flights f ON f.flight_number = s.flight_number
+              WHERE s.confirmation_number = c.confirmation_number AND s.status = 'confirmed'
+            ) seg ON true
+            WHERE c.id = 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  description: The customer's message text.
+                  example: My flight from Paris to Austin is delayed
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  scenario: { type: string }
+                  confirmation_number: { type: string }
+                  flight_number: { type: string }
+  /seats/update:
+    post:
+      operationId: update_seat
+      summary: Update the seat for a given confirmation number.
+      description: >-
+        Update the seat for a given confirmation number. (Sandbox: the booking must exist and be confirmed and the
+        seat must look like '12C'; otherwise nothing changes and the call returns an error.)
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT COALESCE(x.scenario, 'disrupted') AS k FROM agent_context x WHERE x.id = 1) s
+            WHERE c.id = 1
+          - UPDATE agent_context SET confirmation_number = CAST(:confirmation_number AS text) WHERE id = 1
+          - |-
+            UPDATE bookings b SET seat_number = upper(trim(CAST(:new_seat AS text)))
+            WHERE upper(b.confirmation_number) = upper(trim(CAST(:confirmation_number AS text))) AND b.status = 'confirmed'
+              AND upper(trim(CAST(:new_seat AS text))) ~ '^[0-9]{1,2}[A-K]$'
+            RETURNING b.confirmation_number, b.seat_number,
+              'Updated seat to ' || CAST(:new_seat AS text) || ' for confirmation number ' || CAST(:confirmation_number AS text) AS message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmation_number, new_seat]
+              properties:
+                confirmation_number:
+                  type: string
+                  example: IR-D204
+                new_seat:
+                  type: string
+                  example: 10A
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  confirmation_number: { type: string }
+                  seat_number: { type: string }
+  /flights/status:
+    post:
+      operationId: flight_status_tool
+      summary: Lookup status for a flight.
+      description: Lookup status for a flight. Lookup the status for a flight using the itineraries (sets the context flight).
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              flight_number = CAST(:flight_number AS text),
+              scenario = COALESCE(m.k, c.scenario),
+              confirmation_number = CASE WHEN m.k IS NULL THEN c.confirmation_number
+                ELSE COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = m.k)) END
+            FROM (SELECT (SELECT f.scenario_key FROM flights f WHERE lower(f.flight_number) = lower(CAST(:flight_number AS text))) AS k) m
+            WHERE c.id = 1
+          - |-
+            SELECT CAST(:flight_number AS text) AS flight_number, COALESCE(
+              (SELECT CASE WHEN f.kind = 'segment'
+                  THEN 'Flight ' || CAST(:flight_number AS text) || ' (' || f.origin || ' to ' || f.destination || ') | Status: ' || COALESCE(f.status, 'On time')
+                    || COALESCE(' | Gate: ' || f.gate, '') || ' | Scheduled ' || f.departure || ' -> ' || f.arrival || COALESCE(' | ' || f.impact_note, '')
+                  ELSE 'Replacement flight ' || CAST(:flight_number AS text) || ' (' || f.origin || ' to ' || f.destination || ') is available. Departure '
+                    || f.departure || ' arriving ' || f.arrival || '. Seat ' || COALESCE(f.seat_label, 'auto-assign') || ' held.' END
+               FROM flights f WHERE lower(f.flight_number) = lower(CAST(:flight_number AS text))),
+              'Flight ' || CAST(:flight_number AS text) || ' is on time and scheduled to depart at gate A10.') AS message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flight_number]
+              properties:
+                flight_number:
+                  type: string
+                  example: PA441
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  flight_number: { type: string }
+  /flights/matching:
+    post:
+      operationId: get_matching_flights
+      summary: Find replacement flights when a segment is delayed or cancelled.
+      description: Find replacement flights when a segment is delayed or cancelled. Returns matching flights for a disrupted itinerary, optionally filtered by origin and destination.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT COALESCE(x.scenario, (SELECT f2.scenario_key FROM flights f2 WHERE lower(f2.flight_number) = lower(x.flight_number)), 'disrupted') AS k FROM agent_context x WHERE x.id = 1) s
+            WHERE c.id = 1
+          - |-
+            WITH ctx AS (SELECT c.scenario FROM agent_context c WHERE c.id = 1),
+            opts AS (SELECT f.flight_number, f.origin, f.destination, f.departure, f.arrival, f.seat_label, f.note, f.seq FROM flights f JOIN ctx ON f.scenario_key = ctx.scenario WHERE f.kind = 'rebook_option'),
+            flt AS (SELECT o.* FROM opts o
+              WHERE (CAST(:origin AS text) IS NULL OR lower(o.origin) LIKE '%' || lower(CAST(:origin AS text)) || '%')
+                AND (CAST(:destination AS text) IS NULL OR lower(o.destination) LIKE '%' || lower(CAST(:destination AS text)) || '%')),
+            fin AS (SELECT * FROM flt UNION ALL SELECT * FROM opts WHERE NOT EXISTS (SELECT 1 FROM flt))
+            SELECT ctx.scenario, CASE WHEN NOT EXISTS (SELECT 1 FROM opts) THEN 'All flights are operating on time. No alternate flights are needed.'
+              ELSE 'Matching flights:' || chr(10)
+                || (SELECT string_agg(fin.flight_number || ' ' || fin.origin || ' -> ' || fin.destination || ' dep ' || fin.departure || ' arr ' || fin.arrival
+                     || ' | seat ' || COALESCE(fin.seat_label, 'auto-assign') || ' | ' || COALESCE(fin.note, ''), chr(10) ORDER BY fin.seq) FROM fin)
+                || COALESCE(chr(10) || (SELECT b.rebook_note FROM bookings b WHERE b.scenario_key = ctx.scenario), '') END AS message
+            FROM ctx
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                origin:
+                  type: string
+                  example: New York
+                destination:
+                  type: string
+                  example: Austin
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+  /bookings/rebook:
+    post:
+      operationId: book_new_flight
+      summary: Book a new or replacement flight and auto-assign a seat.
+      description: >-
+        Book a new or replacement flight and auto-assign a seat. Books a replacement flight from the active
+        itinerary's rebook options for the booking in context; like the demo, an unknown flight_number falls back to
+        the first option, and an itinerary without options returns a placeholder booking without changing anything.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT COALESCE(x.scenario, (SELECT f2.scenario_key FROM flights f2 WHERE lower(f2.flight_number) = lower(x.flight_number)), 'disrupted') AS k FROM agent_context x WHERE x.id = 1) s
+            WHERE c.id = 1
+          - |-
+            WITH ctx AS (SELECT c.scenario, c.confirmation_number FROM agent_context c WHERE c.id = 1),
+            bk AS (SELECT b.confirmation_number, b.seat_number FROM bookings b JOIN ctx ON b.confirmation_number = ctx.confirmation_number WHERE b.status = 'confirmed'),
+            sel AS (SELECT f.flight_number, f.origin, f.destination, f.departure, f.arrival, f.seat, f.seat_label FROM flights f JOIN ctx ON f.scenario_key = ctx.scenario
+              WHERE f.kind = 'rebook_option' ORDER BY (lower(f.flight_number) = lower(COALESCE(CAST(:flight_number AS text), ''))) DESC, f.seq LIMIT 1),
+            rep AS (UPDATE booking_segments s SET status = 'replaced' FROM sel, bk, flights f
+              WHERE s.confirmation_number = bk.confirmation_number AND f.flight_number = s.flight_number AND s.status = 'confirmed'
+                AND f.origin = sel.origin AND f.destination = sel.destination AND s.flight_number <> sel.flight_number RETURNING s.flight_number),
+            ins AS (INSERT INTO booking_segments (confirmation_number, flight_number, seq, status)
+              SELECT bk.confirmation_number, sel.flight_number, COALESCE((SELECT max(x.seq) FROM booking_segments x WHERE x.confirmation_number = bk.confirmation_number), 0) + 1, 'confirmed' FROM bk, sel
+              ON CONFLICT (confirmation_number, flight_number) DO UPDATE SET status = 'confirmed' RETURNING flight_number),
+            st AS (UPDATE bookings b SET seat_number = COALESCE(sel.seat, b.seat_number) FROM sel, bk WHERE b.confirmation_number = bk.confirmation_number RETURNING b.seat_number),
+            cx AS (UPDATE agent_context c SET flight_number = sel.flight_number FROM sel, bk WHERE c.id = 1 RETURNING c.flight_number)
+            SELECT bk.confirmation_number, COALESCE(sel.flight_number, CAST(:flight_number AS text)) AS flight_number, COALESCE(sel.seat, bk.seat_number) AS seat_number,
+              CASE WHEN sel.flight_number IS NOT NULL
+                THEN 'Rebooked to ' || sel.flight_number || ' from ' || sel.origin || ' to ' || sel.destination || '. Departure ' || sel.departure || ', arrival ' || sel.arrival
+                  || ' (next day arrival in Austin). Seat assigned: ' || COALESCE(sel.seat_label, bk.seat_number) || '. Confirmation ' || bk.confirmation_number || '.'
+                ELSE 'Booked flight ' || COALESCE(CAST(:flight_number AS text), 'TBD') || ' with confirmation ' || bk.confirmation_number || '. Seat assignment: ' || bk.seat_number || '.' END AS message
+            FROM bk LEFT JOIN sel ON true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                flight_number:
+                  type: string
+                  example: NY950
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  confirmation_number: { type: string }
+                  flight_number: { type: string }
+                  seat_number: { type: string }
+  /seats/special-service:
+    post:
+      operationId: assign_special_service_seat
+      summary: Assign front row or special service seating for medical needs.
+      description: Assign front row or special service seating for medical needs. Assigns a special service seat (1A for a front-row request, otherwise 2A) and records the request on the booking in context.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT COALESCE(x.scenario, 'disrupted') AS k FROM agent_context x WHERE x.id = 1) s
+            WHERE c.id = 1
+          - |-
+            WITH r AS (SELECT COALESCE(CAST(:seat_request AS text), 'front row for medical needs') AS req),
+            ctx AS (SELECT c.confirmation_number, c.flight_number FROM agent_context c WHERE c.id = 1)
+            UPDATE bookings b SET seat_number = CASE WHEN lower(r.req) LIKE '%front%' THEN '1A' ELSE '2A' END, special_service_note = r.req
+            FROM r, ctx WHERE b.confirmation_number = ctx.confirmation_number AND b.status = 'confirmed'
+            RETURNING b.confirmation_number, b.seat_number, b.special_service_note,
+              'Secured ' || r.req || ' seat ' || b.seat_number || ' on flight ' || COALESCE(ctx.flight_number, 'upcoming segment') || '. Confirmation ' || b.confirmation_number || ' noted with special service flag.' AS message
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seat_request:
+                  type: string
+                  default: front row for medical needs
+                  example: front row for medical needs
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  seat_number: { type: string }
+  /compensation:
+    post:
+      operationId: issue_compensation
+      summary: Create a compensation case and issue hotel/meal vouchers.
+      description: Create a compensation case and issue hotel/meal vouchers. Opens a compensation case for the booking in context (or returns the existing one) and attaches the itinerary's vouchers.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT COALESCE(x.scenario, (SELECT f2.scenario_key FROM flights f2 WHERE lower(f2.flight_number) = lower(x.flight_number)), 'disrupted') AS k FROM agent_context x WHERE x.id = 1) s
+            WHERE c.id = 1
+          - |-
+            WITH ctx AS (SELECT c.scenario, c.confirmation_number FROM agent_context c WHERE c.id = 1),
+            bk AS (SELECT b.confirmation_number FROM bookings b JOIN ctx ON b.confirmation_number = ctx.confirmation_number),
+            v AS (SELECT COALESCE(jsonb_agg(v.description ORDER BY v.seq), '[]'::jsonb) AS list FROM vouchers v JOIN ctx ON v.scenario_key = ctx.scenario),
+            ex AS (SELECT cc.case_id, cc.vouchers FROM compensation_cases cc JOIN bk ON cc.confirmation_number = bk.confirmation_number),
+            ins AS (INSERT INTO compensation_cases (case_id, confirmation_number, reason, vouchers, opened_at)
+              SELECT 'CMP-' || (1001 + (SELECT count(*) FROM compensation_cases)), bk.confirmation_number, COALESCE(CAST(:reason AS text), 'Delay causing missed connection'), v.list, sandbox_now()
+              FROM bk, v WHERE NOT EXISTS (SELECT 1 FROM ex) RETURNING case_id, vouchers)
+            SELECT bk.confirmation_number, cs.case_id AS compensation_case_id, cs.vouchers,
+              'Opened compensation case ' || cs.case_id || ' for: ' || COALESCE(CAST(:reason AS text), 'Delay causing missed connection') || '. Issued: '
+                || CASE WHEN jsonb_array_length(cs.vouchers) > 0 THEN (SELECT string_agg(t.x, '; ') FROM jsonb_array_elements_text(cs.vouchers) AS t(x)) ELSE 'Documented compensation with no vouchers required.' END
+                || '. Keep receipts for any hotel or meal costs and attach them to this case.' AS message
+            FROM bk, (SELECT case_id, vouchers FROM ins UNION ALL SELECT case_id, vouchers FROM ex) cs
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  default: Delay causing missed connection
+                  example: Delay causing missed connection
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  compensation_case_id: { type: string }
+  /seats/map:
+    post:
+      operationId: display_seat_map
+      summary: Display an interactive seat map to the customer so they can choose a new seat.
+      description: Display an interactive seat map to the customer so they can choose a new seat. Returns DISPLAY_SEAT_MAP, which the demo UI interprets to open the seat selector.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT 'DISPLAY_SEAT_MAP' AS message
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+  /flights/cancel:
+    post:
+      operationId: cancel_flight
+      summary: Cancel a flight.
+      description: >-
+        Cancel a flight. Cancels the flight in the context (agent_context.flight_number) for the confirmation in the
+        context; takes no arguments, exactly like the demo. The booking is marked cancelled once none of its flights
+        remain confirmed.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        resultFrom: 1
+        statements:
+          - |-
+            UPDATE agent_context c SET
+              scenario = s.k,
+              confirmation_number = COALESCE(c.confirmation_number, (SELECT b.confirmation_number FROM bookings b WHERE b.scenario_key = s.k)),
+              flight_number = COALESCE(c.flight_number, (SELECT f.flight_number FROM flights f WHERE f.scenario_key = s.k AND f.kind = 'segment' ORDER BY f.seq LIMIT 1))
+            FROM (SELECT COALESCE(x.scenario, 'disrupted') AS k FROM agent_context x WHERE x.id = 1) s
+            WHERE c.id = 1
+          - |-
+            WITH ctx AS (SELECT c.confirmation_number, c.flight_number FROM agent_context c WHERE c.id = 1)
+            UPDATE booking_segments s SET status = 'cancelled' FROM ctx
+            WHERE s.confirmation_number = ctx.confirmation_number AND lower(s.flight_number) = lower(ctx.flight_number) AND s.status = 'confirmed'
+            RETURNING s.confirmation_number, s.flight_number, 'Flight ' || s.flight_number || ' successfully cancelled for confirmation ' || s.confirmation_number AS message
+          - |-
+            UPDATE bookings b SET status = 'cancelled' FROM agent_context c
+            WHERE c.id = 1 AND b.confirmation_number = c.confirmation_number AND b.status = 'confirmed'
+              AND NOT EXISTS (SELECT 1 FROM booking_segments s WHERE s.confirmation_number = b.confirmation_number AND s.status = 'confirmed')
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  confirmation_number: { type: string }
+                  flight_number: { type: string }

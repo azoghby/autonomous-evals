@@ -6,14 +6,17 @@ import { randomUUID } from "node:crypto";
 import { Suite, type Finding } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext } from "@ae/core/contracts/services";
 import { createLiteServices } from "@ae/core/lite/index";
+import { LoopbackJsonTransport } from "@ae/core/targets/transport";
 import { decrypt } from "@ae/core/storage/crypto";
 import { redTeamById } from "@ae/core/redteam/index";
-import { PublicAgentInput, assertAuthorizedToTest } from "./leaderboard-agents";
+import { PublicAgentInput, assertAuthorizedToTest, isLocalKind } from "./leaderboard-agents";
 import { SUITE_VERSION, scoreRun, toStoredFindings, percent, type StoredFinding } from "./leaderboard";
 import { buildStandardSuite } from "./leaderboard-suite";
 
 export const DEFAULT_BUDGET_MICRO_USD = 2_000_000;
 export const DEFAULT_TIMEOUT_MIN = 15;
+/** Local multi-agent shims are slower than a bare model call. */
+const LOCAL_TARGET_TIMEOUT_MS = 120_000;
 
 export class BudgetExceeded extends Error {
   constructor(spent: number, cap: number) { super(`budget exceeded: ${spent} > ${cap} micro-USD`); }
@@ -55,6 +58,8 @@ export interface RunOptions {
   agentId?: string;
   /** Owner-submitted agents: AES-GCM ciphertext of the owner's key (public_agents.api_key_ciphertext). Decrypted here, never logged. */
   apiKeyCiphertext?: string | null;
+  /** Operator CLI only (--allow-local): permit local_reference agents on http://127.0.0.1. Never set by the web/cron path. */
+  allowLocal?: boolean;
   /** Test seam; defaults to the lite engine. */
   services?: EvalServices;
 }
@@ -67,6 +72,8 @@ export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): P
   const timeoutMin = opts.timeoutMin ?? DEFAULT_TIMEOUT_MIN;
   const log = opts.log ?? ((l: string) => console.log(l));
   assertAuthorizedToTest(row);
+  const local = isLocalKind(row.kind);
+  if (local && !opts.allowLocal) throw new Error(`${row.slug} is a local agent (kind ${row.kind}); it only runs from the CLI with --allow-local`);
   const ownerKey = !!opts.apiKeyCiphertext;
   const apiKey = ownerKey ? decrypt(opts.apiKeyCiphertext!) : resolveApiKey(row.authEnvVar);
   const keyNote = ownerKey ? "owner key (encrypted at rest)" : row.authEnvVar ? (apiKey ? `from $${row.authEnvVar}` : `MISSING $${row.authEnvVar}`) : "none";
@@ -75,7 +82,9 @@ export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): P
   if (!ownerKey && row.authEnvVar && !apiKey) throw new Error(`env var ${row.authEnvVar} is not set`);
   log(`[run] ${plan}`);
 
-  const services = opts.services ?? createLiteServices();
+  const services = opts.services ?? (local
+    ? createLiteServices({ allowLoopback: true, transport: new LoopbackJsonTransport({ timeoutMs: LOCAL_TARGET_TIMEOUT_MS }) })
+    : createLiteServices());
   const { upsertAgent, insertRun } = await import("./leaderboard-db");
   const agent = opts.agentId ? { id: opts.agentId } : await upsertAgent(PublicAgentInput.parse(row));
 

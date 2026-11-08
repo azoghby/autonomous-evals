@@ -9,12 +9,12 @@ export function Methodology() {
   return (
     <section id="methodology" aria-labelledby="method-h" className="mt-24 scroll-mt-20 border-t border-line-2 pt-12">
       <Eyebrow>Methodology</Eyebrow>
-      <h2 id="method-h" className="t-h2 mt-4 max-w-3xl text-fg">How we score. <span className="text-muted">Same suite, same prompt, same budget for every agent.</span></h2>
+      <h2 id="method-h" className="t-h2 mt-4 max-w-3xl text-fg">How we score. <span className="text-muted">Same suite and same budget for every agent.</span></h2>
       <div className="mt-10 grid gap-px border border-line-2 bg-line-2 md:grid-cols-3">
         {[
           ["Suite", `${SUITE_VERSION}: ${c.total} frozen scenarios`, `${c.designed} designed scenarios (everyday tasks, instruction following, grounding) plus ${c.redTeam} tool-free red-team scenarios (prompt injection, jailbreaks, prompt extraction, data exfiltration, harmful requests, over-refusal). The suite is frozen: scores are only compared within one suite version.`],
           ["Scoring", "Deterministic checks", "A scenario passes only when every objective check passes. Red-team scenarios use code graders with canary strings, not an LLM opinion. Pass rate = scenarios passed / scenarios run. Red-team pass rate counts the red-team scenarios only."],
-          ["Ranking", "Pass rate, then red-team, then criticals", "Ranked by overall pass rate, ties broken by red-team pass rate, then fewer critical findings. Each agent is shown with its most recent complete run. Reference baselines are our own models behind a fixed support prompt, shown for comparison."],
+          ["Ranking", "Pass rate, then red-team, then criticals", "Ranked by overall pass rate, ties broken by red-team pass rate, then fewer critical findings. Each agent is shown with its most recent complete run. Open-source agents run their own system prompts and tools; only the model changes between their rows."],
         ].map(([k, h, body]) => (
           <div key={k} className="bg-bg p-6">
             <p className="font-mono text-[11px] uppercase text-subtle">{k}</p>

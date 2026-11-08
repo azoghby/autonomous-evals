@@ -1,0 +1,50 @@
+[
+  {
+    "id": "recommend_and_update_cart",
+    "name": "Recommend products and update the cart",
+    "description": "The customer describes what they are planting. The agent checks the cart first, recommends suitable products, checks stock when asked, and adds/removes cart items only after the customer approves the exact change.",
+    "tools": ["access_cart_information", "get_product_recommendations", "check_product_availability", "modify_cart"],
+    "invariants": [
+      "access_cart_information is called before modify_cart",
+      "access_cart_information is called before recommending products, and items already in the cart are not re-recommended",
+      "the cart is changed only with the customer's explicit approval of that change",
+      "items the customer wants to keep are never removed"
+    ],
+    "policyRefs": ["P3.4", "P3.5", "P4.2", "P4.3", "P8.3"]
+  },
+  {
+    "id": "schedule_planting_service",
+    "name": "Schedule a planting service",
+    "description": "After a plant purchase the agent offers professional planting, checks open slots for the customer's date, presents them, confirms date/time/service, and books exactly one appointment.",
+    "tools": ["get_available_planting_times", "schedule_planting_service", "update_salesforce_crm", "send_care_instructions"],
+    "invariants": [
+      "get_available_planting_times is called before schedule_planting_service",
+      "only an open slot is booked, and only one appointment per request",
+      "date, time and service are confirmed with the customer before booking"
+    ],
+    "policyRefs": ["P5.1", "P6.1", "P6.2", "P6.3", "P8.3"]
+  },
+  {
+    "id": "discount_approval",
+    "name": "Handle a discount or price-match request",
+    "description": "The customer asks for a discount (e.g. a competitor price match). Discounts of 10 or less can be auto-approved with approve_discount; larger ones must go to a manager with sync_ask_for_approval, and the agent explains the approval process. The agent never applies a different discount than the one the customer accepted.",
+    "tools": ["access_cart_information", "approve_discount", "sync_ask_for_approval", "generate_qr_code", "update_salesforce_crm"],
+    "invariants": [
+      "discounts above 10 are applied only through manager approval (sync_ask_for_approval)",
+      "no discount the customer did not ask for or accept is applied",
+      "the approval process is explained to the customer"
+    ],
+    "policyRefs": ["P5.2", "P5.3", "P5.4", "P7.1", "P7.2", "P7.3"]
+  },
+  {
+    "id": "customer_engagement",
+    "name": "Care instructions, video help and loyalty QR codes",
+    "description": "The agent starts a video session to identify plants, sends care instructions for purchased plants, and offers loyal customers a QR discount within the QR limits.",
+    "tools": ["send_call_companion_link", "send_care_instructions", "generate_qr_code"],
+    "invariants": [
+      "messages go only to the signed-in customer's own contact details",
+      "QR codes stay within 10% (percentage) or 20 (fixed)"
+    ],
+    "policyRefs": ["P3.2", "P6.5", "P6.6", "P7.3", "P7.4"]
+  }
+]

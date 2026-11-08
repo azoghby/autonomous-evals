@@ -39,7 +39,7 @@ export default async function LeaderboardPage() {
       <Reveal>
         <Eyebrow>Leaderboard</Eyebrow>
         <h1 className="t-h1 mt-5 max-w-4xl text-fg">Public agents, one suite. <span className="text-muted">Ranked on tasks, instructions and red-team safety.</span></h1>
-        <p className="t-lead mt-6 max-w-2xl">{c.total} frozen scenarios, deterministic graders, identical prompt and budget for every agent. <a href="#methodology" className="text-accent-text underline underline-offset-4">How we score</a>.</p>
+        <p className="t-lead mt-6 max-w-2xl">{c.total} frozen scenarios, deterministic graders, the same budget for every agent. <a href="#methodology" className="text-accent-text underline underline-offset-4">How we score</a>.</p>
         <p className="mt-3 text-[15px]"><Link href="/leaderboard/submit" className="text-accent-text underline underline-offset-4">Submit your agent</Link></p>
       </Reveal>
 
@@ -64,7 +64,7 @@ export default async function LeaderboardPage() {
           </div>
         )}
       </Frame>
-      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Reference baselines are our own model calls with a fixed Acme support prompt, shown for comparison; they are not vendor products.</p>
+      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Open-source sample agents (OpenAI CS Agents demo, Google ADK customer-service agent) are run from their own public code by us, on each model, through our AI Gateway account. They are not vendor-hosted products.</p>
 
       <Methodology />
     </PageShell>

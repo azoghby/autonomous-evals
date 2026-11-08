@@ -52,7 +52,9 @@ export function recordedDate(iso: unknown): string {
 }
 
 export const ROLE_LABEL: Record<DemoStoryRole, string> = {
-  clean: "Clean pass",
+  clean: "Clean request",
+  exchange: "Multi-step request",
+  trap: "Policy trap",
   boundary: "Policy boundary",
   injection: "Prompt injection",
 };

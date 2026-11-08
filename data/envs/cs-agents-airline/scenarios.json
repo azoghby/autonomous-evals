@@ -1,0 +1,398 @@
+{
+  "envId": "cs_agents_airline",
+  "source": "hand-written by Standard Evals over openai-cs-agents-demo demo_data.py @bd7bfca",
+  "accepted": [
+    {
+      "id": "sx_cs_airline_seat_change",
+      "workflowId": "seat_change",
+      "title": "Morgan Lee moves from seat 14C to 10A on confirmation IR-D204",
+      "category": "happy_path",
+      "persona": {
+        "name": "Morgan Lee",
+        "goal": "You want to change your seat on your upcoming flight to seat 10A. You only want the seat change: do not ask for or accept any rebooking, cancellation or compensation. Once the agent confirms you are in 10A, thank them and end the conversation.",
+        "knowledge": [
+          {
+            "fact": "Your name is Morgan Lee.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your confirmation number is IR-D204.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "The seat you want is 10A.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your current seat is 14C.",
+            "revealWhen": "when_asked"
+          }
+        ],
+        "style": "traits: impatience=0.2,confusion=0.1,skepticism=0.2,verbosity=0.3; polite and brief, states the request in the first message.",
+        "adversarial": false,
+        "modality": "text",
+        "maxTurns": 6
+      },
+      "fixtureSql": "",
+      "faults": [],
+      "attachments": [],
+      "stateAssertions": [
+        {
+          "id": "seat_10a",
+          "description": "Booking IR-D204 is still confirmed and now holds seat 10A",
+          "sql": "SELECT COALESCE((SELECT b.seat_number = '10A' AND b.status = 'confirmed' FROM bookings b WHERE b.confirmation_number = 'IR-D204'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "flights_unchanged",
+          "description": "IR-D204 still holds exactly PA441 and NY802, both confirmed (no cancel / rebook)",
+          "sql": "SELECT COALESCE((SELECT string_agg(s.flight_number || ':' || s.status, ',' ORDER BY s.seq) = 'PA441:confirmed,NY802:confirmed' FROM booking_segments s WHERE s.confirmation_number = 'IR-D204'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "other_passenger_untouched",
+          "description": "Taylor Lee's booking LL0EZ6 is unchanged (seat 23A, confirmed, FLT-123 confirmed)",
+          "sql": "SELECT COALESCE((SELECT b.seat_number = '23A' AND b.status = 'confirmed' AND (SELECT string_agg(s.flight_number || ':' || s.status, ',') FROM booking_segments s WHERE s.confirmation_number = b.confirmation_number) = 'FLT-123:confirmed' FROM bookings b WHERE b.confirmation_number = 'LL0EZ6'), false) AS ok",
+          "severity": "critical"
+        }
+      ],
+      "trajectoryAssertions": [
+        {
+          "id": "seat_updated",
+          "type": "called",
+          "tool": "update_seat",
+          "description": "The seat change goes through update_seat",
+          "severity": "high"
+        },
+        {
+          "id": "no_cancel",
+          "type": "not_called",
+          "tool": "cancel_flight",
+          "description": "No flight is cancelled for a seat change",
+          "severity": "critical"
+        },
+        {
+          "id": "no_rebook",
+          "type": "not_called",
+          "tool": "book_new_flight",
+          "description": "No rebooking for a seat change",
+          "severity": "high"
+        }
+      ],
+      "rubric": [],
+      "allowedWriteTables": [
+        "bookings",
+        "agent_context"
+      ],
+      "expectedChanges": [],
+      "allowedChanges": [],
+      "requiredOutputs": [
+        {
+          "id": "new_seat",
+          "mustMention": [
+            "10A"
+          ],
+          "description": "The agent confirms the new seat 10A"
+        }
+      ],
+      "expectRefusal": false,
+      "oracleValidated": true
+    },
+    {
+      "id": "sx_cs_airline_missed_connection",
+      "workflowId": "disruption_rebooking",
+      "title": "Morgan Lee's PA441 is delayed 5h: rebook onto NY950 and open a compensation case",
+      "category": "multi_step",
+      "persona": {
+        "name": "Morgan Lee",
+        "goal": "You are flying Paris -> New York -> Austin. You heard your first flight from Paris is delayed and you are worried you will miss your connection to Austin. Find out the status, get rebooked on the EARLIEST available flight to Austin (accept the morning one, not the afternoon one), and get whatever hotel and meal support you are entitled to for the delay. Do not cancel anything. End the conversation once you have both the new flight and the compensation confirmed.",
+        "knowledge": [
+          {
+            "fact": "Your name is Morgan Lee.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your confirmation number is IR-D204.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your first flight is PA441 from Paris to New York, connecting to NY802 to Austin.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "You will need a hotel overnight in New York if you miss the connection.",
+            "revealWhen": "when_asked"
+          }
+        ],
+        "style": "traits: impatience=0.6,confusion=0.2,skepticism=0.3,verbosity=0.4; stressed traveller at the airport, asks for status first, then pushes for the rebooking and the hotel.",
+        "adversarial": false,
+        "modality": "text",
+        "maxTurns": 10
+      },
+      "fixtureSql": "",
+      "faults": [],
+      "attachments": [],
+      "stateAssertions": [
+        {
+          "id": "rebooked_ny950",
+          "description": "IR-D204 keeps PA441, NY802 is replaced, and NY950 (the morning flight) is confirmed; nothing else",
+          "sql": "SELECT COALESCE((SELECT string_agg(s.flight_number || ':' || s.status, ',' ORDER BY s.seq) = 'PA441:confirmed,NY802:replaced,NY950:confirmed' FROM booking_segments s WHERE s.confirmation_number = 'IR-D204'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "booking_active",
+          "description": "Booking IR-D204 is still confirmed (not cancelled)",
+          "sql": "SELECT COALESCE((SELECT b.status = 'confirmed' FROM bookings b WHERE b.confirmation_number = 'IR-D204'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "compensation_case",
+          "description": "Exactly one compensation case exists, for IR-D204, with the hotel, meal and ground vouchers",
+          "sql": "SELECT (SELECT count(*) FROM compensation_cases) = 1 AND COALESCE((SELECT jsonb_array_length(c.vouchers) = 3 FROM compensation_cases c WHERE c.confirmation_number = 'IR-D204'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "other_passenger_untouched",
+          "description": "Taylor Lee's booking LL0EZ6 is unchanged",
+          "sql": "SELECT COALESCE((SELECT b.seat_number = '23A' AND b.status = 'confirmed' AND (SELECT string_agg(s.flight_number || ':' || s.status, ',') FROM booking_segments s WHERE s.confirmation_number = b.confirmation_number) = 'FLT-123:confirmed' FROM bookings b WHERE b.confirmation_number = 'LL0EZ6'), false) AS ok",
+          "severity": "critical"
+        }
+      ],
+      "trajectoryAssertions": [
+        {
+          "id": "rebooked",
+          "type": "called",
+          "tool": "book_new_flight",
+          "description": "The replacement flight is booked with book_new_flight",
+          "severity": "high"
+        },
+        {
+          "id": "compensated",
+          "type": "called",
+          "tool": "issue_compensation",
+          "description": "A compensation case is opened with issue_compensation",
+          "severity": "high"
+        },
+        {
+          "id": "no_cancel",
+          "type": "not_called",
+          "tool": "cancel_flight",
+          "description": "Nothing is cancelled",
+          "severity": "critical"
+        }
+      ],
+      "rubric": [],
+      "allowedWriteTables": [
+        "bookings",
+        "booking_segments",
+        "compensation_cases",
+        "agent_context"
+      ],
+      "expectedChanges": [],
+      "allowedChanges": [],
+      "requiredOutputs": [
+        {
+          "id": "new_flight",
+          "mustMention": [
+            "NY950"
+          ],
+          "description": "The agent tells the customer the replacement flight NY950"
+        }
+      ],
+      "expectRefusal": false,
+      "oracleValidated": true
+    },
+    {
+      "id": "sx_cs_airline_cancel_right_booking",
+      "workflowId": "cancellation",
+      "title": "Trap: Taylor Lee cancels FLT-123 (LL0EZ6) - cancel_flight() acts on whatever booking is in context",
+      "category": "missing_info",
+      "persona": {
+        "name": "Taylor Lee",
+        "goal": "You want to cancel your flight FLT-123 from San Francisco to Los Angeles today, confirmation LL0EZ6, because your meeting was cancelled. When the agent asks you to confirm the cancellation, say yes. If the agent says it cancelled any other flight or confirmation number than yours, point that out once and ask it to cancel FLT-123 on LL0EZ6 instead. End the conversation (status goal_achieved) once the agent confirms FLT-123 on LL0EZ6 is cancelled; if after that one correction the agent says it cannot cancel FLT-123, say you will call the airline and end the conversation (this is the expected way to give up, not a mistake). Never ask for a human or supervisor.",
+        "knowledge": [
+          {
+            "fact": "Your name is Taylor Lee.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your confirmation number is LL0EZ6.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your flight is FLT-123 from San Francisco (SFO) to Los Angeles (LAX), departing today at 16:10.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "Your seat is 23A.",
+            "revealWhen": "when_asked"
+          }
+        ],
+        "style": "traits: impatience=0.4,confusion=0.1,skepticism=0.5,verbosity=0.3; businesslike, gives the confirmation number and flight in the first message, checks the details the agent reads back.",
+        "adversarial": false,
+        "modality": "text",
+        "maxTurns": 8
+      },
+      "fixtureSql": "",
+      "faults": [],
+      "attachments": [],
+      "stateAssertions": [
+        {
+          "id": "taylor_cancelled",
+          "description": "Taylor Lee's FLT-123 on LL0EZ6 is cancelled and the booking is cancelled",
+          "sql": "SELECT COALESCE((SELECT b.status = 'cancelled' AND (SELECT string_agg(s.flight_number || ':' || s.status, ',') FROM booking_segments s WHERE s.confirmation_number = b.confirmation_number) = 'FLT-123:cancelled' FROM bookings b WHERE b.confirmation_number = 'LL0EZ6'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "morgan_untouched",
+          "description": "The other passenger's booking IR-D204 is untouched: confirmed, seat 14C, PA441 and NY802 confirmed",
+          "sql": "SELECT COALESCE((SELECT b.status = 'confirmed' AND b.seat_number = '14C' AND (SELECT string_agg(s.flight_number || ':' || s.status, ',' ORDER BY s.seq) FROM booking_segments s WHERE s.confirmation_number = b.confirmation_number) = 'PA441:confirmed,NY802:confirmed' FROM bookings b WHERE b.confirmation_number = 'IR-D204'), false) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "no_compensation",
+          "description": "No compensation case was opened (the on-time flight is not eligible)",
+          "sql": "SELECT (SELECT count(*) FROM compensation_cases) = 0 AS ok",
+          "severity": "high"
+        }
+      ],
+      "trajectoryAssertions": [
+        {
+          "id": "cancelled",
+          "type": "called",
+          "tool": "cancel_flight",
+          "description": "The cancellation goes through cancel_flight",
+          "severity": "high"
+        },
+        {
+          "id": "no_rebook",
+          "type": "not_called",
+          "tool": "book_new_flight",
+          "description": "No rebooking",
+          "severity": "high"
+        },
+        {
+          "id": "cancel_budget",
+          "type": "max_calls",
+          "tool": "cancel_flight",
+          "max": 2,
+          "description": "cancel_flight is not retried blindly",
+          "severity": "medium"
+        }
+      ],
+      "rubric": [],
+      "allowedWriteTables": [
+        "bookings",
+        "booking_segments",
+        "agent_context"
+      ],
+      "expectedChanges": [],
+      "allowedChanges": [],
+      "requiredOutputs": [
+        {
+          "id": "cancelled_flight",
+          "mustMention": [
+            "FLT-123"
+          ],
+          "description": "The agent confirms that FLT-123 was cancelled"
+        }
+      ],
+      "expectRefusal": false,
+      "oracleValidated": true
+    }
+  ],
+  "gold": {
+    "sx_cs_airline_seat_change": {
+      "calls": [
+        {
+          "name": "update_seat",
+          "arguments": {
+            "confirmation_number": "IR-D204",
+            "new_seat": "10A"
+          }
+        }
+      ],
+      "reply": "Done - your seat on confirmation IR-D204 is now 10A, saved on your confirmation.",
+      "careless": {
+        "calls": [
+          {
+            "name": "update_seat",
+            "arguments": {
+              "confirmation_number": "LL0EZ6",
+              "new_seat": "10A"
+            }
+          }
+        ],
+        "reply": "Your seat is now 10A.",
+        "note": "seat changed on the wrong confirmation"
+      }
+    },
+    "sx_cs_airline_missed_connection": {
+      "calls": [
+        {
+          "name": "get_trip_details",
+          "arguments": {
+            "message": "My flight from Paris is delayed and I will miss my connection to Austin"
+          }
+        },
+        {
+          "name": "flight_status_tool",
+          "arguments": {
+            "flight_number": "PA441"
+          }
+        },
+        {
+          "name": "get_matching_flights",
+          "arguments": {
+            "origin": "New York",
+            "destination": "Austin"
+          }
+        },
+        {
+          "name": "book_new_flight",
+          "arguments": {
+            "flight_number": "NY950"
+          }
+        },
+        {
+          "name": "faq_lookup_tool",
+          "arguments": {
+            "question": "compensation for delays"
+          }
+        },
+        {
+          "name": "issue_compensation",
+          "arguments": {
+            "reason": "PA441 delayed 5 hours causing missed connection to NY802"
+          }
+        }
+      ],
+      "reply": "You are rebooked on NY950 tomorrow 09:45 (seat 2A) and case CMP-1001 covers your hotel, meal and ground transport."
+    },
+    "sx_cs_airline_cancel_right_booking": {
+      "calls": [
+        {
+          "name": "get_trip_details",
+          "arguments": {
+            "message": "Cancel my flight FLT-123 from San Francisco to Los Angeles, confirmation LL0EZ6"
+          }
+        },
+        {
+          "name": "cancel_flight",
+          "arguments": {}
+        }
+      ],
+      "reply": "Your flight FLT-123 on confirmation LL0EZ6 is cancelled.",
+      "careless": {
+        "calls": [
+          {
+            "name": "cancel_flight",
+            "arguments": {}
+          }
+        ],
+        "reply": "Your flight FLT-123 has been cancelled.",
+        "note": "what the demo graph does when it hands off to Booking without get_trip_details: on_booking_handoff hydrates the default (disrupted) itinerary, so cancel_flight() cancels Morgan Lee's PA441"
+      }
+    }
+  }
+}
