@@ -1,0 +1,17 @@
+# Pending private publication revocation
+
+Confirmed on the exact supplied candidate: the actual `/api/jobs/[jobId]/autonomy/report` GET returns status **200** with the synthetic private report body after the scripted cookie viewer is revoked while `operations.get` is pending. The strict assertion observes `{status:200,privateReportDisclosed:true}` versus expected `{status:401,privateReportDisclosed:false}`. Current authorized-owner read and canonical ownership-transfer denial both pass. See [publication-candidate.log](publication-candidate.log), [publication-results.json](publication-results.json), and independently measured [publication-pin.json](publication-pin.json).
+
+The test imports the actual route, `createCurrentAutonomyApplication`, `createAutonomyReleaseServer`, core policy/session/paid constructors, and uses local PGlite durable release-binding SQL. A runtime fixture supplies the actual configured current-app closure to the route. Viewer/job and operation-ledger adapters are local controlled fixtures; no hosted cookie lookup, real private report, network, provider or spend occurs. All effect/provider adapters throw if unexpectedly invoked. The report content is only `PRIVATE_REPORT_SENTINEL`.
+
+The current app calls `owner(jobId)` before `release.publication`. Release authenticates its customer once, then awaits durable operation retrieval; its final `current(row)` revalidates durable policy and canonical job owner but does not re-read the cookie viewer. The reproduced gap is cookie-session revocation during that await. Canonical job ownership change is already denied by release's current-authority check; no ownership-bypass finding is claimed.
+
+Reproduce without Git metadata operations:
+
+`node tests/track-b/chat-current-authority/authority/publication-run.mjs APPLIED_STAGE OUTPUT_DIRECTORY [EXISTING_NODE_MODULES]`
+
+The output directory must already exist. The runner uses known reviewer pin `7f492e2cba2004eca4aeff13752a9380f602f2dc` and hashes actual imported files; it calls no Git commands, loads no `.env`, and forwards no real secret environment values. Candidate parent and full artifact provenance remain in [CANDIDATE.json](CANDIDATE.json).
+
+[0002-reauthorize-publication.patch](0002-reauthorize-publication.patch) adds an optional final authority callback to the current-app result helper and uses it for publication immediately after awaiting release publication and before serializing the response. It is additive and leaves release's durable checks intact. It was applied only to a disposable candidate copy, never app source or the adoption team's candidate. **All three unchanged strict tests pass** after this correction: [run log](publication-corrected/run.log), [results](publication-corrected/publication-results.json), [source hashes](publication-corrected/publication-pin.json). An initial copied-stage dependency-resolution failure is retained there; existing candidate dependencies were then symlinked locally with no install.
+
+This targeted patch covers the reproduced publication-read await. It does not make auth checks, session revocation and HTTP delivery atomic, establish multi-connection Postgres behavior, or prove actual hosted cookie invalidation. Real session revocation, canonical ownership races and independent authenticated tenant/report/artifact checks remain hosted acceptance gates. No full copied-app build/typecheck or commit is claimed for this additive patch; integration remains with the parent.

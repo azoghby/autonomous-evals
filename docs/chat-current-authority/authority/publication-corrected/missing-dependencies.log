@@ -1,0 +1,38 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/publication-corrected-tq20fgmt",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": "19f6c7183c31102a35f5df5c215a05a1a5fea287b6625445819791e5a13f4290",
+    "apps/web/src/server/current-autonomy.ts": "c37fd134e70aa65d3fc558a872dad288562883b54e613bd5505bb45991783fc2",
+    "apps/web/src/server/autonomy-release.ts": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-OUDHqB[39m
+
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-OUDHqB/publication.test.ts[2m [ ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-OUDHqB/publication.test.ts ][22m
+[31m[1mError[22m: Cannot find package '@neondatabase/serverless' imported from '/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/publication-corrected-tq20fgmt/apps/web/src/server/rich-services.ts'[39m
+[36m [2m❯[22m ../publication-corrected-tq20fgmt/apps/web/src/server/rich-services.ts:[2m6:1[22m[39m
+    [90m  4| [39m[35mimport[39m [32m'server-only'[39m[33m;[39m
+    [90m  5| [39m[35mimport[39m { createHash } [35mfrom[39m [32m'node:crypto'[39m[33m;[39m
+    [90m  6| [39m[35mimport[39m { [33mPool[39m } [35mfrom[39m [32m'@neondatabase/serverless'[39m[33m;[39m
+    [90m   | [39m[31m^[39m
+    [90m  7| [39m[35mimport[39m type { [33mServiceContext[39m } [35mfrom[39m [32m'@ae/core/contracts/services'[39m[33m;[39m
+    [90m  8| [39m[35mimport[39m { [33mIntakeInput[39m } [35mfrom[39m [32m'@ae/core/contracts/index'[39m[33m;[39m
+
+[31m[1mCaused by: Error[22m: Failed to load url @neondatabase/serverless (resolved id: @neondatabase/serverless) in /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/publication-corrected-tq20fgmt/apps/web/src/server/rich-services.ts. Does the file exist?[39m
+[90m [2m❯[22m loadAndTransform ../../../../../../tmp/track-b-harness/node_modules/vite/dist/node/chunks/config.js:[2m22907:33[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [2mno tests[22m
+[2m   Start at [22m 19:31:54
+[2m   Duration [22m 892ms[2m (transform 377ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 69ms)[22m
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/docs/chat-current-authority/authority/publication-corrected/publication-results.json
+Retained publication harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-OUDHqB

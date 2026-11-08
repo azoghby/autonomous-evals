@@ -1,0 +1,46 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-SVXGlN",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": "19f6c7183c31102a35f5df5c215a05a1a5fea287b6625445819791e5a13f4290",
+    "apps/web/src/server/current-autonomy.ts": "511c57fc8c51c46163c84d55066485bf16a6241a531c26489860f30606208684",
+    "apps/web/src/server/autonomy-release.ts": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-9gSQji[39m
+
+ [31m❯[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-9gSQji/publication.test.ts [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 4315[2mms[22m[39m
+   [33m[2m✓[22m[39m returns the scoped report for a currently authorized owner through actual route/current app/release/SQL binding [33m 1549[2mms[22m[39m
+[31m   [31m×[31m denies report disclosure when the scripted cookie session is revoked while publication lookup is pending[39m[33m 1204[2mms[22m[39m
+[31m     → expected { status: 200, …(1) } to deeply equal { status: 401, …(1) }[39m
+   [33m[2m✓[22m[39m denies report disclosure after canonical ownership changes during pending publication lookup [33m 1560[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-9gSQji/publication.test.ts[2m > [22mdenies report disclosure when the scripted cookie session is revoked while publication lookup is pending
+[31m[1mAssertionError[22m: expected { status: 200, …(1) } to deeply equal { status: 401, …(1) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "privateReportDisclosed": false,[39m
+[32m-   "status": 401,[39m
+[31m+   "privateReportDisclosed": true,[39m
+[31m+   "status": 200,[39m
+[2m  }[22m
+
+[36m [2m❯[22m publication.test.ts:[2m37:132[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 19:31:54
+[2m   Duration [22m 6.89s[2m (transform 708ms, setup 0ms, collect 2.22s, tests 4.32s, environment 0ms, prepare 70ms)[22m
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/docs/chat-current-authority/authority/publication-results.json
+Retained publication harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-9gSQji

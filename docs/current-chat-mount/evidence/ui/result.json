@@ -1,0 +1,17 @@
+{
+  "stage": "/tmp/current-chat-mount-verified",
+  "suite": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-chat-mount-ui-HIfsUR",
+  "hookSha256": "67b7ae84de16c2a41dfe0d13f877e31dd0b13db9720742e403f681d7ea15046d",
+  "jobViewSha256": "301e956a554b931cf396eccbf70262c9225eb02f216e97fdbe9a7f05b9ae588b",
+  "sourceSha256": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+  "react": "19.2.0",
+  "boundary": "Actual staged JobView and chat component, copied byte-for-byte into offline React/jsdom harness. JobView dependency boundaries (detail/live hooks, navigation, layout and legacy children) are stubbed; actual chat is rendered. Synthetic fetch responses. Focus/form semantics and responsive class checks only; no actual browser keyboard default action, pixel layout, screenshot, deployed authentication, database, provider, or cloud verification.",
+  "checks": {
+    "types": {
+      "exit": 0
+    },
+    "interactions": {
+      "exit": 0
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "pin": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/tmp/chat-current-patch-f5mB9z",
+  "patchExit": 0,
+  "hashes": {
+    "apps/web/src/server/session.ts": {
+      "baseline": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21",
+      "patched": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+    },
+    "apps/web/src/server/queries.ts": {
+      "baseline": "14c86af2727ae3a5496ad65f4d594ab1a4f00951d6dae78a42dda61f4942d34b",
+      "patched": "14c86af2727ae3a5496ad65f4d594ab1a4f00951d6dae78a42dda61f4942d34b"
+    },
+    "apps/web/src/server/access.ts": {
+      "baseline": "ffa8839f847fa55a33f043e3fff6d05fff372f1e39d99d0e110da97c5fc384fe",
+      "patched": "ffa8839f847fa55a33f043e3fff6d05fff372f1e39d99d0e110da97c5fc384fe"
+    },
+    "apps/web/src/app/api/jobs/[jobId]/route.ts": {
+      "baseline": "f699b560bf731fe4c4695fe72ffad788d066728ce1d2c10b6bd44f0470197f65",
+      "patched": "f699b560bf731fe4c4695fe72ffad788d066728ce1d2c10b6bd44f0470197f65"
+    },
+    "apps/web/src/app/api/jobs/[jobId]/live/route.ts": {
+      "baseline": "60ee5d6b7e7acd429da14360dd3bf3cf15e49111e4c4c62918103d3a9113236a",
+      "patched": "60ee5d6b7e7acd429da14360dd3bf3cf15e49111e4c4c62918103d3a9113236a"
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts": {
+      "baseline": "5d91977306f6647bfce7643b1b616145be3eecfa84f9fc0aeb5d9b2e2782eddf",
+      "patched": "d7acd6e33a07dc088e5f5c5e634294483c881cc50b984767429689cdede1c0fe"
+    }
+  },
+  "scriptedAuth": true,
+  "hostedAuth": false
+}

@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /private/tmp/chat-current-patch-f5mB9z
+
+ ✓ apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts (5 tests) 11ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  19:25:30
+   Duration  2.90s (transform 243ms, setup 15ms, collect 1.95s, tests 11ms, environment 0ms, prepare 327ms)
+

@@ -1,0 +1,50 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/tmp/chat-reviewed-composition-YD65VY",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "cc7f9cebd369be039b200ce3d4cfaeb0a19fd06621585d897904993eda177794",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "d984755ae14484e80582423adfdba4f0bce3cbf0e24ae982049a3d13fd30ea79",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0[39m
+
+ [32m✓[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0/authority.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 29673[2mms[22m[39m
+   [33m[2m✓[22m[39m binds opaque evidence references to subject and job and excludes raw event/finding/cost IDs and prose [33m 5066[2mms[22m[39m
+   [33m[2m✓[22m[39m isolates actual send/history/poll across owner, stranger, public and operator scopes [33m 3966[2mms[22m[39m
+   [33m[2m✓[22m[39m denies all new requests after ownership transfer or scripted session revocation [33m 3066[2mms[22m[39m
+   [33m[2m✓[22m[39m rescreens stored retry/history and current poll against a fresh synthetic credential on the next request [33m 2682[2mms[22m[39m
+   [33m[2m✓[22m[39m requires authoritative structured inventory and refuses a watermark older than current app progress [33m 3592[2mms[22m[39m
+   [33m[2m✓[22m[39m denies an in-flight POST when the session is revoked after snapshot acquisition [33m 2866[2mms[22m[39m
+   [33m[2m✓[22m[39m denies an in-flight POST when the current operator grant is removed after snapshot acquisition [33m 2578[2mms[22m[39m
+   [33m[2m✓[22m[39m rechecks ownership before an in-flight send and refuses to append after transfer [33m 2190[2mms[22m[39m
+   [33m[2m✓[22m[39m refuses to return an in-flight reply containing a credential rotated after snapshot acquisition [33m 3664[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0/publication.test.ts[2m [ ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0/publication.test.ts ][22m
+[31m[1mError[22m: Cannot find package '@report-route' imported from '/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0/publication.test.ts'[39m
+[36m [2m❯[22m publication.test.ts:[2m5:1[22m[39m
+    [90m  3| [39m[35mimport[39m {join} [35mfrom[39m [32m'node:path'[39m[33m;[39m
+    [90m  4| [39m[35mimport[39m {it[33m,[39mexpect[33m,[39mafterEach[33m,[39mvi} [35mfrom[39m [32m'vitest'[39m[33m;[39m
+    [90m  5| [39m[35mimport[39m {[33mGET[39m} [35mfrom[39m [32m'@report-route'[39m[33m;[39m
+    [90m   | [39m[31m^[39m
+    [90m  6| [39mimport {createCurrentAutonomyApplication} from '@/server/current-auton…
+    [90m  7| [39m[35mimport[39m {autonomyDigest} [35mfrom[39m [32m'@ae/core/agents/autonomy/policy'[39m[33m;[39m
+
+[31m[1mCaused by: Error[22m: Failed to load url @report-route (resolved id: @report-route) in /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0/publication.test.ts. Does the file exist?[39m
+[90m [2m❯[22m loadAndTransform ../../../../../../tmp/track-b-harness/node_modules/vite/dist/node/chunks/config.js:[2m22907:33[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 19:34:37
+[2m   Duration [22m 33.67s[2m (transform 673ms, setup 0ms, collect 1.40s, tests 29.67s, environment 1ms, prepare 1.54s)[22m
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0/results.json
+Retained authority harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-oB1tl0

@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-live-hook-vsDhbZ
+
+ ✓ hook.test.tsx (4 tests) 43ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:24:38
+   Duration  731ms (transform 56ms, setup 0ms, collect 140ms, tests 43ms, environment 291ms, prepare 69ms)
+

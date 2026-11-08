@@ -1,0 +1,11 @@
+{
+  "candidateParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "candidateManifestSha256": "e2caf48f14ef4d2caab3f4fb9da20e7732cf65fa8524d6992c148a8df47a9427",
+  "chatClientMounted": false,
+  "files": {
+    "apps/web/src/components/app/job-private-chat.tsx": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+    "apps/web/src/lib/client/use-live-job.ts": "610f3740aa96bed573fd632ff91015e6673a4a973a5e88444af7d2763625d431",
+    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx": "193196cbc292bbff84021ba373c005d6e5030b66ae86c3e3a7e81efb794fd5ab",
+    "apps/web/src/server/structured-progress.ts": "1c9e2e3cad47bdbc6529920082b4123e89346f84ae7d6c2c145021e467917ebb"
+  }
+}

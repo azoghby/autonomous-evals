@@ -1,0 +1,2 @@
+../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/authority-corrected-55xe10ca/apps/web/src/app/layout.tsx(3,27): error TS2307: Cannot find module '@vercel/analytics/next' or its corresponding type declarations.
+../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/authority-corrected-55xe10ca/apps/web/src/app/layout.tsx(44,50): error TS2304: Cannot find name 'LayoutProps'.

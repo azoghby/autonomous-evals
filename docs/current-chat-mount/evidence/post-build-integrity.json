@@ -1,0 +1,16 @@
+{
+  "stage": "/tmp/current-chat-mount-verified",
+  "preservedFiles": 1939,
+  "preservedBytes": 17708934,
+  "changes": [
+    "apps/web/next.config.ts",
+    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx",
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts",
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts",
+    "apps/web/src/components/app/job-view.tsx",
+    "apps/web/src/lib/client/use-live-job.ts"
+  ],
+  "additions": 88,
+  "postBuildSourceDrift": [],
+  "finalSourceDrift": []
+}

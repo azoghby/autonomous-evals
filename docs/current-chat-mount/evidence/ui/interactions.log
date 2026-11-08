@@ -1,0 +1,15 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-chat-mount-ui-HIfsUR[39m
+
+ [32m✓[39m chat.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 413[2mms[22m[39m
+ [32m✓[39m interactions.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 201[2mms[22m[39m
+ [32m✓[39m job-bindings.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 205[2mms[22m[39m
+ [32m✓[39m reauth.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 327[2mms[22m[39m
+ [32m✓[39m privacy.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 202[2mms[22m[39m
+ [32m✓[39m hook.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m      Tests [22m [1m[32m38 passed[39m[22m[90m (38)[39m
+[2m   Start at [22m 19:33:46
+[2m   Duration [22m 6.35s[2m (transform 210ms, setup 0ms, collect 908ms, tests 1.39s, environment 2.31s, prepare 422ms)[22m
+

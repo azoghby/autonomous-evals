@@ -1,0 +1,20 @@
+{
+  "stage": "/tmp/current-chat-mount-verified",
+  "focusedUiPassed": 38,
+  "focusedPrivacyPassed": 31,
+  "currentAutonomyPassed": 119,
+  "fullAppTypecheck": "passed",
+  "fullBuild": "passed: Next16.4.5/Workflow webpack production build with real cached local fonts",
+  "rootNpmTest": {
+    "exit": 0,
+    "passed": 2385,
+    "failed": 0,
+    "skipped": 1,
+    "skippedCase": "runtime.live.test.ts: neon sandbox runtime (live) isolates two trials, diffs collateral writes, and cleans up"
+  },
+  "acceptanceBaseline": "collection failed: pre-existing eval-services mock lacks NAIVE_AGENT_ENV; not filtered or changed",
+  "releaseAccepted": false,
+  "hostedVerification": false,
+  "fullCoreTypecheck": "passed",
+  "commit": "blocked: dataless shared Git metadata; stalled attempt terminated"
+}

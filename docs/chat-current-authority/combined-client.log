@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-privacy-NVuB24
+
+ ✓ chat.test.tsx (9 tests) 179ms
+ ✓ reauth.test.tsx (4 tests) 254ms
+ ✓ privacy.test.tsx (3 tests) 165ms
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  19:30:57
+   Duration  2.44s (transform 70ms, setup 0ms, collect 527ms, tests 598ms, environment 741ms, prepare 128ms)
+
+ 

@@ -1,0 +1,47 @@
+
+ RUN  v3.2.7 /private/tmp/current-chat-surfaces-En8iGK
+
+ ❯ ../../../Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/tests/track-b/chat-current-authority/current-surfaces/current.test.ts (19 tests | 1 failed) 7ms
+   ✓ job: anonymous denied 1ms
+   ✓ job: foreign denied without artifact read 0ms
+   ✓ job: foreign and missing indistinguishable 0ms
+   ✓ job: revoked session denied on next request 0ms
+   ✓ live: anonymous denied 0ms
+   ✓ live: foreign denied without artifact read 0ms
+   ✓ live: foreign and missing indistinguishable 0ms
+   ✓ live: revoked session denied on next request 0ms
+   ✓ artifact: anonymous denied 0ms
+   ✓ artifact: foreign denied without artifact read 0ms
+   ✓ artifact: foreign and missing indistinguishable 0ms
+   ✓ artifact: revoked session denied on next request 0ms
+   ✓ report: private owner download and foreign denial 0ms
+   ✓ suite: private owner download and foreign denial 0ms
+   ✓ evidence: private owner download and foreign denial 0ms
+   ✓ report-html: private owner download and foreign denial 0ms
+   ✓ operator rights evaluated anew for every session lookup 0ms
+   ✓ ownership changed before request denies all routes 0ms
+   × RELEASE GATE: revocation while report load is pending must deny artifact 3ms
+     → expected 200 to be 401 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+   Start at  19:21:42
+   Duration  191ms (transform 44ms, setup 0ms, collect 77ms, tests 7ms, environment 0ms, prepare 32ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../../Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/tests/track-b/chat-current-authority/current-surfaces/current.test.ts > RELEASE GATE: revocation while report load is pending must deny artifact
+AssertionError: expected 200 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 200
+
+ ❯ ../../../Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/tests/track-b/chat-current-authority/current-surfaces/current.test.ts:29:184
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

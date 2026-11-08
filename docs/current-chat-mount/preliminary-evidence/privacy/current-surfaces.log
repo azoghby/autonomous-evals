@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /private/tmp/current-chat-surfaces-eyTE9T
+
+ ✓ ../mount-privacy-review-vOHrOu/tests/track-b/chat-current-authority/current-surfaces/current.test.ts (19 tests) 12ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  19:31:37
+   Duration  1.15s (transform 195ms, setup 0ms, collect 600ms, tests 12ms, environment 0ms, prepare 140ms)
+

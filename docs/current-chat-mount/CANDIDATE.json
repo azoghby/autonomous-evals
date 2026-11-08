@@ -1,0 +1,200 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "stage": "/tmp/current-chat-mount-verified",
+  "preservedFiles": 1939,
+  "preservedBytes": 17708934,
+  "chatMount": {
+    "privacyCommit": null,
+    "reviewedPatchHashes": true,
+    "patches": [
+      {
+        "path": "docs/chat-current-authority/authority/0001-refresh-authority-policy.patch",
+        "sha256": "d50d4cf8e12eaae459187eeae8a11fd611b14e65553df03fef694d359de927a2"
+      },
+      {
+        "path": "docs/chat-current-authority/privacy/use-live-job-isolation.patch",
+        "sha256": "07f78f0b446814c2ba8ab333ff95aacaa459ba5f92c968e5ee189b386ee953c4"
+      },
+      {
+        "path": "docs/chat-current-authority/current-surfaces/recheck-artifact-authority.patch",
+        "sha256": "dc4697cf8b4c6a1da6f3bc8d4a391022734d41abacbf8cd17371b9a1dc559164"
+      },
+      {
+        "path": "docs/chat-current-authority/current-surfaces/0002-existing-owner-fixture.patch",
+        "sha256": "d070d714e41489db5e2161d11e94a4319a258a59f6b29f0a81bca87ad9238fa8"
+      },
+      {
+        "path": "docs/chat-current-authority/authority/0002-reauthorize-publication.patch",
+        "sha256": "5b568a2b8a857b206ca8da088a95132d3135dc2257d8ee7b808c9ea0430ae109"
+      }
+    ],
+    "mount": {
+      "stage": "/tmp/current-chat-mount-verified",
+      "parent": "039851736eabb94e85c2c111bbccc78374716275",
+      "changes": {
+        "apps/web/src/components/app/job-view.tsx": {
+          "preimage": "9b3d5e11bb7a232aa4b3cfb5e29e034dde0585b0b7c9fc85d9affe47453f9ae2",
+          "sha256": "301e956a554b931cf396eccbf70262c9225eb02f216e97fdbe9a7f05b9ae588b"
+        },
+        "apps/web/src/app/(app)/jobs/[jobId]/page.tsx": {
+          "preimage": "193196cbc292bbff84021ba373c005d6e5030b66ae86c3e3a7e81efb794fd5ab",
+          "sha256": "f3da0dff5edaec093ee109b86de5d322595044a448573edb8ce690ec9dcf5160"
+        }
+      },
+      "chatClientMounted": true
+    },
+    "clientCorrection": "None: exact candidate client passed 16 interaction/privacy cases unchanged; do not restore historical client source"
+  },
+  "changes": {
+    "apps/web/next.config.ts": {
+      "preimage": {
+        "sha256": "917c81385f48e989fd26f5838524a781063bccbb683ef9072ce8467331cc7ddc",
+        "bytes": 1010
+      },
+      "sha256": "55354a2dd54b0b82f9d24ce4590c5525ec7bb83f2c1f58835d964d9907145de0",
+      "bytes": 1372,
+      "reason": "Add ESM extension aliases and preserve current CSS loader for combined webpack/Workflow build; no existing config removed"
+    },
+    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx": {
+      "preimage": {
+        "sha256": "193196cbc292bbff84021ba373c005d6e5030b66ae86c3e3a7e81efb794fd5ab",
+        "bytes": 426
+      },
+      "sha256": "f3da0dff5edaec093ee109b86de5d322595044a448573edb8ce690ec9dcf5160",
+      "bytes": 438,
+      "reason": "Reviewed privacy composition or owner mount"
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts": {
+      "preimage": {
+        "sha256": "7ed2c88fa0086cbdc0aacc7592eeeb290d2aec595535fa6b5b71ee544e90cc08",
+        "bytes": 2287
+      },
+      "sha256": "5725aed8d88cc2f5aa18f8213f8f9e12db97dddf116f6e1e6e1917e30129c61d",
+      "bytes": 2305,
+      "reason": "Reviewed privacy composition or owner mount"
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts": {
+      "preimage": {
+        "sha256": "5d91977306f6647bfce7643b1b616145be3eecfa84f9fc0aeb5d9b2e2782eddf",
+        "bytes": 2778
+      },
+      "sha256": "d7acd6e33a07dc088e5f5c5e634294483c881cc50b984767429689cdede1c0fe",
+      "bytes": 3378,
+      "reason": "Reviewed privacy composition or owner mount"
+    },
+    "apps/web/src/components/app/job-view.tsx": {
+      "preimage": {
+        "sha256": "9b3d5e11bb7a232aa4b3cfb5e29e034dde0585b0b7c9fc85d9affe47453f9ae2",
+        "bytes": 9419
+      },
+      "sha256": "301e956a554b931cf396eccbf70262c9225eb02f216e97fdbe9a7f05b9ae588b",
+      "bytes": 9674,
+      "reason": "Reviewed privacy composition or owner mount"
+    },
+    "apps/web/src/lib/client/use-live-job.ts": {
+      "preimage": {
+        "sha256": "610f3740aa96bed573fd632ff91015e6673a4a973a5e88444af7d2763625d431",
+        "bytes": 2925
+      },
+      "sha256": "67b7ae84de16c2a41dfe0d13f877e31dd0b13db9720742e403f681d7ea15046d",
+      "bytes": 3043,
+      "reason": "Reviewed privacy composition or owner mount"
+    }
+  },
+  "appliedSourceHashes": {
+    "apps/web/migrations/001-workflow-integration.sql": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+    "apps/web/migrations/003-workflow-data.sql": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+    "apps/web/migrations/004-workflow-remediation.sql": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+    "apps/web/migrations/005-workflow-packs.sql": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+    "apps/web/migrations/006-rich-comparison.sql": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+    "apps/web/migrations/007-workflow-resumption.sql": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
+    "apps/web/migrations/008-workflow-finding-reruns.sql": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+    "apps/web/src/app/api/cron/review-resumption/route.ts": "07342be0da76332e2661851069b997c4318fbbb00fb4f3e6589c5af48c44a64e",
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/app/api/jobs/[jobId]/comparison/route.ts": "3f28e6cc0a1f4b988af8a4cd91c9eda93ec899e76997eec2ece3bda10db1f2fe",
+    "apps/web/src/app/api/jobs/[jobId]/data-review/route.ts": "d5c2d36d078ec3747442b88b53b4b73c88c2f66b73106882de59badbccf48309",
+    "apps/web/src/app/api/operator/jobs/[jobId]/comparison-binding/route.ts": "f1ff409a3d7ea4479d25ff763b32633c154330005bbc8e13cfc5a478a8666dd5",
+    "apps/web/src/app/api/operator/jobs/[jobId]/comparison-reconcile/route.ts": "ec24409857d986f9d157f45ac0419121faab8725262108e907b629913f7456fa",
+    "apps/web/src/app/api/operator/jobs/[jobId]/workflow-binding/route.ts": "aab64e8c43e67fb03efd280487651a14e6082ea5d2d86031dedfbcfc6d56fffb",
+    "apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts": "6e6eec9a6c622427abc33dc2e226c3acc62d2669796fa4e185bc92a4b5dabdcf",
+    "apps/web/src/components/app/job-private-chat.tsx": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+    "apps/web/src/server/autonomous-company.ts": "7c598dfefdfdd0b89427ab7eaf79e9d4c409ac9b331f32ec1eebb72115e7fda6",
+    "apps/web/src/server/autonomous-paid-authority.sql": "0b508bde681c43c965f8e04dfad26c3dbeb62581c9b1f428a4603219a9c11755",
+    "apps/web/src/server/autonomous-paid.sql": "4184a090bc12cad229d6b410671e1aac32e7cab21c7fd64d122c5836d2f2faa3",
+    "apps/web/src/server/autonomous-paid.ts": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
+    "apps/web/src/server/autonomy-release.sql": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+    "apps/web/src/server/autonomy-release.ts": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f",
+    "apps/web/src/server/comparison-production.ts": "cc29a08234c61236dcbf4a8e54d2495053f70716e69a0ffc6e53e4735af0c19b",
+    "apps/web/src/server/data-production.ts": "91797178aa6c386452d0dc7b4cd76c8659683c030505033a784922cfbc64b8d8",
+    "apps/web/src/server/judge-accounting.ts": "ed23cec8f4e73bf222965560e3ed99a3f976e7ecc7a2c14bea2fa3493bd1aa34",
+    "apps/web/src/server/progress-chat.ts": "cc7f9cebd369be039b200ce3d4cfaeb0a19fd06621585d897904993eda177794",
+    "apps/web/src/server/rich-artifacts.ts": "ac6ba7d8d0e4cc78e73942294aaa9a58d4499db19d9eb3a1dc20ef4a0479dcb8",
+    "apps/web/src/server/rich-comparison.ts": "cddcc9b4b283be75fbeededa6892fe57928abaaba0cff43cfda5731701329f8a",
+    "apps/web/src/server/rich-judge.ts": "ac9050e532933d8e7a857f82466e802de8ddb355dcb8d142107c4355a5d31862",
+    "apps/web/src/server/rich-remediation.ts": "d51c60027312d613f0cb931a8ba8d05ec092eff89f76bc7a0baa70f58fa96f6d",
+    "apps/web/src/server/rich-rerun.ts": "7d4d4996eeb80ad1c2e97d0439c22e51c7e718ef3adfe74d0746732aca3a8cc3",
+    "apps/web/src/server/rich-services.ts": "07009e8ea303f36090ea79b9fe846053b5deecf911b32303c934f4312c5e8e43",
+    "apps/web/src/server/structured-progress-inventory.ts": "52e7108c30aa76b52d32c821ec3019500dd3107e248d75a9ef78782e457c27e2",
+    "apps/web/src/server/structured-progress.ts": "1c9e2e3cad47bdbc6529920082b4123e89346f84ae7d6c2c145021e467917ebb",
+    "apps/web/src/server/workflow-costs.ts": "5def0833ac515b6fe7bab33f6c8f900e58523de3708bcc2d8b131fcf0ba0ef52",
+    "apps/web/src/server/workflow-data.ts": "322202336e0f609df2168418f07b07b2f7f8000eb2701602f566fd9a92be5352",
+    "apps/web/src/server/workflow-inventory.ts": "edcf6923c6a49f43c9ea037c42f005c8ccb9010a1b1cad6d0c5ddb60a7697fc9",
+    "apps/web/src/server/workflow-pack-projection.ts": "5ffc101da717935b13af391b9041eacf1e67cced5cba80e93e81bd5e78a83488",
+    "apps/web/src/server/workflow-pack-registry.ts": "d90f86341ae2945e20806211a76579712aa69f68a8eaf80d885dec8dd76d85eb",
+    "apps/web/src/server/workflow-packs.ts": "eda6a972512884db2fb92e02d1b798e2abf6056444591fc198070334ef1d08d4",
+    "apps/web/src/server/workflow-resumption.ts": "347b343c09908e2013446d87e986701e72ebf9aefae73c4bd8dff6cb72c1a201",
+    "apps/web/src/workflows/steps/review-wake.ts": "a4a6bff643a84cf03a393fe40b6b60669087abfc81bd654a3b6f19c34d071f76",
+    "apps/web/src/workflows/steps/rich-evaluation.ts": "bb21604804318180d76b9cde33b17f21c550435a94fe4f8e9f126ad7bd4e9ab4",
+    "apps/web/src/workflows/steps/rich-inventory-refresh.ts": "f8484e50b13a77e9ee4535579f3cb26451bcad9be905ff0475242b7a85d83785",
+    "apps/web/src/workflows/steps/rich-mode.ts": "cc0b9060df2d2242cecec87b2681bfa70f82eb806dd7613c35889dd50cef57a6",
+    "owner-migrations/app.agent.sql": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+    "owner-migrations/app.baseline.0000_init.sql": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+    "owner-migrations/app.baseline.0001_expert_network.sql": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+    "owner-migrations/app.baseline.0002_delivery_snapshot.sql": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+    "owner-migrations/app.baseline.0003_rate_limits.sql": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+    "owner-migrations/app.baseline.0004_email_threads.sql": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+    "owner-migrations/app.baseline.0005_remediations.sql": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+    "owner-migrations/app.baseline.0006_per_finding_pricing.sql": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+    "owner-migrations/app.baseline.0007_api_keys.sql": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+    "owner-migrations/app.baseline.0008_monitoring_runs.sql": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+    "owner-migrations/app.baseline.0009_call_slots.sql": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+    "owner-migrations/app.baseline.0010_engagement_prev_tokens.sql": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+    "owner-migrations/app.baseline.0011_job_shares.sql": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+    "owner-migrations/app.baseline.0012_github_prs.sql": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+    "owner-migrations/app.baseline.0013_regression_runs.sql": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+    "owner-migrations/app.baseline.0014_public_agents.sql": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+    "owner-migrations/app.chat.sql": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+    "owner-migrations/app.checkpoint.sql": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+    "owner-migrations/app.data001.sql": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+    "owner-migrations/app.data002.sql": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+    "owner-migrations/app.inventory.sql": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+    "owner-migrations/app.journal.sql": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+    "owner-migrations/app.ledger.sql": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+    "owner-migrations/app.rich-comparison.006.sql": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+    "owner-migrations/app.workflow-data.003.sql": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+    "owner-migrations/app.workflow-finding-reruns.008.sql": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+    "owner-migrations/app.workflow-packs.005.sql": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+    "owner-migrations/app.workflow-remediation.004.sql": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+    "owner-migrations/app.workflow-resumption.007.sql": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
+    "owner-migrations/app.workflow001.sql": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+    "owner-migrations/app.workflow002.sql": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
+    "owner-migrations/autonomy-release.access.sql": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+    "owner-migrations/autonomy-release.communications.sql": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
+    "owner-migrations/autonomy-release.json": "ea7fc7adf25eebd840dd012b94463332ec6c567ec7eec5a5e0357316f3379461",
+    "owner-migrations/autonomy-release.operations.sql": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+    "owner-migrations/manifest.json": "a78942f41acfccca32ca6303526a5361282e78f01436ecd9243cac7dd5b375c1",
+    "apps/web/src/app/api/cron/autonomy/route.ts": "43aac7801ab75977a31b9dd998a7a852d504f6a629013f11132c858003ce28de",
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": "19f6c7183c31102a35f5df5c215a05a1a5fea287b6625445819791e5a13f4290",
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts": "73130b387aecd76789f3717dc3e44c4448ecf901682574cfcfd6e22727949ea2",
+    "apps/web/src/server/current-agent-deps.ts": "1b38e747a75f0b529436e7f27ba3304e132d33fdb280a4eb04f69c0917d22ff3",
+    "apps/web/src/server/current-autonomy-runtime.ts": "fbe3f5377cab93c98d16f5db3e41b57c9eac169fa01e2719ab4f7c4b39e00c60",
+    "apps/web/src/server/current-autonomy.ts": "c37fd134e70aa65d3fc558a872dad288562883b54e613bd5505bb45991783fc2",
+    "apps/web/src/workflows/current-autonomy.ts": "0d98c4a798bfd69f3f6a857fade0e53d6dffdaad3262e34cc2d7c14f61ee2eaf"
+  },
+  "compositionSha256": "7a28358c8c29bb86d4359ef8887753f5ec1b3e53f74113cefa6aa8dc1d1a05d7",
+  "releaseAccepted": false,
+  "liveRunPerformed": false,
+  "chatClientMounted": true,
+  "ownerPatch": "docs/current-chat-mount/integration/owner.patch",
+  "actualCheckoutApplicationEdited": false
+}

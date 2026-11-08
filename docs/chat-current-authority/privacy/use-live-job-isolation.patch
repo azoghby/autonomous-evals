@@ -1,0 +1,51 @@
+--- a/apps/web/src/lib/client/use-live-job.ts
++++ b/apps/web/src/lib/client/use-live-job.ts
+@@ -22,14 +22,16 @@
+   const active = useRef(false);
+ 
+   useEffect(() => {
++    setSnap({});
+     if (!enabled) return;
++    let stopped = false;
+     active.current = true;
+     let stopPoll: (() => void) | undefined;
+     const h: { stopLive?: () => void; timeout?: ReturnType<typeof setTimeout> } = {};
+     let settled = false;
+ 
+     const startPolling = () => {
+-      if (stopPoll || !active.current) return;
++      if (stopped || stopPoll || !active.current) return;
+       setMode("polling");
+       let stop = false;
+       const tick = async () => {
+@@ -43,13 +45,13 @@
+       stopPoll = () => { stop = true; clearInterval(id); };
+     };
+ 
+-    const fallback = () => { settled = true; clearTimeout(h.timeout); h.stopLive?.(); startPolling(); };
++    const fallback = () => { if (stopped) return; settled = true; clearTimeout(h.timeout); h.stopLive?.(); startPolling(); };
+ 
+     h.stopLive = connectLive({
+       keys: ["progress", "job"] as const,
+       fetchSealed: () => api<LivePayload<"progress" | "job">>(`/api/jobs/${jobId}/live`),
+       onRows: ({ progress, job }) => {
+-        if (!active.current) return;
++        if (stopped || !active.current) return;
+         setSnap((prev) => ({
+           state: (job?.[0]?.state as JobState | undefined) ?? prev.state,
+           progress: progress
+@@ -57,12 +59,13 @@
+             : prev.progress,
+         }));
+       },
+-      onLive: () => { if (settled) return; settled = true; clearTimeout(h.timeout); setMode("live"); },
++      onLive: () => { if (stopped || settled) return; settled = true; clearTimeout(h.timeout); setMode("live"); },
+       onFail: fallback,
+     });
+     h.timeout = setTimeout(() => { if (!settled) fallback(); }, CONNECT_TIMEOUT_MS);
+ 
+     return () => {
++      stopped = true;
+       active.current = false;
+       clearTimeout(h.timeout);
+       h.stopLive?.();

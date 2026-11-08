@@ -1,0 +1,82 @@
+{
+  "stage": "/tmp/current-chat-mount-verified",
+  "node": "v24.21.0",
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "commands": [
+    {
+      "label": "test-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "runtime-tests",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "current-autonomy-vitest.config.mjs",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3cddd69/docs/current-chat-mount/evidence/tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "parent-npm-test",
+      "command": [
+        "npm",
+        "test",
+        "--",
+        "--maxWorkers=2",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3cddd69/docs/current-chat-mount/evidence/parent-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "core-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-typegen",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "app-typecheck",
+      "command": [
+        "npx",
+        "--offline",
+        "tsc",
+        "-p",
+        "apps/web",
+        "--noEmit"
+      ],
+      "exit": 0
+    }
+  ],
+  "releaseAccepted": false,
+  "liveRunPerformed": false,
+  "redundantBuild": "Stopped duplicate build after independent full build passed; see app/RESULTS.json",
+  "parentTests": {
+    "numPassedTests": 2385,
+    "numFailedTests": 0,
+    "numPendingTests": 1,
+    "numFailedTestSuites": 0
+  }
+}

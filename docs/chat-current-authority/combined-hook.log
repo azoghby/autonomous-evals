@@ -1,0 +1,11 @@
+{"stage":"/tmp/chat-reviewed-composition-ptv8Sc","sourceSha256":"67b7ae84de16c2a41dfe0d13f877e31dd0b13db9720742e403f681d7ea15046d"}
+
+ RUN  v3.2.4 /private/tmp/chat-hook-existing-Ju6U0E
+
+ ✓ hook.test.tsx (4 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:30:30
+   Duration  593ms (transform 33ms, setup 0ms, collect 116ms, tests 22ms, environment 309ms, prepare 45ms)
+

@@ -1,0 +1,25 @@
+{
+  "patches": [
+    {
+      "path": "docs/chat-current-authority/authority/0001-refresh-authority-policy.patch",
+      "sha256": "d50d4cf8e12eaae459187eeae8a11fd611b14e65553df03fef694d359de927a2"
+    },
+    {
+      "path": "docs/chat-current-authority/privacy/use-live-job-isolation.patch",
+      "sha256": "07f78f0b446814c2ba8ab333ff95aacaa459ba5f92c968e5ee189b386ee953c4"
+    },
+    {
+      "path": "docs/chat-current-authority/current-surfaces/recheck-artifact-authority.patch",
+      "sha256": "dc4697cf8b4c6a1da6f3bc8d4a391022734d41abacbf8cd17371b9a1dc559164"
+    },
+    {
+      "path": "docs/chat-current-authority/current-surfaces/0002-existing-owner-fixture.patch",
+      "sha256": "d070d714e41489db5e2161d11e94a4319a258a59f6b29f0a81bca87ad9238fa8"
+    },
+    {
+      "path": "docs/chat-current-authority/authority/0002-reauthorize-publication.patch",
+      "sha256": "5b568a2b8a857b206ca8da088a95132d3135dc2257d8ee7b808c9ea0430ae109"
+    }
+  ],
+  "clientCorrection": "None: exact candidate client passed 16 interaction/privacy cases unchanged; do not restore historical client source"
+}

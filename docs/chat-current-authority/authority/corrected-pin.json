@@ -1,0 +1,11 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/authority-corrected-55xe10ca",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "cc7f9cebd369be039b200ce3d4cfaeb0a19fd06621585d897904993eda177794",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "d984755ae14484e80582423adfdba4f0bce3cbf0e24ae982049a3d13fd30ea79",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}

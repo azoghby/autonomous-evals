@@ -1,0 +1,30 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "localStage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-SVXGlN",
+  "reproduce": "node docs/current-autonomy-integration/stage.mjs --out <empty-absolute-directory>",
+  "sourceHashes": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "1314443da8640b0c36fd481ebaf6e30e0ac6da37fc18d57146cbcb0348aa0b3c",
+    "apps/web/src/server/structured-progress.ts": "1c9e2e3cad47bdbc6529920082b4123e89346f84ae7d6c2c145021e467917ebb",
+    "apps/web/src/components/app/job-private-chat.tsx": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "apps/web/src/server/autonomous-paid.ts": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
+    "apps/web/src/server/autonomy-release.ts": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f",
+    "apps/web/src/server/current-autonomy.ts": "511c57fc8c51c46163c84d55066485bf16a6241a531c26489860f30606208684"
+  },
+  "patchHashes": {
+    "config": "920780a81ccbb749a116ba2620d4e5be3c8df9ad515185927a2aedf2f38326af",
+    "dependencies": "9bc26cc26044e8ccda71aa76b9899e831e57d03f5ee61d5f55e4e3993a930dac",
+    "application": "03d25b73bfef32e26652ca571923cdb1d0d5b4d37143ff0ded8f3097069136f4"
+  },
+  "preservedFiles": 1944,
+  "preservedBytes": 17726769,
+  "chatClientMounted": false,
+  "calendarAutonomousDispatch": "blocked: trusted durable targetForScenario run identity required",
+  "paidReceiptShape": "{ operationId: string; inputDigest: string; receiptId: string; microUsd: number | null; evidence: unknown }",
+  "paidReceiptVerifier": "verifyPaidReceipt(request, receipt), optional config but missing verifier refuses reconciliation",
+  "paymentReceiptVerifier": "verifyPayment(request, quote, receipt), exact quote digest plus settled USD coverage required",
+  "recoveryVerifier": "verifyProviderReceipt(request,{provider_id,receipt}) gates recoverEvaluation(request,key); no redispatch",
+  "releaseAccepted": false,
+  "liveRunPerformed": false
+}

@@ -1,0 +1,24 @@
+import {execFileSync,spawnSync} from 'node:child_process';
+import {mkdtempSync,cpSync,symlinkSync,writeFileSync,readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {tmpdir} from 'node:os';
+import {join,resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const here=dirname(fileURLToPath(import.meta.url));
+const repo=resolve(here,'../../../..');
+const scratch=mkdtempSync(join(tmpdir(),'current-live-hook-'));const deps=resolve(process.env.CHAT_UI_NODE_MODULES??'/tmp/progress-chat-ui-verification/node_modules');
+const file='apps/web/src/lib/client/use-live-job.ts', source=readFileSync(join(repo,file));
+cpSync(join(here,'hook.test.tsx'),join(scratch,'hook.test.tsx'));writeFileSync(join(scratch,'use-live-job.ts'),source);
+writeFileSync(join(scratch,'api.ts'),'export function api<T>(...args:unknown[]):Promise<T>{throw Error("fixture must mock api")}');
+writeFileSync(join(scratch,'live-connection.ts'),'export function connectLive(...args:unknown[]):()=>void{throw Error("fixture must mock live")}');
+writeFileSync(join(scratch,'package.json'),'{"type":"module"}');symlinkSync(deps,join(scratch,'node_modules'),'dir');
+writeFileSync(join(scratch,'vitest.config.mjs'),`export default {esbuild:{jsx:'automatic'},test:{environment:'jsdom',include:['hook.test.tsx'],maxWorkers:1,minWorkers:1}};`);
+const evidence=join(repo,'docs/chat-current-authority/privacy');
+function run(name){const r=spawnSync(process.execPath,[join(deps,'vitest/vitest.mjs'),'run','--config','vitest.config.mjs'],{cwd:scratch,encoding:'utf8'});writeFileSync(join(evidence,name+'.log'),(r.stdout??'')+(r.stderr??''));console.log(name,r.status,r.stdout);return r;}
+const baseline=run('current-hook-baseline');
+const patch=join(evidence,'use-live-job-isolation.patch');
+const shaped=join(scratch,'app-shaped');execFileSync('mkdir',['-p',join(shaped,'apps/web/src/lib/client')]);writeFileSync(join(shaped,file),source);
+execFileSync('git',['apply','--check',patch],{cwd:shaped});execFileSync('git',['apply',patch],{cwd:shaped});cpSync(join(shaped,file),join(scratch,'use-live-job.ts'));
+const patched=run('current-hook-patched');
+writeFileSync(join(evidence,'HOOK-RESULTS.json'),JSON.stringify({reviewHead:'7f492e2cba2004eca4aeff13752a9380f602f2dc',file,sourceSha256:createHash('sha256').update(source).digest('hex'),patchSha256:createHash('sha256').update(readFileSync(patch)).digest('hex'),baselineExit:baseline.status,patchedExit:patched.status,scratch,scope:'actual current hook, fixture live and polling transports; no browser or hosted service'},null,2)+'\n');
+if(baseline.status===0||!baseline.stdout.includes('4 failed')||patched.status!==0)process.exitCode=1;

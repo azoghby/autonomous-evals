@@ -1,0 +1,13 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "scope": "explicit candidate path, source hash authoritative",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-EAW9cP",
+  "source": {
+    "path": "apps/web/src/components/app/job-private-chat.tsx",
+    "sha256": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b"
+  },
+  "exit": 0,
+  "scratch": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-privacy-ToEXmL",
+  "hostedAuth": false,
+  "hostedDatabase": false
+}

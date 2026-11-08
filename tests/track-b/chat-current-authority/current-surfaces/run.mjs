@@ -1,0 +1,10 @@
+import {execFileSync,spawnSync} from 'node:child_process';
+import {mkdtempSync,writeFileSync,symlinkSync} from 'node:fs';
+import {resolve,join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const here=dirname(fileURLToPath(import.meta.url)),root=resolve(here,'../../../..');
+const stage=resolve(process.argv[2]??root),deps=process.env.CHAT_REVIEW_DEPS??'/tmp/track-b-harness/node_modules';
+const scratch=mkdtempSync('/tmp/current-chat-surfaces-');symlinkSync(deps,join(scratch,'node_modules'));
+const aliases=[{find:'server-only',replacement:join(root,'test/stubs/server-only.ts')},{find:'next/headers',replacement:join(root,'test/stubs/server-only.ts')},{find:'@/',replacement:join(stage,'apps/web/src/')},{find:'@ae/core/',replacement:join(stage,'packages/core/src/')}];
+writeFileSync(join(scratch,'vitest.config.mjs'),`export default {resolve:{alias:${JSON.stringify(aliases)}},test:{include:[${JSON.stringify(join(here,'current.test.ts'))}],maxWorkers:1,minWorkers:1}}`);
+const r=spawnSync(process.execPath,[join(deps,'vitest/vitest.mjs'),'run','--config',join(scratch,'vitest.config.mjs')],{cwd:scratch,encoding:'utf8'});process.stdout.write(r.stdout??'');process.stderr.write(r.stderr??'');process.exitCode=r.status??1;

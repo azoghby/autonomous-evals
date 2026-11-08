@@ -1,0 +1,30 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "scope": "historical immutable composed release; NOT current app adoption",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-zQGSgt",
+  "composition": {
+    "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-zQGSgt",
+    "core": "48519bf16e04bce3397ceaeb8abea060d2636263",
+    "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "applied": [
+      "docs/progress-chat-integration/combined.patch",
+      "docs/structured-progress-integration/backend/structured-progress.patch",
+      "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+      "docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
+      "docs/chat-workflow-release/servercompat/0001-current-core-server.patch",
+      "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch",
+      "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch",
+      "docs/chat-workflow-release/0002-app-source-compatibility.patch",
+      "docs/chat-workflow-release/0003-explicit-benchmark-refusal.patch"
+    ],
+    "releaseAccepted": false
+  },
+  "source": {
+    "path": "apps/web/src/components/app/job-private-chat.tsx",
+    "sha256": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b"
+  },
+  "exit": 0,
+  "scratch": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-privacy-yusKpS",
+  "hostedAuth": false,
+  "hostedDatabase": false
+}

@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-privacy-E4IeF5
+
+ ✓ chat.test.tsx (9 tests) 1246ms
+   ✓ Private progress chat > loads successfully under React StrictMode effect replay  722ms
+ ✓ reauth.test.tsx (4 tests) 379ms
+ ✓ privacy.test.tsx (3 tests) 500ms
+   ✓ does not publish old-job history, poll or send after navigation even if transport ignores abort  394ms
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  19:34:38
+   Duration  11.31s (transform 209ms, setup 0ms, collect 1.38s, tests 2.12s, environment 3.98s, prepare 2.05s)
+
+ 

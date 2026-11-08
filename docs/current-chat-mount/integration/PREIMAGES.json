@@ -1,0 +1,13 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "paths": {
+    "apps/web/src/components/app/job-view.tsx": {
+      "preimage": "9b3d5e11bb7a232aa4b3cfb5e29e034dde0585b0b7c9fc85d9affe47453f9ae2",
+      "sha256": "301e956a554b931cf396eccbf70262c9225eb02f216e97fdbe9a7f05b9ae588b"
+    },
+    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx": {
+      "preimage": "193196cbc292bbff84021ba373c005d6e5030b66ae86c3e3a7e81efb794fd5ab",
+      "sha256": "f3da0dff5edaec093ee109b86de5d322595044a448573edb8ce690ec9dcf5160"
+    }
+  }
+}

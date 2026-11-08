@@ -1,0 +1,9 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/tmp/chat-reviewed-composition-YD65VY",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": "19f6c7183c31102a35f5df5c215a05a1a5fea287b6625445819791e5a13f4290",
+    "apps/web/src/server/current-autonomy.ts": "c37fd134e70aa65d3fc558a872dad288562883b54e613bd5505bb45991783fc2",
+    "apps/web/src/server/autonomy-release.ts": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f"
+  }
+}

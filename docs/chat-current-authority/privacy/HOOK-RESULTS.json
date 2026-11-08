@@ -1,0 +1,10 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "file": "apps/web/src/lib/client/use-live-job.ts",
+  "sourceSha256": "610f3740aa96bed573fd632ff91015e6673a4a973a5e88444af7d2763625d431",
+  "patchSha256": "07f78f0b446814c2ba8ab333ff95aacaa459ba5f92c968e5ee189b386ee953c4",
+  "baselineExit": 1,
+  "patchedExit": 0,
+  "scratch": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-live-hook-vsDhbZ",
+  "scope": "actual current hook, fixture live and polling transports; no browser or hosted service"
+}

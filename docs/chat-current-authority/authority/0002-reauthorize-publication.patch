@@ -1,0 +1,26 @@
+--- a/apps/web/src/server/current-autonomy.ts
++++ b/apps/web/src/server/current-autonomy.ts
+@@ -61,8 +61,12 @@
+     if (!job || job.customerId !== viewer.id) return Response.json({error:'Not found'}, {status:404});
+     return null;
+   }
+-  async function result(action: () => Promise<unknown>) {
+-    try { return Response.json(await action(), {headers:{'Cache-Control':'private, no-store'}}); }
++  async function result(action: () => Promise<unknown>, reauthorize?: () => Promise<Response | null>) {
++    try {
++      const value = await action();
++      const denied = await reauthorize?.();
++      if (denied) return denied;
++      return Response.json(value, {headers:{'Cache-Control':'private, no-store'}}); }
+     catch { return Response.json({error:'Autonomous authority or owner adapter unavailable'}, {status:409}); }
+   }
+   return {
+@@ -74,7 +78,7 @@
+     },
+     async publication(_request: Request, jobId: string) {
+       const denied = await owner(jobId); if (denied) return denied;
+-      return result(() => release.publication(customer, jobId));
++      return result(() => release.publication(customer, jobId), () => owner(jobId));
+     },
+     async tick(request: Request) {
+       const denied = deps.cron(request); if (denied) return denied;

@@ -1,0 +1,23 @@
+{
+  "baselineParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "originalTrackedFilesChecked": 1945,
+  "scope": "Compares active checkout to historical0398517 parent, not start-of-task HEAD28356f2. Listed core/docs/test differences predate this task; no application path differs. Only owned directories were written during this task.",
+  "historicalParentDifferences": [
+    "docs/TRACK_B_CURRENT_HANDOFF.md",
+    "docs/track-b-contract-compatibility.md",
+    "docs/track-b-sandbox-engine/runtime-bridge.md",
+    "packages/core/src/evals/sandbox/generation/gates.ts",
+    "packages/core/src/evals/sandbox/integration/index.ts",
+    "packages/core/src/evals/sandbox/persistence/index.ts",
+    "packages/core/src/evals/sandbox/persistence/schema.ts",
+    "packages/core/src/evals/sandbox/runtime-bridge/index.ts",
+    "tests/track-b/run-checks.mjs",
+    "tests/track-b/sandbox-generation/gates.test.ts",
+    "tests/track-b/sandbox-integration/sql-acceptance.test.ts",
+    "tests/track-b/sandbox-integration/sql-factory.test.ts",
+    "tests/track-b/sandbox-media-integration/lifecycle.test.ts",
+    "tests/track-b/sandbox-persistence/run.mjs",
+    "tests/track-b/sandbox-runtime-bridge/bridge.test.ts"
+  ],
+  "applicationByteDrift": []
+}

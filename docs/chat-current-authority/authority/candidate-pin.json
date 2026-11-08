@@ -1,0 +1,11 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-SVXGlN",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "1314443da8640b0c36fd481ebaf6e30e0ac6da37fc18d57146cbcb0348aa0b3c",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "d984755ae14484e80582423adfdba4f0bce3cbf0e24ae982049a3d13fd30ea79",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}

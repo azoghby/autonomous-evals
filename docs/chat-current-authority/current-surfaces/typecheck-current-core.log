@@ -1,0 +1,12 @@
+apps/web/src/app/layout.tsx(3,27): error TS2307: Cannot find module '@vercel/analytics/next' or its corresponding type declarations.
+apps/web/src/app/layout.tsx(44,50): error TS2304: Cannot find name 'LayoutProps'.
+packages/core/src/targets/transport.ts(20,34): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+packages/core/src/targets/transport.ts(22,15): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+packages/core/src/targets/transport.ts(22,55): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+packages/core/src/targets/transport.ts(23,14): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+packages/core/src/targets/transport.ts(23,55): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.

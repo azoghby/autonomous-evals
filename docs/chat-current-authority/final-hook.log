@@ -1,0 +1,11 @@
+{"stage":"/tmp/chat-reviewed-composition-YD65VY","sourceSha256":"67b7ae84de16c2a41dfe0d13f877e31dd0b13db9720742e403f681d7ea15046d"}
+
+ RUN  v3.2.4 /private/tmp/chat-hook-existing-QuOUfR
+
+ ✓ hook.test.tsx (4 tests) 114ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:34:38
+   Duration  4.83s (transform 271ms, setup 0ms, collect 883ms, tests 114ms, environment 1.68s, prepare 1.54s)
+

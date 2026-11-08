@@ -1,0 +1,17 @@
+{
+  "stage": "/tmp/current-chat-mount-verified",
+  "tests": {
+    "authority": "0bb350c63f8674d734045b5dfa320d84cbd95772bf8c232d3d237fc3edca9532",
+    "current-surfaces": "a1287f267864f42c738625979bd9b7720e8d20e39d1af435d9e324e2213cc508"
+  },
+  "commands": [
+    {
+      "scope": "authority",
+      "exit": 0
+    },
+    {
+      "scope": "current-surfaces",
+      "exit": 0
+    }
+  ]
+}

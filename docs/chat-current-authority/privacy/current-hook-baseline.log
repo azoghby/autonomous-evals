@@ -1,0 +1,133 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-live-hook-vsDhbZ
+
+ ❯ hook.test.tsx (4 tests | 4 failed) 65ms
+   × clears prior-job progress on a job switch before the next result arrives 43ms
+     → expected <div></div> to be null
+   × ignores an old live subscription callback after another job activates 7ms
+     → Unable to find an element with the text: B private progress. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div>[39m
+      [0mA late private progress[0m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × clears private progress when its owner disables live reads 7ms
+     → expected <div></div> to be null
+   × does not start old-job polling from a late previous subscription failure 7ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      "/api/jobs/job-a/progress",
+    ]
+
+
+Number of calls: 1
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  19:24:36
+   Duration  1.09s (transform 77ms, setup 0ms, collect 272ms, tests 65ms, environment 505ms, prepare 83ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  hook.test.tsx > clears prior-job progress on a job switch before the next result arrives
+AssertionError: expected <div></div> to be null
+
+- Expected: 
+null
+
++ Received: 
+<div>
+  A private progress
+</div>
+
+ ❯ hook.test.tsx:15:85
+     13|  const view=render(<View id="job-a"/>);const a=(connectLive as any).mo…
+     14|  act(()=>a.onRows(rows('A private progress')));expect(screen.getByText…
+     15|  view.rerender(<View id="job-b"/>);expect(screen.queryByText('A privat…
+       |                                                                                     ^
+     16| });
+     17| it('ignores an old live subscription callback after another job activa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  hook.test.tsx > ignores an old live subscription callback after another job activates
+TestingLibraryElementError: Unable to find an element with the text: B private progress. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div>[39m
+      [0mA late private progress[0m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../../../../../tmp/progress-chat-ui-verification/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../../../tmp/progress-chat-ui-verification/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../../../tmp/progress-chat-ui-verification/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../../../tmp/progress-chat-ui-verification/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ hook.test.tsx:21:16
+     19|  view.rerender(<View id="job-b"/>);const b=(connectLive as any).mock.c…
+     20|  act(()=>b.onRows(rows('B private progress')));act(()=>a.onRows(rows('…
+     21|  expect(screen.getByText('B private progress')).toBeTruthy();expect(sc…
+       |                ^
+     22| });
+     23| it('clears private progress when its owner disables live reads',()=>{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  hook.test.tsx > clears private progress when its owner disables live reads
+AssertionError: expected <div></div> to be null
+
+- Expected: 
+null
+
++ Received: 
+<div>
+  A private progress
+</div>
+
+ ❯ hook.test.tsx:26:51
+     24|  const view=render(<View id="job-a"/>);const a=(connectLive as any).mo…
+     25|  act(()=>a.onRows(rows('A private progress')));view.rerender(<View id=…
+     26|  expect(screen.queryByText('A private progress')).toBeNull();
+       |                                                   ^
+     27| });
+     28| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  hook.test.tsx > does not start old-job polling from a late previous subscription failure
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      "/api/jobs/job-a/progress",
+    ]
+
+
+Number of calls: 1
+
+ ❯ hook.test.tsx:31:72
+     29| it('does not start old-job polling from a late previous subscription f…
+     30|  const view=render(<View id="job-a"/>);const a=(connectLive as any).mo…
+     31|  view.rerender(<View id="job-b"/>);act(()=>a.onFail());expect(api).not…
+       |                                                                        ^
+     32| });
+     33| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+

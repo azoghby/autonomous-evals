@@ -1,0 +1,37 @@
+{
+  "stage": "/tmp/current-chat-mount-verified",
+  "commands": [
+    {
+      "label": "typegen",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "typecheck",
+      "command": [
+        "npx",
+        "--offline",
+        "tsc",
+        "-p",
+        "apps/web",
+        "--noEmit"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "build",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "build",
+        "--webpack"
+      ],
+      "exit": 0
+    }
+  ],
+  "fontBoundary": "Retained local real font cache; no uncached installation or network"
+}

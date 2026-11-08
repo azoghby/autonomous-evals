@@ -1,0 +1,36 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/tmp/current-chat-mount-verified",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "cc7f9cebd369be039b200ce3d4cfaeb0a19fd06621585d897904993eda177794",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "d984755ae14484e80582423adfdba4f0bce3cbf0e24ae982049a3d13fd30ea79",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-IpKlQ1[39m
+
+ [32m✓[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-IpKlQ1/authority.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 28458[2mms[22m[39m
+   [33m[2m✓[22m[39m binds opaque evidence references to subject and job and excludes raw event/finding/cost IDs and prose [33m 4559[2mms[22m[39m
+   [33m[2m✓[22m[39m isolates actual send/history/poll across owner, stranger, public and operator scopes [33m 3954[2mms[22m[39m
+   [33m[2m✓[22m[39m denies all new requests after ownership transfer or scripted session revocation [33m 3750[2mms[22m[39m
+   [33m[2m✓[22m[39m rescreens stored retry/history and current poll against a fresh synthetic credential on the next request [33m 2950[2mms[22m[39m
+   [33m[2m✓[22m[39m requires authoritative structured inventory and refuses a watermark older than current app progress [33m 2725[2mms[22m[39m
+   [33m[2m✓[22m[39m denies an in-flight POST when the session is revoked after snapshot acquisition [33m 2357[2mms[22m[39m
+   [33m[2m✓[22m[39m denies an in-flight POST when the current operator grant is removed after snapshot acquisition [33m 3142[2mms[22m[39m
+   [33m[2m✓[22m[39m rechecks ownership before an in-flight send and refuses to append after transfer [33m 2308[2mms[22m[39m
+   [33m[2m✓[22m[39m refuses to return an in-flight reply containing a credential rotated after snapshot acquisition [33m 2709[2mms[22m[39m
+ [32m✓[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-IpKlQ1/publication.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 8740[2mms[22m[39m
+   [33m[2m✓[22m[39m returns the scoped report for a currently authorized owner through actual route/current app/release/SQL binding [33m 3529[2mms[22m[39m
+   [33m[2m✓[22m[39m denies report disclosure when the scripted cookie session is revoked while publication lookup is pending [33m 2646[2mms[22m[39m
+   [33m[2m✓[22m[39m denies report disclosure after canonical ownership changes during pending publication lookup [33m 2564[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 19:34:34
+[2m   Duration [22m 42.18s[2m (transform 1.27s, setup 0ms, collect 3.67s, tests 37.20s, environment 0ms, prepare 163ms)[22m
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-IpKlQ1/results.json
+Retained authority harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-IpKlQ1

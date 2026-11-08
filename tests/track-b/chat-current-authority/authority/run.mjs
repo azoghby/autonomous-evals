@@ -1,0 +1,22 @@
+import {execFileSync, spawnSync} from 'node:child_process';
+import {mkdtempSync,cpSync,symlinkSync,writeFileSync,readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {resolve,join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+const here=dirname(fileURLToPath(import.meta.url));
+if(!process.argv[2])throw Error('Usage: node run.mjs APPLIED_STAGE [EXISTING_NODE_MODULES]');
+const stage=resolve(process.argv[2]);
+const repo=resolve(here,'../../../..');
+const deps=resolve(process.argv[3]??'/tmp/track-b-harness/node_modules');
+const scratch=mkdtempSync(join(tmpdir(),'chat-current-authority-'));cpSync(here,scratch,{recursive:true});symlinkSync(deps,join(scratch,'node_modules'),'dir');
+const paths=['apps/web/src/app/api/jobs/[jobId]/chat/route.ts','apps/web/src/server/progress-chat.ts','packages/core/src/reporting/chat/service.ts','packages/core/src/reporting/chat/postgres-conversations.ts','apps/web/src/server/session.ts'];
+const pin={reviewHead:'7f492e2cba2004eca4aeff13752a9380f602f2dc',stage,sourceSha256:Object.fromEntries(paths.map(p=>[p,createHash('sha256').update(readFileSync(join(stage,p))).digest('hex')]))};
+writeFileSync(join(scratch,'pin.json'),JSON.stringify(pin,null,2)+'\n');console.log(JSON.stringify(pin,null,2));
+const alias=[['@route',paths[0]],['@/server/progress-chat',paths[1]],['@report-route','apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts'],['@/server/current-autonomy','apps/web/src/server/current-autonomy.ts']].map(([find,path])=>({find,replacement:join(stage,path)}));
+for(const [find,file] of [['./session','fixture-session.ts'],['@neondatabase/serverless','fixture-pool.ts'],['server-only','empty.ts'],['@/server/current-autonomy-runtime','publication-runtime.ts']])alias.push({find,replacement:join(scratch,file)});
+writeFileSync(join(scratch,'vitest.config.mjs'),`export default {resolve:{alias:[...${JSON.stringify(alias)},{find:/^@ae\\/core\\/(.*)$/,replacement:${JSON.stringify(join(stage,'packages/core/src/$1'))}}]},test:{include:[${JSON.stringify(join(scratch,'*.test.ts'))}],maxWorkers:1,minWorkers:1,testTimeout:30000}}`);
+// Whitelist subprocess environment: never load .env or forward real secret values.
+const env={PATH:process.env.PATH,TMPDIR:tmpdir(),SECURITY_STAGE:stage,PUBLICATION_STAGE:stage,SECURITY_REPO:repo,NODE_ENV:'test',CI:'1',AUTHORITY_RESULTS:join(scratch,'results.json')};
+const result=spawnSync(process.execPath,[join(deps,'vitest/vitest.mjs'),'run','--config',join(scratch,'vitest.config.mjs'),'--reporter=default','--reporter=json',`--outputFile=${join(scratch,'results.json')}`],{cwd:scratch,stdio:'inherit',env});
+console.log('Retained authority harness:',scratch);process.exitCode=result.status??1;

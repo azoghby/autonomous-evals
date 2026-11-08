@@ -1,0 +1,54 @@
+
+> test
+> vitest run
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.1.0 /private/tmp/chat-current-patch-f5mB9z
+
+ ❯ apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts (5 tests | 2 failed) 66ms
+   ❯ report-html artifact (5)
+     × serves escaped html with strict headers, inline by default 57ms
+     × uses attachment with ?download=1 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts > report-html artifact > serves escaped html with strict headers, inline by default
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts:34:24
+     32|   it("serves escaped html with strict headers, inline by default", asy…
+     33|     const res = await call();
+     34|     expect(res.status).toBe(200);
+       |                        ^
+     35|     expect(res.headers.get("Content-Security-Policy")).toBe("default-s…
+     36|     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts > report-html artifact > uses attachment with ?download=1
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts:46:52
+     44|   it("uses attachment with ?download=1", async () => {
+     45|     const res = await call("?download=1");
+     46|     expect(res.headers.get("Content-Disposition")).toMatch(/^attachmen…
+       |                                                    ^
+     47|   });
+     48|   it("404 when no report stored", async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 178 passed | 1 skipped (180)
+      Tests  2 failed | 2383 passed | 1 skipped (2386)
+   Start at  19:22:36
+   Duration  116.09s (tests 89%, import 9%, transform 2%)
+

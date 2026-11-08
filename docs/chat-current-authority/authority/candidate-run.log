@@ -1,0 +1,94 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-SVXGlN",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "1314443da8640b0c36fd481ebaf6e30e0ac6da37fc18d57146cbcb0348aa0b3c",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "d984755ae14484e80582423adfdba4f0bce3cbf0e24ae982049a3d13fd30ea79",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8[39m
+
+ [31m❯[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8/authority.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 39145[2mms[22m[39m
+   [33m[2m✓[22m[39m binds opaque evidence references to subject and job and excludes raw event/finding/cost IDs and prose [33m 6246[2mms[22m[39m
+   [33m[2m✓[22m[39m isolates actual send/history/poll across owner, stranger, public and operator scopes [33m 3022[2mms[22m[39m
+   [33m[2m✓[22m[39m denies all new requests after ownership transfer or scripted session revocation [33m 3265[2mms[22m[39m
+   [33m[2m✓[22m[39m rescreens stored retry/history and current poll against a fresh synthetic credential on the next request [33m 4533[2mms[22m[39m
+[31m   [31m×[31m denies an in-flight POST when the session is revoked after snapshot acquisition[39m[33m 3244[2mms[22m[39m
+[31m     → expected 200 to be 401 // Object.is equality[39m
+[31m   [31m×[31m denies an in-flight POST when the current operator grant is removed after snapshot acquisition[39m[33m 6252[2mms[22m[39m
+[31m     → expected 200 to be 404 // Object.is equality[39m
+   [33m[2m✓[22m[39m rechecks ownership before an in-flight send and refuses to append after transfer [33m 7165[2mms[22m[39m
+[31m   [31m×[31m refuses to return an in-flight reply containing a credential rotated after snapshot acquisition[39m[33m 5415[2mms[22m[39m
+[31m     → expected 200 to be 503 // Object.is equality[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8/authority.test.ts[2m > [22mdenies an in-flight POST when the session is revoked after snapshot acquisition
+[31m[1mAssertionError[22m: expected 200 to be 401 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 401[39m
+[31m+ 200[39m
+
+[36m [2m❯[22m authority.test.ts:[2m78:26[22m[39m
+    [90m 76| [39mit('denies an in-flight POST when the session is revoked after snapsho…
+    [90m 77| [39m const response=await sendWithChangeAfterSnapshot(async()=>{fixtureSes…
+    [90m 78| [39m [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m401[39m)[33m;[39m[34mexpect[39m([35mawait[39m [34mcount[39m())[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
+    [90m   | [39m                         [31m^[39m
+    [90m 79| [39m})[33m;[39m
+    [90m 80| [39mit('denies an in-flight POST when the current operator grant is remove…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8/authority.test.ts[2m > [22mdenies an in-flight POST when the current operator grant is removed after snapshot acquisition
+[31m[1mAssertionError[22m: expected 200 to be 404 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 404[39m
+[31m+ 200[39m
+
+[36m [2m❯[22m authority.test.ts:[2m83:26[22m[39m
+    [90m 81| [39m fixtureSession[33m.[39mviewer[33m=[39m{id[33m:[39m[32m'operator'[39m[33m,[39misOperator[33m:[39m[35mtrue[39m}[33m;[39m
+    [90m 82| [39m const response=await sendWithChangeAfterSnapshot(async()=>{fixtureSes…
+    [90m 83| [39m [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m404[39m)[33m;[39m[34mexpect[39m([35mawait[39m [34mcount[39m())[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
+    [90m   | [39m                         [31m^[39m
+    [90m 84| [39m})[33m;[39m
+    [90m 85| [39mit('rechecks ownership before an in-flight send and refuses to append …
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8/authority.test.ts[2m > [22mrefuses to return an in-flight reply containing a credential rotated after snapshot acquisition
+[31m[1mAssertionError[22m: expected 200 to be 503 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 503[39m
+[31m+ 200[39m
+
+[36m [2m❯[22m authority.test.ts:[2m91:26[22m[39m
+    [90m 89| [39mit('refuses to return an in-flight reply containing a credential rotat…
+    [90m 90| [39m const response=await sendWithChangeAfterSnapshot(async()=>{await fixt…
+    [90m 91| [39m expect(response.status).toBe(503);expect(await response.text()).not.t…
+    [90m   | [39m                         [31m^[39m
+    [90m 92| [39m})[33m;[39m
+    [90m 93| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 19:23:02
+[2m   Duration [22m 40.72s[2m (transform 524ms, setup 0ms, collect 940ms, tests 39.14s, environment 0ms, prepare 153ms)[22m
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8/results.json
+Retained authority harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-qCffc8

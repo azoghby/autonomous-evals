@@ -1,0 +1,26 @@
+import {execFileSync,spawnSync} from 'node:child_process';
+import {mkdtempSync,cpSync,symlinkSync,writeFileSync,readFileSync,mkdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {tmpdir} from 'node:os';
+import {join,resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const here=dirname(fileURLToPath(import.meta.url));
+const repo=resolve(here,'../../../..');
+let stage=process.argv[2], composition;
+if(!stage){composition=JSON.parse(execFileSync(process.execPath,['tests/track-b/chat-workflow-release/stage.mjs'],{cwd:repo,encoding:'utf8'}));stage=composition.stage;}
+stage=resolve(stage);
+const deps=resolve(process.env.CHAT_UI_NODE_MODULES??'/tmp/progress-chat-ui-verification/node_modules');
+const scratch=mkdtempSync(join(tmpdir(),'chat-current-privacy-'));
+cpSync(here,scratch,{recursive:true});
+const source=join(stage,'apps/web/src/components/app/job-private-chat.tsx');
+cpSync(source,join(scratch,'job-private-chat.tsx'));
+for(const f of ['reauth.test.tsx','chat.test.tsx'])cpSync(join(repo,'tests/track-b/chat-workflow-release/ui',f),join(scratch,f));
+symlinkSync(deps,join(scratch,'node_modules'),'dir');
+writeFileSync(join(scratch,'package.json'),'{"private":true,"type":"module"}');
+writeFileSync(join(scratch,'vitest.config.mjs'),`export default {esbuild:{jsx:'automatic'},test:{environment:'jsdom',include:['chat.test.tsx','reauth.test.tsx','privacy.test.tsx'],maxWorkers:1,minWorkers:1}};`);
+const r=spawnSync(process.execPath,[join(deps,'vitest/vitest.mjs'),'run','--config','vitest.config.mjs'],{cwd:scratch,encoding:'utf8'});
+const tag=process.argv[2]?'candidate-':'';
+const evidence=join(repo,'docs/chat-current-authority/privacy');mkdirSync(evidence,{recursive:true});
+writeFileSync(join(evidence,tag+'client-tests.log'),(r.stdout??'')+(r.stderr??''));
+writeFileSync(join(evidence,tag+'RESULTS.json'),JSON.stringify({reviewHead:'7f492e2cba2004eca4aeff13752a9380f602f2dc',scope:composition?'historical immutable composed release; NOT current app adoption':'explicit candidate path, source hash authoritative',stage,composition,source:{path:'apps/web/src/components/app/job-private-chat.tsx',sha256:createHash('sha256').update(readFileSync(source)).digest('hex')},exit:r.status,scratch,hostedAuth:false,hostedDatabase:false},null,2)+'\n');
+console.log(r.stdout,r.stderr);process.exitCode=r.status??1;

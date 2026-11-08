@@ -1,0 +1,77 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/tmp/current-chat-mount-final",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "cc7f9cebd369be039b200ce3d4cfaeb0a19fd06621585d897904993eda177794",
+    "packages/core/src/reporting/chat/service.ts": "ee3645fb45f72728fdcd2baa69ea2239cc9e01db56b3dcc540c5f4988232a786",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "d984755ae14484e80582423adfdba4f0bce3cbf0e24ae982049a3d13fd30ea79",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm[39m
+
+ [31m❯[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[33m 9927[2mms[22m[39m
+[31m   [31m×[31m binds opaque evidence references to subject and job and excludes raw event/finding/cost IDs and prose[39m[33m 1076[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m isolates actual send/history/poll across owner, stranger, public and operator scopes[39m[33m 752[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m denies all new requests after ownership transfer or scripted session revocation[39m[33m 652[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m rescreens stored retry/history and current poll against a fresh synthetic credential on the next request[39m[33m 735[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m requires authoritative structured inventory and refuses a watermark older than current app progress[39m[33m 733[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m denies an in-flight POST when the session is revoked after snapshot acquisition[39m[33m 689[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m denies an in-flight POST when the current operator grant is removed after snapshot acquisition[39m[33m 1094[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m rechecks ownership before an in-flight send and refuses to append after transfer[39m[33m 2303[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[31m   [31m×[31m refuses to return an in-flight reply containing a credential rotated after snapshot acquisition[39m[33m 1892[2mms[22m[39m
+[31m     → ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m9 failed[39m[22m[90m (9)[39m
+[2m   Start at [22m 19:31:26
+[2m   Duration [22m 10.72s[2m (transform 175ms, setup 0ms, collect 228ms, tests 9.93s, environment 0ms, prepare 120ms)[22m
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/results.json
+Retained authority harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/publication.test.ts[2m [ ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/publication.test.ts ][22m
+[31m[1mError[22m: Cannot find package '@report-route' imported from '/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/publication.test.ts'[39m
+[36m [2m❯[22m publication.test.ts:[2m5:1[22m[39m
+    [90m  3| [39m[35mimport[39m {join} [35mfrom[39m [32m'node:path'[39m[33m;[39m
+    [90m  4| [39m[35mimport[39m {it[33m,[39mexpect[33m,[39mafterEach[33m,[39mvi} [35mfrom[39m [32m'vitest'[39m[33m;[39m
+    [90m  5| [39m[35mimport[39m {[33mGET[39m} [35mfrom[39m [32m'@report-route'[39m[33m;[39m
+    [90m   | [39m[31m^[39m
+    [90m  6| [39mimport {createCurrentAutonomyApplication} from '@/server/current-auton…
+    [90m  7| [39m[35mimport[39m {autonomyDigest} [35mfrom[39m [32m'@ae/core/agents/autonomy/policy'[39m[33m;[39m
+
+[31m[1mCaused by: Error[22m: Failed to load url @report-route (resolved id: @report-route) in /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/publication.test.ts. Does the file exist?[39m
+[90m [2m❯[22m loadAndTransform ../../../../../../tmp/track-b-harness/node_modules/vite/dist/node/chunks/config.js:[2m22907:33[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯[22m[39m
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 9 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mbinds opaque evidence references to subject and job and excludes raw event/finding/cost IDs and prose
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22misolates actual send/history/poll across owner, stranger, public and operator scopes
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mdenies all new requests after ownership transfer or scripted session revocation
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mrescreens stored retry/history and current poll against a fresh synthetic credential on the next request
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mrequires authoritative structured inventory and refuses a watermark older than current app progress
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mdenies an in-flight POST when the session is revoked after snapshot acquisition
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mdenies an in-flight POST when the current operator grant is removed after snapshot acquisition
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mrechecks ownership before an in-flight send and refuses to append after transfer
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-GxX3xm/authority.test.ts[2m > [22mrefuses to return an in-flight reply containing a credential rotated after snapshot acquisition
+[31m[1mError[22m: ENOENT: no such file or directory, open '/private/tmp/mount-privacy-review-vOHrOu/docs/progress-chat-integration/server/001-private-conversations.sql'[39m
+[36m [2m❯[22m authority.test.ts:[2m25:194[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯[22m[39m
+

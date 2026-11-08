@@ -1,0 +1,93 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-r9GYRE",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+    "apps/web/src/server/progress-chat.ts": "1314443da8640b0c36fd481ebaf6e30e0ac6da37fc18d57146cbcb0348aa0b3c",
+    "packages/core/src/reporting/chat/service.ts": "0908582241c271ddea6b82c45c8b8f2911e71382050117bf31fd4233c529cd56",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "ae5bb532aff6488d4a696bb47abc325982768e2d9c8c91d891926417764e8ac1",
+    "apps/web/src/server/session.ts": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx[39m
+
+ [31m❯[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx/authority.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 3412[2mms[22m[39m
+   [33m[2m✓[22m[39m isolates actual send/history/poll across owner, stranger, public and operator scopes [33m 752[2mms[22m[39m
+   [33m[2m✓[22m[39m denies all new requests after ownership transfer or scripted session revocation [33m 475[2mms[22m[39m
+   [33m[2m✓[22m[39m rescreens stored retry/history and current poll against a fresh synthetic credential on the next request [33m 478[2mms[22m[39m
+[31m   [31m×[31m denies an in-flight POST when the session is revoked after snapshot acquisition[39m[33m 419[2mms[22m[39m
+[31m     → expected 200 to be 401 // Object.is equality[39m
+[31m   [31m×[31m denies an in-flight POST when the current operator grant is removed after snapshot acquisition[39m[33m 393[2mms[22m[39m
+[31m     → expected 200 to be 404 // Object.is equality[39m
+   [33m[2m✓[22m[39m rechecks ownership before an in-flight send and refuses to append after transfer [33m 470[2mms[22m[39m
+[31m   [31m×[31m refuses to return an in-flight reply containing a credential rotated after snapshot acquisition[39m[33m 425[2mms[22m[39m
+[31m     → expected 200 to be 503 // Object.is equality[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx/authority.test.ts[2m > [22mdenies an in-flight POST when the session is revoked after snapshot acquisition
+[31m[1mAssertionError[22m: expected 200 to be 401 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 401[39m
+[31m+ 200[39m
+
+[36m [2m❯[22m authority.test.ts:[2m62:26[22m[39m
+    [90m 60| [39mit('denies an in-flight POST when the session is revoked after snapsho…
+    [90m 61| [39m const response=await sendWithChangeAfterSnapshot(async()=>{fixtureSes…
+    [90m 62| [39m [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m401[39m)[33m;[39m[34mexpect[39m([35mawait[39m [34mcount[39m())[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
+    [90m   | [39m                         [31m^[39m
+    [90m 63| [39m})[33m;[39m
+    [90m 64| [39mit('denies an in-flight POST when the current operator grant is remove…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx/authority.test.ts[2m > [22mdenies an in-flight POST when the current operator grant is removed after snapshot acquisition
+[31m[1mAssertionError[22m: expected 200 to be 404 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 404[39m
+[31m+ 200[39m
+
+[36m [2m❯[22m authority.test.ts:[2m67:26[22m[39m
+    [90m 65| [39m fixtureSession[33m.[39mviewer[33m=[39m{id[33m:[39m[32m'operator'[39m[33m,[39misOperator[33m:[39m[35mtrue[39m}[33m;[39m
+    [90m 66| [39m const response=await sendWithChangeAfterSnapshot(async()=>{fixtureSes…
+    [90m 67| [39m [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m404[39m)[33m;[39m[34mexpect[39m([35mawait[39m [34mcount[39m())[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
+    [90m   | [39m                         [31m^[39m
+    [90m 68| [39m})[33m;[39m
+    [90m 69| [39mit('rechecks ownership before an in-flight send and refuses to append …
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx/authority.test.ts[2m > [22mrefuses to return an in-flight reply containing a credential rotated after snapshot acquisition
+[31m[1mAssertionError[22m: expected 200 to be 503 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 503[39m
+[31m+ 200[39m
+
+[36m [2m❯[22m authority.test.ts:[2m75:26[22m[39m
+    [90m 73| [39mit('refuses to return an in-flight reply containing a credential rotat…
+    [90m 74| [39m const response=await sendWithChangeAfterSnapshot(async()=>{await fixt…
+    [90m 75| [39m expect(response.status).toBe(503);expect(await response.text()).not.t…
+    [90m   | [39m                         [31m^[39m
+    [90m 76| [39m})[33m;[39m
+    [90m 77| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 19:22:14
+[2m   Duration [22m 3.73s[2m (transform 94ms, setup 0ms, collect 164ms, tests 3.41s, environment 0ms, prepare 40ms)[22m
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx/results.json
+Retained authority harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-authority-dSZZVx

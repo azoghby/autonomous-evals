@@ -1,0 +1,14 @@
+import {execFileSync,spawnSync} from 'node:child_process';
+import {mkdtempSync,readFileSync,writeFileSync,symlinkSync,mkdirSync} from 'node:fs';
+import {join,resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../../..'),output=join(root,'docs/chat-current-authority/current-surfaces');
+const pin=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),stage=mkdtempSync('/tmp/chat-current-patch-');
+execFileSync('tar',['-x','-C',stage],{input:execFileSync('git',['archive',pin],{cwd:root,maxBuffer:128*1024*1024})});
+const patch=readFileSync(join(output,'recheck-artifact-authority.patch'));
+execFileSync('git',['apply','--check','-'],{cwd:stage,input:patch});execFileSync('git',['apply','-'],{cwd:stage,input:patch});
+const r=spawnSync(process.execPath,[join(root,'tests/track-b/chat-current-authority/current-surfaces/run.mjs'),stage],{cwd:root,encoding:'utf8'});writeFileSync(join(output,'patched-results.log'),(r.stdout??'')+(r.stderr??''));
+const hashes={};for(const path of ['apps/web/src/server/session.ts','apps/web/src/server/queries.ts','apps/web/src/server/access.ts','apps/web/src/app/api/jobs/[jobId]/route.ts','apps/web/src/app/api/jobs/[jobId]/live/route.ts','apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts'])hashes[path]={baseline:createHash('sha256').update(readFileSync(join(root,path))).digest('hex'),patched:createHash('sha256').update(readFileSync(join(stage,path))).digest('hex')};
+writeFileSync(join(output,'RESULTS.json'),JSON.stringify({pin,stage,patchExit:r.status,hashes,scriptedAuth:true,hostedAuth:false},null,2)+'\n');
+console.log(stage);process.exitCode=r.status??1;

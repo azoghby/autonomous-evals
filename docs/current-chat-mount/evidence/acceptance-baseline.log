@@ -1,0 +1,36 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/private/tmp/current-chat-mount-verified[39m
+
+ [31m❯[39m tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts [2m([22m[2m0 test[22m[2m)[22m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [2mno tests[22m
+[2m   Start at [22m 19:36:20
+[2m   Duration [22m 3.29s[2m (worker 99%, environment 1%)[22m
+
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts[2m [ tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts ][22m
+[31m[1mError[22m: [vitest] No "NAIVE_AGENT_ENV" export is defined on the "@ae/core/integration/eval-services" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+[39m
+vi.mock(import("@ae/core/integration/eval-services"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+[36m [2m❯[22m apps/web/src/server/current-agent-deps.ts:[2m20:127[22m[39m
+    [90m 18|[39m import { EvalServiceConfigError, NAIVE_AGENT_ENV } from "@ae/core/inte…
+    [90m 19|[39m
+    [90m 20|[39m const AGENT_ENV = ["NAIVE_API_KEY", "DATABASE_URL", "NAIVE_BUDGET_PERI…
+    [90m   |[39m                                                                                                                               [31m^[39m
+    [90m 21|[39m
+    [90m 22|[39m const missingFrom = (names: readonly string[], env: NodeJS.ProcessEnv)…
+[90m [2m❯[22m apps/web/src/server/rich-services.ts:[2m12:1[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+

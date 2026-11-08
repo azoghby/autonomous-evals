@@ -1,0 +1,11 @@
+--- a/apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts
++++ b/apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts
+@@ -16,7 +16,7 @@
+   vi.resetAllMocks();
+   mocks.me.mockResolvedValue({ id: "u1" });
+   mocks.viewer.mockResolvedValue({ job: {} });
+-  mocks.job.mockResolvedValue({ reportBlobPath: "neon:jobs/x/report-1.md" });
++  mocks.job.mockResolvedValue({ customerId: "u1", reportBlobPath: "neon:jobs/x/report-1.md" });
+   mocks.text.mockResolvedValue("# Title\n<script>alert(1)</script> **b**");
+ });
+ 

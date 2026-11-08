@@ -1,0 +1,18 @@
+import React from 'react';
+export const fixture:{data:any;error:any;loading:boolean;feed:any;redirects:string[]}={data:null,error:null,loading:false,feed:{mode:'polling'},redirects:[]};
+export const useRouter=()=>({replace:(s:string)=>fixture.redirects.push(s)});
+export const useSearchParams=()=>new URLSearchParams();
+export const useFetch=()=>({data:fixture.data,error:fixture.error,loading:fixture.loading,reload:async()=>{}});
+export const useLiveJob=()=>fixture.feed;
+export const PRICE_CENTS={trace_audit:500};
+export const PACKAGE_LABEL={trace_audit:'Trace Audit'};
+export const dollars=(n:number)=>`$${n/100}`;
+export const when=(s:string)=>s;
+export const normalizeFinding=(v:unknown)=>v;
+const Wrapper=({children}:{children?:React.ReactNode})=><div>{children}</div>;
+export const AnimatePresence=Wrapper;export const Button=Wrapper;export const Chip=Wrapper;export const KeyValue=Wrapper;export const Reveal=Wrapper;export const StatusChip=()=>null;
+export const Banner=Wrapper;export const ErrorBox=({title}:{title:string})=><p>{title}</p>;export const Loading=({label}:{label?:string})=><p>{label}</p>;export const LiveChip=()=>null;
+export const MetaDot=()=>null;export const PageHead=()=>null;export const Panel=Wrapper;
+export const Clarification=()=>null;export const QuoteCard=()=>null;export const ReportView=()=>null;
+export const ProgressTimeline=({progress}:{progress:unknown})=><div data-testid="timeline">{JSON.stringify(progress)}</div>;
+export const AgentFeed=({progress}:{progress:unknown})=><div data-testid="agent-feed">{JSON.stringify(progress)}</div>;

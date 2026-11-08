@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /private/tmp/current-chat-surfaces-idfvIW
+
+ ✓ ../../../Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-f3614f62/tests/track-b/chat-current-authority/current-surfaces/current.test.ts (19 tests) 8ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  19:30:31
+   Duration  295ms (transform 70ms, setup 0ms, collect 131ms, tests 8ms, environment 0ms, prepare 46ms)
+

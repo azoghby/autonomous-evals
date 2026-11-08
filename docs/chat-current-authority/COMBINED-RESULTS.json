@@ -1,0 +1,48 @@
+{
+  "candidateParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "stage": "/tmp/chat-reviewed-composition-YD65VY",
+  "patchManifest": "COMPOSITION.json",
+  "authority": {
+    "passed": 12,
+    "failed": 0,
+    "includes": "9 chat authority + 3 publication",
+    "log": "final-authority.log"
+  },
+  "client": {
+    "passed": 16,
+    "failed": 0,
+    "log": "final-client.log"
+  },
+  "hook": {
+    "passed": 4,
+    "failed": 0,
+    "log": "final-hook.log"
+  },
+  "currentSurfaces": {
+    "passed": 19,
+    "failed": 0,
+    "log": "final-current-surfaces.log"
+  },
+  "publicationFollowup": {
+    "originalPassed": 2,
+    "originalFailed": 1,
+    "correctedPassed": 3,
+    "correctedFailed": 0,
+    "patch": "authority/0002-reauthorize-publication.patch",
+    "sha256": "5b568a2b8a857b206ca8da088a95132d3135dc2257d8ee7b808c9ea0430ae109"
+  },
+  "commit": null,
+  "commitBlocker": "shared Git dataless metadata; add/read-tree/rev-parse stalled",
+  "releaseAccepted": false,
+  "hostedAuth": false,
+  "fivePatchComposition": "COMPOSITION.json",
+  "uniqueFocusedTestsPassed": 51,
+  "uniqueFocusedTestsFailed": 0,
+  "broadCurrentArchive": {
+    "passed": 2385,
+    "skipped": 1,
+    "failed": 0,
+    "log": "current-surfaces/npm-test-v3.log",
+    "scope": "current archive with artifact reauth + realistic owner fixture; not mounted adoption candidate build"
+  }
+}

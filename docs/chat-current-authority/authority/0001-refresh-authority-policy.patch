@@ -1,0 +1,33 @@
+--- a/apps/web/src/server/progress-chat.ts
++++ b/apps/web/src/server/progress-chat.ts
+@@ -114,10 +114,28 @@
+   };
+   return createProgressChatService({
+     access: {
+-      authenticate: async () => ({ subjectId: me.id }),
++      authenticate: async () => {
++        const current = await getCurrentCustomer();
++        if (!current || current.id !== me.id) return null;
++        me.isOperator = current.isOperator;
++        return { subjectId: current.id };
++      },
+       resolveAuthorizedJob: async (caller, id) => {
+         const result = await p.query("SELECT id FROM jobs WHERE id = $1 AND (customer_id = $2 OR $3::boolean)", [id, caller.subjectId, me.isOperator]);
+-        return result.rows.length === 1 ? { subjectId: caller.subjectId, jobId: id } : null;
++        if (result.rows.length !== 1) return null;
++        // Refresh current screening policy after request body consumption and current access resolution.
++        // Preserve the array identity captured by createProgressChatService.
++        const currentSecrets = await pinned(p, true, async tx => {
++          const credentials = await tx.query<{ciphertext: string}>("SELECT ciphertext FROM job_credentials WHERE job_id = $1", [id]);
++          const github = await tx.query<{token_ciphertext: string}>("SELECT token_ciphertext FROM job_github_targets WHERE job_id = $1", [id]);
++          const secrets = Object.entries(process.env).filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|DATABASE_URL/i.test(name))
++            .flatMap(([, value]) => secretsFrom(value));
++          for (const row of credentials.rows) secrets.push(...secretsFrom(decryptJson(row.ciphertext)));
++          for (const row of github.rows) secrets.push(...secretsFrom(decrypt(row.token_ciphertext)));
++          return secrets;
++        });
++        material.knownSecrets.splice(0, material.knownSecrets.length, ...currentSecrets);
++        return { subjectId: caller.subjectId, jobId: id };
+       },
+     },
+     progress: { read: async () => material.snapshot },
