@@ -92,7 +92,10 @@ class BudgetExceeded extends Error { constructor(spent: number, cap: number) { s
 
 async function runAgent(row: PublicAgentInput & { id?: string }, cli: Cli, suite: Suite): Promise<void> {
   assertAuthorizedToTest(row);
-  const apiKey = row.authEnvVar ? process.env[row.authEnvVar] : undefined;
+  // AI Gateway accepts a Vercel OIDC token as bearer when no API key is set (vercel env pull).
+  const apiKey = row.authEnvVar
+    ? process.env[row.authEnvVar] ?? (row.authEnvVar === "AI_GATEWAY_API_KEY" ? process.env.VERCEL_OIDC_TOKEN : undefined)
+    : undefined;
   const plan = `${row.slug}: ${row.model} @ ${row.endpointUrl} | ${suite.scenarios.length} scenarios | budget $${(cli.budgetMicroUsd / 1e6).toFixed(2)} | key ${row.authEnvVar ? (apiKey ? `from $${row.authEnvVar}` : `MISSING $${row.authEnvVar}`) : "none"}`;
   if (cli.dryRun) { console.log(`[dry-run] ${plan}`); return; }
   if (row.authEnvVar && !apiKey) throw new Error(`env var ${row.authEnvVar} is not set`);
