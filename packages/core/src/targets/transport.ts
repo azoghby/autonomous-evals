@@ -15,6 +15,9 @@ export function isPublicAddress(address: string): boolean {
   if (!isIP(address) || address.includes('%')) return false;
   const ip = ipaddr.parse(address);
   if (ip.range() !== 'unicast') return false;
+  // Keep benchmarking networks excluded even when the address library labels
+  // this special-purpose IPv4 allocation as ordinary unicast.
+  if (ip.kind() === 'ipv4' && ip.match(ipaddr.parse('198.18.0.0'), 15)) return false;
   if (ip.kind() === 'ipv6') {
     return ip.match(ipaddr.parse('2000::'), 3) && !ip.match(ipaddr.parse('2001::'), 23)
       && !ip.match(ipaddr.parse('3fff::'), 20) && !ip.match(ipaddr.parse('2002::'), 16);

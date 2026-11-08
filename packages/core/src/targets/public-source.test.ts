@@ -24,7 +24,7 @@ import { HttpsPublicSourceTransport, publicSourceUrl } from './public-source';
 const publicDns = async () => [{ address: '8.8.8.8', family: 4 }];
 beforeEach(() => { harness.calls = 0; harness.mode = 'ok'; harness.active = 0; harness.peak = 0; });
 describe('SSRF policy', () => {
-  it.each(['127.0.0.1','0.0.0.0','10.1.2.3','172.16.0.1','192.168.1.1','169.254.169.254','100.64.0.1','192.0.2.1','198.18.0.1','198.51.100.2','203.0.113.1','224.1.1.1','240.1.1.1','::','::1','fc00::1','fe80::1','ff02::1','2001:db8::1','2001::1','2002:0808:0808::','64:ff9b::a00:1','::ffff:127.0.0.1','::ffff:8.8.8.8','3fff::1','fe80::1%lo0'])('blocks %s', ip => expect(isPublicAddress(ip)).toBe(false));
+  it.each(['127.0.0.1','0.0.0.0','10.1.2.3','172.16.0.1','192.168.1.1','169.254.169.254','100.64.0.1','192.0.2.1','198.18.0.0','198.18.0.1','198.19.255.255','198.51.100.2','203.0.113.1','224.1.1.1','240.1.1.1','::','::1','fc00::1','fe80::1','ff02::1','2001:db8::1','2001::1','2002:0808:0808::','64:ff9b::a00:1','::ffff:127.0.0.1','::ffff:8.8.8.8','3fff::1','fe80::1%lo0'])('blocks %s', ip => expect(isPublicAddress(ip)).toBe(false));
   it.each(['8.8.8.8','1.1.1.1','2606:4700:4700::1111'])('allows %s', ip => expect(isPublicAddress(ip)).toBe(true));
   it.each(['https://127.0.0.1/v1','https://0x7f000001/v1','https://0177.0.0.1/v1','https://[::ffff:7f00:1]/v1'])('blocks URL normalization bypass %s', async url => { const t = new HttpsPublicSourceTransport(new URL(url).origin); await expect(t.get(url)).rejects.toThrow('blocked_address'); expect(harness.calls).toBe(0); });
   it.each(['http://example.com','https://user:pass@example.com','https://example.com:444','https://example.com#x','https://example.com?key=secret'])('rejects %s', url => expect(() => targetUrl(url)).toThrow());
