@@ -119,3 +119,25 @@ test('called/not_called and global maximum count failed attempts too',async()=>{
   assert.equal((await gradeSandbox({...i,run:{...i.run,trajectory:()=>[{...call(1,'refund'),error:'failed'}]}})).verdict,'pass');
   assert.equal((await gradeSandbox({...i,run:{...i.run,trajectory:()=>[call(1,'refund'),call(2,'delete')]}})).verdict,'fail');
 });
+test('pins caller grading rules and versions across asynchronous runtime reads',async()=>{
+  const i=input({scenario:scenario({stateAssertions:[{id:'goal',sql:'SELECT true AS ok',description:'goal',severity:'high'}]}),
+    transcript:[{role:'assistant',content:'No refund was issued.'}],versions:{...versions}});
+  i.run.query=async()=>{
+    i.scenario.requiredOutputs.length=0;
+    i.versions.suiteHash='replacement-suite';
+    return [{ok:true}];
+  };
+  const result=await gradeSandbox(i);
+  assert.equal(result.verdict,'fail');
+  assert.equal(result.versions.suiteHash,'suite');
+  assert.equal(result.checks.find(c=>c.id==='output:amount')?.verdict,'fail');
+});
+test('returned trajectory and diff evidence do not alias runtime-owned objects',async()=>{
+  const rows:StateDiff[]=[{table:'orders',inserted:0,updated:0,deleted:0,sample:[{id:'original'}]}];
+  const calls=[call(1,'read_order',{id:'original'})];
+  const i=input();i.run.diff=async()=>rows;i.run.trajectory=()=>calls;
+  const result=await gradeSandbox(i);const snapshot=structuredClone(result);
+  rows[0].inserted=100;rows[0].sample[0].id='changed';
+  (calls[0].args as {id:string}).id='changed';calls.length=0;
+  assert.deepEqual(result,snapshot);
+});
