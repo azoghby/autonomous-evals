@@ -1,0 +1,26 @@
+Source 6ff8a0642fc14dfd23842456d124a4b84f5e040a; local contracts 8634ceb30f3d98de7ec24b240a4f7549dce80033
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/calendar-security-assurance-cJf9g8
+
+ ✓ review/boundaries.test.ts (15 tests) 69985ms
+   ✓ Acceptance: real partial infrastructure and unknown claims compose (6)
+     ✓ composes retained mixed outcomes through SQL checkpoints and replays without dispatch 8797ms
+   ✓ Acceptance: custom retained adapter contract fails closed (8)
+     ✓ rejects missing identity before either dispatch 7029ms
+     ✓ rejects uppercase identity before either dispatch 4987ms
+     ✓ rejects extra-field identity before either dispatch 4606ms
+     ✓ fences content mismatch after retained read, blocks current and redispatch 4393ms
+     ✓ fences run-id mismatch after retained read, blocks current and redispatch 5448ms
+     ✓ rejects partial-promoted even when retained digest matches malformed evidence 4774ms
+     ✓ rejects unknown-promoted even when retained digest matches malformed evidence 7561ms
+     ✓ rejects missing-claim-grade even when retained digest matches malformed evidence 5028ms
+   ✓ DEFECT CHARACTERIZATION: custom adapter identity mutates during retained read (1)
+     ✓ accepts evidence matching a replacement identity rather than the identity committed before execution 2953ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  17:03:03
+   Duration  73.98s (tests 96%, transform 3%, import 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/calendar-security-assurance-cJf9g8/results.json
+15 passed: 14 acceptance/regression, 1 explicitly labeled defect characterization. Green does not mean the characterized defect is fixed.

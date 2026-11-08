@@ -1,0 +1,41 @@
+Production source HEAD ef5e58e0056e47c654e9082621fb3e7b94e6e83c; local contracts 8634ceb30f3d98de7ec24b240a4f7549dce80033
+Selected test files: packages/core/src/rotation/rotation.test.ts, tests/track-b/security-release-assurance/identity/acceptance.test.ts, tests/track-b/security-release-assurance/identity/defects.test.ts, packages/core/review/boundaries.test.ts, packages/core/src/provenance/acceptance.test.ts, packages/core/src/provenance/defect-characterization.test.ts
+STRICT TYPES PASSED
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/security-release-assurance-NDxv0W
+
+ ✓ packages/core/review/boundaries.test.ts (15 tests) 13687ms
+   ✓ Acceptance: real partial infrastructure and unknown claims compose (6)
+     ✓ composes retained mixed outcomes through SQL checkpoints and replays without dispatch 955ms
+   ✓ Acceptance: custom retained adapter contract fails closed (8)
+     ✓ rejects missing identity before either dispatch 1547ms
+     ✓ rejects uppercase identity before either dispatch 2230ms
+     ✓ rejects extra-field identity before either dispatch 1698ms
+     ✓ fences content mismatch after retained read, blocks current and redispatch 1004ms
+     ✓ fences run-id mismatch after retained read, blocks current and redispatch 982ms
+     ✓ rejects partial-promoted even when retained digest matches malformed evidence 918ms
+     ✓ rejects unknown-promoted even when retained digest matches malformed evidence 799ms
+     ✓ rejects missing-claim-grade even when retained digest matches malformed evidence 888ms
+   ✓ DEFECT CHARACTERIZATION: custom adapter identity mutates during retained read (1)
+     ✓ accepts evidence matching a replacement identity rather than the identity committed before execution 980ms
+ ✓ packages/core/src/rotation/rotation.test.ts (5 tests) 1498ms
+ ✓ packages/core/src/provenance/acceptance.test.ts (9 tests) 55ms
+ ✓ packages/core/src/provenance/defect-characterization.test.ts (2 tests) 15ms
+ ✓ tests/track-b/security-release-assurance/identity/acceptance.test.ts (4 tests) 3225ms
+   ✓ ACCEPTANCE: composed immutable identity controls (4)
+     ✓ rejects a live SQL run under an unchanged test projection plan 1130ms
+     ✓ projects a matching SQL run through the production get-only reader 736ms
+     ✓ SQL acquisition scope remains tenant-bound when its caller object mutates during projection 715ms
+     ✓ rejects key digest mutation during a SQL read even when the checkpoint adapter accepts it 641ms
+ ✓ tests/track-b/security-release-assurance/identity/defects.test.ts (3 tests) 1720ms
+   ✓ DEFECT CHARACTERIZATION: mutable identity across await boundaries (3)
+     ✓ D1 accepts live SQL evidence after the resolved test plan environment is mutated during read 1050ms
+     ✓ D2 SQL checkpoint get validates a changed digest rather than the digest captured at invocation 623ms
+
+ Test Files  6 passed (6)
+      Tests  38 passed (38)
+   Start at  17:05:56
+   Duration  22.06s (tests 95%, import 3%, transform 2%)
+
+JSON report written to /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/security-release-assurance-NDxv0W/results.json
+SCOPED RESULT: 38 passed; 29 acceptance/regressions; 9 defect characterizations; no skips/todos.

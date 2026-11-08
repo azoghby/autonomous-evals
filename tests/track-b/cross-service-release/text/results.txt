@@ -1,0 +1,14 @@
+(node:49927) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/text-cross-release-alRMJv/loader.mjs", pathToFileURL("./")); register("/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/text-cross-release-alRMJv/loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ acceptance: text pending investigation → SQL restart → report/private progress consistency (22402.745042ms)
+✔ acceptance: pending target fence survives SQL restart without redispatch (16517.727ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39900.310084
+Strict compilation and 2 scoped node:test acceptance cases passed. Contracts: be522f1e13e697017bac96728748b82cadc08ab9.

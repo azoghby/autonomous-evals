@@ -1,0 +1,58 @@
+Combined source HEAD: c0464ad46241fcacc8d5367b331e2cf6cf471f2e; local contracts: 8634ceb30f3d98de7ec24b240a4f7549dce80033
+(node:60111) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/combined-cross-release-eDOag5/loader.mjs", pathToFileURL("./")); register("/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/combined-cross-release-eDOag5/loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ acceptance: text pending investigation → SQL restart → report/private progress consistency (2386.293791ms)
+✔ acceptance: pending target fence survives SQL restart without redispatch (1342.612167ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3991.056125
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/combined-cross-release-eDOag5
+
+ ✓ tests/track-b/cross-service-release/costs/costs.test.ts (6 tests) 12191ms
+   ✓ acceptance: failed qualification and schema-failed operator costs survive disk reopen and report replay 2131ms
+   ✓ acceptance: pending reserves without fabricated costs, then settles once across resume 3550ms
+   ✓ acceptance: committed cost with lost ACK replays once after disk reopen 1394ms
+   ✓ CURRENT DEFECT: JSON report aliases caller cost rows while totals and rendered snapshots stay fixed 1437ms
+   ✓ acceptance: operator budget_paused records measured cost before blocking/fallback and replays once 1454ms
+   ✓ acceptance: operator awaiting_input records measured cost before blocking/fallback and replays once 2223ms
+ ✓ tests/track-b/cross-service-release/calendar/calendar.test.ts (5 tests) 6960ms
+   ✓ ACCEPTANCE: durable calendar identity survives investigation, report, progress and fresh-service replay 2677ms
+   ✓ ACCEPTANCE: original infrastructure errors stay unresolved through report and progress 1140ms
+   ✓ ACCEPTANCE: reproduction infrastructure errors cannot become confirmations or delivery 1120ms
+   ✓ ACCEPTANCE: actual reference executions provide a clean delivery control 941ms
+   ✓ ACCEPTANCE: report and progress reject drifted durable operation identity 1080ms
+stdout | ordering.test.ts > CHARACTERIZATION: a passed Calendar run reproduces A5 positional assertion failure under both opaque phase orders
+{
+  expected: 'passed',
+  observedFirstPhases: [ 'investigating', 'running' ],
+  legacyAssertionFailures: 1,
+  dispatches: 24
+}
+
+stdout | ordering.test.ts > REGRESSION: select Calendar run outcomes by phase across both orders; no-op reproduction remains a product failure
+{
+  expected: 'product_failure',
+  observedFirstPhases: [ 'investigating', 'running' ],
+  legacyAssertionFailures: 0,
+  dispatches: 15
+}
+
+ ✓ ordering.test.ts (2 tests) 2894ms
+   ✓ CHARACTERIZATION: a passed Calendar run reproduces A5 positional assertion failure under both opaque phase orders 1689ms
+   ✓ REGRESSION: select Calendar run outcomes by phase across both orders; no-op reproduction remains a product failure 1204ms
+
+ Test Files  3 passed (3)
+      Tests  13 passed (13)
+   Start at  17:05:49
+   Duration  23.69s (tests 95%, transform 3%, import 2%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/combined-cross-release-eDOag5/results.json
+Vitest: 13 assertions passed; zero skipped or failed.
+Combined strict scoped check passed: 4 test files. Contracts: 8634ceb30f3d98de7ec24b240a4f7549dce80033.

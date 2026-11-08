@@ -1,0 +1,18 @@
+Production HEAD 6ff8a0642fc14dfd23842456d124a4b84f5e040a; contracts 8634ceb30f3d98de7ec24b240a4f7549dce80033; offline
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-provenance-9OCYsg
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  17:03:21
+   Duration  2.72s (transform 64%, import 26%, worker 5%, tests 5%)
+
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-provenance-9OCYsg
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  17:03:25
+   Duration  2.60s (transform 68%, import 27%, tests 4%, worker 1%)

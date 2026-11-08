@@ -1,0 +1,19 @@
+Source 6ff8a0642fc14dfd23842456d124a4b84f5e040a; local contract 8634ceb30f3d98de7ec24b240a4f7549dce80033
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-cost-check-XC01mV
+
+ ✓ tests/track-b/cross-service-release/costs/costs.test.ts (6 tests) 47756ms
+   ✓ acceptance: failed qualification and schema-failed operator costs survive disk reopen and report replay 11915ms
+   ✓ acceptance: pending reserves without fabricated costs, then settles once across resume 7163ms
+   ✓ acceptance: committed cost with lost ACK replays once after disk reopen 6953ms
+   ✓ CURRENT DEFECT: JSON report aliases caller cost rows while totals and rendered snapshots stay fixed 6729ms
+   ✓ acceptance: operator budget_paused records measured cost before blocking/fallback and replays once 6503ms
+   ✓ acceptance: operator awaiting_input records measured cost before blocking/fallback and replays once 8479ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  17:03:18
+   Duration  50.98s (tests 95%, transform 4%, import 2%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-cost-check-XC01mV/results.json
+Strict scoped check: 6 passed (5 acceptance, 1 current-defect characterization); disk PGlite only.

@@ -1,0 +1,18 @@
+Review source HEAD: 6ff8a0642fc14dfd23842456d124a4b84f5e040a; local contracts: 8634ceb30f3d98de7ec24b240a4f7549dce80033
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/calendar-cross-service-release-e81eVs
+
+ ✓ tests/track-b/cross-service-release/calendar/calendar.test.ts (5 tests) 12003ms
+   ✓ ACCEPTANCE: durable calendar identity survives investigation, report, progress and fresh-service replay 3046ms
+   ✓ ACCEPTANCE: original infrastructure errors stay unresolved through report and progress 3676ms
+   ✓ ACCEPTANCE: reproduction infrastructure errors cannot become confirmations or delivery 1662ms
+   ✓ ACCEPTANCE: actual reference executions provide a clean delivery control 1635ms
+   ✓ ACCEPTANCE: report and progress reject drifted durable operation identity 1982ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  17:04:18
+   Duration  13.09s (tests 93%, transform 6%, import 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/calendar-cross-service-release-e81eVs/results.json
+Strict review: 1 files, 5 passed, none skipped. Calendar cross-service acceptance cases only; no provider calls.
