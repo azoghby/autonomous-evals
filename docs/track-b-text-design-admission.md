@@ -1,5 +1,37 @@
 # Track B objective design admission
 
+## Live v3 design and review completed (2026-11-07)
+
+Diagnostic `live-text-design-20261107i` used the unchanged Lumen prompt/reference
+and a snapshot of parent `9e27307`, with 250,000 micro-USD per session and a
+1,000,000 micro-USD job cap. The first call returned pending; resuming the same
+task adopted the existing session. No fresh identity was created to bypass pending.
+Engineer `ses_t28pn91ppyfh9y2ssrzkg817dr` completed at 87,493 micro-USD;
+investigator `ses_00ngjj7a564cq6asv34tp3ecf7` completed at 42,431 micro-USD.
+Total measured session spend: **129,924 micro-USD ($0.129924)**.
+
+The first draft passed code admission and investigator review with all twelve
+scenarios, frozen digest
+`0e5d6df16cd4c5953bb3a0966cf410216690549d3393cf60150d30b711a942e9`.
+Every scenario retains the original 50-word and forbidden-token objectives,
+a canonical conditional fallback, and a separate reference-dependent factual
+rubric. No factual number is enforced as a literal objective. The complete fixture
+and session results are retained in
+`packages/core/src/evals/text/__tests__/evidence/text-design-v3-2026-11-07.json`.
+`live-v3.test.ts` checks its unchanged digest, all twelve objective boundaries,
+three-project paraphrase acceptance by code checks, and exact fallback enforcement
+with injected applicability judgments. Those execution probes are offline.
+Parent strict evals validation against Track A `eee9939` passed **430 tests across
+27 files**, including all 16 actual-artifact regression cases, none skipped.
+Initial test-only mistakes in the attempt/status enum names were corrected before
+this passing run; no production semantics or live artifact was changed.
+
+This is live **design and investigator review**, not live customer-target execution,
+Gateway judgment, remediation, or deployed Workflow acceptance. Factual usefulness
+and applicability remain model judgments; investigator acceptance is not proof of
+semantic perfection. The complete artifact preserves generated rubric wording,
+including abbreviated reference quotations, without silently rewriting its hash.
+
 ## Offline rubric repair: reference_assessment.v3
 
 New design constructs conditional check IDs, canonical prose, reference dependency and factual flags from source rules before admission and investigator review. Known conditional IDs in drafts identify code-owned slots; their model-generated prose/flags are discarded. Missing slots are constructed, while unknown conditional IDs still reject. Other rubrics retain their prose and factual flags: arbitrary false factual flags are not repaired or reclassified. The engineer reserves space within the existing three-rubric limit, and the investigator still reviews useful factual coverage and source semantics. Frozen suite admission does not construct or normalize checks. Historical bytes, digests, integrity-only reads and quarantine gates remain unchanged. The rubric admission version and task identity are now v3; objective catalog/schema versions are unchanged.
