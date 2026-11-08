@@ -1,5 +1,46 @@
 import { describe, expect, it } from "vitest";
-import { classifyActivity, cronIntervalMs, describeCron, formatAge, isStaleRunning, summarizeStatus, type Probe } from "./status-logic";
+import { classifyActivity, cronIntervalMs, describeCron, formatAge, isStaleRunning, summarizeStatus, toPublicStatus, ttlCache, type Probe } from "./status-logic";
+
+describe("toPublicStatus", () => {
+  const p = (id: string, level: Probe["level"], notes: string[] = []): Probe => ({ id, label: id, critical: id === "database", level, latencyMs: 12, notes, errorClass: null });
+
+  it("exposes only overall level/label and a level per component", () => {
+    const probes = [p("database", "ok"), p("migrations", "degraded", ["2 pending migrations"]), p("jobs", "degraded", ["3 stale working jobs"]), p("sandbox", "ok"), p("crons", "ok")];
+    const out = toPublicStatus({ generatedAt: "2026-11-08T00:00:00.000Z", overall: summarizeStatus(probes), probes });
+    expect(out).toEqual({
+      generatedAt: "2026-11-08T00:00:00.000Z",
+      overall: { level: "degraded", label: "Partially degraded" },
+      components: [
+        { id: "platform", label: "Website & API", level: "degraded" },
+        { id: "evals", label: "Eval jobs", level: "degraded" },
+        { id: "sandbox", label: "Sandbox runs", level: "ok" },
+        { id: "scheduled", label: "Scheduled tasks", level: "ok" },
+      ],
+    });
+    const json = JSON.stringify(out);
+    for (const leak of ["pending", "stale", "reasons", "latency", "cron/", "commit", "region"]) expect(json).not.toContain(leak);
+  });
+});
+
+describe("ttlCache", () => {
+  it("serves the cached value within the TTL and reloads after it", async () => {
+    let t = 0, calls = 0;
+    const get = ttlCache(async () => ++calls, 20_000, () => t);
+    expect(await Promise.all([get(), get()])).toEqual([1, 1]);
+    t = 19_999;
+    expect(await get()).toBe(1);
+    t = 20_000;
+    expect(await get()).toBe(2);
+    expect(calls).toBe(2);
+  });
+
+  it("does not cache a failed load", async () => {
+    let calls = 0;
+    const get = ttlCache(async () => { calls++; if (calls === 1) throw new Error("db down"); return calls; }, 20_000, () => 0);
+    await expect(get()).rejects.toThrow("db down");
+    expect(await get()).toBe(2);
+  });
+});
 
 const probe = (over: Partial<Probe>): Probe => ({ id: "x", label: "X", critical: false, level: "ok", latencyMs: 1, notes: [], errorClass: null, ...over });
 const NOW = new Date("2026-01-01T12:00:00Z");

@@ -17,8 +17,12 @@ export interface DecisionContext {
   actor: string;
 }
 
-/** ok=false records the error on the approval (the decision itself stays recorded; retry from the console). */
-export interface HandlerResult { ok: boolean; note: string }
+/**
+ * ok=false records the error on the approval. By default the approval is put back to pending so it can be retried;
+ * revert=false keeps the decision (the underlying action already happened in part, e.g. a draft was approved but its
+ * send failed, so a re-decision would not redo it; retry from the console instead).
+ */
+export interface HandlerResult { ok: boolean; note: string; revert?: boolean }
 
 export interface ApprovalHandler {
   /** Button label for approve, e.g. "Approve & send". */

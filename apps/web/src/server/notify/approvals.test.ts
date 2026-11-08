@@ -59,6 +59,17 @@ describe("decideApproval", () => {
     expect(h.row.status).toBe("pending");
   });
 
+  it("keeps the decision when the handler says the action already partly happened (no retry loop)", async () => {
+    h.handler.mockResolvedValueOnce({ ok: false, note: "Approved #7 but the send failed (smtp down); retry from /operator.", revert: false });
+    const r = await decideApproval({ seq: 7, decision: "approve", via: "telegram", actor: "f@x.io" });
+    expect(r).toMatchObject({ ok: false, changed: true, status: "approved" });
+    expect(h.row).toMatchObject({ status: "approved", decidedBy: "f@x.io" });
+    expect(h.row.result).toMatch(/^error: Approved #7 but the send failed/);
+    // A second tap is a no-op rather than re-running the handler.
+    expect(await decideApproval({ seq: 7, decision: "approve", via: "telegram", actor: "f@x.io" })).toMatchObject({ changed: false });
+    expect(h.handler).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps a successful decision", async () => {
     h.handler.mockResolvedValueOnce({ ok: true, note: "Rejected #7; nothing was sent." });
     expect(await decideApproval({ seq: 7, decision: "reject", via: "console", actor: "f@x.io" })).toMatchObject({ ok: true, changed: true, status: "rejected" });

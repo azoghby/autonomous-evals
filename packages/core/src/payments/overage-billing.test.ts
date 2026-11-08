@@ -6,6 +6,8 @@ const now = new Date("2026-11-02T07:00:00Z");
 const period = previousUsagePeriod(now);
 
 function makeDeps(customers: BillableCustomer[], usage: Record<string, number>, failFor: Set<string> = new Set()) {
+  /** Stripe-side invoice items, keyed by `${customer_id}:${period}`; survives idempotency-key expiry. */
+  const stripeItems = new Map<string, string>();
   const rows = new Map<string, StoredOverageRow>();
   const calls: InvoiceItemInput[] = [];
   let seq = 0;
@@ -27,13 +29,21 @@ function makeDeps(customers: BillableCustomer[], usage: Record<string, number>, 
     createInvoiceItem: async (i) => {
       calls.push(i);
       if (failFor.has(i.stripeCustomerId)) throw new Error("stripe down");
-      return { id: `ii_${calls.length}` };
+      const id = `ii_${calls.length}`;
+      stripeItems.set(`${i.metadata.customer_id}:${i.metadata.period}`, id);
+      return { id };
+    },
+    findExistingInvoiceItem: async ({ customerId, period: p }) => {
+      const id = stripeItems.get(`${customerId}:${p}`);
+      return id ? { id } : null;
     },
   };
-  return { deps, calls, rows };
+  return { deps, calls, rows, stripeItems };
 }
 
-const pro = (id: string): BillableCustomer => ({ id, plan: "pro", planStatus: "active", stripeCustomerId: `cus_${id}` });
+const pro = (id: string, over: Partial<BillableCustomer> = {}): BillableCustomer => ({
+  id, email: `${id}@example.com`, plan: "pro", planStatus: "active", stripeCustomerId: `cus_${id}`, stripeSubscriptionId: `sub_${id}`, ...over,
+});
 
 describe("billOverageForPeriod", () => {
   it("bills overage once with the expected invoice item", async () => {
@@ -88,13 +98,54 @@ describe("billOverageForPeriod", () => {
 
   it("skips developer, enterprise and lapsed subscriptions", async () => {
     const customers: BillableCustomer[] = [
-      { id: "dev", plan: "developer", planStatus: null, stripeCustomerId: "cus_dev" },
-      { id: "ent", plan: "enterprise", planStatus: null, stripeCustomerId: "cus_ent" },
-      { id: "lapsed", plan: "pro", planStatus: "canceled", stripeCustomerId: "cus_lapsed" },
+      pro("dev", { plan: "developer", planStatus: null }),
+      pro("ent", { plan: "enterprise", planStatus: null }),
+      pro("lapsed", { planStatus: "canceled" }),
     ];
     const { deps, calls } = makeDeps(customers, { dev: 9_999, ent: 99_999, lapsed: 9_999 });
     const s = await billOverageForPeriod({ period, now }, deps, "test");
     expect(s).toMatchObject({ considered: 3, billed: 0, skipped: 3, failed: 0 });
     expect(calls).toHaveLength(0);
+  });
+
+  it("does not double bill when Stripe has the item but the row was never marked billed", async () => {
+    // Simulates: Stripe create succeeded, markBilled crashed, and the next-day retry runs after the idempotency key expired.
+    const { deps, calls, rows } = makeDeps([pro("a")], { a: 2_812 });
+    const markBilled = deps.markBilled;
+    let crash = true;
+    deps.markBilled = async (id, itemId) => {
+      if (crash) { crash = false; throw new Error("db connection reset"); }
+      return markBilled(id, itemId);
+    };
+    const first = await billOverageForPeriod({ period, now }, deps, "test");
+    expect(first.failed).toBe(1);
+    expect(calls).toHaveLength(1);
+    const retry = await billOverageForPeriod({ period, now }, deps, "test");
+    expect(calls).toHaveLength(1);
+    expect(retry).toMatchObject({ billed: 1, failed: 0 });
+    expect(rows.get("a")).toMatchObject({ status: "billed", stripeInvoiceItemId: "ii_1" });
+  });
+
+  it("fails without creating an item when the Stripe lookup errors", async () => {
+    const { deps, calls } = makeDeps([pro("a")], { a: 2_812 });
+    deps.findExistingInvoiceItem = async () => { throw new Error("stripe list down"); };
+    const s = await billOverageForPeriod({ period, now }, deps, "test");
+    expect(s).toMatchObject({ failed: 1, billed: 0 });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("skips trialing, subscription-less and operator customers", async () => {
+    process.env.OPERATOR_EMAILS = "ops@standard.test";
+    const customers: BillableCustomer[] = [
+      pro("trial", { planStatus: "trialing" }),
+      pro("nosub", { stripeSubscriptionId: null }),
+      pro("op", { email: "ops@standard.test" }),
+      pro("pastdue", { planStatus: "past_due" }),
+    ];
+    const { deps, calls } = makeDeps(customers, { trial: 9_999, nosub: 9_999, op: 9_999, pastdue: 2_600 });
+    const s = await billOverageForPeriod({ period, now }, deps, "test");
+    delete process.env.OPERATOR_EMAILS;
+    expect(s).toMatchObject({ considered: 4, billed: 1, skipped: 3 });
+    expect(calls.map((c) => c.stripeCustomerId)).toEqual(["cus_pastdue"]);
   });
 });

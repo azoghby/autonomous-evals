@@ -1,16 +1,25 @@
-import { and, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { PLANS, OVERAGE_CENTS_PER_TRIAL, formatUsd, type PlanId } from "../pricing/plans";
 import { computeOverage, overageIdempotencyKey, periodLabel, type OverageQuote, type UsagePeriod } from "../pricing/overage";
+import { isOperator } from "../auth/tokens";
 import { effectivePlanFor } from "./plans-checkout";
 import { getStripeMode, stripe, type StripeMode } from "./stripe";
 
 export interface BillableCustomer {
   id: string;
+  email: string | null;
   plan: string;
   planStatus: string | null;
   stripeCustomerId: string;
+  stripeSubscriptionId: string | null;
 }
+
+/**
+ * Subscription states that owe overage. Trialing customers are not billed (the trial is free), and canceled/incomplete
+ * subscriptions have nothing to attach an invoice item to. past_due is still a live subscription in Stripe.
+ */
+export const OVERAGE_BILLABLE_STATUSES: ReadonlySet<string> = new Set(["active", "past_due"]);
 
 export interface OverageRow {
   customerId: string;
@@ -48,6 +57,11 @@ export interface OverageDeps {
   markBilled(id: string, invoiceItemId: string): Promise<void>;
   markFailed(id: string, error: string): Promise<void>;
   createInvoiceItem(input: InvoiceItemInput): Promise<{ id: string }>;
+  /**
+   * An overage invoice item already in Stripe for this customer and period (pending or invoiced), matched on metadata.
+   * Guards retries after the Stripe idempotency key (24h) has expired.
+   */
+  findExistingInvoiceItem(input: { stripeCustomerId: string; customerId: string; period: string; createdAfter: Date }): Promise<{ id: string } | null>;
 }
 
 export interface OverageFailure {
@@ -82,7 +96,15 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 
 type Outcome = { kind: "billed"; cents: number } | { kind: "skipped" } | { kind: "failed"; error: string };
 
+/** Only paying subscribers: no trials, no lapsed subscriptions, no operators (matches the usage-warnings path). */
+export function isOverageBillable(c: BillableCustomer): boolean {
+  if (c.email && isOperator(c.email)) return false;
+  if (!c.stripeSubscriptionId) return false;
+  return c.planStatus !== null && OVERAGE_BILLABLE_STATUSES.has(c.planStatus);
+}
+
 async function billCustomer(c: BillableCustomer, period: UsagePeriod, deps: OverageDeps, environment: StripeMode): Promise<Outcome> {
+  if (!isOverageBillable(c)) return { kind: "skipped" };
   const plan = effectivePlanFor({ plan: c.plan, planStatus: c.planStatus });
   if (!PLANS[plan].limits.overageAllowed) return { kind: "skipped" };
   const used = await deps.trialsUsed(c.id, period.start, period.end);
@@ -96,6 +118,15 @@ async function billCustomer(c: BillableCustomer, period: UsagePeriod, deps: Over
 
   // Retries reuse the stored row so the Stripe request body matches the original idempotent call.
   try {
+    // The idempotency key expires after 24h and the row is only marked billed after Stripe succeeds, so a crash between
+    // the two would double bill on a later retry. Look for the item in Stripe first.
+    const existing = await deps.findExistingInvoiceItem({
+      stripeCustomerId: c.stripeCustomerId, customerId: c.id, period: periodLabel(period.start), createdAfter: period.end,
+    });
+    if (existing) {
+      await deps.markBilled(row.id, existing.id);
+      return { kind: "billed", cents: row.amountCents };
+    }
     const item = await deps.createInvoiceItem({
       stripeCustomerId: c.stripeCustomerId,
       amountCents: row.amountCents,
@@ -145,8 +176,13 @@ export function createDbOverageDeps(): OverageDeps {
   return {
     async listBillableCustomers() {
       const C = schema.customers;
-      const rows = await db().select({ id: C.id, plan: C.plan, planStatus: C.planStatus, stripeCustomerId: C.stripeCustomerId })
-        .from(C).where(and(eq(C.isInternalFixture, false), isNotNull(C.stripeCustomerId)));
+      const rows = await db().select({
+        id: C.id, email: C.email, plan: C.plan, planStatus: C.planStatus,
+        stripeCustomerId: C.stripeCustomerId, stripeSubscriptionId: C.stripeSubscriptionId,
+      }).from(C).where(and(
+        eq(C.isInternalFixture, false), isNotNull(C.stripeCustomerId), isNotNull(C.stripeSubscriptionId),
+        inArray(C.planStatus, [...OVERAGE_BILLABLE_STATUSES]),
+      ));
       return rows.flatMap((r) => (r.stripeCustomerId ? [{ ...r, stripeCustomerId: r.stripeCustomerId }] : []));
     },
     async trialsUsed(customerId, start, end) {
@@ -177,6 +213,16 @@ export function createDbOverageDeps(): OverageDeps {
         customer: i.stripeCustomerId, amount: i.amountCents, currency: "usd", description: i.description, metadata: i.metadata,
       }, { idempotencyKey: i.idempotencyKey });
       return { id: item.id };
+    },
+    async findExistingInvoiceItem({ stripeCustomerId, customerId, period, createdAfter }) {
+      const items = stripe().invoiceItems.list({
+        customer: stripeCustomerId, created: { gte: Math.floor(createdAfter.getTime() / 1000) }, limit: 100,
+      });
+      for await (const item of items) {
+        const m = item.metadata ?? {};
+        if (m.kind === "overage" && m.customer_id === customerId && m.period === period) return { id: item.id };
+      }
+      return null;
     },
   };
 }

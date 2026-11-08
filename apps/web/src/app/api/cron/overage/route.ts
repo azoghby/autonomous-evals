@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /**
- * Bills last UTC month's trial overage as Stripe (test mode) invoice items. Runs on the 1st and retries daily through
- * the 5th; fully idempotent (billed rows are skipped, retries reuse the Stripe idempotency key).
+ * Bills last UTC month's trial overage as Stripe (test mode) invoice items. Runs hourly on the 1st (so retries land
+ * inside Stripe's 24h idempotency window) and daily through the 5th. Idempotent: billed rows are skipped, and before
+ * creating an item the job looks for an existing one in Stripe by customer + period metadata.
  */
 export async function GET(request: Request) {
   const denied = requireCronAuth(request);

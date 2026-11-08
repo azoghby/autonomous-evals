@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db/client";
@@ -27,6 +28,14 @@ export interface PlanChangeArgs {
 }
 
 /**
+ * Per-request key: a fresh nonce so a later A->B switch (after B->A) within Stripe's 24h window is not answered with the
+ * cached first response and silently dropped. Stripe's SDK reuses the key for its own network retries of this call.
+ */
+export function planChangeIdempotencyKey(a: Pick<PlanChangeArgs, "stripeSubscriptionId" | "plan" | "interval">, fromPriceId: string, nonce: string = randomUUID()): string {
+  return `plan-change:${a.stripeSubscriptionId}:${a.plan}:${a.interval}:${fromPriceId}:${nonce}`;
+}
+
+/**
  * Switches an existing plan subscription to another plan/interval in place (prorated), instead of creating a second
  * subscription that would keep billing alongside the first. Returns the updated subscription.
  */
@@ -45,7 +54,7 @@ export async function changePlanSubscription(
     proration_behavior: "create_prorations",
     cancel_at_period_end: false,
     metadata: { ...current.metadata, kind: "plan", plan: a.plan, interval: a.interval, customer_id: a.customerId, environment: getStripeMode() },
-  }, { idempotencyKey: `plan-change:${a.stripeSubscriptionId}:${a.plan}:${a.interval}:${item.price?.id ?? "none"}` });
+  }, { idempotencyKey: planChangeIdempotencyKey(a, item.price?.id ?? "none") });
 }
 
 /**
