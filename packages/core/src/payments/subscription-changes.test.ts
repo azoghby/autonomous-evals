@@ -43,7 +43,18 @@ describe("changePlanSubscription", () => {
     const [id, params, opts] = stripeMock.subscriptions.update.mock.calls[0]!;
     expect(id).toBe("sub_1");
     expect(params).toMatchObject({ items: [{ id: "si_1", price: "price_scale" }], proration_behavior: "create_prorations", metadata: { plan: "scale", customer_id: "c1" } });
-    expect(opts.idempotencyKey).toBe("plan-change:sub_1:scale:month:price_pro");
+    expect(opts.idempotencyKey).toMatch(/^plan-change:sub_1:scale:month:price_pro:[0-9a-f-]{36}$/);
+  });
+  it("uses a distinct idempotency key when the same switch repeats (A->B, B->A, A->B)", async () => {
+    stripeMock.subscriptions.update.mockClear();
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ id: "sub_1", metadata: {}, items: { data: [{ id: "si_1", price: { id: "price_pro" } }] } });
+    stripeMock.subscriptions.update.mockResolvedValue({ id: "sub_1", status: "active" });
+    const args = { customerId: "c1", stripeSubscriptionId: "sub_1", plan: "scale", interval: "month" } as const;
+    await changePlanSubscription(args, resolve);
+    await changePlanSubscription(args, resolve);
+    const keys = stripeMock.subscriptions.update.mock.calls.map((c) => (c[2] as { idempotencyKey: string }).idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
   });
   it("is a no-op when already on that price", async () => {
     const sub = { id: "sub_1", metadata: {}, items: { data: [{ id: "si_1", price: { id: "price_scale" } }] } };
