@@ -29,6 +29,7 @@ import json
 import os
 import sys
 import threading
+import time
 import types
 import uuid
 from pathlib import Path
@@ -71,10 +72,25 @@ class ProviderRefusal(Exception):
 REFUSAL_FINISH = {"content_filter", "refusal"}
 
 
+class TurnAbandoned(Exception):
+    """The harness has already given up on this turn (shim turn timeout); stop calling the model."""
+
+
+# Per-thread turn deadline. asyncio.wait_for cannot stop the worker thread running graph.invoke, so without this a
+# timed-out turn (e.g. the re-prompt loop above) would keep calling the model, and spending, after the harness left.
+_TURN = threading.local()
+TURN_BUDGET_S = float(os.environ.get("SHIM_TURN_TIMEOUT_S", "580"))
+
+
 class GatewayChat(ChatOpenAI):
     """ChatOpenAI that surfaces a provider safety stop instead of an empty reply. Without this, the tutorial's
     Assistant re-prompts "Respond with a real output." forever on an empty message, so a provider refusal would hang
     the turn until the harness times out (a harness-caused failure, not the agent's answer)."""
+
+    def _generate(self, *args, **kwargs):  # type: ignore[override]
+        if time.monotonic() > getattr(_TURN, "deadline", float("inf")):
+            raise TurnAbandoned()
+        return super()._generate(*args, **kwargs)
 
     def _create_chat_result(self, response, generation_info=None):  # type: ignore[override]
         result = super()._create_chat_result(response, generation_info)
@@ -141,8 +157,11 @@ async def new_state(model: str) -> dict:
 def _invoke(config: dict, model: str, text: str) -> Turn:
     graph = graph_for(model)
     before = len(graph.get_state(config).values.get("messages", []) or [])
+    _TURN.deadline = time.monotonic() + TURN_BUDGET_S
     try:
         out = graph.invoke({"messages": ("user", text)}, config)
+    except TurnAbandoned:
+        raise TimeoutError("turn abandoned after the shim turn timeout") from None
     except ProviderRefusal:
         return Turn(reply=PROVIDER_REFUSAL, prompt_tokens=0, completion_tokens=0, tools=[], refused_by_provider=True)
     new = out["messages"][before:]
