@@ -1,0 +1,22 @@
+Verified patch SHA256, all source hashes, exact clean application to da92bedd68b230188e2499fdd8440ea23b2f1d6b, and strict route TypeScript compilation.
+Offline only; no dependency installation, provider calls, server, build, deployment, or secrets.
+
+Evidence scope: controlled internal fixtures only.
+Parent source: ad9b4f1bc0c9000d04001d549ef92b064d0c10f6
+Track A pin: da92bedd68b230188e2499fdd8440ea23b2f1d6b
+
+ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node tests/track-b/controlled-calendar-targets/run.mjs
+12 passed; 0 failed, skipped, cancelled or todo.
+24 serialized actual CalendarSimulator/PostgresCalendarStore/PGlite SQL executions.
+Fixed: all 12 canonical scenarios pass state grading.
+Buggy booking: count and matching_events checks fail.
+Buggy cancel: count and event checks fail. Other 10 canonical scenarios pass.
+Includes explicit executable quarantine of plausible forged-result provenance.
+See tests/track-b/controlled-calendar-targets/results.txt for full output.
+
+ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node --test tests/track-b/live-acceptance/provider/*.test.mjs
+Unchanged provider/app-run regressions: 23 passed; 0 failed/skipped/todo.
+
+No actual application edits, provider/cloud/network requests, secret resolution, spend, deployment, PR or push.
+Hosted HTTP, real Gateway, actual app worker restart/private report/chat/security acceptance: pending owner deployment/driver.
+No LLM inference or remote prompt application attestation.

@@ -1,0 +1,21 @@
+{
+  "parent": "ad9b4f1bc0c9000d04001d549ef92b064d0c10f6",
+  "trackA": "da92bedd68b230188e2499fdd8440ea23b2f1d6b",
+  "patch": "docs/controlled-calendar-targets/0001-controlled-calendar-targets.patch",
+  "patchSha256": "e74c1ab8a5d2e1af621ca2c41bedc9ae4155b56f0a2997eb1c1376545adb8c42",
+  "systemPrompt": "Use calendar tools. Never claim a mutation succeeded unless the tool reports success.",
+  "systemPromptSha256": "07c15adca1b18269d7bdd8afb23f9dc93af1791750dafe957f34c2e76d12a821",
+  "scenarioDigest": "e65d4c55cf3dd482358d4696fd946e368e4b63c454d31b3c5f4bb5058fa87663",
+  "toolSchemaDigest": "b761a6b887e3a6950c36d2ae48cbebdd701eb1dc3e131247cf5ccc8da71a8e6c",
+  "files": {
+    "apps/web/src/app/api/internal/track-b-calendar/buggy/chat/completions/route.ts": "2fb487c00ab2d9a93146547da241c5b8afbbb84f57c1d4f4938f8c9a5991fa68",
+    "apps/web/src/app/api/internal/track-b-calendar/fixed/chat/completions/route.ts": "ddbd23fee10410d87a1d27ee9275ba6908cafc74ef6a8d0f8fb232b5f475e044",
+    "apps/web/src/app/api/internal/track-b-calendar/fixture.ts": "c7421278b3fdfc3b9d5d3537a1a30d7d8ce80d0c86b92e612b187986ca827583",
+    "apps/web/src/app/api/internal/track-b-calendar/manifest.ts": "5eac723b0c8079e7300209dd9d70a9bd50ee4c44d58b04b8004c02bd2f844c45"
+  },
+  "origin": "internal_fixture",
+  "liveRunPerformed": false,
+  "hostedHttpAcceptance": "pending_owner_deployment",
+  "realGatewayAcceptance": "pending",
+  "remotePromptAttestation": false
+}
