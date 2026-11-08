@@ -1,3 +1,4 @@
+import { TextFactualGapError } from '@ae/core/evals/text/factual-gap';
 import { objectivePassed } from "@ae/core/contracts/services";
 import "server-only";
 import {
@@ -12,6 +13,8 @@ import {
 import { FatalError, RetryableError } from "workflow";
 import { createLiteServices, LiteJudgeOutageError, LiteUnavailableError } from "@ae/core/lite/index";
 import { resolveJobTarget } from "./lite-target";
+
+import { readRoutingSelection, routeNaiveMethods, type NaiveMethodBuilder } from "./naive-method-routing";
 
 const MOCK = "[MOCK]";
 const MOCK_CLARIFY_MARKER = "[needs-clarification]";
@@ -168,9 +171,18 @@ export function isMockServices(): boolean {
 }
 
 let real: EvalServices | undefined;
+/** Resolve each job's durable profile before constructing a selected paid method. */
+const defaultNaiveBuilder: NaiveMethodBuilder = async (method, ctx) => {
+  const { resolveJobNaiveExecution } = await import('./naive-text-execution-runtime');
+  const selected = await resolveJobNaiveExecution(ctx.jobId);
+  if (!selected.generic) throw new FatalError('NAIVE_RECONCILIATION_REQUIRED');
+  const { createNaiveTextMethodBuilder } = await import('./naive-text-methods');
+  return createNaiveTextMethodBuilder({executionProfile:selected.profile})(method, ctx);
+};
 
 /** Maps Track B's typed errors onto Workflow semantics: pending -> RetryableError; blocked/unavailable/unconfigured -> FatalError. */
 export function toWorkflowError(error: unknown): unknown {
+  if (error instanceof TextFactualGapError) return error;
   if (error instanceof TrackBPendingError) return new RetryableError(error.message, { retryAfter: error.retryAfterMs });
   // Judge outage: never deliver an empty report; retry the step (bounded by workflow step retries, then operator alert).
   if (error instanceof LiteJudgeOutageError) return new RetryableError(error.message, { retryAfter: 60_000 });
@@ -233,13 +245,14 @@ function liteServices(): EvalServices {
  * EVAL_SERVICES=lite -> lite engine only (@ae/core/lite: AI gateway + SSRF-safe target transport).
  * All lazy; no I/O until first call.
  */
-export async function getEvalServices(): Promise<EvalServices> {
+export async function getEvalServices(builder: NaiveMethodBuilder = defaultNaiveBuilder): Promise<EvalServices> {
+  const selection = readRoutingSelection();
   const mode = evalServicesMode();
-  if (mode === "mock") return mockServices;
+  if (mode === "mock") return selection.realBranches === undefined ? mockServices : withWorkflowErrors(routeNaiveMethods(mockServices, trackBServices, selection, builder));
   if (mode === "lite") {
     lite ??= withWorkflowErrors(liteServices());
-    return lite;
+    return selection.realBranches === undefined ? lite : withWorkflowErrors(routeNaiveMethods(lite, trackBServices, selection, builder));
   }
   real ??= withWorkflowErrors(withLiteFallback(trackBServices, liteServices()));
-  return real;
+  return withWorkflowErrors(routeNaiveMethods(real, trackBServices, selection, builder));
 }

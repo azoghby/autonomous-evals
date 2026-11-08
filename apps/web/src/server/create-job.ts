@@ -8,6 +8,8 @@ import { putJobArtifact } from "@ae/core/storage/blob";
 import { startJobWorkflow } from "@/workflows/events";
 import { extractLargeTrace, stripCredentials, type CredentialMap } from "./intake";
 import { isMockServices } from "./services";
+import { expertOwnerDatabase } from './automated-expert-owner';
+import { insertNewFactualJob, readNewJobFactualGapEnabled } from './naive-new-job';
 
 export const currentEnvironment = (): Environment => (process.env.STRIPE_MODE === "live" ? "live" : "test");
 
@@ -38,13 +40,23 @@ export async function createJob(args: CreateJobArgs): Promise<{ jobId: string }>
       traceBlobPath = split.trace ? await putJobArtifact(jobId, "trace", split.trace, "text/plain") : null;
     }
     const pkg = (sanitized.package as IntakeInput["package"]);
+    const isMock = isMockServices();
+    if (readNewJobFactualGapEnabled({ package: pkg, isMock })) {
+      jobId = await insertNewFactualJob(expertOwnerDatabase(), {
+        jobId, customerId: args.customerId, environment: currentEnvironment(),
+        idempotencyKey: args.idempotencyKey, intake: sanitized, traceBlobPath,
+        retestOfJobId: args.retestOfJobId,
+        ciphertext: Object.keys(credentials).length > 0 ? encryptJson(credentials) : null,
+      });
+    } else {
     await db().insert(schema.jobs).values({
       id: jobId, customerId: args.customerId, package: pkg, state: "draft", environment: currentEnvironment(),
-      intake: sanitized, traceBlobPath, isMock: isMockServices(), idempotencyKey: args.idempotencyKey,
+      intake: sanitized, traceBlobPath, isMock, idempotencyKey: args.idempotencyKey,
       retestOfJobId: args.retestOfJobId ?? null,
     });
     if (Object.keys(credentials).length > 0) {
       await db().insert(schema.jobCredentials).values({ jobId, ciphertext: encryptJson(credentials) });
+    }
     }
   }
   const { runId } = await startJobWorkflow(jobId);

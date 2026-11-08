@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Approved 39-file source adoption (2026-11-08)
+
+The user approved exact `docs/naive-factual-workflow-integration/owner.patch`, superseding their older operator/billing/generic approvals. It is now applied to actual source: all 39 preimages matched current `0832de5` and all postimages match the reviewed manifest. Read its `adoption-receipt.json` and current LEDGER. Do not reapply operator8+billing2, generic16, entry or this approved39 patch. The immutable candidate manifest/owner patch remain historical reproduction evidence.
+
+This is source-only. Production/flags/migrations/outreach/spending are unchanged. Later sourcing-policy, budget, recovery, cancellation, remediation and judge-attempt compositions remain separate unapplied candidates. Future adoption must diff the composed result against this new actual source, rather than replaying overlapping historical patches. Exact expert authority, native PostgreSQL, provider and hosted Phase 0 gates remain open.
+
 ## Latest exact stage budget envelope continuation (2026-11-08)
 
 Resume from `docs/naive-budget-envelope-integration/README.md`, manifest and validation receipt. This 15-file/one-SQL increment requires the exact design recovery candidate at `e5356ba` and preserves main `ef368fc`. Immutable first-decision stage bindings and same-transaction current-owner checks make proven parent/model overlap count once while enforcing cumulative parent limits. Denied decisions keep their authority identity; stale scope cannot create fresh commitments. Settlement and unknown holds survive owner loss, parent release and cancellation.

@@ -1,0 +1,229 @@
+{
+  "status": "source_adopted_not_deployed",
+  "authorization": "User approved exact39 factual Workflow patch, superseding earlier operator/billing/generic/entry approvals",
+  "preAdoptionCommit": "0832de53d161997d897dba128d9bd87114e17c5f",
+  "preservedMain": "8dc6c7d",
+  "manifestSha256": "b37c470ec1570337b1ae5967134bb393c9012aff7d95eb714c5e425af917b63a",
+  "ownerPatchSha256": "44757483e4fb04473f9daa4e42acbf5e82048797a533d3fc290b90f7d3e12175",
+  "files": [
+    {
+      "path": "apps/web/src/app/(app)/operator/expert-reviews/page.tsx",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "3d32cb5098ea5e0eae421a7542f4440d4bf3648f2635683524b608e138bcc29a"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "3fea5e821b7ad01c03cff4c6a2aea6a92db1f93398b11cd33a84fcb647854943"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-reviews/route.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "48100f34af3340933eb494714a7c1408b72b00724121a5b02819291bd4f0d391"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/jobs/[id]/proxy-billing/reconcile/route.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "02eb8dc1ec4e40ef3752a6920fc8f40bdaa263c77f711e93ea1bd722e54b231f"
+    },
+    {
+      "path": "apps/web/src/components/app/expert-review-queue.tsx",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "726da1167e0934c21c88206c7f0c4ac9d9aedd9c36d3ee251594807935a08891"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-console.tsx",
+      "verifiedBeforeSha256": "0a7925eb7bebb146f02194b5c6ad63f2d39b2960c27d87f743201cc01f7b5802",
+      "adoptedSha256": "c24fe58b86c58993ac4970ede1ca85f7ec95ad21bc5cfb66799d8d4940654f7d"
+    },
+    {
+      "path": "apps/web/src/lib/client/expert-review.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "d6e5e9dc9fb885d08ca8a7b09c94f84582ba2d1e88b9eba65364a2eec9db4089"
+    },
+    {
+      "path": "apps/web/src/server/create-job.ts",
+      "verifiedBeforeSha256": "6cb4d1c8b50e383cc93a7a25479020e09f5f0911b9c56d8681734c2e8fe18a04",
+      "adoptedSha256": "4340e0d3e1d95131fd66086a345ca0fc3dbfa0b38349d7119d4198be72829a34"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "a4269904d2e99c21d6e16bd497eaea9f2a9f51347fcf454abaa4a1381f1856ec"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "e97e93f7eca063461dd36c7fba873de3803004f7568a8e8e39f6e39efa23f9c5"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "f001e675cf99dd93037c46343bdfa5c05e3a8d978d2bacb5ae17a1d1fdd10608"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "0338ac04dd37b635c0d15c7b8836446ce5ac50a77df315a5937d4c6dc0a71c86"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-production.ts",
+      "verifiedBeforeSha256": "66c20d0c042c0ded622cb0acd8c080af36f1d491afe41060964ef24bcf1db0ec",
+      "adoptedSha256": "c97987e1bd1c6e494adedcc7f5db6121bd317c47d5d7de09d18e3e752756c8e4"
+    },
+    {
+      "path": "apps/web/src/server/expert-review.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "f29c3006306ec2c260e89c1d09a3612194c68b07e97cbdabe4d0d8249afb97d3"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "verifiedBeforeSha256": "312c732b6b4893a92da2018a7e84888876a526b532c76fc8eee623837371d23d",
+      "adoptedSha256": "a5056eb957be2190a5a9eac85157143b936b9ca8c7467e34fdd5845394486518"
+    },
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "a40dc5559d3734808fed33e2f617d207d4be06fa725bd6b4f6f31ae69031a3a4"
+    },
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "b9eb70d8f04e2f5246b11128e4c2b28b8f9dbf1ef5928089f0f199cb6e69922b"
+    },
+    {
+      "path": "apps/web/src/server/naive-factual-gap-workflow.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "8882abd75e4054841f7eece872b13bf4d0abc0e763485a203b01645486468262"
+    },
+    {
+      "path": "apps/web/src/server/naive-factual-gap-workflow.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "65a05b175424ada4cc2f51efda20f6fbe76ee02999a49b1379c30b9751386ace"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "5c0a37600dea402e8c0898f5f2c1667723fd864bd7c2477ec8dfcc87d31cd68d"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "99f7dfaa0755f55d4c2a729b1829c2d9bdee7025ec8b0eb4f8dc2e36530b0171"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "659c70a9e6fc7868337da6f3a193349a36a1ca0298f39594566834e658e6c31e"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "5089ecebd59638e64cb84b5113ce139d2ff3f4e203bb0ed6ab045b179f790fd5"
+    },
+    {
+      "path": "apps/web/src/server/naive-new-job.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "9b51ceb4c9d5df73419bf639cd74aa96e3399ddf0bef14930f12064cfa496e34"
+    },
+    {
+      "path": "apps/web/src/server/naive-new-job.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "68eec2e8060f2c56ffe62756ac601cb97914301ea3c9c17ced4f9f76b0d8b2b4"
+    },
+    {
+      "path": "apps/web/src/server/naive-proxy-recovery.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "85a9ec2db62ca0a8ed367f9222d73fa42d48d69097ab889adae27e4c2d58ca10"
+    },
+    {
+      "path": "apps/web/src/server/naive-services-registration.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "cb515e79421b507f8c9d5575b5d3fa12ccf5936c7296cda2ee23c5055a078200"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-runtime.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "4bd178f2fe607d9815ff5e186972902d662357f9ef3ae46c48dd4efbabe95646"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "641b3e71ffbcbc6fe33fa25e0581a5650006df3d457138affc4bc10fdff48578"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "80f532c0f8f805ceab275ff413edb825e3da57aab8a11f3cd36d8e7f129528b8"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "9d4702d81504188e9847fe9ca9be628868a41ebada8e3bf2b5f20747de79ec0f"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "d909a5754808feca9ccb1456eabccd9f442856567f5a41398a5497c206fd2232"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "c780d78c9ba2db5ea0ca8e1472bc772e7a9743e47e113b40ea5304903e575eaa"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "9db56b8a74aa21a677bbde39642fac3b7f665c305ea4f285a5a2829728004005"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "verifiedBeforeSha256": "653a5296f154309bf8dd61c5816543bd8517a5e117566e6c910fe4ab53001f01",
+      "adoptedSha256": "fe5da4790e8a3cc7a08c60615e2c685beb6d0d15d7491da74d783bff24f6d58e"
+    },
+    {
+      "path": "apps/web/src/workflows/job-naive-routing.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "295c7d1b3c3eda0792ec27490f1a24e87bb359ca4d08ff4ee18a0da731468af4"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "verifiedBeforeSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b",
+      "adoptedSha256": "f040927c2ea75a92ae2118c67e5f018d36200469b2bde26881a27ceed02e05d4"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts",
+      "verifiedBeforeSha256": null,
+      "adoptedSha256": "f1d20c47544b5328c651016e774b9d9aafdc5f9ad7a4206e2cfb72871eeadb0d"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "verifiedBeforeSha256": "ba10d271051605f5f78035d04dfeb38f985beeee71d2e2f651e5a621e090865c",
+      "adoptedSha256": "4c2e733944fb07d19ae3b8d0875e9428e383902efb2629dac63038ea27ce4ba0"
+    }
+  ],
+  "actualSourceTests": {
+    "numPassedTests": 4116,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1009,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualWebTypes": "pass",
+  "actualCoreTypes": "pass",
+  "cleanOfflineFontProductionBuild": {
+    "status": "pass",
+    "steps": 62,
+    "workflows": 4,
+    "actualSourceHashesChecked": 2279
+  },
+  "sourceBuildPins": "adoption-source-pins.json",
+  "limitations": [
+    "No flag/configuration changes, live migration, provider invocation, outreach, spending or deployment",
+    "No browser/hosted acceptance claimed",
+    "Exact sourcing authority remains configured; later standing-policy bridge is not adopted",
+    "Later budget/recovery/cancellation/remediation/judge candidates remain separate unapplied source",
+    "Original manifest and patch remain historical immutable reproduction evidence; do not reapply them"
+  ]
+}

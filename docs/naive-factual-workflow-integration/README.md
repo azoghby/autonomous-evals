@@ -1,6 +1,6 @@
-# Factual-data Workflow adoption candidate
+# Factual-data Workflow source adoption
 
-This combined owner patch is **not adopted or deployed**. It is based on Track A merge `7118f3a` (main `d1ceaf0`) and supersedes the earlier operator10, generic16, guarded entry6 and selection-only candidates. Do not apply those patches on top of this one. The previous selection-only receipt is retained under `historical-c24e341-selection/`.
+The user explicitly approved this exact 39-file patch, and its source has now been applied to the current app. All current preimages matched the reviewed manifest and all adopted postimages match exactly. It has **not been deployed or activated**, and no live migration or outreach occurred. See `adoption-receipt.json` for current verification. The original candidate details below retain their historical baseline. It is based on Track A merge `7118f3a` (main `d1ceaf0`) and supersedes the earlier operator10, generic16, guarded entry6 and selection-only candidates. Do not apply those patches on top of this one. The previous selection-only receipt is retained under `historical-c24e341-selection/`.
 
 The candidate contains 39 source/test postimages. It preserves the current Feedback and Revenue console changes, adding only the existing expert-review navigation link. It adds no application migration, provider credential, deployment, outbound message or spending operation during assembly/validation. The separate judge owner recovery candidate is not included.
 

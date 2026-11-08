@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Approved factual Workflow source adoption (2026-11-08)
+
+The user explicitly approved the exact 39-file `naive-factual-workflow-integration/owner.patch`, superseding the separate operator/billing/generic/entry approvals. All 39 actual preimages matched the reviewed manifest at `0832de5`; the patch applied cleanly and every adopted source hash matches its reviewed postimage. This is now actual application source, not merely an unapplied candidate. Do not apply the older 8+2, generic16, entry or selection patches again.
+
+This adopts operator evidence review, billing recovery, generic design/run/investigation and delivery, factual selection/proposal retention, and the existing expert acquisition/consumer handoff. Exact scope/consent and trusted configuration still gate expert sourcing. The later standing-policy sourcing bridge, shared budget/recovery/cancellation composition, remediation and judge-attempt candidates remain separately unapplied. No feature flags, live SQL, provider calls, outreach, spending or deployment were performed. The receipt records current tests/types and a secret-free production build; historical candidate test totals remain unchanged evidence of the earlier review.
+
 ## Exact stage budget envelopes candidate (2026-11-08)
 
 `naive-budget-envelope-integration` adds 15 source/test postimages and one SQL review file over the bounded design candidate at `e5356ba`, preserving main `ef368fc`. Current stage identity, lease, cancellation and live parent reservation are checked in the same transaction as the initial child decision. Immutable bindings cover both admitted commitments and scoped refusals. Historical unbound reservations cannot be retroactively discounted. Parent shortage and whole-job shortage retain their own scope/cap, and model role-cap refusals replay without new authority.

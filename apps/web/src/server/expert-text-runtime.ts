@@ -1,3 +1,4 @@
+import { assertFactualGapPlanCurrent } from './expert-data-plan-binding';
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { createClient } from '@usenaive-sdk/managed-agents';
@@ -29,8 +30,8 @@ import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
 import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 import { decryptJson } from '@ae/core/storage/crypto';
 import { isOperator } from '@ae/core/auth/tokens';
-import { expertOwnerDatabase } from './automated-expert-owner';
-import { credentialSlotsOf, injectCredentials } from './intake';
+import { expertOwnerDatabase } from '@/server/automated-expert-owner';
+import { credentialSlotsOf, injectCredentials } from '@/server/intake';
 import type { ProductionDataInput } from './expert-data-production';
 
 /** Month-wide `agent:judge:<period>` scope cap: the judge role's monthly cap, identical for every writer (never a per-job cap). */
@@ -68,6 +69,7 @@ export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertT
  if(receipts.rows.length>1000)return fail();
  for(const receipt of receipts.rows)await deliverSessionCost(receipt.value);
  async function basic(tx: Tx = sql) {
+  await assertFactualGapPlanCurrent(tx,ctx.jobId);
   if (process.env.EVAL_SERVICES !== 'real') return fail();
   const row = (await tx.query<OwnerRow>(`SELECT j.customer_id::text,j.environment,j.intake,j.retest_of_job_id::text,p.input,p.input_digest,p.last_result
    FROM jobs j JOIN expert_workflow.plans p ON p.job_id=j.id

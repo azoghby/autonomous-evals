@@ -12,7 +12,7 @@ import {
 } from "./steps/lifecycle";
 import { connectionCheckStep, createQuoteStep, qualifyStep } from "./steps/quote";
 import {
-  auditTraceStep, createBranchStep, designSuiteStep, investigateStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
+  auditTraceStep, createBranchStep, designSuiteStep, factualGapEntryStep, investigateStep, genericTextExecutionPolicyStep, genericTextReportStep, genericTextCommittedReceiptStep, genericTextNotifyStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
 } from "./steps/evaluate";
 import { notifyCustomerStep } from "./steps/notify";
 import { flagSettlementFailureStep, settlePaymentStep } from "./steps/billing";
@@ -37,6 +37,12 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
   const events = hook[Symbol.asyncIterator]();
   const stashedPayments: PaymentEvent[] = [];
   const seenPaymentIds: string[] = [];
+  let admissionPolls = 0;
+  let operationPolls = 0;
+  let genericAttempted = false;
+  let genericSelected = false;
+  let genericDelivery: { deliveredAtIso: string } | undefined;
+  let admissionEvent: Promise<JobEvent> | undefined;
 
   async function nextEvent(): Promise<JobEvent> {
     const r = await events.next();
@@ -62,10 +68,22 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     // re-qualifying and waiting for events (quote acceptance, payment) that already happened.
     const snap = await loadResumeSnapshotStep(jobId);
     const plan = decideResumePlan(snap);
-    if (plan.phase === "finished") return { jobId, status: "already_finished" };
+    if (plan.phase === "finished") {
+      if (snap.package === "text_eval" && snap.state === "delivered") {
+        genericAttempted = true;
+        const committed = await genericTextCommittedReceiptStep(jobId);
+        if (committed) {
+          genericAttempted = true;
+          genericDelivery = committed;
+          return finishDelivery(committed);
+        }
+        genericAttempted = false;
+      }
+      return { jobId, status: "already_finished" };
+    }
     if (plan.phase === "hold") return { jobId, status: "on_hold" };
     if (snap.receivedRecorded) {
-      await progressStep(jobId, "workflow_restarted", `Internal note: workflow restarted, resuming at ${plan.phase}.`);
+      await progressStep(jobId, "workflow_restarted", `Your evaluation has resumed.`);
     } else {
       await progressStep(jobId, "received", "Request received.");
     }
@@ -116,72 +134,11 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
 
     // 4. Execute by package. A restart first drops findings/fixes a dead run stored without finishing its report.
     if (stage === "execute") {
-      // Owner-provisioned text data plan is checked before discarding any retained evaluation state.
-      // Bounded durable timers retain one Workflow and canonical expert operation identity.
-      let expertHandled = false;
-      if (pkg === 'text_eval') {
-        let gate = await expertDataGateStep(jobId);
-        if (gate === 'pending') await expertDataHoldStep(jobId, false);
-        // Retain exactly one event read and one timer across each race. Other events
-        // do not create competing iterator reads or extend the canonical deadline.
-        let incoming: Promise<JobEvent> | undefined;
-        let timer: Promise<void> | undefined;
-        let polls = 0;
-        while (gate === 'pending' && polls < 336) {
-          incoming ??= nextEvent();
-          timer ??= sleep('30m');
-          const wake = await Promise.race([
-            timer.then(() => ({ type: 'timer' as const })),
-            incoming.then(event => ({ type: 'event' as const, event })),
-          ]);
-          if (wake.type === 'event') {
-            incoming = undefined;
-            if (wake.event.type === 'cancel') {
-              await cancelStep(jobId, wake.event.reason);
-              return { jobId, status: 'cancelled' };
-            }
-            continue;
-          }
-          timer = undefined;
-          polls++;
-          gate = await expertDataGateStep(jobId);
-        }
-        if (gate === 'ready') {
-          let evaluation = await expertTextEvaluationStep(jobId);
-          let executionPolls = 0;
-          while (evaluation.status === 'pending' && executionPolls++ < 336) {
-            incoming ??= nextEvent();
-            timer ??= sleep('30m');
-            const wake = await Promise.race([
-              timer.then(() => ({ type: 'timer' as const })),
-              incoming.then(event => ({ type: 'event' as const, event })),
-            ]);
-            if (wake.type === 'event') {
-              incoming = undefined;
-              if (wake.event.type === 'cancel') {
-                await cancelStep(jobId, wake.event.reason);
-                return { jobId, status: 'cancelled' };
-              }
-              continue;
-            }
-            timer = undefined;
-            evaluation = await expertTextEvaluationStep(jobId);
-          }
-          if (evaluation.status === 'pending') return { jobId, status: 'on_hold' };
-          if (evaluation.status === 'budget_exceeded') {
-            await pauseBudgetStep(jobId, evaluation.message);
-            return { jobId, status: 'paused_budget' };
-          }
-          const reported = await expertTextReportStep(jobId,evaluation.data.findings,evaluation.data.suite);
-          if (reported.status === 'budget_exceeded') {
-            await pauseBudgetStep(jobId,reported.message);
-            return {jobId,status:'paused_budget'};
-          }
-          expertHandled = true;
-        } else if (gate !== 'legacy') {
-          await expertDataHoldStep(jobId, false);
-          return { jobId, status: 'on_hold' };
-        }
+      let expertHandled=false;
+      if(pkg==='text_eval'){
+        const expert=await runExpertPath();
+        if('stopped' in expert)return {jobId,status:expert.stopped};
+        expertHandled=expert.handled;
       }
       if (!expertHandled) {
       if (plan.phase === "execute" && plan.discardPartialResults) await discardPartialEvaluationStep(jobId);
@@ -191,13 +148,87 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     }
 
     // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.
-    const delivered = await deliverStep(jobId);
+    const delivered = genericDelivery ?? await deliverStep(jobId);
+    return finishDelivery(delivered);
+  }
+
+  /** Initial owner plans and design-discovered gaps share the same bounded acquisition path. */
+  async function runExpertPath():Promise<{handled:boolean}|Stopped>{
+        const readGate=async()=>{const entry=await factualGapEntryStep(jobId);return entry==='pending'?'pending':expertDataGateStep(jobId);};
+        let gate = await readGate();
+        if (gate === 'pending') await expertDataHoldStep(jobId, false);
+        // Retain exactly one event read and one timer across each race. Other events
+        // do not create competing iterator reads or extend the canonical deadline.
+        let timer: Promise<void> | undefined;
+        let polls = 0;
+        while (gate === 'pending' && polls < 336) {
+          admissionEvent ??= nextEvent();
+          timer ??= sleep('30m');
+          const wake = await Promise.race([
+            timer.then(() => ({ type: 'timer' as const })),
+            admissionEvent.then(event => ({ type: 'event' as const, event })),
+          ]);
+          if (wake.type === 'event') {
+            admissionEvent = undefined;
+            if (wake.event.type === 'cancel') {
+              await cancelStep(jobId, wake.event.reason);
+              return { stopped: 'cancelled' };
+            }
+            continue;
+          }
+          timer = undefined;
+          polls++;
+          gate = await readGate();
+        }
+        if (gate === 'ready') {
+          let evaluation = await expertTextEvaluationStep(jobId);
+          let executionPolls = 0;
+          while (evaluation.status === 'pending' && executionPolls < 336) {
+            admissionEvent ??= nextEvent();
+            timer ??= sleep('30m');
+            const wake = await Promise.race([
+              timer.then(() => ({ type: 'timer' as const })),
+              admissionEvent.then(event => ({ type: 'event' as const, event })),
+            ]);
+            if (wake.type === 'event') {
+              admissionEvent = undefined;
+              if (wake.event.type === 'cancel') {
+                await cancelStep(jobId, wake.event.reason);
+                return { stopped: 'cancelled' };
+              }
+              continue;
+            }
+            timer = undefined;
+            executionPolls++;
+            evaluation = await expertTextEvaluationStep(jobId);
+          }
+          if (evaluation.status === 'pending') return { stopped: 'on_hold' };
+          if (evaluation.status === 'budget_exceeded') {
+            await pauseBudgetStep(jobId, evaluation.message);
+            return { stopped: 'paused_budget' };
+          }
+          const reported = await expertTextReportStep(jobId,evaluation.data.findings,evaluation.data.suite);
+          if (reported.status === 'budget_exceeded') {
+            await pauseBudgetStep(jobId,reported.message);
+            return {stopped:'paused_budget'};
+          }
+          return {handled:true};
+        } else if (gate !== 'legacy') {
+          await expertDataHoldStep(jobId, false);
+          return { stopped: 'on_hold' };
+        }
+    return {handled:false};
+  }
+
+  async function finishDelivery(delivered: { deliveredAtIso: string }): Promise<Outcome> {
     await neonDeliverySafetyStep(jobId, delivered.deliveredAtIso); // non-fatal: never fails delivery
     // Per-finding pricing: capture $25 per confirmed finding (capped) or release the hold. Never fails delivery.
     try { await settlePaymentStep(jobId); } catch (err) {
       await flagSettlementFailureStep(jobId, err instanceof Error ? err.message : String(err));
     }
-    await notifyCustomerStep(jobId);
+    if (genericDelivery) {
+      if (!await genericTextNotifyStep(jobId)) return { jobId, status: "on_hold" };
+    } else await notifyCustomerStep(jobId);
     return { jobId, status: "delivered" };
   }
 
@@ -260,9 +291,17 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
 
   async function runEndpointEval(pkg: QualifyResult["package"]): Promise<Stopped | undefined> {
     if (!(await setStateStep(jobId, "planning", { milestone: "planning", message: "Designing your test suite." }))) return { stopped: "cancelled" };
+    const generic = await genericTextExecutionPolicyStep(jobId);
+    genericSelected = generic;
     const branch = await createBranchStep(jobId);
     const designed = await designSuiteStep(jobId);
     if (designed.status === "budget_exceeded") { await pauseBudgetStep(jobId, designed.message); return { stopped: "paused_budget" }; }
+    if(designed.status==='factual_gap'){
+      const expert=await runExpertPath();
+      if('stopped' in expert)return expert;
+      if(!expert.handled)return {stopped:'on_hold'};
+      return undefined;
+    }
     const suite = designed.data;
 
     if (!(await setStateStep(jobId, "running", { milestone: "running", message: "Running the suite against your system." }))) return { stopped: "cancelled" };
@@ -279,6 +318,15 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     if (!(await setStateStep(jobId, "investigating", { milestone: "investigating", message: "Investigating failures and reproducing findings." }))) return { stopped: "cancelled" };
     const inv = await investigateStep(jobId, suite, runs);
     if (inv.status === "budget_exceeded") { await pauseBudgetStep(jobId, inv.message); return { stopped: "paused_budget" }; }
+    if (generic) {
+      genericAttempted = true;
+      const report = await genericTextReportStep(jobId, inv.data, suite);
+      if (report.status === "budget_exceeded") { await pauseBudgetStep(jobId, report.message); return { stopped: "paused_budget" }; }
+      if (!report.data.assessed) return { stopped: "on_hold" };
+      if (!report.data.deliveredAtIso) throw new FatalError("Generic publication did not return an atomic delivery receipt.");
+      genericDelivery = { deliveredAtIso: report.data.deliveredAtIso };
+      return undefined;
+    }
     return finishReport(inv.data, suite);
   }
 
@@ -299,11 +347,51 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     return undefined;
   }
 
-  try {
-    return await run();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await failStep(jobId, message);
-    return { jobId, status: "failed" };
+  for (;;) {
+    try {
+      return await run();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message === 'NAIVE_EXECUTION_SELECTION_HOLD' || genericSelected && message === 'NAIVE_RECONCILIATION_REQUIRED') {
+        await progressStep(jobId, 'naive_reconciliation_required', 'Evaluation requires operator reconciliation of its existing provider operation.');
+        return { jobId, status: 'on_hold' };
+      }
+      if (message.startsWith("NAIVE_ADMISSION_PENDING:") || message.startsWith("NAIVE_OPERATION_PENDING:")) {
+        const admission = message.startsWith("NAIVE_ADMISSION_PENDING:");
+        await progressStep(jobId, admission ? "naive_admission_pending" : "naive_operation_pending", admission ? "Evaluation is waiting for owner admission." : "Evaluation is awaiting its existing provider operation.");
+        if (admission ? admissionPolls++ >= 336 : operationPolls++ >= 2880) return { jobId, status: "on_hold" };
+        const timer = sleep(admission ? "30m" : "30s");
+        for (;;) {
+          admissionEvent ??= nextEvent();
+          const wake = await Promise.race([
+            timer.then(() => ({ type: "timer" as const })),
+            admissionEvent.then(event => ({ type: "event" as const, event })),
+          ]);
+          if (wake.type === "timer") break;
+          admissionEvent = undefined;
+          if (wake.event.type === "cancel") {
+            await cancelStep(jobId, wake.event.reason);
+            return { jobId, status: "cancelled" };
+          }
+        }
+        continue;
+      }
+      if (genericAttempted) {
+        try {
+          const committed = await genericTextCommittedReceiptStep(jobId);
+          if (committed) {
+            genericDelivery = committed;
+            try { return await finishDelivery(committed); }
+            catch { return { jobId, status: "on_hold" }; }
+          }
+        } catch {
+          // Conflicting receipt authority requires review; never overwrite an
+          // already committed delivered state during reconciliation failure.
+          return { jobId, status: "on_hold" };
+        }
+      }
+      await failStep(jobId, message);
+      return { jobId, status: "failed" };
+    }
   }
 }

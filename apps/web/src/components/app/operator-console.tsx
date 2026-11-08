@@ -62,6 +62,7 @@ export function OperatorConsole() {
         <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">Revenue, known costs, and unknown costs are kept separate on purpose. Nothing here is profit.</p>
         {liveOp.mode === "live" && <div className="mt-4 flex items-center gap-4"><LiveChip /></div>}
       </header>
+      <Link href="/operator/expert-reviews" className="mb-6 inline-flex text-sm text-accent underline underline-offset-4">Review expert evidence</Link>
       <Tabs tab={tab} onChange={setTab} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.24, ease: EASE }}>
