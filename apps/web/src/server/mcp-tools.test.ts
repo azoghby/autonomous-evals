@@ -7,7 +7,7 @@ const jobs: Record<string, { customerId: string; state: string }> = {
   [B_JOB]: { customerId: "B", state: "needs_clarification" },
 };
 const FINDING_ROW = "44444444-4444-4444-8444-444444444444";
-const quoteRow = { id: "q1", version: 2, package: "text_eval", priceCents: 500, scopeSummary: "scope", deliverables: ["d"], acceptedAt: null, pricingMode: "fixed", capCents: null, stripeCheckoutSessionId: null };
+const quoteRow = { id: "q1", version: 2, package: "text_eval", priceCents: 9900, scopeSummary: "scope", deliverables: ["d"], acceptedAt: null, pricingMode: "fixed", capCents: null, stripeCheckoutSessionId: null };
 
 const getJobForViewer = vi.fn(async (jobId: string, viewer: { id: string; isOperator: boolean }) => {
   const j = jobs[jobId];
@@ -17,7 +17,7 @@ const getJobForViewer = vi.fn(async (jobId: string, viewer: { id: string; isOper
     quotes: j.state === "quoted" ? [quoteRow] : [],
     messages: [{ role: "commercial", body: "Which tool failed?" }], progress: [],
     findings: [{ id: FINDING_ROW, rerunOfFindingId: null, data: { id: "F-1", title: "Bad claim", status: "confirmed", severity: "high", category: "unsupported_claim", description: "d", evidence: [{ kind: "judge", excerpt: "x".repeat(900) }] } }],
-    payments: [{ status: "authorized", amountCents: 1500, capturedAmountCents: null }],
+    payments: [{ status: "authorized", amountCents: 25000, capturedAmountCents: null }],
     remediations: [{ id: "r1", createdAt: new Date(), findingId: "F-1", kind: "prompt_patch", summary: "fix", patch: "p", rationale: "r", verification: { status: "verified" } }],
     report: { summary: "2 findings", markdown: "# Report" },
   };
@@ -99,11 +99,11 @@ describe("MCP tool validation", () => {
 });
 
 describe("list_packages", () => {
-  it("shows both pricing modes with $3 per finding and caps", () => {
+  it("shows both pricing modes with $25 per finding and caps", () => {
     const p = listPackages().packages.find((x) => x.package === "version_comparison")!;
-    expect(p.priceCents).toBe(1000);
-    expect(p.pricing.fixed.chargeCents).toBe(1000);
-    expect(p.pricing.per_finding).toMatchObject({ perConfirmedFindingCents: 300, capCents: 3000 });
+    expect(p.priceCents).toBe(29900);
+    expect(p.pricing.fixed.chargeCents).toBe(29900);
+    expect(p.pricing.per_finding).toMatchObject({ perConfirmedFindingCents: 2500, capCents: 25000 });
   });
 });
 
@@ -118,7 +118,7 @@ describe("get_job / get_report", () => {
   it("get_job exposes pricing options on a quote", async () => {
     jobs[A_JOB].state = "quoted";
     const q = (await getJob(A, A_JOB)).structuredContent!.quote as { pricingOptions: { per_finding: { capCents: number } } };
-    expect(q.pricingOptions.per_finding.capCents).toBe(1500);
+    expect(q.pricingOptions.per_finding.capCents).toBe(25000);
   });
   it("get_report truncates evidence, links remediations by findingKey and returns markdown", async () => {
     const r = (await getReport(A, A_JOB)).structuredContent as { findings: Array<{ id: string; findingKey: string; evidence: Array<{ excerpt: string }> }>; reportMarkdown: string; remediations: Array<{ findingId: string }> };
@@ -134,13 +134,13 @@ describe("accept_quote", () => {
   it("returns a Stripe checkout URL in per_finding mode at the cap and notifies the workflow", async () => {
     const r = await acceptQuote(A, A_JOB, 2, "per_finding");
     expect(r.isError).toBeUndefined();
-    expect(createCheckoutForQuote).toHaveBeenCalledWith(expect.objectContaining({ pricingMode: "per_finding", priceCents: 1500, customerEmail: "a@x.com" }));
-    expect(r.structuredContent).toMatchObject({ checkoutUrl: "https://checkout.stripe.test/cs_new", capCents: 1500, pricingMode: "per_finding" });
+    expect(createCheckoutForQuote).toHaveBeenCalledWith(expect.objectContaining({ pricingMode: "per_finding", priceCents: 25000, customerEmail: "a@x.com" }));
+    expect(r.structuredContent).toMatchObject({ checkoutUrl: "https://checkout.stripe.test/cs_new", capCents: 25000, pricingMode: "per_finding" });
     expect(sendJobEvent).toHaveBeenCalledWith(A_JOB, { type: "quote_accepted", quoteVersion: 2 });
   });
   it("defaults to fixed at the quote price", async () => {
     await acceptQuote(A, A_JOB, 2);
-    expect(createCheckoutForQuote).toHaveBeenCalledWith(expect.objectContaining({ pricingMode: "fixed", priceCents: 500 }));
+    expect(createCheckoutForQuote).toHaveBeenCalledWith(expect.objectContaining({ pricingMode: "fixed", priceCents: 9900 }));
   });
   it("rejects a stale quote version and a job not in quoted state", async () => {
     const stale = await acceptQuote(A, A_JOB, 1);

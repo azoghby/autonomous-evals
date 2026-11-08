@@ -22,7 +22,7 @@ export const GATEWAY_TARGET_MODELS: Record<string, { input: number; output: numb
 };
 
 export class SandboxInputError extends Error {
-  constructor(message: string, readonly status: 400 | 404 | 409 | 422 | 429 = 422, readonly field?: string) {
+  constructor(message: string, readonly status: 400 | 402 | 404 | 409 | 422 | 429 = 422, readonly field?: string) {
     super(message);
     this.name = "SandboxInputError";
   }

@@ -98,15 +98,15 @@ Your agent picks a package and a pricing mode, never an arbitrary price.
 
 | `package` | Fixed price | Per-finding cap | Input |
 |-----------|-------------|-----------------|-------|
-| `trace_audit` | $5.00 | $15.00 | `trace` (string, up to 200 KB), optional `systemPrompt` |
-| `text_eval` | $5.00 | $15.00 | `endpoint` |
-| `workflow_eval` | $5.00 | $15.00 | `endpoint` |
-| `version_comparison` | $10.00 | $30.00 | `mode` (`"text"` or `"workflow"`), `endpointA`, `endpointB` |
+| `trace_audit` | $49.00 | $250.00 | `trace` (string, up to 200 KB), optional `systemPrompt` |
+| `text_eval` | $99.00 | $250.00 | `endpoint` |
+| `workflow_eval` | $199.00 | $250.00 | `endpoint` |
+| `version_comparison` | $299.00 | $250.00 | `mode` (`"text"` or `"workflow"`), `endpointA`, `endpointB` |
 
 Two pricing modes, chosen when you call `accept_quote`:
 
 - `fixed` (default): the flat price above, charged at checkout.
-- `per_finding`: checkout only authorizes the cap on the card. At delivery we capture $3.00 per confirmed finding (never above the cap). If nothing is confirmed, the authorization is released and you pay nothing.
+- `per_finding`: checkout only authorizes the cap on the card. At delivery we capture $25.00 per confirmed finding (never above the cap). If nothing is confirmed, the authorization is released and you pay nothing.
 
 An `endpoint` object has: `url` (HTTPS only), `model`, optional `apiKey`, `systemPrompt` (default `""`), optional `referenceText`. Call `list_packages` for the live list; it is the source of truth.
 

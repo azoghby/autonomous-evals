@@ -122,7 +122,7 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.
     const delivered = await deliverStep(jobId);
     await neonDeliverySafetyStep(jobId, delivered.deliveredAtIso); // non-fatal: never fails delivery
-    // Per-finding pricing: capture $3 per confirmed finding (capped) or release the hold. Never fails delivery.
+    // Per-finding pricing: capture $25 per confirmed finding (capped) or release the hold. Never fails delivery.
     try { await settlePaymentStep(jobId); } catch (err) {
       await flagSettlementFailureStep(jobId, err instanceof Error ? err.message : String(err));
     }

@@ -3,7 +3,7 @@ import "server-only";
  * Sandbox Evals persistence (sandbox_environments / sandbox_suites / sandbox_runs). Owner-scoped reads return null
  * for rows that belong to someone else, so ids are not probeable. *ById variants are for workflow steps only.
  */
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { GatewayContext } from "@ae/core/ai/gateway";
 import type { EnvironmentSpec, SandboxScenario, ScenarioResult } from "@ae/core/sandbox/spec";
@@ -37,6 +37,13 @@ export interface SandboxStore {
   incrementTrials(id: string, by?: number): Promise<void>;
   /** Active (not finished) suites + runs for an owner: the per-owner concurrency cap. */
   countActive(ownerId: string): Promise<{ suites: number; runs: number }>;
+  /** Environments the owner currently has (plan limit). */
+  countEnvironments(ownerId: string): Promise<number>;
+  /**
+   * Usage since `since` (plan window): trials = trials reserved by runs created in the window (a run that failed
+   * before finishing counts only the trials it actually ran), costMicroUsd = our spend on suites + runs in the window.
+   */
+  usageSince(ownerId: string, since: Date): Promise<{ trials: number; costMicroUsd: number }>;
   /** Records one cost row (costs table, job_id null) and adds it to the suite/run total. */
   addCost(target: { kind: "suite" | "run"; id: string }, entry: Parameters<GatewayContext["recordCost"]>[0]): Promise<void>;
 }
@@ -73,6 +80,19 @@ export function createDbSandboxStore(): SandboxStore {
       const [s] = await db().select({ n: sql<number>`count(*)::int` }).from(S).where(and(eq(S.ownerId, ownerId), inArray(S.status, active)));
       const [r] = await db().select({ n: sql<number>`count(*)::int` }).from(R).where(and(eq(R.ownerId, ownerId), inArray(R.status, ["queued", "running"])));
       return { suites: s?.n ?? 0, runs: r?.n ?? 0 };
+    },
+    async countEnvironments(ownerId) {
+      const [e] = await db().select({ n: sql<number>`count(*)::int` }).from(E).where(eq(E.ownerId, ownerId));
+      return e?.n ?? 0;
+    },
+    async usageSince(ownerId, since) {
+      const [r] = await db().select({
+        trials: sql<number>`coalesce(sum(case when ${R.status} = 'failed' then ${R.trialsDone} else ${R.trialsTotal} end), 0)::int`,
+        cost: sql<number>`coalesce(sum(${R.costMicroUsd}), 0)::bigint`,
+      }).from(R).where(and(eq(R.ownerId, ownerId), gte(R.createdAt, since)));
+      const [s] = await db().select({ cost: sql<number>`coalesce(sum(${S.costMicroUsd}), 0)::bigint` })
+        .from(S).where(and(eq(S.ownerId, ownerId), gte(S.createdAt, since)));
+      return { trials: Number(r?.trials ?? 0), costMicroUsd: Number(r?.cost ?? 0) + Number(s?.cost ?? 0) };
     },
     async addCost(target, entry) {
       const meta = { ...(entry.meta ?? {}), [target.kind === "run" ? "sandboxRunId" : "sandboxSuiteId"]: target.id };

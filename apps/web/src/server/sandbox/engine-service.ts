@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import type { IntegrationMode } from "@ae/core/sandbox/spec";
 import { listPrebuiltEnvs } from "@ae/core/sandbox/ingest/prebuilt";
+import { PLANS, checkEnvironmentAllowance, checkTrialAllowance, usageWindowStart, type PlanId } from "@ae/core/pricing/plans";
 import { SAMPLE_RUN_ID, type SandboxDraft, type SandboxIntakeInput, type SandboxRunReport, type ScenarioReviewInput } from "@/components/sandbox/contract";
 import type { SandboxService } from "../sandbox-service";
 import { buildCustom, buildFromIntake, buildPrebuilt, type BuiltEnvironment, type CustomWorld } from "./env-build";
@@ -42,6 +43,14 @@ export interface EngineServiceDeps {
   suiteBudgetMicroUsd?: number;
   /** Rejects private/non-HTTPS target URLs (SSRF). Returns a reason or null. */
   checkTarget(integration: IntegrationMode): Promise<{ field: string; reason: string } | null>;
+  /**
+   * The owner's effective billing plan (packages/core/src/pricing/plans.ts). When provided, plan limits are enforced:
+   * environment count, trials per calendar month (free: hard stop; paid: overage allowed) and, for plans with a
+   * monthly model-spend cap (Developer: $2), run/suite budgets are shrunk to what is left and refused at $0.
+   * Omitted = no plan enforcement (bare unit tests, fixtures).
+   */
+  planFor?(ownerId: string): Promise<PlanId>;
+  now?(): Date;
 }
 
 export interface EnvironmentInput {
@@ -65,7 +74,7 @@ export interface EnvironmentView {
   summary: ReturnType<typeof environmentSummary>;
 }
 
-export type StartRunResult = { ok: true; runId: string } | { ok: false; status: 404 | 409 | 429; error: string };
+export type StartRunResult = { ok: true; runId: string } | { ok: false; status: 402 | 404 | 409 | 429; error: string };
 
 export interface EngineSandboxService extends SandboxService {
   readonly kind: "engine";
@@ -80,6 +89,24 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
   const runCap = deps.runBudgetMicroUsd ?? runBudgetMicroUsd();
   const suiteCap = deps.suiteBudgetMicroUsd ?? suiteBudgetMicroUsd();
 
+  /** Remaining monthly model-spend allowance for capped plans (micro-USD), or null when the plan has no cap. */
+  async function spendHeadroom(ownerId: string, plan: PlanId): Promise<number | null> {
+    const cap = PLANS[plan].limits.monthlyModelSpendCapMicroUsd;
+    if (cap == null) return null;
+    const used = await store.usageSince(ownerId, usageWindowStart(deps.now?.() ?? new Date()));
+    return Math.max(0, cap - used.costMicroUsd);
+  }
+
+  const SPEND_CAP_REACHED = (plan: PlanId) =>
+    `The ${PLANS[plan].name} plan's monthly model budget is used up. It resets on the 1st (UTC), or upgrade to Pro at /pricing.`;
+
+  async function guardEnvironmentLimit(ownerId: string) {
+    if (!deps.planFor) return;
+    const plan = await deps.planFor(ownerId);
+    const allowed = checkEnvironmentAllowance(plan, await store.countEnvironments(ownerId));
+    if (!allowed.ok) throw new SandboxInputError(`${allowed.reason} See /pricing.`, 402);
+  }
+
   async function guardTarget(integration: IntegrationMode) {
     const rejected = await deps.checkTarget(integration);
     if (rejected) throw new SandboxInputError(`Target URL rejected: ${rejected.reason}`, 422, `integration.${rejected.field}`);
@@ -93,7 +120,14 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
   async function startSuite(ownerId: string, environmentId: string) {
     const active = await store.countActive(ownerId);
     if (active.suites >= MAX_ACTIVE_SUITES) throw new SandboxInputError(`You already have ${active.suites} suites generating. Wait for one to finish.`, 429);
-    const suite = await store.insertSuite({ id: `drf_${randomUUID()}`, environmentId, ownerId, status: "generating", budgetMicroUsd: suiteCap });
+    let budgetMicroUsd = suiteCap;
+    if (deps.planFor) {
+      const plan = await deps.planFor(ownerId);
+      const headroom = await spendHeadroom(ownerId, plan);
+      if (headroom !== null && headroom <= 0) throw new SandboxInputError(SPEND_CAP_REACHED(plan), 402);
+      if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
+    }
+    const suite = await store.insertSuite({ id: `drf_${randomUUID()}`, environmentId, ownerId, status: "generating", budgetMicroUsd });
     try {
       const wf = await executor.startSuite(suite.id);
       if (wf) await store.updateSuite(suite.id, { workflowRunId: wf });
@@ -111,6 +145,7 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
 
     async createEnvironment(ownerId, input) {
       await guardTarget(input.integration);
+      await guardEnvironmentLimit(ownerId);
       const built = input.prebuilt
         ? await buildPrebuilt(input.prebuilt, input.integration)
         : input.world
@@ -134,6 +169,7 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
 
     async createDraft(ownerId, input: SandboxIntakeInput) {
       await guardTarget(input.integration);
+      await guardEnvironmentLimit(ownerId);
       const built = await buildFromIntake(input);
       const envRow = await saveEnvironment(ownerId, built);
       const suite = await startSuite(ownerId, envRow.id);
@@ -176,15 +212,26 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
       if (chosen.length === 0) return { ok: false, status: 409, error: opts.validatedOnly ? "No scenario passed validation; pass scenarioIds explicitly to run unvalidated ones" : "Accept at least one scenario before running" };
       if (chosen.length > MAX_RUN_SCENARIOS) return { ok: false, status: 409, error: `At most ${MAX_RUN_SCENARIOS} scenarios per run` };
       const k = Math.min(MAX_RUN_K, Math.max(1, Math.floor(opts.k)));
+      const plan = deps.planFor ? await deps.planFor(ownerId) : null;
+      const maxActiveRuns = plan ? PLANS[plan].limits.concurrentRuns : MAX_ACTIVE_RUNS;
       const active = await store.countActive(ownerId);
-      if (active.runs >= MAX_ACTIVE_RUNS) return { ok: false, status: 429, error: `You already have ${active.runs} runs in progress. Wait for one to finish.` };
+      if (active.runs >= maxActiveRuns) return { ok: false, status: 429, error: `You already have ${active.runs} runs in progress. Wait for one to finish.` };
       const envRow = await store.getEnvironment(ownerId, suite.environmentId);
       if (!envRow) return { ok: false, status: 404, error: "Draft not found" };
       const scenarios = chosen.map((d) => d.scenario);
+      let budgetMicroUsd = runCap;
+      if (plan) {
+        const used = await store.usageSince(ownerId, usageWindowStart(deps.now?.() ?? new Date()));
+        const allowance = checkTrialAllowance(plan, used.trials, scenarios.length * k);
+        if (!allowance.ok) return { ok: false, status: 402, error: `${allowance.reason} See /pricing.` };
+        const headroom = await spendHeadroom(ownerId, plan);
+        if (headroom !== null && headroom <= 0) return { ok: false, status: 402, error: SPEND_CAP_REACHED(plan) };
+        if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
+      }
       const run = await store.insertRun({
         id: `run_${randomUUID()}`, ownerId, environmentId: envRow.id, suiteId: suite.id, status: "queued", k, scenarios,
         gates: chosen.map((d) => ({ scenarioId: d.scenario.id, validated: d.validated ?? false, reasons: d.gateReasons ?? [] })),
-        budgetMicroUsd: runCap, trialsTotal: scenarios.length * k,
+        budgetMicroUsd, trialsTotal: scenarios.length * k,
       });
       try {
         const wf = await executor.startRun(run.id);

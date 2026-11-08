@@ -18,6 +18,16 @@ export const customers = pgTable("customers", {
   team: text("team"),
   source: text("source").notNull().default("walk_up"), // walk_up | outreach | inbound
   isInternalFixture: boolean("is_internal_fixture").notNull().default(false),
+  /** Billing plan (packages/core/src/pricing/plans.ts PlanId): developer | pro | scale | enterprise. */
+  plan: text("plan").notNull().default("developer"),
+  /** month | year for self-serve subscriptions; null on developer/enterprise. */
+  planInterval: text("plan_interval"),
+  /** Stripe subscription status mirror (active | trialing | past_due | canceled ...); null when never subscribed. */
+  planStatus: text("plan_status"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  planCurrentPeriodEnd: ts("plan_current_period_end"),
+  planUpdatedAt: ts("plan_updated_at"),
   createdAt,
 }, (t) => [uniqueIndex("customers_email_uq").on(sql`lower(${t.email})`)]);
 
@@ -557,3 +567,44 @@ export const sandboxRuns = pgTable("sandbox_runs", {
   createdAt,
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [index("sandbox_runs_owner_idx").on(t.ownerId, t.createdAt), index("sandbox_runs_status_idx").on(t.status)]);
+
+/* ---------------- Plans & sales (packages/core/src/pricing/plans.ts) ---------------- */
+
+/** Every completed plan/audit Checkout (subscription or one-off Agent Audit). Idempotent on the Checkout session id. */
+export const planPurchases = pgTable("plan_purchases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").references(() => customers.id),
+  email: text("email").notNull(),
+  /** subscription | audit */
+  kind: text("kind").notNull(),
+  /** pro | scale | agent_audit */
+  product: text("product").notNull(),
+  /** month | year (subscriptions only) */
+  interval: text("interval"),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull().default("usd"),
+  environment: envEnum("environment").notNull(),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull(),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  /** paid | active | canceled | delivered (audit) */
+  status: text("status").notNull().default("paid"),
+  createdAt,
+}, (t) => [uniqueIndex("plan_purchases_session_uq").on(t.stripeCheckoutSessionId), index("plan_purchases_customer_idx").on(t.customerId)]);
+
+/** Enterprise "Talk to us" requests from /contact-sales. Shown in the operator console; no automatic emails to the prospect. */
+export const salesLeads = pgTable("sales_leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  workEmail: text("work_email").notNull(),
+  company: text("company").notNull(),
+  agentDescription: text("agent_description").notNull(),
+  /** Free-text / bucketed expected volume (e.g. "10k-100k trials/mo"). */
+  volume: text("volume").notNull(),
+  /** new | contacted | qualified | closed */
+  status: text("status").notNull().default("new"),
+  source: text("source").notNull().default("contact_sales"),
+  /** sha256(ip) for abuse triage; never the raw IP. */
+  ipHash: text("ip_hash"),
+  createdAt,
+}, (t) => [index("sales_leads_created_idx").on(t.createdAt)]);

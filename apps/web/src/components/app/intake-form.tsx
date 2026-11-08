@@ -106,7 +106,7 @@ export function IntakeForm() {
 
   return (
     <form onSubmit={submit} noValidate>
-      <PageHead eyebrow="Request · step 1 of 3" title="New request" lead="Pilot pricing. Pick a package, tell us what to test, and an agent will quote you from the fixed price table." />
+      <PageHead eyebrow="Request · step 1 of 3" title="New request" lead="Quick evals. Pick a package, tell us what to test, and an agent will quote you from the fixed price table." />
 
       <div className="grid gap-x-12 gap-y-12 lg:grid-cols-12">
         <div className="min-w-0 space-y-14 lg:col-span-8">

@@ -1,8 +1,12 @@
+import { AGENT_AUDIT, BILLING_INTERVALS, PLANS, SELF_SERVE_PLAN_IDS, STRIPE_LOOKUP_KEYS, lookupKeyFor, planPriceCents } from "../packages/core/src/pricing/plans";
+
 /** Pure helpers for scripts/stripe-setup.ts (unit-tested; no I/O, no secrets printed). */
 
 export const WEBHOOK_EVENTS = [
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
 ] as const;
 
 export const VERCEL_ENVS = ["production", "preview", "development"] as const;
@@ -65,4 +69,30 @@ export function webhookUrl(base: string): string {
 
 export function sameEvents(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i]);
+}
+
+export interface PricePlanEntry {
+  lookupKey: string;
+  productKey: string;
+  productName: string;
+  unitAmountCents: number;
+  recurring?: { interval: "month" | "year" };
+}
+
+/** Every Stripe price the app sells, derived from pricing/plans.ts. */
+export function pricePlan(): PricePlanEntry[] {
+  const entries: PricePlanEntry[] = [];
+  for (const plan of SELF_SERVE_PLAN_IDS) {
+    for (const interval of BILLING_INTERVALS) {
+      entries.push({
+        lookupKey: lookupKeyFor(plan, interval), productKey: plan, productName: `Standard Evals ${PLANS[plan].name}`,
+        unitAmountCents: planPriceCents(plan, interval), recurring: { interval },
+      });
+    }
+  }
+  entries.push({
+    lookupKey: STRIPE_LOOKUP_KEYS.agent_audit, productKey: AGENT_AUDIT.id, productName: `Standard Evals ${AGENT_AUDIT.name}`,
+    unitAmountCents: AGENT_AUDIT.priceCents,
+  });
+  return entries;
 }

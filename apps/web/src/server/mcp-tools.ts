@@ -7,6 +7,7 @@ import {
   EndpointConfig, IntakeInput, PACKAGES, PRICE_CENTS, MONITORING_PRICE_CENTS_MONTHLY,
   PER_FINDING_CENTS, PER_FINDING_CAP_CENTS, PricingMode, type JobState, type Package,
 } from "@ae/core/contracts/index";
+import { PLANS, formatUsd } from "@ae/core/pricing/plans";
 import { createCheckoutForQuote, expireOpenCheckout } from "@ae/core/payments/checkout";
 import { stripe } from "@ae/core/payments/stripe";
 import { createJob } from "./create-job";
@@ -64,12 +65,12 @@ const PACKAGE_INFO: Record<(typeof PACKAGES)[number], { name: string; deliverabl
   },
 };
 
-/** Both pricing modes for a package. Fixed is the default; per_finding authorizes the cap and captures $3 per confirmed finding. */
+/** Both pricing modes for a package. Fixed is the default; per_finding authorizes the cap and captures $25 per confirmed finding. */
 export const pricingOptions = (pkg: Package, fixedCents: number = PRICE_CENTS[pkg]) => ({
   fixed: { chargeCents: fixedCents, note: "Charged once at checkout, whatever the number of findings." },
   per_finding: {
     perConfirmedFindingCents: PER_FINDING_CENTS, capCents: PER_FINDING_CAP_CENTS[pkg],
-    note: `Checkout holds up to the cap on the card; at delivery only ${PER_FINDING_CENTS / 100} USD per confirmed finding is captured (never above the cap). No confirmed findings means the hold is released and you pay nothing.`,
+    note: `Checkout holds up to the cap on the card; at delivery only ${formatUsd(PER_FINDING_CENTS)} per confirmed finding is captured (never above the cap). No confirmed findings means the hold is released and you pay nothing.`,
   },
 });
 
@@ -81,6 +82,7 @@ export const listPackages = () => ({
     package: p, ...PACKAGE_INFO[p], priceCents: PRICE_CENTS[p], pricing: pricingOptions(p),
   })),
   monitoringPriceCentsMonthly: MONITORING_PRICE_CENTS_MONTHLY,
+  plans: `These are one-off Quick evals. Subscription plans (Developer free, Pro ${formatUsd(PLANS.pro.monthlyCents ?? 0)}/mo, Scale ${formatUsd(PLANS.scale.monthlyCents ?? 0)}/mo) are at /pricing.`,
   common: "All requests need authorizedToTest=true and a unique idempotencyKey. Optional `notes` (max 5000 chars).",
   sample: "Read the resource standard-evals://sample-report (or use the sample_report prompt) to see a finished report.",
 });
@@ -316,7 +318,7 @@ export interface ToolDef { name: string; title: string; description: string; inp
 
 export const TOOLS = [
   { name: "list_packages", title: "List packages and prices", readOnly: true, inputSchema: z.object({}),
-    description: "Call this first. Lists the eval packages with prices in cents, deliverables, the exact inputs each needs, and BOTH pricing modes: 'fixed' (one flat price) and 'per_finding' ($3 per confirmed finding, authorized up to a cap, nothing charged if nothing is confirmed).",
+    description: `Call this first. Lists the Quick eval packages (one-off evals; subscription plans Developer free / Pro ${formatUsd(PLANS.pro.monthlyCents ?? 0)}/mo / Scale ${formatUsd(PLANS.scale.monthlyCents ?? 0)}/mo are at /pricing) with prices in cents, deliverables, the exact inputs each needs, and BOTH pricing modes: 'fixed' (one flat price) and 'per_finding' (${formatUsd(PER_FINDING_CENTS)} per confirmed finding, authorized up to a cap, nothing charged if nothing is confirmed).`,
     run: () => ok(listPackages()) },
   { name: "create_job", title: "Create an eval job", readOnly: false, inputSchema: RequestEvalInput,
     description: "Hire us to evaluate an agent. Provide the inputs for the chosen package (see list_packages), authorizedToTest=true, and a unique idempotencyKey (retries with the same key return the same job and never double-create). Returns jobId; then poll get_job. Qualification and a quote follow automatically.",
@@ -331,7 +333,7 @@ export const TOOLS = [
   { name: "accept_quote", title: "Accept quote and get checkout URL", readOnly: false,
     inputSchema: z.object({
       jobId: JobId, quoteVersion: z.int().positive().describe("quote.version from get_job"),
-      pricingMode: PricingMode.optional().describe("'fixed' (default) or 'per_finding' ($3 per confirmed finding, capped, authorized not charged up front)"),
+      pricingMode: PricingMode.optional().describe("'fixed' (default) or 'per_finding' ($25 per confirmed finding, capped, authorized not charged up front)"),
     }),
     description: "Accept the latest quote and receive a Stripe Checkout URL in the chosen pricing mode. Payment must be completed at that URL by a human or payment-capable agent; card data never goes through MCP. Safe to call again to get the URL or switch pricing mode before paying.",
     run: (c: McpCaller, i: { jobId: string; quoteVersion: number; pricingMode?: PricingMode }) => acceptQuote(c, i.jobId, i.quoteVersion, i.pricingMode) },
@@ -366,7 +368,7 @@ export function sampleReportMarkdown(origin = ""): string {
     lines.push(`### ${r.findingId}: ${r.summary}`, "", r.rationale, "", "```diff", r.patch, "```", "",
       `Verification: ${r.verification.status}, before ${r.verification.before.passed}/${r.verification.before.total}, after ${r.verification.after.passed}/${r.verification.after.total}, ${r.verification.regressions} regressions.`, "");
   }
-  lines.push("## Pricing", "", `Fixed from $5, or $${PER_FINDING_CENTS / 100} per confirmed finding (capped). See the list_packages tool.`);
+  lines.push("## Pricing", "", `Quick evals are fixed from ${formatUsd(Math.min(...Object.values(PRICE_CENTS)))}, or ${formatUsd(PER_FINDING_CENTS)} per confirmed finding (capped). Subscription plans are at /pricing. See the list_packages tool.`);
   if (origin) lines.push("", `Web version: ${origin}/sample`);
   return lines.join("\n");
 }

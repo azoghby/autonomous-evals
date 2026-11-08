@@ -76,7 +76,7 @@ flowchart LR
 | | |
 |---|---|
 | **Agent-run company** | A Commercial agent qualifies the request and quotes it. Code sets the price. A durable Workflow runs the job, records confirmed findings, proposes fixes and delivers the report. |
-| **Two ways to pay** | Fixed package price, or per confirmed finding ($3 each, capped, $0 if nothing is real). Stripe Checkout for cards; x402 USDC on Base Sepolia **testnet** is also merged. |
+| **Two ways to pay** | Fixed package price, or per confirmed finding ($25 each, capped at $250, $0 if nothing is real). Stripe Checkout for cards; x402 USDC on Base Sepolia **testnet** is also merged. |
 | **Reproducible reports** | Findings with evidence, verified fixes with before/after pass counts, shareable report links, and a [sample report](https://standard-evals.vercel.app/sample) you can read first. |
 | **Fix as a pull request** | Verified patches can be proposed as GitHub PRs, and a [GitHub Action](integrations/github-action/README.md) re-runs a delivered job's frozen suite on every PR. |
 | **Public leaderboard** | Reference agents scored on a fixed suite, with an opt-in submission flow that requires authorization to test. |
@@ -84,7 +84,7 @@ flowchart LR
 | **Hire it from your editor** | Remote MCP server with browser OAuth, plus a Claude Code plugin and a Cursor rule. |
 | **Sandbox Evals** | State-based grading of your agent inside a seeded copy of its own world. See below. |
 
-**Packages today:** `trace_audit`, `text_eval`, `workflow_eval` ($5 fixed, $15 per-finding cap) and `version_comparison` ($10 fixed, $30 cap). Prices are shown in [docs/MCP.md](docs/MCP.md); `list_packages` is the live source of truth.
+**Packages today:** `trace_audit`, `text_eval`, `workflow_eval` (Trace Audit $49, Text Eval $99, Workflow Eval $199 fixed, each with a $250 per-finding cap) and `version_comparison` ($299 fixed, $250 cap). Prices are shown in [docs/MCP.md](docs/MCP.md); `list_packages` is the live source of truth.
 
 <br>
 

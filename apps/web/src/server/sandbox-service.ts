@@ -24,6 +24,7 @@ import {
 import { assertPublicTarget } from "./target-url";
 import { createEngineSandboxService, type EngineSandboxService } from "./sandbox/engine-service";
 import { createDbSandboxStore } from "./sandbox/store";
+import { getCustomerPlan } from "@ae/core/payments/plans-checkout";
 import { workflowSandboxExecutor } from "@/workflows/sandbox-start";
 
 /**
@@ -39,7 +40,7 @@ export interface SandboxService {
   createDraft(ownerId: string, input: SandboxIntakeInput): Promise<SandboxDraft>;
   getDraft(ownerId: string, draftId: string): Promise<SandboxDraft | null>;
   reviewScenario(ownerId: string, draftId: string, scenarioId: string, review: ScenarioReviewInput): Promise<SandboxDraft | null>;
-  startRun(ownerId: string, draftId: string, opts: { k: number; scenarioIds?: string[]; validatedOnly?: boolean }): Promise<{ ok: true; runId: string } | { ok: false; status: 404 | 409 | 429; error: string }>;
+  startRun(ownerId: string, draftId: string, opts: { k: number; scenarioIds?: string[]; validatedOnly?: boolean }): Promise<{ ok: true; runId: string } | { ok: false; status: 402 | 404 | 409 | 429; error: string }>;
   getRunReport(ownerId: string, runId: string): Promise<SandboxRunReport | null>;
 }
 
@@ -233,5 +234,6 @@ export function getSandboxService(): EngineSandboxService {
     executor: workflowSandboxExecutor,
     sampleReport: () => sample.getRunReport("", SAMPLE_RUN_ID),
     checkTarget: (integration) => checkIntegrationTargets(integration),
+    planFor: (ownerId) => getCustomerPlan(ownerId),
   });
 }

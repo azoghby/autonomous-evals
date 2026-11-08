@@ -101,7 +101,7 @@ beforeEach(() => {
   process.env.X402_PAY_TO = PAY_TO;
   process.env.APP_URL = "https://ae.test";
   job = { id: JOB, customerId: "A", state: "awaiting_payment", environment: "test" };
-  quote = { id: "q1", version: 2, package: "text_eval", priceCents: 500, pricingMode: "fixed", capCents: null };
+  quote = { id: "q1", version: 2, package: "text_eval", priceCents: 9900, pricingMode: "fixed", capCents: null };
   payments = [];
   facilitator.verify.mockResolvedValue({ isValid: true, payer: PAYER });
   facilitator.settle.mockResolvedValue({ success: true, transaction: TX, network: "eip155:84532", payer: PAYER });
@@ -117,9 +117,9 @@ describe("402 payment requirements", () => {
     expect(body).toMatchObject({
       x402Version: 2,
       resource: { url, mimeType: "application/json" },
-      accepts: [{ scheme: "exact", network: "eip155:84532", asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", amount: "5000000", payTo: PAY_TO, extra: { name: "USDC", version: "2" } }],
+      accepts: [{ scheme: "exact", network: "eip155:84532", asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", amount: "99000000", payTo: PAY_TO, extra: { name: "USDC", version: "2" } }],
     });
-    expect(body.resource.description).toMatch(/5\.00 USDC/);
+    expect(body.resource.description).toMatch(/99\.00 USDC/);
     expect(facilitator.verify).not.toHaveBeenCalled();
   });
   it("is disabled (503) when X402_PAY_TO is not configured", async () => {
@@ -127,7 +127,7 @@ describe("402 payment requirements", () => {
     expect((await post()).status).toBe(503);
   });
   it("rejects per_finding quotes with a clear error", async () => {
-    quote.pricingMode = "per_finding"; quote.capCents = 3000;
+    quote.pricingMode = "per_finding"; quote.capCents = 25000;
     const res = await post();
     expect(res.status).toBe(409);
     expect((await res.json()).error).toMatch(/fixed pricing only/);
@@ -156,11 +156,11 @@ describe("paying", () => {
     const res = await post({ "PAYMENT-SIGNATURE": signedHeader() });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ ok: true, outcome: "resumed", txHash: TX, network: "eip155:84532", payer: PAYER, amountCents: 500, currency: "usdc" });
+    expect(body).toMatchObject({ ok: true, outcome: "resumed", txHash: TX, network: "eip155:84532", payer: PAYER, amountCents: 9900, currency: "usdc" });
     expect(decodePaymentResponseHeader(res.headers.get("PAYMENT-RESPONSE")!).transaction).toBe(TX);
-    expect(facilitator.verify).toHaveBeenCalledWith(expect.objectContaining({ x402Version: 2 }), expect.objectContaining({ amount: "5000000", payTo: PAY_TO }));
+    expect(facilitator.verify).toHaveBeenCalledWith(expect.objectContaining({ x402Version: 2 }), expect.objectContaining({ amount: "99000000", payTo: PAY_TO }));
     expect(payments).toHaveLength(1);
-    expect(payments[0]).toMatchObject({ quoteVersion: 2, amountCents: 500, currency: "usdc", stripeCheckoutSessionId: `x402:eip155:84532:${TX}` });
+    expect(payments[0]).toMatchObject({ quoteVersion: 2, amountCents: 9900, currency: "usdc", stripeCheckoutSessionId: `x402:eip155:84532:${TX}` });
     expect(resumeJobForPayment).toHaveBeenCalledTimes(1);
     expect(sendJobEvent).not.toHaveBeenCalled();
   });
@@ -231,7 +231,7 @@ describe("idempotency", () => {
     expect(payments).toHaveLength(1);
   });
   it("409 when the quote was already paid through Stripe", async () => {
-    payments = [{ id: "s1", jobId: JOB, quoteVersion: 2, stripeCheckoutSessionId: "cs_test_1", status: "paid", amountCents: 500, currency: "usd", workflowResumedAt: new Date() }];
+    payments = [{ id: "s1", jobId: JOB, quoteVersion: 2, stripeCheckoutSessionId: "cs_test_1", status: "paid", amountCents: 9900, currency: "usd", workflowResumedAt: new Date() }];
     expect((await post({ "PAYMENT-SIGNATURE": signedHeader() })).status).toBe(409);
     expect(facilitator.settle).not.toHaveBeenCalled();
   });

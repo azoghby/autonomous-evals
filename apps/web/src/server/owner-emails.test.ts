@@ -35,7 +35,7 @@ describe("owner email builders", () => {
     const fx = buildFixOfferEmail({ agentName: "Bot", finding: F[1]!, startUrl: "https://x/start" });
     expect(fx.text).toContain("Sent by Standard Evals' agents");
     expect(fx.text).toContain("https://x/start");
-    expect(fx.text).toMatch(/\$5/);
+    expect(fx.text).toMatch(/\$49/);
   });
 });
 

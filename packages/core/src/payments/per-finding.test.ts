@@ -25,7 +25,7 @@ import { createCheckoutForQuote, isManualCaptureAuthorized, recordPaymentFromSes
 
 const session = (over: Record<string, unknown> = {}) => ({
   id: "cs_1", mode: "payment", status: "complete", payment_status: "unpaid", payment_intent: "pi_1",
-  metadata: { job_id: "j1", quote_version: "1", pricing_mode: "per_finding" }, amount_total: 1500, currency: "usd", livemode: false, ...over,
+  metadata: { job_id: "j1", quote_version: "1", pricing_mode: "per_finding" }, amount_total: 25000, currency: "usd", livemode: false, ...over,
 }) as never;
 
 beforeEach(() => {
@@ -35,15 +35,15 @@ beforeEach(() => {
 describe("manual-capture checkout", () => {
   it("creates a manual-capture session for the cap with per_finding metadata", async () => {
     stripeMock.checkout.sessions.create.mockResolvedValue({ id: "cs_1", url: "https://x" });
-    await createCheckoutForQuote({ jobId: "j1", quoteVersion: 1, priceCents: 1500, pricingMode: "per_finding", customerEmail: "a@b.c", successUrl: "s", cancelUrl: "c" });
+    await createCheckoutForQuote({ jobId: "j1", quoteVersion: 1, priceCents: 25000, pricingMode: "per_finding", customerEmail: "a@b.c", successUrl: "s", cancelUrl: "c" });
     const [params] = stripeMock.checkout.sessions.create.mock.calls[0]!;
-    expect(params.line_items[0].price_data.unit_amount).toBe(1500);
+    expect(params.line_items[0].price_data.unit_amount).toBe(25000);
     expect(params.payment_intent_data.capture_method).toBe("manual");
     expect(params.metadata.pricing_mode).toBe("per_finding");
   });
   it("fixed sessions stay automatic capture", async () => {
     stripeMock.checkout.sessions.create.mockResolvedValue({ id: "cs_2", url: "https://x" });
-    await createCheckoutForQuote({ jobId: "j1", quoteVersion: 1, priceCents: 500, customerEmail: "a@b.c", successUrl: "s", cancelUrl: "c" });
+    await createCheckoutForQuote({ jobId: "j1", quoteVersion: 1, priceCents: 4900, customerEmail: "a@b.c", successUrl: "s", cancelUrl: "c" });
     const [params] = stripeMock.checkout.sessions.create.mock.calls[0]!;
     expect(params.payment_intent_data.capture_method).toBeUndefined();
     expect(params.metadata.pricing_mode).toBe("fixed");
@@ -56,7 +56,7 @@ describe("webhook handling of manual-capture sessions", () => {
     expect(await isManualCaptureAuthorized(session())).toBe(true);
     const { payment, inserted } = await recordPaymentFromSession(session(), "evt_1");
     expect(inserted).toBe(true);
-    expect(insertedValues).toMatchObject({ status: "authorized", amountCents: 1500, stripeCheckoutSessionId: "cs_1" });
+    expect(insertedValues).toMatchObject({ status: "authorized", amountCents: 25000, stripeCheckoutSessionId: "cs_1" });
     expect(payment.status).toBe("authorized");
   });
   it("rejects unpaid sessions whose intent is not holding funds, and non per_finding unpaid sessions", async () => {
@@ -75,18 +75,18 @@ describe("webhook handling of manual-capture sessions", () => {
 
 describe("settlePerFindingPayment", () => {
   const row = (status = "authorized") => [{
-    payment: { id: "p1", status, amountCents: 1500, stripePaymentIntentId: "pi_1", capturedAmountCents: status === "captured" ? 600 : null },
-    quote: { pricingMode: "per_finding", capCents: 1500 },
+    payment: { id: "p1", status, amountCents: 25000, stripePaymentIntentId: "pi_1", capturedAmountCents: status === "captured" ? 5000 : null },
+    quote: { pricingMode: "per_finding", capCents: 25000 },
   }];
-  it("captures min(count*300, cap) with the capture idempotency key", async () => {
+  it("captures min(count*2500, cap) with the capture idempotency key", async () => {
     selectRows = row();
-    expect(await settlePerFindingPayment("j1", 2)).toEqual({ outcome: "captured", confirmedCount: 2, amountCents: 600 });
-    expect(stripeMock.paymentIntents.capture).toHaveBeenCalledWith("pi_1", { amount_to_capture: 600 }, { idempotencyKey: "capture:j1" });
-    expect(updates[0]).toEqual({ status: "captured", capturedAmountCents: 600 });
+    expect(await settlePerFindingPayment("j1", 2)).toEqual({ outcome: "captured", confirmedCount: 2, amountCents: 5000 });
+    expect(stripeMock.paymentIntents.capture).toHaveBeenCalledWith("pi_1", { amount_to_capture: 5000 }, { idempotencyKey: "capture:j1" });
+    expect(updates[0]).toEqual({ status: "captured", capturedAmountCents: 5000 });
   });
   it("caps the capture", async () => {
     selectRows = row();
-    expect((await settlePerFindingPayment("j1", 40)).amountCents).toBe(1500);
+    expect((await settlePerFindingPayment("j1", 40)).amountCents).toBe(25000);
   });
   it("releases the authorization when nothing is confirmed", async () => {
     selectRows = row();

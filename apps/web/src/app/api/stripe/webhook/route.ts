@@ -3,11 +3,16 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { stripe, webhookSecret, getStripeMode } from "@ae/core/payments/stripe";
 import { isManualCaptureAuthorized, recordPaymentFromSession } from "@ae/core/payments/checkout";
+import { recordPlanPurchase, syncSubscription } from "@ae/core/payments/plans-checkout";
+import { alertOperators } from "@/server/operator-alerts";
 import { resumeJobForPayment } from "../../../../workflows/resume";
 
 export const dynamic = "force-dynamic";
 
-const HANDLED = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded"]);
+const HANDLED = new Set([
+  "checkout.session.completed", "checkout.session.async_payment_succeeded",
+  "customer.subscription.updated", "customer.subscription.deleted",
+]);
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -34,7 +39,19 @@ export async function POST(request: Request) {
   if (!HANDLED.has(event.type)) return Response.json({ received: true, ignored: event.type });
   if (event.livemode !== (getStripeMode() === "live")) return Response.json({ received: true, ignored: "environment_mismatch" });
 
+  if (event.type.startsWith("customer.subscription.")) {
+    try {
+      const customerId = await syncSubscription(event.data.object as Stripe.Subscription);
+      return Response.json({ received: true, synced: customerId !== null });
+    } catch (err) {
+      console.error("stripe webhook subscription sync failed", event.id, err instanceof Error ? err.message : err);
+      return Response.json({ error: "Processing failed" }, { status: 500 });
+    }
+  }
+
   const session = event.data.object as Stripe.Checkout.Session;
+  const planKind = session.metadata?.kind;
+  if (planKind === "plan" || planKind === "agent_audit") return handlePlanSession(session, event.id);
   if (!session.metadata?.job_id) return Response.json({ received: true, ignored: "no_job_metadata" });
   try {
     // Manual-capture (per_finding) sessions complete as 'unpaid' with the PaymentIntent in requires_capture.
@@ -73,4 +90,24 @@ async function activateMonitoring(session: Stripe.Checkout.Session): Promise<voi
   await db().insert(schema.monitoringSubscriptions).values({
     jobId, customerId: job.customerId, stripeSubscriptionId: subId, status: "active", environment: session.livemode ? "live" : "test",
   });
+}
+
+async function handlePlanSession(session: Stripe.Checkout.Session, eventId: string): Promise<Response> {
+  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+    return Response.json({ received: true, ignored: "not_paid_yet" });
+  }
+  try {
+    const r = await recordPlanPurchase(session, eventId);
+    if (r.inserted && r.kind === "agent_audit") {
+      // Alerting never fails the webhook; the purchase is already persisted.
+      await alertOperators({
+        kind: "agent_audit_purchased", title: "Agent Audit purchased",
+        detail: `Agent Audit purchased by ${r.email} \u2014 deliver within 72h`, severity: "warning",
+      }).catch((err) => console.error("agent audit alert failed", err instanceof Error ? err.message : err));
+    }
+    return Response.json({ received: true, duplicate: !r.inserted });
+  } catch (err) {
+    console.error("stripe webhook plan processing failed", eventId, err instanceof Error ? err.message : err);
+    return Response.json({ error: "Processing failed" }, { status: 500 });
+  }
 }
