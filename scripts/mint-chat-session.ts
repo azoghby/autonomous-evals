@@ -3,7 +3,9 @@
  * (AUTH_DEV_LINKS=1 makes requestMagicLink return the link instead of emailing it). Writes the cookie to the path in
  * argv[2] (never prints it), plus the customer's plan, spend this month and the onboarding toggle.
  *
- *   cd apps/web && npx tsx --tsconfig tsconfig.json ../../scripts/mint-chat-session.ts /path/to/cookie.txt
+ *   cd apps/web && npx tsx --tsconfig tsconfig.json ../../scripts/mint-chat-session.ts /path/to/cookie.txt [email]
+ *
+ * With [email], mints for that EXISTING customer instead (never creates one).
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -20,7 +22,8 @@ for (const f of [resolve(ROOT, "apps/web/.env.local"), resolve(ROOT, ".env")]) {
 process.env.AUTH_DEV_LINKS = "1";
 delete process.env.VERCEL_ENV;
 
-const EMAIL = "sandbox-e2e@example.com";
+const FIXTURE_EMAIL = "sandbox-e2e@example.com";
+const EMAIL = (process.argv[3] ?? FIXTURE_EMAIL).trim().toLowerCase();
 
 async function main(): Promise<void> {
   const out = process.argv[2];
@@ -30,7 +33,12 @@ async function main(): Promise<void> {
   const { requestMagicLink, verifyMagicLink } = await import("@ae/core/auth/magic-link");
   const { getCustomerPlan } = await import("@ae/core/payments/plans-checkout");
   const d = db();
-  await d.insert(schema.customers).values({ email: EMAIL, name: "Sandbox E2E", source: "walk_up", isInternalFixture: true }).onConflictDoNothing();
+  if (EMAIL === FIXTURE_EMAIL) {
+    await d.insert(schema.customers).values({ email: EMAIL, name: "Sandbox E2E", source: "walk_up", isInternalFixture: true }).onConflictDoNothing();
+  } else {
+    const [found] = await d.select({ id: schema.customers.id }).from(schema.customers).where(sql`lower(${schema.customers.email}) = ${EMAIL}`).limit(1);
+    if (!found) throw new Error("no such customer; refusing to create one");
+  }
   const { devLink } = await requestMagicLink(EMAIL);
   if (!devLink) throw new Error("dev link not returned; refusing to continue (would have emailed)");
   const token = new URL(devLink).searchParams.get("token")!;

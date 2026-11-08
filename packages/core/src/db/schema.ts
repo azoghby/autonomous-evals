@@ -805,3 +805,37 @@ export const onboardingConversations = pgTable("onboarding_conversations", {
   createdAt,
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [index("onboarding_conversations_customer_idx").on(t.customerId, t.createdAt), uniqueIndex("onboarding_conversations_thread_uq").on(t.threadId)]);
+
+/**
+ * Eval copilot: one chat thread per (owner, eval). eval_kind is sandbox_run | job; eval_id is the run or job id.
+ * Each row is one AI SDK UIMessage (role + parts). Tool outputs are stored redacted.
+ */
+export const evalChatMessages = pgTable("eval_chat_messages", {
+  id: text("id").primaryKey(),
+  ownerId: uuid("owner_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  evalKind: text("eval_kind").notNull(),
+  evalId: text("eval_id").notNull(),
+  /** user | assistant */
+  role: text("role").notNull(),
+  message: jsonb("message").notNull().$type<Record<string, unknown>>(),
+  createdAt,
+}, (t) => [index("eval_chat_messages_thread_idx").on(t.ownerId, t.evalKind, t.evalId, t.createdAt)]);
+
+/**
+ * Eval copilot actions the model proposed. The client can only confirm/cancel by id; the server executes the payload it stored,
+ * never client-supplied parameters. status: proposed | confirmed | executed | cancelled | failed | expired
+ */
+export const evalChatActions = pgTable("eval_chat_actions", {
+  id: text("id").primaryKey(),
+  ownerId: uuid("owner_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  evalKind: text("eval_kind").notNull(),
+  evalId: text("eval_id").notNull(),
+  kind: text("kind").notNull(),
+  payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+  status: text("status").notNull().default("proposed"),
+  /** What executing produced (draft id, run id, share url, error). */
+  result: jsonb("result").$type<Record<string, unknown>>(),
+  expiresAt: ts("expires_at").notNull(),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("eval_chat_actions_owner_idx").on(t.ownerId, t.evalKind, t.evalId, t.createdAt)]);
