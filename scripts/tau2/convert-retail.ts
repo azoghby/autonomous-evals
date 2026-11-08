@@ -12,11 +12,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-type Addr = { address1: string; address2: string; city: string; state: string; country: string; zip: string };
-interface PayMethod { source: string; id: string; brand?: string; last_four?: string; balance?: number }
-interface User { user_id: string; name: { first_name: string; last_name: string }; address: Addr; email: string; payment_methods: Record<string, PayMethod>; orders: string[] }
-interface OrderItem { name: string; product_id: string; item_id: string; price: number; options: Record<string, string> }
-interface Order {
+export type Addr = { address1: string; address2: string; city: string; state: string; country: string; zip: string };
+export interface PayMethod { source: string; id: string; brand?: string; last_four?: string; balance?: number }
+export interface User { user_id: string; name: { first_name: string; last_name: string }; address: Addr; email: string; payment_methods: Record<string, PayMethod>; orders: string[] }
+export interface OrderItem { name: string; product_id: string; item_id: string; price: number; options: Record<string, string> }
+export interface Order {
   order_id: string; user_id: string; address: Addr; items: OrderItem[]; status: string;
   fulfillments: Array<{ tracking_id: string[]; item_ids: string[] }>;
   payment_history: Array<{ transaction_type: string; amount: number; payment_method_id: string }>;
@@ -24,9 +24,14 @@ interface Order {
   exchange_payment_method_id?: string | null; exchange_price_difference?: number | null;
   return_items?: string[] | null; return_payment_method_id?: string | null;
 }
-interface Product { name: string; product_id: string; variants: Record<string, { item_id: string; options: Record<string, string>; available: boolean; price: number }> }
-interface Db { products: Record<string, Product>; users: Record<string, User>; orders: Record<string, Order> }
-interface Task { evaluation_criteria?: { actions?: Array<{ name: string; arguments: Record<string, unknown> }> | null } | null }
+export interface Product { name: string; product_id: string; variants: Record<string, { item_id: string; options: Record<string, string>; available: boolean; price: number }> }
+export interface Db { products: Record<string, Product>; users: Record<string, User>; orders: Record<string, Order> }
+export interface GoldAction { name: string; arguments: Record<string, unknown> }
+export interface Task {
+  id: string;
+  user_scenario?: { instructions?: { task_instructions?: string | null; reason_for_call?: string | null; known_info?: string | null; unknown_info?: string | null } | string | null; persona?: unknown } | null;
+  evaluation_criteria?: { actions?: GoldAction[] | null; communicate_info?: string[] | null; nl_assertions?: string[] | null } | null;
+}
 
 const DEFAULT_USERS = 32;
 
@@ -36,21 +41,29 @@ const num = (n: number | null | undefined): string => (n === null || n === undef
 const jsonb = (v: unknown): string => (v === null || v === undefined ? "NULL" : `${q(JSON.stringify(v))}::jsonb`);
 const fold = (s: string): string => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 
+/** User ids a gold action refers to (user_id / order_id owner / email / name+zip). */
+export function actionUserIds(db: Db, args: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  if (typeof args.user_id === "string") out.push(args.user_id);
+  if (typeof args.order_id === "string" && db.orders[args.order_id]) out.push(db.orders[args.order_id]!.user_id);
+  if (typeof args.email === "string") {
+    const u = Object.values(db.users).find((x) => fold(x.email) === fold(args.email as string));
+    if (u) out.push(u.user_id);
+  }
+  if (typeof args.first_name === "string" && typeof args.last_name === "string") {
+    const u = Object.values(db.users).find((x) => fold(x.name.first_name) === fold(args.first_name as string) && fold(x.name.last_name) === fold(args.last_name as string) && x.address.zip === args.zip);
+    if (u) out.push(u.user_id);
+  }
+  return out.filter((id) => db.users[id]);
+}
+
 export function selectUsers(db: Db, tasks: Task[], max: number): string[] {
   const chosen: string[] = [];
   const add = (id: string | undefined): void => {
     if (id && db.users[id] && !chosen.includes(id) && chosen.length < max) chosen.push(id);
   };
   for (const t of tasks) {
-    for (const a of t.evaluation_criteria?.actions ?? []) {
-      const args = a.arguments;
-      if (typeof args.user_id === "string") add(args.user_id);
-      if (typeof args.order_id === "string") add(db.orders[args.order_id]?.user_id);
-      if (typeof args.email === "string") add(Object.values(db.users).find((u) => fold(u.email) === fold(args.email as string))?.user_id);
-      if (typeof args.first_name === "string" && typeof args.last_name === "string") {
-        add(Object.values(db.users).find((u) => fold(u.name.first_name) === fold(args.first_name as string) && fold(u.name.last_name) === fold(args.last_name as string) && u.address.zip === args.zip)?.user_id);
-      }
-    }
+    for (const a of t.evaluation_criteria?.actions ?? []) for (const id of actionUserIds(db, a.arguments)) add(id);
     if (chosen.length >= max) break;
   }
   // Top up deterministically (sorted user id) if the tasks did not touch enough users.
