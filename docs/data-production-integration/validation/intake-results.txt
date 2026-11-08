@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/data-production-intake-o8Fdu6
+
+ ✓ apps/web/src/app/api/jobs/[jobId]/data-review/route.test.ts (5 tests) 9ms
+ ✓ apps/web/src/server/data-production.test.ts (5 tests) 1352ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  16:57:48
+   Duration  1.99s (transform 248ms, setup 0ms, collect 398ms, tests 1.36s, environment 0ms, prepare 162ms)
+
+Exact-base apply check and targeted TypeScript passed. Stage: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/data-production-intake-o8Fdu6

@@ -1,0 +1,120 @@
+Shared contracts: git revision f0068733ca49c37f40fd7de279325f21a4b5fbbb (requested "origin/track-a"; contract digest sha256:dc7936cf343e023a9f0b3b2c0ee02b3886a1f230397f282ee4aaec84a9b27101)
+
+ RUN  v3.2.7 /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-track-b-UB2wiD
+
+ ✓ src/evals/calendar-integration/services.test.ts (13 tests) 2101ms
+ ✓ src/evals/data/discovery/persistence/persistence.test.ts (12 tests) 12809ms
+   ✓ durable discovery operations (real PGlite SQL) > grants exactly one owner across instances and concurrent calls, durably rejects input changes  1296ms
+   ✓ durable discovery operations (real PGlite SQL) > survives a late same-instance pending response without losing the winning token  811ms
+   ✓ durable discovery operations (real PGlite SQL) > replays detached results from a new adapter and arbitrates completion races by SQL value  1001ms
+   ✓ durable discovery operations (real PGlite SQL) > binds trusted tenant/job with collision-safe framing and snapshots scope  953ms
+   ✓ durable discovery operations (real PGlite SQL) > never reclaims pending or ambiguous calls and enforces underlying token ownership  1013ms
+   ✓ durable discovery operations (real PGlite SQL) > keeps ownership for replay after a committed completion loses its acknowledgement  1026ms
+   ✓ durable discovery operations (real PGlite SQL) > rejects unsafe identities and malformed digests before SQL  1131ms
+   ✓ durable discovery operations (real PGlite SQL) > rejects malformed, secret, lossy and forged candidate results before persistence and on replay  697ms
+   ✓ durable discovery operations (real PGlite SQL) > races rejection against success, preserving the winning terminal outcome and owner scope  794ms
+   ✓ durable discovery operations (real PGlite SQL) > validates rejection diagnostics strictly on write and replay; ambiguous tokens cannot reject  619ms
+   ✓ durable discovery operations (real PGlite SQL) > retains rejection through lost acknowledgement; an uncommitted write stays pending  764ms
+   ✓ durable discovery operations (real PGlite SQL) > reopens SQL after unsafe discovery and resumes acquisition to generation/expert with no rejected data or repeat GETs  2701ms
+ ✓ src/evals/text/__tests__/admission.test.ts (50 tests) 185ms
+ ✓ src/evals/data/discovery/index.test.ts (26 tests) 95ms
+ ✓ src/evals/integration/services.test.ts (12 tests) 2899ms
+   ✓ text integration: real SQL, fake provider, Workflow replay > designs, freezes, executes, investigates, reports and reruns from durable SQL with no replay dispatch  443ms
+ ✓ src/evals/trace/__tests__/trace-audit.test.ts (24 tests) 39ms
+ ✓ src/evals/remediation/remediation.test.ts (23 tests) 2215ms
+ ✓ src/evals/data/orchestration-baseline/orchestration.test.ts (12 tests) 1832ms
+ ✓ src/evals/data/postgres-store.test.ts (39 tests) 38793ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > persists definitive discovery rejection and resumes generation/expert through fresh SQL adapters  1574ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > replays from independent service instances with detached input and outputs  727ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > has one insert and one CAS winner across concurrent callers (PGlite serializes transactions)  666ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > isolates reads, inserts and CAS by both trusted tenant and job  907ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > captures scope values at construction and rejects record job mismatch  888ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects insert and CAS identity drift: hash  956ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects insert and CAS identity drift: description  982ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects insert and CAS identity drift: target  916ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects insert and CAS identity drift: coverage  1084ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects insert and CAS identity drift: uses  1146ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects insert and CAS identity drift: factual  703ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > compares full spec canonically after jsonb key reordering  762ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > returns null for missing/stale revisions and rejects invalid revisions and history loss  662ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 0 without changing storage  646ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 1 without changing storage  820ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 2 without changing storage  764ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 3 without changing storage  745ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 4 without changing storage  855ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 5 without changing storage  1439ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 6 without changing storage  1554ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects non-JSON/unsafe text 7 without changing storage  1129ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects accessors, custom serialization, sparse arrays, symbols and cycles  799ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > accepts valid Unicode and SQL-shaped text as bound data  1003ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > bounds serialized record bytes  1081ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects malformed stored row: nested  883ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects malformed stored row: unknown  856ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects malformed stored row: revision  954ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects malformed stored row: task  1132ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects malformed stored row: job  894ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects malformed stored row: enum  1251ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects actual database rows with malformed nested JSON on read, insert replay and CAS  1356ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > screens current secret policy on reads, conflicting inserts and CAS  1610ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rolls back inserts and CAS when the returned row fails validation  1102ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rolls back when the current secret policy changes before RETURNING is validated  914ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > redacts driver failure text with no transaction retries  1275ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > preserves complete bound review evidence and decision history across restart  973ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > resumes acquisition with the same operation key after restart, outside any SQL transaction  898ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > replays only correctly bound ready acquisition data after service restart  926ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) > rejects stale ready review bindings and new secret policy before completed replay  954ms
+ ✓ src/evals/data/acquisition.test.ts (11 tests) 25ms
+ ✓ src/evals/text/__tests__/design-investigate.test.ts (10 tests) 84ms
+ ✓ src/evals/text/__tests__/behavioral-gateway.test.ts (17 tests) 124ms
+ ✓ src/evals/__tests__/service-adapter.test.ts (15 tests) 43ms
+ ✓ src/evals/data/orchestration-review/review.test.ts (5 tests) 2716ms
+   ✓ independent orchestration review > REGRESSION R1: initial behavioral coverage waits for authenticated review (actual SQL)  1675ms
+   ✓ independent orchestration review > REGRESSION R3: reviewer-added self-produced evidence cannot authorize factual assessment  952ms
+ ✓ src/evals/text/__tests__/objective-execution.test.ts (29 tests) 58ms
+ ✓ src/evals/data/adapters/generation.test.ts (9 tests) 35ms
+ ✓ src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 129ms
+ ✓ src/evals/data/quality.test.ts (23 tests) 15ms
+ ✓ src/evals/data/adapters/mapping.test.ts (7 tests) 42ms
+ ✓ src/evals/data/expert.test.ts (11 tests) 7ms
+ ✓ src/evals/trace/__tests__/detect-regression.test.ts (15 tests) 33ms
+ ✓ src/evals/data/postgres-operations.test.ts (19 tests) 20998ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > has exactly one claim winner, replay never owns or redispatches, identity immutable  1580ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > pins tenant/job/owner and rejects unauthenticated mutations  777ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > never steals a pending claim; only authenticated bound reconciliation can complete for another owner  1425ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > preserves lost claim and completion acknowledgements through fresh service instances  1497ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > supports durable idempotent cost and authenticated independent review after service restart  1514ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 0  1081ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 1  898ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 2  1314ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 3  975ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 4  827ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 5  1009ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 6  733ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects lossy/non-JSON result 7  799ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rejects getters, custom serialization, sparse arrays, cycles and symbols without executing them  1054ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > accepts Unicode/SQL text, snapshots results, bounds bytes and screens current secrets on all replay paths  1106ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > accepts JSON null, rejects missing completion and verifies receipts even for the original owner  1052ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > rolls back completion when current secrets change before returned row validation  831ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > database enforces immutable identity/result/receipt and no deletion  1105ms
+   ✓ PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) > validates returned rows and rolls back failed completion; errors never expose parameters  1414ms
+ ✓ src/evals/data/adapters/sources.test.ts (8 tests) 49ms
+ ✓ src/evals/trace/__tests__/normalize-regression.test.ts (29 tests) 16ms
+ ✓ src/evals/data/persistence.test.ts (3 tests) 150ms
+ ✓ src/evals/text/__tests__/live-v3.test.ts (16 tests) 65ms
+ ✓ src/evals/text/__tests__/safety-monitoring.test.ts (3 tests) 46ms
+ ✓ src/evals/trace/__tests__/audit-redaction.test.ts (3 tests) 45ms
+ ✓ src/evals/data/adapters/expert.test.ts (2 tests) 10ms
+ ✓ src/evals/integration/checkpoint.test.ts (5 tests) 10164ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) > atomically gives one claimant ownership and rejects changed inputs under the same identity  2463ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) > persists full detached output, resumes from a fresh adapter and rejects overwrite  2322ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) > never takes over a lost response, and ambiguity cannot be released or completed  1772ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) > allows explicit safe agent polling release while rejecting stale owners  1701ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) > refuses lossy/non-PostgreSQL JSON before completion, preserving pending state  1905ms
+
+ Test Files  30 passed (30)
+      Tests  466 passed (466)
+   Start at  16:55:14
+   Duration  57.01s (transform 1.03s, setup 0ms, collect 3.85s, tests 95.82s, environment 4ms, prepare 1.72s)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-track-b-UB2wiD/vitest-results.json
+Track B checked components: evals. Strict type-check passed; 30 test files, 466 tests passed, none skipped.

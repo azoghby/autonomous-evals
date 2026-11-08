@@ -1,0 +1,26 @@
+{
+  "scope": "offline storage validation; no live production authorization or human review",
+  "pglite": {
+    "testFile": "packages/core/src/evals/data/postgres-operations.test.ts",
+    "passed": 19,
+    "skipped": 0,
+    "limitation": "single PGlite engine serializes transactions"
+  },
+  "nativePostgres": {
+    "command": "TRACK_B_HARNESS=/tmp/track-b-harness TRACK_B_POSTGRES_RUNTIME=/tmp/agent-persistence-runtime node docs/data-production-integration/storage/verify-native.mjs",
+    "assertionGroupsPassed": 5,
+    "skipped": 0,
+    "independentBackendSessions": 8,
+    "embeddedPostgresVersion": "18.6.0-beta.19",
+    "pgVersion": "8.23.1",
+    "checks": [
+      "synchronized independent-session claims elect exactly one owner; later claims cannot redispatch",
+      "concurrent differing completions elect exactly one immutable result",
+      "lost claim/completion commit acknowledgements preserve durable replay",
+      "foreign owner denied without verified reconciliation; receipt and deletion immutable",
+      "actual server stop/start preserves result, cost, review and reconciliation receipt fixtures"
+    ],
+    "adapterSha256": "3d7817d9e03d80ee42d306990271aecb782e41eb9fdd0fa929b9af2fce06406d",
+    "migrationSha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9"
+  }
+}
