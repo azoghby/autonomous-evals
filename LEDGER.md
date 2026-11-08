@@ -4,9 +4,9 @@ Handoff file. Any agent (Claude Code, Codex, a human) resumes from here. When yo
 
 Read first: PLAN.md, TRACKS.md, docs/TRACK_A_PLAN.md (decisions, API surface), docs/EXPERT_NETWORK.md, docs/MCP.md, docs/INTEGRATION.md, docs/DEMO_SCRIPT.md, docs/DESIGN_V4.md.
 
-Branch: `track-a` (HEAD 65a653d). Origin: `https://github.com/azoghby/standard-evals.git`. Track B work was merged into track-a from `integrate-b`. Do not edit Track B directories (`packages/core/src/{agents,evals,targets,simulator,reporting}`) from Track A work.
+Branch: **`main`** (track-a was merged into main at e99f8c4 on Nov 7 evening; all work now goes to main). Origin: `https://github.com/azoghby/standard-evals.git`. Track B pushes to main often: always `git fetch && git rebase origin/main` before pushing. Do not edit Track B directories (`packages/core/src/{agents,evals,judges,monitoring,reporting,simulator,targets}`) from Track A work.
 
-Last recorded prod deploy: the v4 redesign (~19:30 PT). The x402 commit (1d56f4b) and the Track B merge (65a653d) are on track-a, but no deploy is recorded for them.
+Last prod deploy: e99f8c4 (merged main), https://standard-evals.vercel.app (alias autonomous-evals.vercel.app still serves). Deploy from a clean worktree of main with `vercel deploy --prod --scope agents-db31`.
 
 ## 1. What the product is
 
@@ -72,8 +72,8 @@ Secret values are not recorded here. Names only. Look them up in `vercel env pul
 
 | Thing | Value |
 |---|---|
-| Vercel | project `autonomous-evals`, scope `agents-db31`, root dir `apps/web`, https://autonomous-evals.vercel.app |
-| Vercel crons | `vercel.json`: reconcile-payments `*/5`, stale-jobs `*/10`, cleanup hourly, monitoring `0 9 * * *`, follow-ups `*/30`. All require `CRON_SECRET` |
+| Vercel | project `autonomous-evals`, scope `agents-db31`, root dir `apps/web`, **https://standard-evals.vercel.app** (project domain; `APP_URL` points here). Old https://autonomous-evals.vercel.app still serves (Stripe webhook still targets it) |
+| Vercel crons | `vercel.json`: reconcile-payments `*/5`, stale-jobs `*/10`, cleanup hourly, monitoring `0 9 * * *`, follow-ups `*/30`, public-agents `*/15` (advisory lock, `PUBLIC_AGENT_DAILY_BUDGET_USD` default 3). All require `CRON_SECRET` |
 | GitHub | repo `azoghby/standard-evals` (renamed; origin updated). Vercel GitHub auto-deploy is NOT connected (earlier link failed against the old name). Deploy via CLI |
 | Neon (current) | `icy-star-64097833`, PG 18, aws-us-east-2, db `app`. main `br-long-voice-bdogu70i` (Realtime on, Storage on, pg_stat_statements on), sim-seed `br-dry-wave-bdhrghkh` |
 | Neon snapshots | `pre-demo-baseline` (`snap-fragrant-mouse-bdhvrb2y`); daily schedule 12:00 UTC, kept 48h |
@@ -110,7 +110,7 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 | Public share links /r/[token], verified badge, revenue counter (migration 0011) | live | app/r, api/stats, packages/core/src/ |
 | Reports and artifacts (Neon storage, Blob fallback, sanitized HTML) | live | packages/core/src/storage/, api/jobs/[id]/artifacts/[kind] |
 | Neon Realtime live progress and operator live view | live (beta); polling fallback every 3 s | server/realtime.ts, api/jobs/[id]/live, api/operator/live, lib/client/use-live-*.ts |
-| MCP server (8 tools, sample resource, prompts) | live | apps/web/src/app/api/mcp/[transport]/route.ts, docs/MCP.md |
+| MCP server (13 tools incl. 5 sandbox_*, sample resource, prompts) | live (sandbox_* being wired to the real engine) | apps/web/src/app/api/mcp/[transport]/route.ts, docs/MCP.md |
 | API keys for MCP | live | app/(app)/settings/keys, api/keys |
 | Rate limit, BotID, Vercel Firewall | live (BotID blocks scripted job creation) | server/rate-limit.ts, server/bot.ts |
 | Target URL guard (DNS-aware, SSRF) | merged | packages/core/src/targets/adapters.ts (be522f1) |
@@ -125,6 +125,12 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 | Demo seed data | script ready, run on demand (dry run default) | scripts/demo-seed.ts |
 | Expert AI voice interviewer (stretch) | not started | docs/EXPERT_NETWORK.md |
 | Stripe live mode | not started; gated by PLAN §9 | STRIPE_MODE, scripts/stripe-setup.ts |
+| MCP OAuth 2.1 auto-link (PRM, AS metadata, DCR, PKCE S256, consent, rotating refresh; migration 0016) | live | server/oauth/*, app/.well-known, app/oauth, app/(app)/oauth/authorize, docs/MCP.md |
+| Agent-owner autopilot (submit/verify/consent, lifecycle emails with caps, AI responder, approval-gated invites, daily digest; migration 0015) | live; E2E passed | server/owner-*.ts, server/agent-invites.ts, app/leaderboard/{submit,verify,owner}, scripts/e2e-owner-autopilot.ts |
+| Public leaderboard: 10 reference agents (own gateway calls) | live; cron re-runs | data/public-agents.json, server/public-agent-*.ts, /leaderboard, /api/leaderboard |
+| Sandbox Evals (contract sandbox-spec-v1): ingest, Neon runtime (per-trial DB from template), engine (scenario gen, oracle/null/mutation gates, simulator, pass^k, Wilson CI), media (voice/vision) | engine committed + live smoke passed; app/MCP wiring in progress (sample UI live) | packages/core/src/sandbox/**, data/envs/acme-support, docs/SANDBOX_EVALS_PLAN.md, app/sandbox, server/sandbox-service.ts, server/mcp-sandbox-tools.ts |
+| Landing showcase: sandbox diagram, voice+vision, MCP OAuth steps, autopilot loop; Standard Evals rename | live | components/marketing/{sandbox-showcase,multimodal,mcp,leaderboard-autopilot} |
+| README redesign (animated banner + flow SVGs) | live on GitHub main | README.md, docs/assets |
 
 ## 5. Track B integration status
 
@@ -191,3 +197,4 @@ Times are PT, as recorded.
 - After ~19:30 (no times recorded): x402 commit 1d56f4b and Track B merge 65a653d on track-a. Deploy not recorded for either.
 - Evening (post-4 PM): lite eval engine (7771433) committed; prod set to `EVAL_SERVICES=lite` and redeployed (dpl_8Z4YTS2reToQNsBxdjxPDjMnBsrL). Public agents seeded and run live on standard-suite-v1 (32 scenarios, ~$0.003 each): Sonnet 4.5 75%, GPT-5 mini 75%, Llama 3.3 70B 72%, Haiku 4.5 69%, Gemini 2.5 Flash 63%. Landing has 5-min ISR + leaderboard teaser. `scripts/public-agents.ts` falls back to `VERCEL_OIDC_TOKEN` (`--env-file=apps/web/.env.vercel.local`). Prod smoke: /, /leaderboard, /sample, revenue 200; x402 pay 401 without payment.
 - Evening: prod gateway fix verified (job 0b46c968…, 38 ai_gateway cost rows, $0.075, LLM-designed suite). `AI_GATEWAY_API_KEY` created (name standard-evals-prod, $50/mo cap, expires in 30d) and set in .env + Vercel prod/preview/dev; OIDC remains fallback. Landing visual upgrade deployed (pipeline diagram, report/fix showpieces, integrations marquee, MCP terminal, pricing spotlight, expert graph, leaderboard bars, revenue band). Open: Neon snapshot/TTL step 404 'parent branch not found' (non-blocking).
+- Late evening: migrations 0015 (owner autopilot) and 0016 (MCP OAuth) applied. 10 reference agents on the leaderboard (GPT-5 nano last at 28%). Sandbox ingest/runtime/media/engine committed; engine live smoke (gpt-5-mini, k=2, ~$1.25) passed gates on happy-path + injection, boundary correctly rejected by oracle. Runtime preamble owns sandbox_clock/now/outbox; `SandboxRun.exec?` added for mutation gates. Showcase UI + rename deployed; domain standard-evals.vercel.app added, APP_URL switched. README redesigned. **track-a merged into main (e99f8c4)**, 2381 tests pass, prod deployed from main. In progress: real sandbox engine wired into app + MCP (persistence, workflow, live run); real open-source agents (OpenAI CS agents demo, τ²-bench retail) evaluated → docs/REAL_AGENT_RESULTS.md.
