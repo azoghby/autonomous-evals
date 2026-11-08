@@ -105,6 +105,8 @@ export function createPackExecutionService(deps: {
   }
   return {
     async run(request: PackRunRequest): Promise<PackRunEvidence> {
+      // Pin caller-owned evidence before the first asynchronous authorization boundary.
+      request = clone(request);
       const { artifact, key } = await prepare(request);
       const dispatch: PackDispatchContext = { jobId: artifact.context.jobId, runId: request.runId, manifestDigest: artifact.manifest.digest,
         targetConfigDigest: artifact.context.targetConfigDigest, authorizationId: artifact.context.authorizationId, sourceRuleIds: artifact.context.sourceRuleIds, provenance: artifact.manifest.provenance };

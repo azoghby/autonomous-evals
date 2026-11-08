@@ -19,3 +19,7 @@ Measured generation cost is captured in the shared immutable operation ledger be
 ## Security boundary
 
 The SQL adapter is a trusted server component, not a database user isolation system. Keep the SQL executor, scope factory and reconciliation authorizer inaccessible to candidate/model/request payloads. Tenant/job and owner identity originate in verified server context. SQL roles with direct mutation access can bypass application checks; grant deployment access accordingly. Current known-secret policy must be supplied on each request/operation. Never persist secret lists in candidate data, operation results, receipts or patch evidence.
+
+## Parent exports
+
+`evals/data/index.ts` exports the PostgreSQL operation ledger and scope types. The public server-only `evals/index.ts` exports `createPostgresDataOperationLedger`, `advanceDataOrchestration`, and `createAuthenticatedDataReviewLedger`, alongside the acquisition store. Importing them does not open connections, migrate a database or authorize work.

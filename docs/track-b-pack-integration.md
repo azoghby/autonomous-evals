@@ -162,3 +162,9 @@ resolution, durable application migration deployment, Workflow adapters,
 authorized artifact/report delivery, monitoring/remediation propagation, and
 semantics quarantined above. No app/contracts/platform changes or cloud calls
 are included in this workstream.
+
+## Parent integration
+
+Factories are also exported through the server-only `evals/index.ts` composition entry point. Run requests are cloned before the first asynchronous authorization boundary, preventing a caller mutation from changing the run identity/evidence after authorization starts. A real-SQL regression checks retained manifest, dispatch, and report identity. The production issuer, trusted grader, complete Workflow/report/comparison wiring and unsupported semantics remain open as documented above.
+
+Parent validation: strict compilation passed. The first combined run passed 90/91 tests, including the new mutation regression, with one 10-second SQL setup-hook timeout. A second run passed 89/91, with setup timeouts in two different cases; the initially timed-out case passed. Both logs are retained under `tests/track-b/pack-integration/parent-check-*.txt`. No assertion or timeout was relaxed. These runs do not constitute a clean combined acceptance pass; repeat under controlled resource load before release.

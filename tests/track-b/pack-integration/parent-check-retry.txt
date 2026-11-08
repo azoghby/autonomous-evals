@@ -1,0 +1,54 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/pack-integration-WMOecW
+
+ ❯ tests/track-b/pack-integration/execution.test.ts (11 tests | 2 failed) 72828ms
+   ❯ appended packs with real PostgreSQL checkpoint SQL (PGlite) (11)
+     × authenticates external review authority before persisting or dispatching a pack 12825ms
+     × pins caller-owned run identity before asynchronous authorization 10092ms
+     ✓ retains complete immutable expected inventory, independent base status and fresh-adapter restart evidence 7290ms
+     ✓ fences lost responses as ambiguous and never redispatches them after restart 6365ms
+     ✓ never replays a still-pending dispatch from a second worker 5000ms
+     ✓ quarantines unsupported runner capability without dispatch, including after restart 4689ms
+     ✓ refuses same-run changed expected inventory/version and changed actual target before dispatch 4026ms
+     ✓ refuses empty/forged passing runner evidence and preserves infrastructure distinction 4363ms
+     ✓ derives result status from complete checks instead of trusting a claimed pass 6277ms
+     ✓ keeps successful historical frozen12 separate from appended quarantines 8025ms
+     ✓ compares only consistent assessed pairs while retaining all expected cases 3849ms
+ ✓ packages/core/src/evals/integration/checkpoint.test.ts (5 tests) 10680ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) (5)
+     ✓ atomically gives one claimant ownership and rejects changed inputs under the same identity 2458ms
+     ✓ persists full detached output, resumes from a fresh adapter and rejects overwrite 1149ms
+     ✓ never takes over a lost response, and ambiguity cannot be released or completed 1977ms
+     ✓ allows explicit safe agent polling release while rejecting stale owners 3048ms
+     ✓ refuses lossy/non-PostgreSQL JSON before completion, preserving pending state 2046ms
+ ✓ packages/core/src/evals/text/__tests__/admission.test.ts (50 tests) 148ms
+ ✓ packages/core/src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 144ms
+ ✓ tests/track-b/pack-integration/contract.test.ts (6 tests) 51ms
+ ✓ tests/track-b/pack-integration/secured-ports.test.ts (4 tests) 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/track-b/pack-integration/execution.test.ts > appended packs with real PostgreSQL checkpoint SQL (PGlite) > authenticates external review authority before persisting or dispatching a pack
+ FAIL  tests/track-b/pack-integration/execution.test.ts > appended packs with real PostgreSQL checkpoint SQL (PGlite) > pins caller-owned run identity before asynchronous authorization
+Error: Hook timed out in 10000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/track-b/pack-integration/execution.test.ts:31:3
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  2 failed | 89 passed (91)
+   Start at  17:03:01
+   Duration  87.54s (tests 97%, import 1%, transform 1%)
+
+file:///Users/alexzoghby/Documents/ChatGPT/YC%20Hackathon%202/tests/track-b/pack-integration/run.mjs:20
+  if(result.status!==0) throw new Error(`Check failed: ${program} (${result.status})`);
+                              ^
+
+Error: Check failed: /tmp/autonomous-evals-checks.m10du4/node_modules/vitest/vitest.mjs (1)
+    at run (file:///Users/alexzoghby/Documents/ChatGPT/YC%20Hackathon%202/tests/track-b/pack-integration/run.mjs:20:31)
+    at file:///Users/alexzoghby/Documents/ChatGPT/YC%20Hackathon%202/tests/track-b/pack-integration/run.mjs:39:3
+
+Node.js v24.21.0

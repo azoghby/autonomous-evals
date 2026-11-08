@@ -49,6 +49,18 @@ describe('appended packs with real PostgreSQL checkpoint SQL (PGlite)', () => {
     expect(await new PostgresTextCheckpointStore(db).get({jobId:suite.jobId,kind:'appended_pack:manifest',id:'run-1'})).toBeNull();
   });
 
+  it('pins caller-owned run identity before asynchronous authorization', async () => {
+    const input = request();
+    const service = createPackExecutionService({ registry, checkpoints: new PostgresTextCheckpointStore(db), runner,
+      resolve: async () => { input.runId = 'changed-after-authorization'; return context; }, verifyReview: async () => undefined });
+    const result = await service.run(input);
+    expect(result.runId).toBe('run-1');
+    expect(result.pack.results[0]!.status).toBe('pass');
+    expect(await service.report(suite.jobId, 'run-1')).toEqual(result);
+    expect(await new PostgresTextCheckpointStore(db).get({jobId:suite.jobId, kind:'appended_pack:manifest', id: input.runId})).toBeNull();
+    expect(calls).toBe(1);
+  });
+
   it('retains complete immutable expected inventory, independent base status and fresh-adapter restart evidence', async () => {
     const result = await fresh().run(request());
     expect(result.base.status).toBe('unknown');

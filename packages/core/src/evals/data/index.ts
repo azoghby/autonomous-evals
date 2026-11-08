@@ -8,3 +8,4 @@ export * from "./postgres-store";
 export * from './operation-ledger';
 export * from './orchestration';
 export * from './review-ledger';
+export * from './postgres-operations';
