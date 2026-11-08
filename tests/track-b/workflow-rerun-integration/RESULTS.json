@@ -1,0 +1,161 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-LsiBF2",
+  "strictTypeScript": "passed",
+  "preservedUpstreamFiles": 760,
+  "finalComposition": "883d186a94ea38aeb122afeb9d9e9bd2ee0c6e24",
+  "offline": true,
+  "passed": 12,
+  "failed": 0,
+  "tests": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "offline real SQL + scripted Text target: complete rich outcomes, stable replay, immutable baseline",
+          "status": "passed",
+          "title": "offline real SQL + scripted Text target: complete rich outcomes, stable replay, immutable baseline",
+          "duration": 57.636750000000006,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "offline real simulator + Calendar adapter reruns retained twelve after target version changes",
+          "status": "passed",
+          "title": "offline real simulator + Calendar adapter reruns retained twelve after target version changes",
+          "duration": 68.92545900000005,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "cross-user, deleted credentials, altered finding association and unsupported trace fail before dispatch",
+          "status": "passed",
+          "title": "cross-user, deleted credentials, altered finding association and unsupported trace fail before dispatch",
+          "duration": 16.125125000000025,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "concurrent same key dispatches once and different keys include pending in max-three admission",
+          "status": "passed",
+          "title": "concurrent same key dispatches once and different keys include pending in max-three admission",
+          "duration": 85.4559999999999,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "lost completion ack replays committed result, while interrupted claim never redispatches",
+          "status": "passed",
+          "title": "lost completion ack replays committed result, while interrupted claim never redispatches",
+          "duration": 48.94899999999984,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "same key changed finding or rotated/revoked authority rejects; keyless old clients do not dispatch",
+          "status": "passed",
+          "title": "same key changed finding or rotated/revoked authority rejects; keyless old clients do not dispatch",
+          "duration": 30.601000000000113,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "explicit trace/pack, missing original branch, and budget/checkTarget refusals do not run targets",
+          "status": "passed",
+          "title": "explicit trace/pack, missing original branch, and budget/checkTarget refusals do not run targets",
+          "duration": 65.95491700000002,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "changed finding under the same key rejects instead of selecting a new scenario",
+          "status": "passed",
+          "title": "changed finding under the same key rejects instead of selecting a new scenario",
+          "duration": 27.752459000000044,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "legacy saved reruns count toward the same three-operation limit",
+          "status": "passed",
+          "title": "legacy saved reruns count toward the same three-operation limit",
+          "duration": 13.274666999999909,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1794102615081,
+      "endTime": 1794102615496.2747,
+      "status": "passed",
+      "message": "",
+      "name": "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-LsiBF2/rerun-tests/rerun.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "actual HTTP and MCP forward identical caller/key to the shared service",
+          "status": "passed",
+          "title": "actual HTTP and MCP forward identical caller/key to the shared service",
+          "duration": 2.671583999999939,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "old clients without a key get an explicit error and foreign callers never reach dispatch",
+          "status": "passed",
+          "title": "old clients without a key get an explicit error and foreign callers never reach dispatch",
+          "duration": 0.5173330000000078,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "MCP schema exposes the same safe key syntax and HTTP pending returns 202",
+          "status": "passed",
+          "title": "MCP schema exposes the same safe key syntax and HTTP pending returns 202",
+          "duration": 1.0987079999999878,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1794102616145,
+      "endTime": 1794102616149.0986,
+      "status": "passed",
+      "message": "",
+      "name": "/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-LsiBF2/rerun-tests/transports.test.ts"
+    }
+  ]
+}

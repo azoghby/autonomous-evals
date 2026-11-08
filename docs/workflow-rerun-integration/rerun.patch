@@ -1,0 +1,331 @@
+diff --git a/apps/web/src/server/rich-services.ts b/apps/web/src/server/rich-services.ts
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -33,13 +33,13 @@
+ const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Canonical Workflow binding unavailable or changed; operator reconciliation required.'); };
+ 
+ /** Internal Workflow authority only; no route accepts this value from a customer body. */
+-export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string }) {
++export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string; rerun?: { ownerId: string; targetVersion: string } }) {
+   const sql = workflowSql();
+   async function canonical() {
+     const loaded = await getJobWithDecryptedCredentials(ctx.jobId);
+     if (!loaded || !authority.workflowRunId || loaded.job.workflowRunId !== authority.workflowRunId
+       || loaded.job.environment !== ctx.environment || loaded.job.isMock
+-      || !['planning', 'running', 'investigating'].includes(loaded.job.state)) return refused();
++      || !(authority.rerun ? loaded.job.state === 'delivered' && loaded.job.customerId === authority.rerun.ownerId : ['planning', 'running', 'investigating'].includes(loaded.job.state))) return refused();
+     const intake = IntakeInput.parse(loaded.intake);
+     if (intake.package !== 'text_eval' && intake.package !== 'workflow_eval') return refused();
+     const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null; remediation_operation_micro_usd: number | string | null; baseline_suite_digest: string | null; baseline_run_id: string | null }>(
+@@ -53,8 +53,10 @@
+     if (knownSecrets.some(s => s.length < 4)) return refused();
+     // The ciphertext changes with credential rotation; hash stays server-only and never enters artifacts.
+     const credentials = await sql.query<{ ciphertext: string }>('SELECT ciphertext FROM job_credentials WHERE job_id=$1', [ctx.jobId]);
++    if (authority.rerun && !credentials.rows[0]?.ciphertext) return refused();
+     const targetVersion = createHash('sha256').update(JSON.stringify({ endpoint: { ...intake.endpoint, apiKey: undefined },
+       revision: b.target_revision, credentialCiphertext: credentials.rows[0]?.ciphertext ?? null })).digest('hex');
++    if (authority.rerun && targetVersion !== authority.rerun.targetVersion) return refused();
+     return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: { ...b,
+       // PostgreSQL bigint is a string in the actual driver; validate before narrowing.
+       remediation_operation_micro_usd: b.remediation_operation_micro_usd === null ? null : (() => {
+@@ -89,7 +91,7 @@
+   const text = createTextEvaluationServices({ runner, checkpoints, resolveApprovedSuite: approved.resolveApprovedSuite, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+     const a = await canonical();
+-    return { job: a.job, target: createTextTarget(a.intake.endpoint), targetVersion: a.targetVersion,
++    return { job: a.job, target: { async send(input) { const fresh=await canonical(); if(fresh.targetVersion!==a.targetVersion) return refused(); return createTextTarget(fresh.intake.endpoint).send(input); } }, targetVersion: a.targetVersion,
+       judge: null, knownSecrets: a.knownSecrets }; // Explicit unassessed rubric; no unreserved Gateway call.
+   } });
+   const remediation = createRichRemediation({ sql, runner, checkpoints, canonical, text });
+@@ -109,7 +111,7 @@
+     return { job: a.job, targetVersion: a.targetVersion,
+       branch: { jobId: ctx.jobId, branchId: a.row.neonBranchId, targetVersion: a.targetVersion },
+       reviewedSuite: a.binding.reviewed_calendar, systemPrompt: a.intake.endpoint.systemPrompt, knownSecrets: a.knownSecrets,
+-      dependencies: { db, simulator: new CalendarSimulator(new PostgresCalendarStore(db)), targetForScenario: () => platformTarget(a.intake.endpoint) } };
++      dependencies: { db, simulator: new CalendarSimulator(new PostgresCalendarStore(db)), targetForScenario: () => ({ async complete(messages) { const fresh=await canonical(); const currentBranch=await ledger.findOwnedBranch(a.row.neonBranchId!); if(fresh.targetVersion!==a.targetVersion || fresh.row.neonBranchId!==a.row.neonBranchId || currentBranch?.jobId!==ctx.jobId || currentBranch.state!=='ready') return refused(); return platformTarget(fresh.intake.endpoint).complete(messages); } }) } };
+   } });
+   const reportServices = createTrackBServices({ runner,
+     resolveJob: async current => {
+@@ -120,7 +122,7 @@
+   });
+   async function bindTextBaseline(suiteDigest: string, runId: string) {
+     const a = await canonical();
+-    if (a.job.package !== 'text_eval') return refused();
++    if (authority.rerun || a.job.package !== 'text_eval') return refused();
+     await text.reportInput(ctx, { suiteDigest, runId }); // completed investigation and exact associations required
+     await sql.query(`UPDATE workflow_integration.bindings SET baseline_suite_digest=$2,baseline_run_id=$3
+       WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
+diff --git a/apps/web/src/server/job-actions.ts b/apps/web/src/server/job-actions.ts
+--- a/apps/web/src/server/job-actions.ts
++++ b/apps/web/src/server/job-actions.ts
+@@ -1,18 +1,11 @@
+ import "server-only";
+-import { and, count, eq } from "drizzle-orm";
+-import { db, schema } from "@ae/core/db/client";
+-import { Finding, Suite, type Scenario } from "@ae/core/contracts/index";
+-import { readJobArtifactText } from "@ae/core/storage/blob";
+-import { isUuid } from "./http";
+ import type { getJobForViewer } from "./queries";
+-import { addMessage, getJob, makeServiceContext, saveFindings } from "./job-store";
+-import { getEvalServices } from "./services";
++import { addMessage } from "./job-store";
+ import { sendJobEvent } from "@/workflows/events";
+ 
+ type JobData = NonNullable<Awaited<ReturnType<typeof getJobForViewer>>>;
+ export type ActionResult<T> = { ok: true; value: T } | { ok: false; status: number; error: string; extra?: Record<string, unknown> };
+ 
+-const MAX_RERUNS_PER_FINDING = 3;
+ 
+ /** Shared by the messages route and the MCP answer_clarification tool. Caller has already authorized `data`. */
+ export async function submitClarificationAnswer(data: JobData, answer: string): Promise<ActionResult<{ messageId: string }>> {
+@@ -30,40 +23,11 @@
+   return { ok: true, value: { messageId } };
+ }
+ 
+-/** Shared by the rerun route and the MCP rerun_finding tool. Caller has already authorized `data`. */
+-export async function rerunFindingForJob(data: JobData, findingId: string): Promise<ActionResult<{ finding: unknown }>> {
+-  const jobId = data.job.id;
+-  if (!isUuid(findingId)) return { ok: false, status: 404, error: "Finding not found" };
+-  const row = data.findings.find((f) => f.id === findingId);
+-  if (!row) return { ok: false, status: 404, error: "Finding not found" };
+-  if (data.job.state !== "delivered") {
+-    return { ok: false, status: 409, error: "Findings can be re-run once the job is delivered", extra: { state: data.job.state } };
+-  }
+-  const parsed = Finding.safeParse(row.data);
+-  if (!parsed.success) return { ok: false, status: 409, error: "Stored finding is not re-runnable" };
+-  const originalId = row.rerunOfFindingId ?? row.id;
+-  const [{ n }] = await db().select({ n: count() }).from(schema.findings)
+-    .where(and(eq(schema.findings.jobId, jobId), eq(schema.findings.rerunOfFindingId, originalId)));
+-  if (n >= MAX_RERUNS_PER_FINDING) return { ok: false, status: 409, error: "Re-run limit reached for this finding" };
+-
+-  let scenario: Scenario | undefined;
+-  const job = await getJob(jobId);
+-  if (job?.suiteBlobPath && parsed.data.scenarioId) {
+-    const raw = await readJobArtifactText(job.suiteBlobPath);
+-    const suite = raw ? Suite.safeParse(JSON.parse(raw)) : null;
+-    scenario = suite?.success ? suite.data.scenarios.find((s) => s.id === parsed.data.scenarioId) : undefined;
+-  }
+-  try {
+-    const sctx = await makeServiceContext(jobId);
+-    await sctx.recordProgress("finding_rerun", `Re-running finding "${parsed.data.title}"`);
+-    const rerun = Finding.parse(await (await getEvalServices()).rerunFinding(sctx, parsed.data, scenario));
+-    await saveFindings(jobId, [rerun], originalId);
+-    const [saved] = await db().select().from(schema.findings)
+-      .where(and(eq(schema.findings.jobId, jobId), eq(schema.findings.rerunOfFindingId, originalId)))
+-      .orderBy(schema.findings.createdAt).then((r) => r.slice(-1));
+-    return { ok: true, value: { finding: saved } };
+-  } catch (err) {
+-    console.error("rerun failed", err);
+-    return { ok: false, status: 502, error: "Re-run failed" };
+-  }
++/** Both authenticated transports use the same durable rich service. */
++export async function rerunFindingForJob(data: JobData, findingId: string, key?: string, ownerId?: string): Promise<ActionResult<unknown>> {
++ if (!key || !ownerId) return {ok:false,status:400,error:'Idempotency-Key and authenticated owner required'};
++ try { const {rerunRichFinding,RerunRefusal}=await import('./rich-rerun');
++  try { return {ok:true,value:await rerunRichFinding({jobId:data.job.id,findingId,key,ownerId})}; }
++  catch(error){ if(error instanceof RerunRefusal) return {ok:false,status:error.status,error:error.message}; throw error; }
++ } catch { return {ok:false,status:409,error:'Re-run unavailable; operator reconciliation required'}; }
+ }
+diff --git a/apps/web/src/server/mcp-tools.ts b/apps/web/src/server/mcp-tools.ts
+--- a/apps/web/src/server/mcp-tools.ts
++++ b/apps/web/src/server/mcp-tools.ts
+@@ -297,6 +297,7 @@
+     findings,
+     remediations: (data.remediations ?? []).map(({ id: _id, createdAt: _c, ...r }) => r),
+     reportMarkdown: md.slice(0, REPORT_MARKDOWN_MAX), reportTruncated: md.length > REPORT_MARKDOWN_MAX,
++    reruns: await (await import('./rich-rerun')).readRichRerunsForOwner(jobId,c.customerId),
+     howToRerun: "Pass a finding's `id` (not findingKey) to rerun_finding. Remediations link to findings through `findingKey`.",
+     downloads: {
+       note: "Download routes require the owner's web session (not API keys). The content above is the full report.",
+@@ -305,10 +306,10 @@
+   });
+ }
+ 
+-export async function rerunFinding(c: McpCaller, jobId: string, findingId: string): Promise<McpToolResult> {
++export async function rerunFinding(c: McpCaller, jobId: string, findingId: string, idempotencyKey?: string): Promise<McpToolResult> {
+   const data = await loadOwnedJob(c, jobId);
+   if (!data) return NOT_FOUND();
+-  const r = await rerunFindingForJob(data, findingId);
++  const r = await rerunFindingForJob(data, findingId, idempotencyKey, c.customerId);
+   return r.ok ? ok(r.value as Record<string, unknown>) : fail(r.error, r.extra);
+ }
+ 
+@@ -339,9 +340,9 @@
+     description: "The delivered report: summary, findings (each with id, severity, evidence excerpts), verified remediations (patches with before/after pass counts) and the full report as markdown. Only after state is delivered.",
+     run: (c: McpCaller, i: { jobId: string }) => getReport(c, i.jobId) },
+   { name: "rerun_finding", title: "Re-run a finding", readOnly: false,
+-    inputSchema: z.object({ jobId: JobId, findingId: z.uuid().describe("A finding's `id` from get_report/get_job (not its findingKey)") }),
+-    description: "Re-run one finding against the frozen scenario to check whether it still reproduces after you applied a fix. Job must be delivered; max 3 re-runs per finding.",
+-    run: (c: McpCaller, i: { jobId: string; findingId: string }) => rerunFinding(c, i.jobId, i.findingId) },
++    inputSchema: z.object({ jobId: JobId, idempotencyKey: z.string().regex(/^[A-Za-z0-9_.:-]{8,128}$/).optional(), findingId: z.uuid().describe("A finding's `id` from get_report/get_job (not its findingKey)") }),
++    description: "Requires idempotencyKey; retries must reuse it. Reruns the original full frozen12 for the finding to check whether it still reproduces after you applied a fix. Job must be delivered; max 3 re-runs per finding.",
++    run: (c: McpCaller, i: { jobId: string; findingId: string; idempotencyKey?: string }) => rerunFinding(c, i.jobId, i.findingId, i.idempotencyKey) },
+   { name: "cancel_job", title: "Cancel a job", readOnly: false,
+     inputSchema: z.object({ jobId: JobId, reason: z.string().trim().max(1_000).optional() }),
+     description: "Cancel a job before work starts (states draft, needs_clarification, quoted, awaiting_payment). An open checkout is closed so it cannot be paid. Once work has started it cannot be cancelled here.",
+diff --git a/apps/web/src/app/api/jobs/[jobId]/findings/[findingId]/rerun/route.ts b/apps/web/src/app/api/jobs/[jobId]/findings/[findingId]/rerun/route.ts
+--- a/apps/web/src/app/api/jobs/[jobId]/findings/[findingId]/rerun/route.ts
++++ b/apps/web/src/app/api/jobs/[jobId]/findings/[findingId]/rerun/route.ts
+@@ -2,13 +2,22 @@
+ import { getJobForViewer, getCurrentCustomer } from "@/server/queries";
+ import { rerunFindingForJob } from "@/server/job-actions";
+ 
+-export async function POST(_req: Request, ctx: { params: Promise<{ jobId: string; findingId: string }> }) {
++export async function POST(req: Request, ctx: { params: Promise<{ jobId: string; findingId: string }> }) {
+   const me = await getCurrentCustomer();
+   if (!me) return jsonError(401, "Authentication required");
+   const { jobId, findingId } = await ctx.params;
+   const data = await getJobForViewer(jobId, me);
+   if (!data) return jsonError(404, "Job not found");
+-  const r = await rerunFindingForJob(data, findingId);
++  const r = await rerunFindingForJob(data, findingId, req.headers.get("Idempotency-Key") ?? undefined, me.id);
+   if (!r.ok) return jsonError(r.status, r.error, r.extra);
+-  return Response.json(r.value, { status: 201 });
++  return Response.json(r.value, { status: (r.value as {state:string}).state === "completed" ? 200 : 202 });
+ }
++
++/** Separate private appendices; original report and finding rows remain immutable. */
++export async function GET(_req: Request, ctx: { params: Promise<{jobId:string;findingId:string}> }) {
++ const me=await getCurrentCustomer(); if(!me) return jsonError(401,'Authentication required');
++ const {jobId,findingId}=await ctx.params; const data=await getJobForViewer(jobId,me);
++ if(!data || data.job.customerId!==me.id) return jsonError(404,'Job not found');
++ const {readRichRerunsForOwner}=await import('@/server/rich-rerun');
++ return Response.json({reruns:await readRichRerunsForOwner(jobId,me.id,findingId)});
++}
+diff --git a/apps/web/src/server/rich-rerun.ts b/apps/web/src/server/rich-rerun.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/rich-rerun.ts
+@@ -0,0 +1,114 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
++import { canonicalJson } from '@ae/core/evals/text/index';
++import { containsSecret } from '@ae/core/agents/redact';
++import { createRichWorkflowServices, workflowSql } from './rich-services';
++import { getJobWithDecryptedCredentials, makeServiceContext } from './job-store';
++import { getEvalServices } from './services';
++const hash = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
++export class RerunRefusal extends Error { constructor(public status: number, message: string) { super(message); } }
++const refuse = (message = 'Re-run requires operator reconciliation', status = 409): never => { throw new RerunRefusal(status, message); };
++type Artifact = { format: string; suite: { digest?: string; hash?: string; scenarios: { id: string }[] }; run: { runId: string; branchId?: string; versionLabel?: string }; investigation: { findings: { id: string }[] }; appendedPack?: unknown };
++export type RerunRequest = { jobId: string; findingId: string; ownerId: string; key: string };
++type Authority = { environment: 'test' | 'live'; workflowRunId: string; targetVersion: string; baseline: Artifact; suiteDigest: string; findingKey: string; hold: number; secrets: string[]; digest: string };
++/** Fresh owner, credential, binding and immutable artifact lookup; never accept a scenario or legacy finding evidence. */
++export async function loadRerunAuthority(db: AgentTransactionalSql, request: RerunRequest): Promise<Authority> {
++ const r = (await db.query<{ customer_id: string; environment: 'test' | 'live'; state: string; is_mock: boolean; workflow_run_id: string; package: string; neon_branch_id: string | null; ciphertext: string; target_revision: string; rerun_operation_micro_usd: string; suite_digest: string; body: Artifact; finding_key: string; rerun_of_finding_id: string | null }>(`SELECT j.customer_id,j.environment,j.state,j.is_mock,j.workflow_run_id,j.package,j.neon_branch_id,
++ c.ciphertext,b.target_revision,b.rerun_operation_micro_usd,a.suite_digest,a.body,f.finding_key,f.rerun_of_finding_id
++ FROM jobs j JOIN job_credentials c ON c.job_id=j.id JOIN workflow_integration.bindings b ON b.job_id=j.id
++ JOIN workflow_integration.rich_artifacts a ON a.job_id=j.id AND a.tenant_id=j.customer_id AND a.environment=j.environment
++ JOIN findings f ON f.job_id=j.id AND f.id=$2 WHERE j.id=$1 AND j.customer_id=$3`,[request.jobId,request.findingId,request.ownerId])).rows[0];
++ if (!r) return refuse('Job or original finding unavailable',404);
++ if (r.state !== 'delivered' || r.is_mock || !r.workflow_run_id || !r.ciphertext || !r.target_revision || r.rerun_of_finding_id) return refuse();
++ const b = r.body;
++ if (!['text_eval','workflow_eval'].includes(r.package) || !b || b.appendedPack || !['rich_text.v1','rich_text_remediation.v1','rich_calendar.v1'].includes(b.format)) return refuse('Unsupported scope; trace and appended-pack reruns require a separate integration');
++ if ((r.package === 'workflow_eval') !== (b.format === 'rich_calendar.v1') || b.suite.scenarios.length !== 12 || (b.suite.digest ?? b.suite.hash) !== r.suite_digest || !b.run.runId || !b.investigation.findings.some(f=>f.id===r.finding_key)) return refuse('Rich baseline association refused');
++ if (r.package === 'workflow_eval' && (!r.neon_branch_id || b.run.branchId !== r.neon_branch_id)) return refuse('Original Calendar branch unavailable; no replacement branch will be created');
++ const hold=Number(r.rerun_operation_micro_usd);
++ if (!Number.isSafeInteger(hold) || hold<=0) return refuse('Authorized rerun budget binding required');
++ // The target hash is recalculated by rich-services before every target resolution.
++ const loaded = await getJobWithDecryptedCredentials(request.jobId);
++ if (!loaded || loaded.job.customerId !== request.ownerId || loaded.job.environment !== r.environment) return refuse();
++ const secrets=Object.values(loaded.credentials).filter((v):v is string=>typeof v==='string');
++ if (containsSecret(canonicalJson(b),secrets)) return refuse();
++ const targetVersion=createHash('sha256').update(JSON.stringify({endpoint:{...('endpoint' in loaded.intake ? loaded.intake.endpoint : {}),apiKey:undefined},revision:r.target_revision,credentialCiphertext:r.ciphertext})).digest('hex');
++ return {environment:r.environment,workflowRunId:r.workflow_run_id,targetVersion,baseline:b,suiteDigest:r.suite_digest,findingKey:r.finding_key,hold,secrets,
++ digest:hash({owner:request.ownerId,environment:r.environment,workflow:r.workflow_run_id,targetVersion,branch:r.neon_branch_id,baseline:b,hold})};
++}
++type RichApi = Awaited<ReturnType<typeof createRichWorkflowServices>>;
++/** Concrete adapters: both engines execute the retained full frozen12 (not an invented one-case suite).
++ * Reproduction/investigator claims are never copied from the original finding. */
++export async function runRichRerun(api: Pick<RichApi,'text'|'calendar'>, ctx: ServiceContext, a: Authority, operationId: string) {
++ if (a.baseline.format === 'rich_calendar.v1') {
++  const suiteId=operationId;
++  const suite=await api.calendar.freezeSuite(ctx,{suiteId});
++  if (suite.hash!==a.suiteDigest || canonicalJson(suite)!==canonicalJson(a.baseline.suite)) return refuse();
++  const run=await api.calendar.runSuite(ctx,{suiteId,operationId,versionLabel:a.baseline.run.versionLabel ?? 'default'});
++  return {format:'rich_calendar_rerun.v1',suite,run,limitations:['Full frozen12 rerun. Independent reproduction and remediation were not performed.']};
++ }
++ const suite=await api.text.getSuite(ctx,a.suiteDigest);
++ if (suite.digest!==a.suiteDigest || canonicalJson(suite)!==canonicalJson(a.baseline.suite)) return refuse();
++ const run=await api.text.rerun(ctx,{suiteDigest:a.suiteDigest,baselineRunId:a.baseline.run.runId,runId:operationId});
++ return {format:'rich_text_rerun.v1',suite,run,limitations:['Full frozen12 rerun. Objective/rubric/infrastructure outcomes remain distinct; independent reproduction and remediation were not performed.']};
++}
++/** Committed claims are never leased/taken over. Crash before/after dispatch is explicitly ambiguous. */
++export async function executeRerun(db: AgentTransactionalSql, request: RerunRequest,
++ deps: { authority?: typeof loadRerunAuthority; context?: typeof makeServiceContext; services?: typeof createRichWorkflowServices; check?: (ctx: ServiceContext)=>Promise<void> } = {}) {
++ if (!/^[A-Za-z0-9_.:-]{8,128}$/.test(request.key)) return refuse('Idempotency-Key required (8-128 safe ASCII characters)',400);
++ const authorize=()=> (deps.authority ?? loadRerunAuthority)(db,request);
++ const a=await authorize(), inputDigest=hash({finding:request.findingId,contract:'rich_rerun.v1'});
++ const operationId=`rerun:${hash({job:request.jobId,key:request.key})}`;
++ const claim=await db.transaction(async tx=>{
++  await tx.query('SELECT id FROM jobs WHERE id=$1 FOR UPDATE',[request.jobId]);
++  const old=(await tx.query<{input_digest:string;authority_digest:string;state:string;result:unknown}>('SELECT input_digest,authority_digest,state,result FROM workflow_integration.finding_reruns WHERE job_id=$1 AND operation_key=$2',[request.jobId,request.key])).rows[0];
++  if(old){if(old.input_digest!==inputDigest || old.authority_digest!==a.digest) return refuse('Idempotency key input or authority changed'); return {fresh:false,...old};}
++  // Serialize admission against all finding keys and all reruns for this job.
++  const usage=(await tx.query<{n:string;held:string}>(`SELECT count(*) FILTER (WHERE finding_id=$2) AS n,coalesce(sum(hold_micro_usd),0) AS held FROM workflow_integration.finding_reruns WHERE job_id=$1`,[request.jobId,request.findingId])).rows[0];
++  const legacy=(await tx.query<{n:string}>('SELECT count(*) AS n FROM findings WHERE job_id=$1 AND rerun_of_finding_id=$2',[request.jobId,request.findingId])).rows[0];
++  if(Number(usage.n)+Number(legacy.n)>=3) return refuse('Re-run limit reached (including pending operations)');
++  const budget=(await tx.query<{spent:string;reserved:string;cap:number}>(`SELECT coalesce((SELECT sum(micro_usd) FROM costs WHERE job_id=$1),0) AS spent,coalesce((SELECT sum(micro_usd) FROM budget_reservations WHERE job_id=$1 AND released_at IS NULL),0) AS reserved`,[request.jobId])).rows[0];
++  const cap=JOB_BUDGET_MICRO_USD[a.baseline.format==='rich_calendar.v1'?'workflow_eval':'text_eval'];
++  if(Number(budget.spent)+Number(budget.reserved)+Number(usage.held)+a.hold>cap) return refuse('Re-run budget exhausted');
++  await tx.query(`INSERT INTO workflow_integration.finding_reruns(job_id,operation_key,operation_id,finding_id,input_digest,authority_digest,hold_micro_usd,state) VALUES($1,$2,$3,$4,$5,$6,$7,'pending')`,[request.jobId,request.key,operationId,request.findingId,inputDigest,a.digest,a.hold]);
++  return {fresh:true,state:'pending',result:null};
++ });
++ if(!claim.fresh && containsSecret(canonicalJson(claim.result),a.secrets)) return refuse();
++ if(!claim.fresh) return {operationId,state:claim.state,result:claim.result,replayed:true};
++ let api: RichApi | undefined;
++ try {
++  if((await authorize()).digest!==a.digest) return refuse();
++  const ctx=await (deps.context ?? makeServiceContext)(request.jobId);
++  ctx.budgetMicroUsd=Math.min(ctx.budgetMicroUsd,a.hold);
++  if(deps.check) await deps.check(ctx); else {
++   const loaded=await getJobWithDecryptedCredentials(request.jobId);
++   if(!loaded || !('endpoint' in loaded.intake)) return refuse();
++   if(!(await (await getEvalServices()).checkTarget(ctx,loaded.intake.endpoint)).ok) return refuse('Target policy refused');
++  }
++  api=await (deps.services ?? createRichWorkflowServices)(ctx,{workflowRunId:a.workflowRunId,rerun:{ownerId:request.ownerId,targetVersion:a.targetVersion}});
++  await ctx.recordProgress('finding_rerun',`Re-run ${operationId} started; original baseline retained.`);
++  const outcome=await runRichRerun(api,ctx,a,operationId);
++  const report = {summary:`Re-run ${operationId} of ${request.findingId}; original baseline ${a.baseline.run.runId} retained.`,
++   markdown:`Re-run ${operationId} uses suite ${a.suiteDigest} and target version ${a.targetVersion}. Full structured outcomes are retained in this separate result. Independent reproduction and fix verification are unassessed.`};
++  const result={report,operationId,originalFindingId:request.findingId,findingKey:a.findingKey,baselineRunId:a.baseline.run.runId,suiteDigest:a.suiteDigest,targetVersion:a.targetVersion,...outcome};
++  if(containsSecret(canonicalJson(result),a.secrets)) return refuse();
++  await db.query(`UPDATE workflow_integration.finding_reruns SET state='completed',result=$3::jsonb WHERE job_id=$1 AND operation_key=$2 AND state='pending'`,[request.jobId,request.key,canonicalJson(result)]);
++  await ctx.recordProgress('finding_rerun',`Re-run ${operationId} completed; separate rich result retained.`);
++  return {operationId,state:'completed',result,replayed:false};
++ } catch {
++  // Completion acknowledgement may have been lost. Never erase a committed result.
++  await db.query(`UPDATE workflow_integration.finding_reruns SET state='needs_operator' WHERE job_id=$1 AND operation_key=$2 AND state='pending'`,[request.jobId,request.key]).catch(()=>undefined);
++  return {operationId,state:'needs_operator',result:null,replayed:false};
++ } finally {await api?.dispose();}
++}
++export const rerunRichFinding = (request:RerunRequest)=>executeRerun(workflowSql(),request);
++/** Private report appendices. Ownership is checked in SQL even after transport authorization. */
++export async function readRichRerunsForOwner(jobId:string,ownerId:string,findingId?:string) {
++ const rows=await workflowSql().query<{operation_id:string;finding_id:string;state:string;result:unknown}>(`SELECT r.operation_id,r.finding_id,r.state,r.result FROM workflow_integration.finding_reruns r JOIN jobs j ON j.id=r.job_id WHERE r.job_id=$1 AND j.customer_id=$2 AND ($3::uuid IS NULL OR r.finding_id=$3) ORDER BY r.created_at,r.operation_id`,[jobId,ownerId,findingId??null]);
++ const loaded=await getJobWithDecryptedCredentials(jobId);
++ const secrets=Object.values(loaded?.credentials??{}).filter((v):v is string=>typeof v==='string');
++ if(rows.rows.some(r=>containsSecret(canonicalJson(r.result),secrets))) return refuse();
++ return rows.rows.map(r=>({operationId:r.operation_id,originalFindingId:r.finding_id,state:r.state,result:r.result}));
++}
+diff --git a/apps/web/migrations/006-workflow-finding-reruns.sql b/apps/web/migrations/006-workflow-finding-reruns.sql
+new file mode 100644
+--- /dev/null
++++ b/apps/web/migrations/006-workflow-finding-reruns.sql
+@@ -0,0 +1,13 @@
++-- Apply after rich artifacts and remediation bindings; no runtime DDL.
++ALTER TABLE workflow_integration.bindings ADD COLUMN rerun_operation_micro_usd bigint CHECK (rerun_operation_micro_usd > 0);
++CREATE TABLE workflow_integration.finding_reruns (
++ job_id uuid NOT NULL REFERENCES jobs(id), operation_key text NOT NULL,
++ operation_id text NOT NULL UNIQUE, finding_id uuid NOT NULL REFERENCES findings(id),
++ input_digest text NOT NULL, authority_digest text NOT NULL,
++ hold_micro_usd bigint NOT NULL CHECK (hold_micro_usd > 0),
++ state text NOT NULL CHECK (state IN ('pending','completed','needs_operator')),
++ result jsonb, created_at timestamptz NOT NULL DEFAULT now(),
++ PRIMARY KEY(job_id,operation_key)
++);
++-- Server role only, matching rich_artifacts. Never grant public/browser access.
++REVOKE ALL ON workflow_integration.finding_reruns FROM PUBLIC;

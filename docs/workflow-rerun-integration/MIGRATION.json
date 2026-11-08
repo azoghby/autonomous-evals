@@ -1,0 +1,14 @@
+{
+  "id": "app.workflow-finding-reruns.006",
+  "sourcePath": "apps/web/migrations/006-workflow-finding-reruns.sql",
+  "sha256": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+  "database": "application",
+  "transactionOwner": "owner-deployment-transaction",
+  "after": [
+    "app.workflow002",
+    "app.workflow-remediation.004",
+    "app.workflow-packs.005"
+  ],
+  "executed": false,
+  "manifestAction": "Append as a separate canonical identity; do not overwrite final-composition or historical 004 entries."
+}

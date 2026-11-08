@@ -1,0 +1,15 @@
+{
+  "parent": "01cd322b18dbfd5067323fba051c633d55151574",
+  "predecessor": "883d186a94ea38aeb122afeb9d9e9bd2ee0c6e24",
+  "predecessorArtifact": "docs/track-b-final-composition/INTEGRITY.json",
+  "core": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+  "preimageSha256": {
+    "apps/web/src/server/rich-services.ts": "8e7e89d2c796f6f472e868901dca7c24649245ee794bbb8650e2b2fe0747d9bc",
+    "apps/web/src/server/job-actions.ts": "353a2bc76fad79e40554914a8e86d9df7902917ddd5984ed73a862a005f18d74",
+    "apps/web/src/server/mcp-tools.ts": "7f1212d675f324fc65b81e30317c7c5d00b792efbc9ba9a6e7174cf2649d161d",
+    "apps/web/src/app/api/jobs/[jobId]/findings/[findingId]/rerun/route.ts": "a62e9000aa05ca859f6813f1341b0913a4eb2cff73225cd0382e2ff41c4196a6",
+    "apps/web/src/server/rich-rerun.ts": null,
+    "apps/web/migrations/006-workflow-finding-reruns.sql": null
+  },
+  "patchSha256": "200e11c07fc3d40937e9ee410b464bead40f00406678261c532f80de56320da3"
+}
