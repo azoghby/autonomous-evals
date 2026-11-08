@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { customerForSessionToken } from "@ae/core/auth/magic-link";
 import { isOperator } from "@ae/core/auth/tokens";
@@ -18,10 +19,11 @@ export async function getSessionToken(): Promise<string | null> {
   return (await cookies()).get(SESSION_COOKIE)?.value ?? null;
 }
 
-export async function getCurrentCustomer(): Promise<Viewer | null> {
+/** Memoized per request: the layout, page and any server component share one session lookup. */
+export const getCurrentCustomer = cache(async (): Promise<Viewer | null> => {
   const token = await getSessionToken();
   if (!token) return null;
   const c = await customerForSessionToken(token);
   if (!c) return null;
   return { id: c.id, email: c.email, isOperator: isOperator(c.email) };
-}
+});
