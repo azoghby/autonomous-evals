@@ -1,4 +1,5 @@
 import "server-only";
+import { notifyOutreachDraft } from "./notify/hooks";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { hashToken, newToken } from "@ae/core/auth/tokens";
@@ -136,6 +137,7 @@ export async function inviteExpert(requestId: string, expertId: string, mode: Ex
       requestId, expertId, mode, tokenHash: hashToken(token), honorariumCents,
       expiresAt: new Date(Date.now() + ENGAGEMENT_TTL_MS), outreachDraftId: draft!.id,
     }).returning({ id: schema.expertEngagements.id });
+    await notifyOutreachDraft({ id: draft!.id, kind: "expert_invite", toEmail: expert.email, subject });
     return { engagementId: engagement!.id, outreachDraftId: draft!.id };
   } catch (err) {
     // Lost a race on (request, expert): drop the orphan draft so it can't be approved.

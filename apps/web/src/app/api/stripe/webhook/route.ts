@@ -5,6 +5,7 @@ import { stripe, webhookSecret, getStripeMode } from "@ae/core/payments/stripe";
 import { isManualCaptureAuthorized, recordPaymentFromSession } from "@ae/core/payments/checkout";
 import { recordPlanPurchase, syncSubscription } from "@ae/core/payments/plans-checkout";
 import { alertOperators } from "@/server/operator-alerts";
+import { notifyPlanPurchase } from "@/server/notify/hooks";
 import { resumeJobForPayment } from "../../../../workflows/resume";
 
 export const dynamic = "force-dynamic";
@@ -98,6 +99,12 @@ async function handlePlanSession(session: Stripe.Checkout.Session, eventId: stri
   }
   try {
     const r = await recordPlanPurchase(session, eventId);
+    if (r.inserted) {
+      await notifyPlanPurchase({
+        sessionId: session.id, kind: r.kind, product: r.product, amountCents: session.amount_total ?? 0,
+        environment: session.livemode ? "live" : "test", email: r.email,
+      });
+    }
     if (r.inserted && r.kind === "agent_audit") {
       // Alerting never fails the webhook; the purchase is already persisted.
       await alertOperators({

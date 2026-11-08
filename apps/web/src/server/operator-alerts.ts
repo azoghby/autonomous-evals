@@ -2,6 +2,10 @@ import "server-only";
 import { isEmailConfigured, sendEmail } from "@ae/core/auth/email";
 import { operatorEmails } from "@ae/core/auth/tokens";
 import { rateLimit } from "./rate-limit";
+import { notifyOperatorAlert } from "./notify/hooks";
+
+/** Alert kinds that already create their own founder approval (sales_lead, agent_audit_purchase). */
+const PHONE_SKIP_KINDS = ["sales_lead", "agent_audit_purchased"];
 
 export type OperatorAlertSeverity = "info" | "warning" | "critical";
 
@@ -65,11 +69,15 @@ ${alert.jobId ? `<tr><td style="padding:2px 12px 2px 0;color:#666">Job</td><td><
  */
 export async function alertOperators(alert: OperatorAlert): Promise<boolean> {
   try {
+    const gate = await rateLimit(`operator-alert:${alert.kind}:${alert.jobId ?? "-"}`, 1, ALERT_DEDUPE_SECONDS);
+    if (!gate.ok) return false;
+    // Phone FYI (Telegram/WhatsApp) runs even when email is not configured. Kinds with a dedicated founder approval are skipped.
+    if (!PHONE_SKIP_KINDS.some((p) => alert.kind.startsWith(p))) {
+      await notifyOperatorAlert({ ...alert, title: redactAlertText(alert.title, MAX_TITLE_CHARS), detail: redactAlertText(alert.detail) });
+    }
     const recipients = [...operatorEmails()];
     if (recipients.length === 0) { console.error("operator alert skipped: OPERATOR_EMAILS is empty", alert.kind, alert.jobId ?? "-"); return false; }
     if (!isEmailConfigured()) { console.error("operator alert skipped: email not configured", alert.kind, alert.jobId ?? "-"); return false; }
-    const gate = await rateLimit(`operator-alert:${alert.kind}:${alert.jobId ?? "-"}`, 1, ALERT_DEDUPE_SECONDS);
-    if (!gate.ok) return false;
     const { subject, text, html } = buildAlertEmail(alert);
     const results = await Promise.allSettled(recipients.map((to) => sendEmail({ to, subject, text, html, purpose: "auth", labels: ["operator-alert"] })));
     let sent = 0;
