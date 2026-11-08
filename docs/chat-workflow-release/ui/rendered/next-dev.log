@@ -1,0 +1,175 @@
+▲ Next.js 16.4.5 (webpack)
+- Local:         http://localhost:3217
+- Network:       http://10.45.155.66:3217
+✓ Ready in 367ms
+✓ Compiled workflows in 1.6s (47 steps, 1 workflow)
+✓ Running next.config.ts took 2.9s
+- Experiments (use with caution):
+  · extensionAlias
+
+ GET /api/jobs/synthetic-owned-job/chat 401 in 2.2s (next.js: 1550ms, application-code: 669ms)
+○ Compiling /api/jobs/[jobId]/data-review/route ...
+⨯ ./src/server/data-production.ts:8:1
+Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+⨯ ./src/server/data-production.ts:8:1
+Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+ GET /api/jobs/synthetic-owned-job/data-review?digest=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 500 in 8.5s (next.js: 8.3s, application-code: 143ms)
+ POST /api/jobs/synthetic-owned-job/data-review 500 in 12ms (next.js: 2.0ms, application-code: 11ms)
+ POST /api/jobs/synthetic-owned-job/data-review 500 in 5ms (next.js: 1.0ms, application-code: 4ms)
+ GET /api/jobs/synthetic-owned-job/chat?mode=poll 500 in 6ms (next.js: 1.3ms, application-code: 4ms)
+ POST /api/jobs/synthetic-owned-job/chat 500 in 6ms (next.js: 1.1ms, application-code: 4ms)
+ POST /api/jobs/synthetic-owned-job/chat 500 in 7ms (next.js: 1.5ms, application-code: 6ms)
+⨯ ./src/server/data-production.ts:8:1
+Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+ GET /jobs/synthetic-owned-job 500 in 24ms (next.js: 7ms, application-code: 17ms)
+
+BROWSER error: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+BROWSER info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+PAGEERROR Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+BROWSER log: [HMR] connected[browser] Uncaught Error: Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+
+BROWSER error: ./src/server/data-production.ts:8:1
+Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+BROWSER error: ./src/server/data-production.ts:13:1
+Module not found: Can't resolve '@ae/core/evals/data/discovery'
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+  12 | import { createDraftOnlyExpertAdapter } from '@ae/core/evals/data/adapters/expert';
+> 13 | import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery';
+     | ^
+  14 | import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence';
+  15 | import { reviewDigest } from '@ae/core/evals/data/binding';
+  16 | import { designTextSuite } from '@ae/core/evals/text/design';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts
+BROWSER error: ./src/server/data-production.ts:14:1
+Module not found: Can't resolve '@ae/core/evals/data/discovery/persistence'
+  12 | import { createDraftOnlyExpertAdapter } from '@ae/core/evals/data/adapters/expert';
+  13 | import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery';
+> 14 | import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence';
+     | ^
+  15 | import { reviewDigest } from '@ae/core/evals/data/binding';
+  16 | import { designTextSuite } from '@ae/core/evals/text/design';
+  17 | import { verifyAdmittedFrozenSuite } from '@ae/core/evals/text/freeze';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts[browser] ./src/server/data-production.ts:8:1
+Module not found: Can't resolve '@ae/core/evals/data/postgres-operations'
+   6 | import { decryptJson } from '@ae/core/storage/crypto';
+   7 | import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
+>  8 | import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
+     | ^
+   9 | import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
+  10 | import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts 
+[browser] ./src/server/data-production.ts:13:1
+Module not found: Can't resolve '@ae/core/evals/data/discovery'
+  11 | import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+  12 | import { createDraftOnlyExpertAdapter } from '@ae/core/evals/data/adapters/expert';
+> 13 | import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery';
+     | ^
+  14 | import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence';
+  15 | import { reviewDigest } from '@ae/core/evals/data/binding';
+  16 | import { designTextSuite } from '@ae/core/evals/text/design';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts 
+[browser] ./src/server/data-production.ts:14:1
+Module not found: Can't resolve '@ae/core/evals/data/discovery/persistence'
+  12 | import { createDraftOnlyExpertAdapter } from '@ae/core/evals/data/adapters/expert';
+  13 | import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery';
+> 14 | import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence';
+     | ^
+  15 | import { reviewDigest } from '@ae/core/evals/data/binding';
+  16 | import { designTextSuite } from '@ae/core/evals/text/design';
+  17 | import { verifyAdmittedFrozenSuite } from '@ae/core/evals/text/freeze';
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/data-review/route.ts 

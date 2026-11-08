@@ -1,0 +1,212 @@
+"use client";
+
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+
+type Reply = { text: string; asOf: string; unknowns: string[] };
+type Exchange = { messageId: string; sequence: number; reply: Reply };
+type Page = { exchanges: Exchange[]; nextAfterSequence: number; hasMore: boolean };
+type Pending = { messageId: string; text: string };
+
+const LIMIT = 20;
+const button = "rounded-[4px] border border-line-3 px-4 py-2 text-sm text-fg hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50";
+const isReply = (v: unknown): v is Reply => {
+  if (!v || typeof v !== "object") return false;
+  const r = v as Reply;
+  return typeof r.text === "string" && r.text.length <= 32_000 && typeof r.asOf === "string" && Number.isFinite(Date.parse(r.asOf)) && Array.isArray(r.unknowns) && r.unknowns.length <= 20 && r.unknowns.every(x => typeof x === "string" && x.length <= 500);
+};
+const isExchange = (v: unknown): v is Exchange => {
+  if (!v || typeof v !== "object") return false;
+  const x = v as Exchange;
+  return typeof x.messageId === "string" && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(x.messageId) && Number.isSafeInteger(x.sequence) && x.sequence > 0 && isReply(x.reply);
+};
+function safeError(status?: number): string {
+  if (status === 401) return "Sign in again to read your private chat.";
+  if (status === 404) return "This job is unavailable to your account.";
+  if (status === 409) return "This message ID conflicts with an earlier request. Discard this attempt and send a new question.";
+  if (status === 400) return "The question could not be accepted. Discard this attempt and check that it contains no credentials or secrets.";
+  return "Private chat is temporarily unavailable. Try again.";
+}
+const accessDenied = (error: unknown) => error instanceof Error && /^(Sign in again|This job is unavailable)/.test(error.message);
+async function request(url: string, init: RequestInit): Promise<unknown> {
+  const response = await fetch(url, { ...init, credentials: "same-origin", cache: "no-store" });
+  if (!response.ok) throw new Error(safeError(response.status));
+  return response.json();
+}
+function merge(old: Exchange[], incoming: Exchange[]): Exchange[] {
+  const records = new Map(old.map(x => [x.messageId, x]));
+  for (const item of incoming) records.set(item.messageId, item);
+  return [...records.values()].sort((a, b) => a.sequence - b.sequence);
+}
+function Answer({ reply }: { reply: Reply }) {
+  return <>
+    <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-fg-2">{reply.text}</p>
+    {reply.unknowns.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">{reply.unknowns.map((text, i) => <li key={i}>{text}</li>)}</ul>}
+    <p className="t-data mt-2 text-subtle">Persisted progress as of <time dateTime={reply.asOf}>{new Date(reply.asOf).toLocaleString()}</time></p>
+  </>;
+}
+
+/** Reset all transient state when navigating to another job. No question is persisted in the browser. */
+export function JobPrivateChat({ jobId }: { jobId: string }) {
+  return <PrivateChat key={jobId} jobId={jobId} />;
+}
+function PrivateChat({ jobId }: { jobId: string }) {
+  const fieldId = useId();
+  const url = `/api/jobs/${encodeURIComponent(jobId)}/chat`;
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [pollError, setPollError] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [snapshot, setSnapshot] = useState<Reply | null>(null);
+  const historyCursor = useRef(0);
+  const progressCursor = useRef<string | null>(null);
+  const busy = useRef(false);
+  const historyRequest = useRef(0);
+  const accessBlocked = useRef(false);
+  const accessEpoch = useRef(0);
+  const sendBusy = useRef(false);
+  const mounted = useRef(true);
+  const abort = useRef<AbortController | null>(null);
+
+  const revoke = useCallback((error: Error) => {
+    accessBlocked.current = true;
+    ++accessEpoch.current;
+    historyCursor.current = 0;
+    progressCursor.current = null;
+    setHasMore(false);
+    ++historyRequest.current;
+    busy.current = false;
+    setLoading(false);
+    setExchanges([]);
+    setSnapshot(null);
+    setDraft("");
+    setPending(null);
+    setHistoryError(error.message);
+  }, []);
+
+  const loadHistory = useCallback(async (signal?: AbortSignal) => {
+    if (busy.current || accessBlocked.current) return;
+    busy.current = true;
+    const requestId = ++historyRequest.current;
+    setLoading(true);
+    try {
+      const raw = await request(`${url}?afterSequence=${historyCursor.current}&limit=${LIMIT}`, { signal });
+      const page = raw as Page;
+      if (!page || !Array.isArray(page.exchanges) || page.exchanges.length > LIMIT || !page.exchanges.every(isExchange) || !Number.isSafeInteger(page.nextAfterSequence) || page.nextAfterSequence < historyCursor.current || typeof page.hasMore !== "boolean" || page.exchanges.some((x, i) => x.sequence <= (i ? page.exchanges[i - 1].sequence : historyCursor.current)) || (page.exchanges.at(-1)?.sequence ?? historyCursor.current) !== page.nextAfterSequence) throw new Error(safeError());
+      if (!mounted.current || signal?.aborted || requestId !== historyRequest.current) return;
+      historyCursor.current = page.nextAfterSequence;
+      setExchanges(old => merge(old, page.exchanges));
+      setHasMore(page.hasMore);
+      setHistoryError(null);
+    } catch (error) {
+      if (mounted.current && !signal?.aborted && requestId === historyRequest.current) {
+        if (accessDenied(error)) revoke(error as Error);
+        setHistoryError(error instanceof Error && /^(Private chat|Sign in|This job)/.test(error.message) ? error.message : safeError());
+      }
+    } finally {
+      if (requestId === historyRequest.current) {
+        busy.current = false;
+        if (mounted.current && !signal?.aborted) setLoading(false);
+      }
+    }
+  }, [url, revoke]);
+
+  useEffect(() => {
+    mounted.current = true;
+    const controller = new AbortController();
+    abort.current = controller;
+    void loadHistory(controller.signal);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      if (accessBlocked.current) {
+        if (!stopped) timer = setTimeout(poll, 10_000);
+        return;
+      }
+      const epoch = accessEpoch.current;
+      try {
+        const result = await request(`${url}?mode=poll${progressCursor.current ? `&cursor=${encodeURIComponent(progressCursor.current)}` : ""}`, { signal: controller.signal }) as { cursor?: unknown; changed?: unknown; reply?: unknown };
+        if (typeof result.cursor !== "string" || !/^[a-f0-9]{64}$/.test(result.cursor) || typeof result.changed !== "boolean" || (result.reply !== undefined && !isReply(result.reply))) throw new Error("Invalid response");
+        if (stopped) return;
+        if (!accessBlocked.current && epoch === accessEpoch.current) {
+          progressCursor.current = result.cursor;
+          if (isReply(result.reply)) setSnapshot(result.reply);
+          setPollError(false);
+        }
+      } catch (error) {
+        if (!stopped) {
+          if (accessDenied(error)) revoke(error as Error);
+          setPollError(true);
+        }
+      }
+      if (!stopped) timer = setTimeout(poll, 10_000);
+    }
+    void poll();
+    return () => { stopped = true; mounted.current = false; ++historyRequest.current; busy.current = false; controller.abort(); clearTimeout(timer); };
+  }, [loadHistory, url, revoke]);
+
+  useEffect(() => {
+    if (hasMore || loading || historyError) return;
+    const timer = setTimeout(() => void loadHistory(abort.current?.signal), 10_000);
+    return () => clearTimeout(timer);
+  }, [hasMore, loading, historyError, exchanges, loadHistory]);
+
+  async function send(event: FormEvent) {
+    event.preventDefault();
+    if (sendBusy.current) return;
+    const text = pending?.text ?? draft.trim();
+    if (!text || text.length > 4000 || new TextEncoder().encode(text).length > 8000) { setSendError("Use a question of at most 4,000 characters and 8,000 bytes."); return; }
+    const attempt = pending ?? { messageId: crypto.randomUUID(), text };
+    setPending(attempt);
+    sendBusy.current = true;
+    setSending(true);
+    setSendError(null);
+    const epoch = accessEpoch.current;
+    try {
+      const response = await request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(attempt), signal: abort.current?.signal }) as { exchange?: unknown };
+      if (!isExchange(response.exchange) || response.exchange.messageId !== attempt.messageId) throw new Error(safeError());
+      if (!mounted.current || accessBlocked.current || epoch !== accessEpoch.current) return;
+      setExchanges(old => merge(old, [response.exchange as Exchange]));
+      setDraft("");
+      setPending(null);
+    } catch (error) {
+      if (mounted.current) {
+        if (accessDenied(error)) revoke(error as Error);
+        setSendError(error instanceof Error && /^(Private chat|Sign in|This job|This message ID|The question)/.test(error.message) ? error.message : safeError());
+      }
+    } finally {
+      sendBusy.current = false;
+      if (mounted.current) setSending(false);
+    }
+  }
+
+  return <section aria-labelledby={`${fieldId}-title`} className="rounded-[4px] border border-line-2 bg-bg-raised">
+    <header className="border-b border-line px-5 py-4">
+      <h2 id={`${fieldId}-title`} className="t-eyebrow text-fg-2">Private progress chat</h2>
+      <p className="mt-2 text-sm text-muted">Your conversation for this job. Ask about recorded progress, findings, blockers or cost, during the evaluation or after delivery.</p>
+    </header>
+    <div className="space-y-5 p-5 sm:p-6">
+      {snapshot && <div aria-label="Latest persisted progress" className="border-b border-line pb-5"><p className="t-eyebrow mb-3 text-subtle">Latest persisted progress</p><Answer reply={snapshot} /></div>}
+      {pollError && <p role="status" className="text-sm text-muted">Progress refresh is unavailable. Previously loaded answers may be out of date.</p>}
+      {loading && <p role="status" className="text-sm text-muted">Loading private history…</p>}
+      {historyError && <div role="alert"><p className="text-sm text-danger">{historyError}</p><button type="button" onClick={() => { accessBlocked.current = false; void loadHistory(abort.current?.signal); }} className={`${button} mt-2`}>Retry history</button></div>}
+      {!loading && !historyError && exchanges.length === 0 && <p className="text-sm text-muted">No answers yet. Try “What progress has been recorded?” Questions are not retained in history; answers are saved privately.</p>}
+      <ol aria-label="Private chat answers" className="space-y-5">{exchanges.map(exchange => <li key={exchange.messageId} className="border-b border-line pb-5"><p className="t-eyebrow mb-3 text-subtle">Answer {exchange.sequence}</p><Answer reply={exchange.reply} /></li>)}</ol>
+      {hasMore && <button type="button" disabled={loading} className={button} onClick={() => void loadHistory(abort.current?.signal)}>Load next answers</button>}
+      <form onSubmit={send} className="space-y-3">
+        <label htmlFor={fieldId} className="block text-sm text-fg-2">Ask about this evaluation</label>
+        <textarea id={fieldId} aria-describedby={`${fieldId}-hint`} value={draft} onChange={e => setDraft(e.target.value)} disabled={!!pending || sending} rows={3} maxLength={4000} className="input w-full resize-y" />
+        <p id={`${fieldId}-hint`} className="text-xs text-muted">Do not include API keys, credentials or raw traces. Answers use persisted records and can contain unknowns. This chat does not change or resume the evaluation.</p>
+        {sendError && <p role="alert" className="text-sm text-danger">{sendError}</p>}
+        <div className="flex flex-wrap gap-3"><button type="submit" disabled={sending || (!pending && !draft.trim())} className={`${button} bg-accent text-white`}>{sending ? "Sending…" : pending ? "Retry same question" : "Send question"}</button>
+          {pending && !sending && <button type="button" className={button} onClick={() => { setPending(null); setSendError(null); }}>Discard attempt</button>}
+        </div>
+        <p role="status" className="sr-only">{sending ? "Sending question" : ""}</p>
+      </form>
+    </div>
+  </section>;
+}

@@ -1,0 +1,51 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/jobs/synthetic-owned-job/chat",
+    "status": 401,
+    "cacheControl": "private, no-store",
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Cookie"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs/synthetic-owned-job/data-review?digest=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": 500,
+    "cacheControl": "no-store",
+    "vary": "Accept-Encoding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/data-review",
+    "status": 500,
+    "cacheControl": "no-store",
+    "vary": "Accept-Encoding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/data-review",
+    "status": 500,
+    "cacheControl": "no-store",
+    "vary": "Accept-Encoding"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs/synthetic-owned-job/chat?mode=poll",
+    "status": 500,
+    "cacheControl": "no-store",
+    "vary": "Accept-Encoding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/chat",
+    "status": 500,
+    "cacheControl": "no-store",
+    "vary": "Accept-Encoding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/chat",
+    "status": 500,
+    "cacheControl": "no-store",
+    "vary": "Accept-Encoding"
+  }
+]

@@ -1,0 +1,40 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-ui-eiwicn",
+  "serverCompatibility": "a54ab05341856eb59a42f1e204a6cf89df19356b",
+  "serverPatchSha256": "16445f6d72d07f0c1b86d5c558de93a782de920912a9ec8dbdcb5204582d5513",
+  "fullBuildRepeated": false,
+  "priorFullBuildIncludedServerPatch": false,
+  "releaseAccepted": false,
+  "commands": [
+    {
+      "command": [
+        "npm",
+        "exec",
+        "-w",
+        "web",
+        "--",
+        "next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "typecheck",
+        "-w",
+        "web"
+      ],
+      "exit": 2
+    },
+    {
+      "command": [
+        "node",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-5d24923f/tests/track-b/chat-workflow-release/ui/render.mjs",
+        "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-ui-eiwicn"
+      ],
+      "exit": 1
+    }
+  ]
+}

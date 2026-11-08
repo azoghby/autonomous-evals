@@ -1,0 +1,19 @@
+
+> web@0.1.0 typecheck
+> tsc --noEmit
+
+../../packages/core/src/targets/transport.ts(19,15): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+../../packages/core/src/targets/transport.ts(19,55): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+../../packages/core/src/targets/transport.ts(20,14): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+../../packages/core/src/targets/transport.ts(20,55): error TS2349: This expression is not callable.
+  Each member of the union type '{ (addr: IPv4, bits: number): boolean; (mask: [IPv4, number]): boolean; } | { (addr: IPv6, bits: number): boolean; (mask: [IPv6, number]): boolean; }' has signatures, but none of those signatures are compatible with each other.
+npm error Lifecycle script `typecheck` failed with error:
+npm error code 1
+npm error path /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-ui-eiwicn/apps/web
+npm error workspace web@0.1.0
+npm error location /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-ui-eiwicn/apps/web
+npm error command failed
+npm error command sh -c tsc --noEmit

@@ -1,0 +1,58 @@
+{
+  "releaseAccepted": false,
+  "serverCompatibility": "a54ab05341856eb59a42f1e204a6cf89df19356b",
+  "exit": 1,
+  "renderedFixtureCompleted": false,
+  "reason": "Data-review route unresolved core imports poison dev compilation; subsequent routes return 500, anonymous job sign-in wait times out. Pre-server screenshots are exclusively under evidence/pre-server-rendered.",
+  "routeChecks": [
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "status": 401,
+      "cacheControl": "private, no-store",
+      "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Cookie"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/data-review?digest=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": 500,
+      "cacheControl": "no-store",
+      "vary": "Accept-Encoding"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/synthetic-owned-job/data-review",
+      "status": 500,
+      "cacheControl": "no-store",
+      "vary": "Accept-Encoding"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/synthetic-owned-job/data-review",
+      "status": 500,
+      "cacheControl": "no-store",
+      "vary": "Accept-Encoding"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat?mode=poll",
+      "status": 500,
+      "cacheControl": "no-store",
+      "vary": "Accept-Encoding"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "status": 500,
+      "cacheControl": "no-store",
+      "vary": "Accept-Encoding"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "status": 500,
+      "cacheControl": "no-store",
+      "vary": "Accept-Encoding"
+    }
+  ]
+}

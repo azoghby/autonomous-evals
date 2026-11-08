@@ -1,0 +1,81 @@
+{
+  "releaseAccepted": false,
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-ui-eiwicn",
+  "seriesPin": "5f513d14f0898029a5cc188d75ff9a489bc47651",
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "core": "5906961c2a70c0d6d2999cf7086689402ff60f5b",
+  "beforeCorePatches": [
+    "docs/progress-chat-integration/combined.patch"
+  ],
+  "coreOverlay": [
+    "packages/core/src/agents",
+    "packages/core/src/evals",
+    "packages/core/src/judges",
+    "packages/core/src/monitoring",
+    "packages/core/src/reporting",
+    "packages/core/src/simulator",
+    "packages/core/src/targets"
+  ],
+  "patches": [
+    "docs/structured-progress-integration/backend/structured-progress.patch",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch"
+  ],
+  "applied": [
+    "docs/progress-chat-integration/combined.patch",
+    "docs/structured-progress-integration/backend/structured-progress.patch",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch"
+  ],
+  "cache": "/tmp/workflow-bootstrap.JpxCTM",
+  "lockSha256": "ba4727ddbc1432f67d29057306f9fec030b92cdcb60cf4cd851882200d70cf8b",
+  "commands": [
+    {
+      "label": "typegen",
+      "command": [
+        "npm",
+        "exec",
+        "-w",
+        "web",
+        "--",
+        "next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck",
+        "-w",
+        "web"
+      ],
+      "exit": 1
+    },
+    {
+      "label": "build",
+      "command": [
+        "npm",
+        "run",
+        "build",
+        "-w",
+        "web"
+      ],
+      "exit": 1
+    }
+  ],
+  "versions": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "@neondatabase/serverless": "1.2.0",
+    "workflow": "5.4.0"
+  },
+  "unavailable": [],
+  "fontBoundary": "Next font fetch replaced with retained Geist CSS/woff2; no Google request; not a clean uncached build",
+  "serverCompatibilityIncluded": false,
+  "fullBuildCount": 1
+}
