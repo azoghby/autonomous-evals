@@ -42,13 +42,15 @@ export interface InboundStore {
   handleOnboarding?(i: { customerId: string; threadId: string; inboxId: string; messageId: string; subject: string; body: string }): Promise<{ status: string } | void>;
   /** Prospect-lead reply bookkeeping (outreach agent). */
   recordProspectReply?(fromEmail: string, text: string): Promise<{ matched: boolean; optedOut: boolean }>;
+  /** Reply from a builder we invited to the feedback campaign (stored for the founder; STOP suppresses). */
+  recordFeedbackReply?(fromEmail: string, text: string): Promise<{ matched: boolean; optedOut: boolean }>;
 }
 
 export type InboundResult =
   | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped"
   | "owner_replied" | "owner_escalated"
   | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated"
-  | "onboarding" | "prospect_reply" | "unauthenticated";
+  | "onboarding" | "prospect_reply" | "feedback_reply" | "unauthenticated";
 
 /** Thrown when the onboarding agent is busy so the claim is released and AgentMail retries the webhook. */
 export class OnboardingBusyError extends Error {
@@ -126,6 +128,11 @@ async function routeUnknownThread(msg: InboundMessage, body: string, sender: str
     try { prospect = (await store.recordProspectReply(sender, body)).matched; }
     catch (err) { console.error("recordProspectReply failed", err instanceof Error ? err.message : err); }
   }
+  let feedback = false;
+  if (store.recordFeedbackReply) {
+    try { feedback = (await store.recordFeedbackReply(sender, body)).matched; }
+    catch (err) { console.error("recordFeedbackReply failed", err instanceof Error ? err.message : err); }
+  }
   const customer = store.customerByEmail ? await store.customerByEmail(sender) : null;
   if (customer && store.handleOnboarding) {
     await store.recordOnboardingThread?.(msg.threadId);
@@ -133,7 +140,7 @@ async function routeUnknownThread(msg: InboundMessage, body: string, sender: str
     if (r && r.status === "locked") throw new OnboardingBusyError(); // handleInbound releases the claim; the webhook 500s so AgentMail retries
     return "onboarding";
   }
-  return prospect ? "prospect_reply" : "unmatched";
+  return prospect ? "prospect_reply" : feedback ? "feedback_reply" : "unmatched";
 }
 
 /** Idempotency rides on the idempotency_keys table (key agentmail:<messageId>). */
@@ -204,6 +211,10 @@ export function drizzleInboundStore(): InboundStore {
     async handleOnboarding(i) {
       const { handleOnboardingMessage } = await import("./company/onboarding");
       return handleOnboardingMessage({ customerId: i.customerId, channel: "email", text: i.body, threadId: i.threadId, subject: i.subject, inboxId: i.inboxId, messageId: i.messageId });
+    },
+    async recordFeedbackReply(fromEmail, text) {
+      const { recordFeedbackReply } = await import("./feedback");
+      return recordFeedbackReply(fromEmail, text);
     },
     async recordProspectReply(fromEmail, text) {
       const { recordProspectReply } = await import("./company/outreach");
