@@ -2,6 +2,16 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Durable judge attempt composition candidate (2026-11-08)
+
+`naive-judge-attempt-integration` adds 14 postimages and an exact review copy of the existing proxy-dispatch sidecar over the budget envelope candidate at `0832de5`. Core prepare/recover can use a host-supplied same-transaction shared ledger, and authority hooks lock the canonical job before operation transitions. Generic/expert composition validates current stage and execution authority before selecting a new immutable mode or dispatching. `NAIVE_JUDGE_ATTEMPTS=1` selects fresh v2 operations; retained v1/v2 identities never convert merely because flags change.
+
+Independent bounded accounting runs before paid factory authority/budget refusal, reconstructs retained v2 policy and settles exact provider receipts after cancellation or entitlement loss. The old billing endpoint discovers both versions. Operator-only recovery accepts only proven-undispatched attempts and retains actor/reason audit. Review fixed a permanent hold: abandoned attempts with retained intents now count as `unused` only after exact audit, original scopes/reservation and terminal unused proof, without inventing a provider zero-cost receipt. Uncertain or contradictory evidence stays pending.
+
+Six real SQL/runtime composition cases cover same-operation replay, explicit unused recovery and subsequent attempt, cancel-before-dispatch, real production cost-sink reconciliation after revocation, legacy preservation and pre-factory drain of abandoned intents. Target reuse is demonstrated within one live stage, not cross-process mixed callback recovery. This candidate is separately unapplied; the approved39 factual source was adopted at `deaaff4`. No flags, sidecar application, provider calls, outreach, spend or deployment occurred. Full validation is in the artifact receipt; hosted/native PostgreSQL, mixed execution, remaining budgets, post-delivery rerun, conversation/idle and full Phase 0/roster gates remain open.
+
+Final judge candidate verification: **4,541 tests / zero failures / two documented skips**, web/core types and offline-font build (63 steps/four workflows) pass. Independent patch, two fresh assemblies and post-build audit match 2,398 hashes. Actual adopted source remains separately verified at 4,116 tests; see the respective receipts. All Sol workers finished.
+
 ## Approved factual Workflow source adoption (2026-11-08)
 
 The user explicitly approved the exact 39-file `naive-factual-workflow-integration/owner.patch`, superseding the separate operator/billing/generic/entry approvals. All 39 actual preimages matched the reviewed manifest at `0832de5`; the patch applied cleanly and every adopted source hash matches its reviewed postimage. This is now actual application source, not merely an unapplied candidate. Do not apply the older 8+2, generic16, entry or selection patches again.
@@ -78,7 +88,7 @@ This does not close full budget acceptance: Workflow retry reuse is not a concur
 
 The plan's conversation migration remains open: bridge model reservations with Workflow/Gateway budgets, support cumulative session accounting and `sessions.send` with renewed turn capabilities, mount runtime/history/pending/streaming UI, and implement authenticated idle reconciliation. The current artifact permits only the first create per conversation; it does not replace later turns with new sessions. Native PostgreSQL/hosted gates and the full phase sequence remain required. Its conservative deterministic-equivalence verifier does not prove the plan's under-1% mismatch acceptance criterion. See the artifact README for terminal revocation and held-budget limitations.
 
-## Latest repository checkpoint
+## Historical repository checkpoint (before approved39 adoption)
 
 Track A main `61e46bc` is preserved in `track-a` merge `5d2dbd9`, including leaderboard/agent-shim changes and earlier security/billing work. Required merged source web TypeScript passes; the original npm suite passes **3,887 tests, zero failures and two documented opt-in skips** including the new receipt tests. Earlier checkpoint counts and missing-executable statements below are historical.
 

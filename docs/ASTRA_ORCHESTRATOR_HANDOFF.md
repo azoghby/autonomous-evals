@@ -2,6 +2,14 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Latest judge attempt composition continuation (2026-11-08)
+
+Read `docs/naive-judge-attempt-integration/README.md`, manifest and validation receipt. This 14-file increment layers over the exact envelope candidate; the sidecar is an exact review copy of existing core SQL, not another live migration. Generic/expert judges now have current-authority v1/v2 selection, shared atomic attempt admission, dispatch fencing and independent accounting before paid factories. Operator recovery remains separate from internal accounting. Abandoned unused intents require exact audit/reservation proof and no contradictory provider evidence before ceasing to block future factories.
+
+Actual source checkpoint advanced separately: approved39 factual Workflow source is adopted at `deaaff4`. Do not reapply that or superseded operator/billing/generic/entry patches. Judge and intervening sourcing/budget/recovery/cancellation/remediation candidates are still unapplied. The new composition does not enable cross-process mixed-stage recovery or activate hosted/provider operations. Continue native PostgreSQL/hosted Phase 0 gates, mixed recovery, remaining budget coverage, monetary reconciliation, rerun, conversation/idle and roster. Preserve customer-recruitment work and separate Track A deployment evidence.
+
+Final judge candidate verification: **4,541 tests / zero failures / two documented skips**, web/core types and offline-font build (63 steps/four workflows) pass. Independent patch, two fresh assemblies and post-build audit match 2,398 hashes. Actual adopted source remains separately verified at 4,116 tests; see the respective receipts. All Sol workers finished.
+
 ## Approved 39-file source adoption (2026-11-08)
 
 The user approved exact `docs/naive-factual-workflow-integration/owner.patch`, superseding their older operator/billing/generic approvals. It is now applied to actual source: all 39 preimages matched current `0832de5` and all postimages match the reviewed manifest. Read its `adoption-receipt.json` and current LEDGER. Do not reapply operator8+billing2, generic16, entry or this approved39 patch. The immutable candidate manifest/owner patch remain historical reproduction evidence.
@@ -32,7 +40,7 @@ Start with `docs/naive-unified-integration/README.md` and its validation receipt
 
 Shared generic/expert ledgers and stage decorators are preserved. Pending generic routing errors retain holds, while mixed callbacks remain nonrecoverable. The old broad engineer hold release is removed. Cancellation shares the dispatch job mutex, including legacy expert sends. No provider/native PostgreSQL/live acceptance is implied by local tests. Full verification belongs to the retained final receipt; remaining work includes exact source adoption, mixed child coverage, complete budgets, judge recovery, copilot turns/idle, roster and hosted phase gates. Preserve customer-recruitment files belonging to other work. Use private secret forms only when concrete live work requires credentials.
 
-## Current source checkpoint (2026-11-08)
+## Historical source checkpoint (before approved39 adoption)
 
 This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on old “not implemented” statements. The latest reconciled origin/main is `61e46bc`, merged into `track-a` at `5d2dbd9`. Required merged source tests pass 3,887 / zero failures / two skips including the new receipt tests, and web types pass. This preserves Track A’s billing, Revenue tab, authentication and session-lock changes. The local `main` branch is older; use the fetched ref and merge evidence rather than assuming it is current. The latest supplied AGENTS instructions require commits on `track-a`.
 

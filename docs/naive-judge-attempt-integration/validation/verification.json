@@ -1,0 +1,24 @@
+{
+  "manifestSha256": "2edec18939e957c8b60bc9814383d046692cd86c81eda7d38a52aa849c95826b",
+  "ownerPatchSha256": "5158d1935be267f3cd946f42ca6043107ffcf6030f28b688176844acb669a1fb",
+  "ownerPatchApplied": true,
+  "independentPatchCheckedFiles": 2398,
+  "inheritedSourceAndBaselinePaths": 2370,
+  "incrementalPaths": 14,
+  "composedSourceAndBaselinePaths": 2377,
+  "inheritedSqlPaths": 21,
+  "incrementalSqlPaths": 1,
+  "checks": [
+    {
+      "assembly": "/private/tmp/naive-judge-final-v2",
+      "checkedFiles": 2398,
+      "mismatches": []
+    },
+    {
+      "assembly": "/private/tmp/naive-judge-repro-v2",
+      "checkedFiles": 2398,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true
+}

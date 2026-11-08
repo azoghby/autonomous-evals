@@ -1,0 +1,48 @@
+{
+  "status": "unapplied_candidate_not_deployed",
+  "reviewedRepositoryCommit": "0832de53d161997d897dba128d9bd87114e17c5f",
+  "actualSourceAdoptionCommit": "deaaff4",
+  "latestObservedMain": "8dc6c7d",
+  "manifestSha256": "2edec18939e957c8b60bc9814383d046692cd86c81eda7d38a52aa849c95826b",
+  "ownerPatchSha256": "5158d1935be267f3cd946f42ca6043107ffcf6030f28b688176844acb669a1fb",
+  "candidateTests": {
+    "numPassedTests": 4541,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1091,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualSourceTests": {
+    "numPassedTests": 4116,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1009,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "candidateWebTypes": "pass",
+  "candidateCoreTypes": "pass",
+  "actualSourceTypes": "pass; approved39 adoption receipt, actual source unchanged",
+  "offlineFontProductionBuild": {
+    "status": "pass",
+    "workflowSteps": 63,
+    "workflows": 4
+  },
+  "independentPatchAndReproductionReceipt": "verification.json",
+  "postBuildVerifiedFiles": 2398,
+  "composedSqlCases": 6,
+  "reviewCorrections": [
+    "Current authority checked before fresh immutable mode write",
+    "Exact abandoned unused intent proof prevents permanent accounting hold without synthetic cost",
+    "Inherited revoked expert fixture expects accounting lookup before paid authority check"
+  ],
+  "limitations": [
+    "Candidate and intervening prerequisite layers remain unapplied; approved39 alone adopted at deaaff4",
+    "PGlite and fake provider/audit transport; no native PostgreSQL contention or hosted acceptance",
+    "One canceled/revoked accounting case uses real production SQL cost sink; other cases include keyed fixture sinks",
+    "Target reuse proven within one live stage, not cross-process mixed callback recovery",
+    "No credentials, provider calls, migration, flags, outreach, spend or deployment",
+    "Full Naive plan, remaining budgets, monetary reconciliation, rerun, conversation/idle and roster gates remain open"
+  ]
+}

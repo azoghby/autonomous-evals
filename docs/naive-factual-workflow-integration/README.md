@@ -19,7 +19,7 @@ This wiring does **not** manufacture expert authority. The exact `expert_automat
 
 Opted-in experts retain the existing automatic-contact policy; new cold contacts retain founder approval. Scope installation does not itself authorize a message, approve evidence, promise payment or increase the existing honorarium limits. Independent review and provenance remain required before factual data is used.
 
-Selection/proposal immutability is enforced by cooperating application writers under the canonical job lock, insert-once and exact digest comparison. It is not protection from a privileged SQL writer rewriting checkpoint body and digest. PostgreSQL multi-connection contention, real credentials/provider acceptance, hosted Workflow restart/cancellation, owner-policy configuration and source adoption remain gates. PGlite and local build results do not prove those gates.
+Selection/proposal immutability is enforced by cooperating application writers under the canonical job lock, insert-once and exact digest comparison. It is not protection from a privileged SQL writer rewriting checkpoint body and digest. PostgreSQL multi-connection contention, real credentials/provider acceptance, hosted Workflow restart/cancellation and owner-policy configuration remain activation gates; the exact source adoption is recorded above. PGlite and local build results do not prove those gates.
 
 ## Review and reproduction
 
