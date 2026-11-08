@@ -3,13 +3,13 @@
  * in durable workflows (executor). Every read/write is scoped to the owner; foreign ids behave like missing ones.
  */
 import { randomUUID } from "node:crypto";
-import type { IntegrationMode } from "@ae/core/sandbox/spec";
+import type { IntegrationMode, SandboxScenario } from "@ae/core/sandbox/spec";
 import { listPrebuiltEnvs } from "@ae/core/sandbox/ingest/prebuilt";
 import { PLANS, checkEnvironmentAllowance, checkTrialAllowance, usageWindowStart, type PlanId } from "@ae/core/pricing/plans";
-import { SAMPLE_RUN_ID, type SandboxDraft, type SandboxIntakeInput, type SandboxRunReport, type ScenarioReviewInput } from "@/components/sandbox/contract";
+import { GATEWAY_TARGET_MODELS, GATEWAY_TARGET_URL, SAMPLE_RUN_ID, type DraftScenario, type SandboxDraft, type SandboxIntakeInput, type SandboxRunReport, type ScenarioReviewInput } from "@/components/sandbox/contract";
 import type { SandboxService } from "../sandbox-service";
 import { buildCustom, buildFromIntake, buildPrebuilt, type BuiltEnvironment, type CustomWorld } from "./env-build";
-import { suiteScenarios, type SandboxStore } from "./store";
+import { runScenarios, suiteScenarios, type RunListItem, type SandboxStore } from "./store";
 import { SandboxInputError } from "./target";
 import { draftView, environmentSummary, runReportView } from "./views";
 
@@ -17,6 +17,28 @@ import { draftView, environmentSummary, runReportView } from "./views";
 export interface SandboxExecutor {
   startSuite(suiteId: string): Promise<string | null>;
   startRun(runId: string): Promise<string | null>;
+  /** Copilot: generate + gate one scenario from a customer request on a suite seeded with a run's scenarios. */
+  startBriefScenario?(suiteId: string, req: BriefScenarioRequest): Promise<string | null>;
+}
+
+export interface RunTarget {
+  mode: IntegrationMode["mode"];
+  /** True when the target is our hosted AI Gateway agent (model + prompt can be changed by the copilot). */
+  hosted: boolean;
+  model?: string;
+  systemPrompt?: string;
+}
+
+export interface BriefScenarioRequest { brief: string; category: SandboxScenario["category"]; workflowId?: string }
+
+/** What the copilot may change when it derives a new suite from a finished run. */
+export interface SeedSuiteOptions {
+  /** Hosted target only: swap the model and/or system prompt (creates a sibling environment). */
+  target?: { model?: string; systemPrompt?: string };
+  /** Add one generated scenario (runs the gates; the suite is "generating" until they finish). */
+  brief?: BriefScenarioRequest;
+  /** Drop these scenarios from the new suite. */
+  removeScenarioIds?: string[];
 }
 
 export const MAX_RUN_K = 10;
@@ -82,6 +104,16 @@ export interface EngineSandboxService extends SandboxService {
   generateSuite(ownerId: string, environmentId: string): Promise<SandboxDraft | null>;
   startRun(ownerId: string, draftId: string, opts: { k: number; scenarioIds?: string[]; validatedOnly?: boolean }): Promise<StartRunResult>;
   prebuiltEnvironments(): Array<{ id: string; name: string; domain: string }>;
+  /** What a run tested against: hosted model / system prompt when the target is a tool-loop agent. Null when not the owner's. */
+  getRunTarget(ownerId: string, runId: string): Promise<RunTarget | null>;
+  /** Owner's most recent runs (dashboard). */
+  listRuns(ownerId: string, limit?: number): Promise<RunListItem[]>;
+  /**
+   * Copilot: a new suite holding a finished run's scenarios (gate results carried over), optionally on a sibling
+   * environment with a different hosted model / system prompt, minus removed scenarios, plus one generated scenario.
+   * Null when the run is not the owner's. Plan limits (environments, spend, concurrency) apply as for any suite.
+   */
+  seedSuiteFromRun(ownerId: string, runId: string, opts: SeedSuiteOptions): Promise<SandboxDraft | null>;
 }
 
 export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandboxService {
@@ -117,7 +149,7 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
     return store.insertEnvironment({ id, ownerId, name: built.spec.name, domain: built.spec.domain, source: built.source, prebuiltId: built.prebuiltId, spec: built.spec, warnings: built.warnings });
   }
 
-  async function startSuite(ownerId: string, environmentId: string) {
+  async function startSuite(ownerId: string, environmentId: string, seed?: { scenarios: DraftScenario[]; brief: BriefScenarioRequest }) {
     const active = await store.countActive(ownerId);
     if (active.suites >= MAX_ACTIVE_SUITES) throw new SandboxInputError(`You already have ${active.suites} suites generating. Wait for one to finish.`, 429);
     let budgetMicroUsd = suiteCap;
@@ -127,9 +159,9 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
       if (headroom !== null && headroom <= 0) throw new SandboxInputError(SPEND_CAP_REACHED(plan), 402);
       if (headroom !== null) budgetMicroUsd = Math.min(budgetMicroUsd, headroom);
     }
-    const suite = await store.insertSuite({ id: `drf_${randomUUID()}`, environmentId, ownerId, status: "generating", budgetMicroUsd });
+    const suite = await store.insertSuite({ id: `drf_${randomUUID()}`, environmentId, ownerId, status: "generating", budgetMicroUsd, ...(seed ? { scenarios: seed.scenarios } : {}) });
     try {
-      const wf = await executor.startSuite(suite.id);
+      const wf = seed ? await executor.startBriefScenario!(suite.id, seed.brief) : await executor.startSuite(suite.id);
       if (wf) await store.updateSuite(suite.id, { workflowRunId: wf });
       return { ...suite, workflowRunId: wf };
     } catch (e) {
@@ -138,8 +170,62 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
     }
   }
 
+  /** Run scenarios as reviewable drafts, keeping the gate verdicts the run recorded. */
+  function draftsFromRun(run: Awaited<ReturnType<SandboxStore["getRun"]>> & object): DraftScenario[] {
+    const gates = new Map((run.gates as Array<{ scenarioId: string; validated: boolean; reasons: string[] }> | null ?? []).map((g) => [g.scenarioId, g]));
+    return runScenarios(run).map((scenario) => {
+      const g = gates.get(scenario.id);
+      return { scenario, decision: "accepted", edited: false, validated: g?.validated ?? scenario.oracleValidated, gateReasons: g?.reasons ?? [] };
+    });
+  }
+
+  async function targetEnvironment(ownerId: string, envRow: NonNullable<Awaited<ReturnType<SandboxStore["getEnvironment"]>>>, target: SeedSuiteOptions["target"]) {
+    if (!target || (!target.model && !target.systemPrompt)) return envRow;
+    const spec = envRow.spec as BuiltEnvironment["spec"];
+    const integration = spec.integration;
+    if (integration.mode !== "tool_loop") throw new SandboxInputError("Only hosted or endpoint (tool loop) agents can change model or prompt here.", 422, "integration");
+    const hosted = integration.endpointUrl === GATEWAY_TARGET_URL;
+    if (target.model && hosted && !(GATEWAY_TARGET_MODELS as readonly string[]).includes(target.model)) {
+      throw new SandboxInputError(`Hosted model must be one of: ${GATEWAY_TARGET_MODELS.join(", ")}.`, 422, "integration.model");
+    }
+    const next: IntegrationMode = { ...integration, ...(target.model ? { model: target.model } : {}), ...(target.systemPrompt ? { systemPrompt: target.systemPrompt.slice(0, 50_000) } : {}) };
+    await guardTarget(next);
+    await guardEnvironmentLimit(ownerId);
+    const label = [target.model, target.systemPrompt ? "new prompt" : ""].filter(Boolean).join(", ");
+    return saveEnvironment(ownerId, { spec: { ...spec, integration: next, name: `${spec.name.replace(/\s*\([^)]*\)\s*$/, "")} (${label})`.slice(0, 200) }, source: envRow.source as BuiltEnvironment["source"], prebuiltId: envRow.prebuiltId, warnings: (envRow.warnings as string[] | null) ?? [] });
+  }
+
   const service: EngineSandboxService = {
     kind: "engine",
+
+    async getRunTarget(ownerId, runId) {
+      const run = await store.getRun(ownerId, runId);
+      const env = run ? await store.getEnvironment(ownerId, run.environmentId) : null;
+      if (!env) return null;
+      const integration = (env.spec as BuiltEnvironment["spec"]).integration;
+      if (integration.mode !== "tool_loop") return { mode: integration.mode, hosted: false };
+      return { mode: integration.mode, hosted: integration.endpointUrl === GATEWAY_TARGET_URL, model: integration.model, systemPrompt: integration.systemPrompt };
+    },
+
+    listRuns: (ownerId, limit = 20) => store.listRuns(ownerId, Math.min(50, Math.max(1, limit))),
+
+    async seedSuiteFromRun(ownerId, runId, opts) {
+      const run = await store.getRun(ownerId, runId);
+      if (!run) return null;
+      const base = await store.getEnvironment(ownerId, run.environmentId);
+      if (!base) return null;
+      const envRow = await targetEnvironment(ownerId, base, opts.target);
+      const removed = new Set(opts.removeScenarioIds ?? []);
+      const scenarios = draftsFromRun(run).filter((d) => !removed.has(d.scenario.id));
+      if (!opts.brief) {
+        if (scenarios.length === 0) throw new SandboxInputError("That would leave no scenarios to run.", 409);
+        const suite = await store.insertSuite({ id: `drf_${randomUUID()}`, environmentId: envRow.id, ownerId, status: "ready", scenarios, budgetMicroUsd: 0 });
+        return draftView(suite, envRow);
+      }
+      if (!executor.startBriefScenario) throw new SandboxInputError("Adding scenarios is not available here.", 409);
+      const suite = await startSuite(ownerId, envRow.id, { scenarios, brief: opts.brief });
+      return draftView(suite, envRow);
+    },
 
     prebuiltEnvironments: () => listPrebuiltEnvs().map(({ id, name, domain }) => ({ id, name, domain })),
 

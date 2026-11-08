@@ -4,7 +4,7 @@
  */
 import { FatalError } from "workflow";
 import {
-  defaultPipelineDeps, failRun, failSuite, finalizeRun, gateSuiteScenarios, generateSuiteScenarios, prepareRunWorld,
+  defaultPipelineDeps, failRun, failSuite, finalizeRun, gateSuiteScenarios, generateBriefScenario, generateSuiteScenarios, prepareRunWorld,
   runScenarioTrials, SandboxFatalError, teardownRunWorld,
 } from "@/server/sandbox/pipeline";
 import { createDbSandboxStore, runScenarios } from "@/server/sandbox/store";
@@ -25,6 +25,12 @@ export async function generateSandboxSuiteStep(suiteId: string): Promise<{ gener
   return fatalAware(() => generateSuiteScenarios(deps(), suiteId));
 }
 generateSandboxSuiteStep.maxRetries = 1;
+
+export async function generateBriefScenarioStep(suiteId: string, req: { brief: string; category: Parameters<typeof generateBriefScenario>[2]["category"]; workflowId?: string }): Promise<{ generated: number; failures: string[] }> {
+  "use step";
+  return fatalAware(() => generateBriefScenario(deps(), suiteId, req));
+}
+generateBriefScenarioStep.maxRetries = 1;
 
 export async function gateSandboxSuiteStep(suiteId: string): Promise<{ accepted: number; total: number }> {
   "use step";

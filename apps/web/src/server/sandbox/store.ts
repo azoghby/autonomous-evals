@@ -3,7 +3,7 @@ import "server-only";
  * Sandbox Evals persistence (sandbox_environments / sandbox_suites / sandbox_runs). Owner-scoped reads return null
  * for rows that belong to someone else, so ids are not probeable. *ById variants are for workflow steps only.
  */
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { GatewayContext } from "@ae/core/ai/gateway";
 import type { EnvironmentSpec, SandboxScenario, ScenarioResult } from "@ae/core/sandbox/spec";
@@ -19,6 +19,11 @@ export const suiteScenarios = (row: SuiteRow): DraftScenario[] => row.scenarios 
 export const runScenarios = (row: RunRow): SandboxScenario[] => row.scenarios as SandboxScenario[];
 export const runResults = (row: RunRow): ScenarioResult[] => row.results as ScenarioResult[];
 
+export interface RunListItem {
+  runId: string; name: string; status: RunStatus; k: number; scenarios: number; passAt1: number | null; passHatK: number | null;
+  costMicroUsd: number; createdAt: string; completedAt: string | null;
+}
+
 /** The store surface the service and workflow steps use (tests pass an in-memory fake). */
 export interface SandboxStore {
   insertEnvironment(row: typeof schema.sandboxEnvironments.$inferInsert): Promise<EnvironmentRow>;
@@ -31,6 +36,8 @@ export interface SandboxStore {
   insertRun(row: typeof schema.sandboxRuns.$inferInsert): Promise<RunRow>;
   getRun(ownerId: string, id: string): Promise<RunRow | null>;
   getRunById(id: string): Promise<RunRow | null>;
+  /** Owner's newest runs with their environment name (dashboard list). */
+  listRuns(ownerId: string, limit: number): Promise<RunListItem[]>;
   updateRun(id: string, patch: Partial<Omit<RunRow, "id" | "ownerId" | "createdAt">>): Promise<void>;
   /** Replaces (or appends) the result for result.scenarioId. Idempotent under step retries. */
   putRunResult(id: string, result: ScenarioResult): Promise<void>;
@@ -64,6 +71,16 @@ export function createDbSandboxStore(): SandboxStore {
     async insertRun(row) { return (await db().insert(R).values(row).returning())[0]!; },
     async getRun(ownerId, id) { return one(await db().select().from(R).where(and(eq(R.id, id), eq(R.ownerId, ownerId))).limit(1)); },
     async getRunById(id) { return one(await db().select().from(R).where(eq(R.id, id)).limit(1)); },
+    async listRuns(ownerId, limit) {
+      const rows = await db().select({
+        id: R.id, name: E.name, status: R.status, k: R.k, scenarios: sql<number>`jsonb_array_length(${R.scenarios})::int`, passAt1: R.passAt1, passHatK: R.passHatK,
+        costMicroUsd: R.costMicroUsd, createdAt: R.createdAt, completedAt: R.completedAt,
+      }).from(R).innerJoin(E, eq(E.id, R.environmentId)).where(eq(R.ownerId, ownerId)).orderBy(desc(R.createdAt)).limit(limit);
+      return rows.map((r) => ({
+        runId: r.id, name: r.name, status: r.status as RunStatus, k: r.k, scenarios: Number(r.scenarios), passAt1: r.passAt1, passHatK: r.passHatK,
+        costMicroUsd: r.costMicroUsd, createdAt: new Date(r.createdAt).toISOString(), completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
+      }));
+    },
     async updateRun(id, patch) { await db().update(R).set({ ...patch, updatedAt: now() }).where(eq(R.id, id)); },
     async putRunResult(id, result) {
       const json = JSON.stringify(result);

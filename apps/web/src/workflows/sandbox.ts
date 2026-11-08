@@ -1,6 +1,6 @@
 import { FatalError } from "workflow";
 import {
-  failSandboxRunStep, failSandboxSuiteStep, finalizeSandboxRunStep, gateSandboxSuiteStep, generateSandboxSuiteStep,
+  failSandboxRunStep, failSandboxSuiteStep, finalizeSandboxRunStep, gateSandboxSuiteStep, generateBriefScenarioStep, generateSandboxSuiteStep,
   prepareSandboxRunStep, runSandboxScenarioStep, teardownSandboxRunStep,
 } from "./steps/sandbox";
 
@@ -15,6 +15,21 @@ export async function sandboxSuiteWorkflow(suiteId: string): Promise<{ suiteId: 
   "use workflow";
   try {
     await generateSandboxSuiteStep(suiteId);
+    await gateSandboxSuiteStep(suiteId);
+    return { suiteId, status: "ready" };
+  } catch (e) {
+    await failSandboxSuiteStep(suiteId, reason(e));
+    return { suiteId, status: "failed" };
+  }
+}
+
+/** Copilot: add one scenario from the customer's request to a suite seeded with a run's scenarios, then gate it. */
+export async function sandboxBriefScenarioWorkflow(
+  suiteId: string, req: Parameters<typeof generateBriefScenarioStep>[1],
+): Promise<{ suiteId: string; status: "ready" | "failed" }> {
+  "use workflow";
+  try {
+    await generateBriefScenarioStep(suiteId, req);
     await gateSandboxSuiteStep(suiteId);
     return { suiteId, status: "ready" };
   } catch (e) {

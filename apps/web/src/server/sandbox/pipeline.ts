@@ -80,6 +80,23 @@ export async function generateSuiteScenarios(deps: PipelineDeps, suiteId: string
   return { generated: generated.length, failures };
 }
 
+/**
+ * Copilot "add a scenario": generates ONE scenario from the customer's request (untrusted; fenced in the prompt) for
+ * a suite that already holds the base run's scenarios. Same budget split as generateSuiteScenarios.
+ */
+export async function generateBriefScenario(
+  deps: PipelineDeps, suiteId: string, req: { brief: string; category: SandboxScenario["category"]; workflowId?: string },
+): Promise<{ generated: number; failures: string[] }> {
+  const { suite, env } = await loadSuite(deps, suiteId);
+  if (suite.status !== "generating") return { generated: (suite.generated as unknown[]).length, failures: [] };
+  const ctx = stepBudgetContext(deps.store, { kind: "suite", id: suiteId }, Math.floor(suite.budgetMicroUsd * GENERATION_SHARE), suite.costMicroUsd);
+  const r = await generateScenarios(env, { gateway: deps.gateway, ctx }, { count: 1, categories: [req.category], brief: req.brief, ...(req.workflowId ? { workflowId: req.workflowId } : {}) });
+  const failures = r.failures.map((f) => `${f.slot.category}: ${f.error.slice(0, 200)}`);
+  if (r.scenarios.length === 0) throw new SandboxFatalError(`Scenario generation failed: ${failures.join("; ") || "no scenario"}`, ctx.budgetMicroUsd <= 0 ? "budget" : "fatal");
+  await deps.store.updateSuite(suiteId, { generated: r.scenarios, status: "gating" });
+  return { generated: r.scenarios.length, failures };
+}
+
 /** Runs the automatic gates (oracle / null agents / grader mutations) on their own world; the suite becomes ready. */
 export async function gateSuiteScenarios(deps: PipelineDeps, suiteId: string): Promise<{ accepted: number; total: number }> {
   const { suite, env } = await loadSuite(deps, suiteId);
@@ -90,10 +107,12 @@ export async function gateSuiteScenarios(deps: PipelineDeps, suiteId: string): P
   const runtime = deps.runtime(ctx, env);
   const { reports } = await gateSuite(env, generated, runtime, engine, { jobId: `g_${suiteId.slice(4).replace(/-/g, "").slice(0, 12)}`, concurrency: 2 });
   const byId = new Map<string, GateReport>(reports.map((r) => [r.scenarioId, r]));
-  const scenarios: DraftScenario[] = generated.map(({ scenario }) => {
+  // Scenarios already on the suite (copied from a base run by the copilot) are kept ahead of the newly gated ones.
+  const kept = suiteScenarios(suite).filter((d) => !generated.some((g) => g.scenario.id === d.scenario.id));
+  const scenarios: DraftScenario[] = [...kept, ...generated.map(({ scenario }): DraftScenario => {
     const r = byId.get(scenario.id);
     return { scenario: { ...scenario, oracleValidated: r?.accepted ?? false }, decision: "pending", edited: false, validated: r?.accepted ?? false, gateReasons: r?.reasons.slice(0, 6) ?? ["not gated"] };
-  });
+  })];
   await deps.store.updateSuite(suiteId, { scenarios, status: "ready", error: null });
   return { accepted: scenarios.filter((s) => s.validated).length, total: scenarios.length };
 }
