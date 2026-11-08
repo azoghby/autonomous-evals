@@ -19,3 +19,9 @@ This environment is derived from the **retail** domain of tau2-bench.
 - The read-only `get_item_details` tool of upstream `tools.py` is not part of the 15-tool set and is omitted.
 
 Converted by Standard Evals.
+
+## Verbatim upstream policy
+
+`upstream-policy.md` is an unmodified copy of upstream `data/tau2/domains/retail/policy.md`. It is used as the
+`<policy>` in the tau2 reference agent's system prompt (`scripts/real-agents-sandbox.ts`), so that agent sees exactly
+the policy text it was designed for.
