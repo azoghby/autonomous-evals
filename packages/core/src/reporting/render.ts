@@ -106,13 +106,13 @@ export function renderReport(input: ReportInput): RenderedReport {
     job: { jobId: input.job.jobId, package: input.job.package, environment: input.job.environment, isFixture: input.job.isFixture, linkedRetestOf: input.job.linkedRetestOf },
     package: { name: offer.name, price: priceLabel(offer) },
     summary: { text: summaryText, authorship: input.operatorSummary && !incomplete ? "agent_written" : "generated_from_findings", counts: counts(input.findings) },
-    findings: input.findings,
+    findings: structuredClone(input.findings),
     operatorNotes: (input.operatorSummary?.finding_notes ?? []).map((n) => ({ findingId: n.finding_id, note: n.note })),
-    nextSteps: input.operatorSummary?.recommended_next_steps ?? [],
-    limitations: input.limitations,
+    nextSteps: [...(input.operatorSummary?.recommended_next_steps ?? [])],
+    limitations: [...input.limitations],
     costs: { knownMicroUsd, entries: structuredClone(input.costs ?? []), unknown },
     monitoringPitch: pitch,
-    details: input.details ?? {},
+    details: structuredClone(input.details ?? {}),
     evaluationStatus: input.evaluationStatus ?? null,
   };
 

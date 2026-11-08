@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureJob } from "../../agents/__tests__/fakes";
 import type { Finding } from "../../evals/types";
-import { escapeHtml, mdFence, renderReport } from "../render";
+import { type ReportInput, escapeHtml, mdFence, renderReport } from "../render";
 
 const evil: Finding = {
   id: "F1",
@@ -19,6 +19,31 @@ const evil: Finding = {
 };
 
 describe("renderReport", () => {
+  it('keeps nested report evidence and metadata detached from later caller mutations', () => {
+    const finding = structuredClone(evil);
+    const details = { provenance: { digest: 'original-digest' }, trialIds: ['trial-one'] };
+    const input: ReportInput = {
+      job: fixtureJob(), generatedAt: '2026-11-07T21:00:00Z', findings: [finding],
+      limitations: ['Original limitation'], costs: null, details, includeHtml: true,
+      operatorSummary: { executive_summary: 'Original summary', finding_notes: [],
+        recommended_next_steps: ['Original next step'], retest_recommended: false, authorship: 'agent_written' },
+    };
+    const report = renderReport(input);
+    const snapshot = structuredClone(report);
+    finding.label = 'inconclusive';
+    const evidence = finding.evidence[0]!;
+    if (!('quote' in evidence)) throw new Error('Expected quote fixture');
+    evidence.quote = 'Replacement evidence';
+    input.findings.length = 0;
+    input.limitations[0] = 'Replacement limitation';
+    input.operatorSummary!.recommended_next_steps[0] = 'Replacement next step';
+    details.provenance.digest = 'replacement-digest';
+    details.trialIds.push('trial-two');
+    expect(report).toEqual(snapshot);
+    expect(report.json.summary.counts.confirmed).toBe(1);
+    expect(report.json.findings[0]!.label).toBe('confirmed');
+    expect(report.json.findings[0]!.evidence).toEqual(evil.evidence);
+  });
   it('does not call an empty unresolved evaluation clean, even if an operator summary does', () => {
     const report = renderReport({ job: fixtureJob(), generatedAt: '2026-11-07T21:00:00Z', findings: [],
       limitations: ['Execution unavailable.'], costs: null, evaluationStatus: 'unresolved',
