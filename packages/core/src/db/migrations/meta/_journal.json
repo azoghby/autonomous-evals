@@ -148,6 +148,13 @@
       "when": 1794114271994,
       "tag": "0020_founder_email",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794115397086,
+      "tag": "0021_company_agents",
+      "breakpoints": true
     }
   ]
 }
