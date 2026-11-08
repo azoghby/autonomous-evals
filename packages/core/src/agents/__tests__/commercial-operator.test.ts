@@ -34,6 +34,16 @@ describe("qualifyRequest", () => {
     expect(out.value.deliverables[0]).toMatch(/success claim/);
   });
 
+  it("reserves the plan's 30-cent default while preserving explicit lower authorized budgets", async () => {
+    const make = () => harness(() => ({ structuredOutput: { decision: "quote", recommended_package: "trace_audit", questions: [], scope_summary: "Audit", decline_reason: null } }));
+    const standard = make();
+    await qualifyRequest({ job: fixtureJob(), intake }, standard.service);
+    expect(standard.naive.createCalls[0]!.body.budget_micro_usd).toBe(300_000);
+    const limited = make();
+    await qualifyRequest({ job: fixtureJob(), intake, budgetMicroUsd: 100_000 }, limited.service);
+    expect(limited.naive.createCalls[0]!.body.budget_micro_usd).toBe(100_000);
+  });
+
   it("asks the customer when the agent recommends a different package", async () => {
     const h = harness(() => ({ structuredOutput: { decision: "quote", recommended_package: "text_eval", questions: [], scope_summary: "Endpoint eval", decline_reason: null } }));
     const out = await qualifyRequest({ job: fixtureJob(), intake }, h.service);
@@ -62,6 +72,7 @@ describe("draftOutreach", () => {
     const ok = harness(() => ({ structuredOutput: { subject: "Free first audit", body: "We audit agent logs. First one free, then $49." } }));
     const a = await draftOutreach({ prospectId: "team-1", teamName: "T", context: "c", environment: "test" }, ok.service);
     expect(a).toMatchObject({ status: "completed", value: { status: "pending_founder_approval" } });
+    expect(ok.naive.createCalls[0]!.body.budget_micro_usd).toBe(300_000);
     const bad = harness(() => ({ structuredOutput: { subject: "Deal", body: "Only $1 today" } }));
     expect(await draftOutreach({ prospectId: "team-2", teamName: "T", context: "c", environment: "test" }, bad.service)).toMatchObject({ status: "failed", code: "invented_price" });
   });

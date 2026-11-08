@@ -86,8 +86,8 @@ ${SHARED_RULES}`,
 
 /** Default per-task session budgets (each is reserved before the session starts). */
 export const TASK_BUDGETS = Object.freeze({
-  qualify: usd(0.25),
-  outreachDraft: usd(0.2),
+  qualify: usd(0.3),
+  outreachDraft: usd(0.3),
   traceRecheck: usd(0.6),
   suiteDesign: usd(0.8),
   suiteReview: usd(0.5),

@@ -4,8 +4,9 @@
  * branch services are owned elsewhere and are not implemented here.
  *
  * Contract gaps this adapter works around (see docs/track-b-agents.md, "Contract extension needs"):
- * - ServiceContext has no durable session store or budget ledger. `ctx.budgetMicroUsd` is treated
- *   as information only, never as a reservation; reservations go through the injected runner's ledger.
+ * - ServiceContext has no durable session store or budget ledger. A zero `ctx.budgetMicroUsd`
+ *   refuses agent dispatch, but a positive value is not a reservation; the injected runner's ledger
+ *   remains authoritative for atomic budget admission.
  * - Contract results have no "pending / paused / needs operator" states, so those become typed errors.
  * - The contract TraceAuditResult drops dismissed items, test-defect records and investigator status;
  *   use `auditTraceDetailed` to keep them.
@@ -60,6 +61,13 @@ export interface TrackBServiceDeps {
   clock?: Clock;
   /** Run the Company operator for the report summary (one extra session). Default true. */
   operatorSummary?: boolean;
+}
+
+/** Phase-0 dispatch refusal, not a substitute for the runner's atomic reservation. */
+function assertDispatchBudget(ctx: ServiceContext): void {
+  if (ctx.budgetMicroUsd === 0) {
+    throw new TrackBBlockedError("paused_budget", "No evaluation budget remains");
+  }
 }
 
 async function jobOf(deps: TrackBServiceDeps, ctx: ServiceContext): Promise<JobRef> {
@@ -208,6 +216,7 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
   const clock = deps.clock ?? systemClock;
 
   async function auditTraceDetailed(ctx: ServiceContext, trace: string, systemPrompt?: string): Promise<TraceAuditResult> {
+    assertDispatchBudget(ctx);
     const job = await jobOf(deps, ctx);
     const knownSecrets = await secretsOf(deps, ctx);
     await ctx.recordProgress("investigating", "Checking claims against the log");
@@ -221,6 +230,7 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
 
   return {
     async qualify(ctx: ServiceContext, intake: IntakeInput, clarifications: string[]): Promise<QualifyResult> {
+      assertDispatchBudget(ctx);
       const job = await jobOf(deps, ctx);
       const knownSecrets = await secretsOf(deps, ctx);
       const { summary, secrets } = intakeSummary(intake, clarifications, knownSecrets);
@@ -250,6 +260,8 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
       ctx: ServiceContext,
       input: { intake: IntakeInput; findings: ContractFinding[]; limitations?: string[]; richFindings?: Finding[] },
     ): Promise<Report> {
+      // A disabled operator leaves only deterministic rendering, which needs no paid admission.
+      if (deps.operatorSummary ?? true) assertDispatchBudget(ctx);
       const job = await jobOf(deps, ctx);
       const knownSecrets = await secretsOf(deps, ctx);
       const findings = input.richFindings ?? input.findings.map(fromContractFinding);

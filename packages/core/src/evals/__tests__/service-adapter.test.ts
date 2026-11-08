@@ -1,5 +1,5 @@
 // FIXTURE tests: Track A contract adapter (requires packages/core/src/contracts from Track A).
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Finding as ContractFinding, QualifyResult, Report } from "../../contracts/index";
 import type { ServiceContext } from "../../contracts/services";
 import { harness } from "../../agents/__tests__/fakes";
@@ -14,7 +14,7 @@ function ctx() {
   const c: ServiceContext = {
     jobId: JOB,
     environment: "test",
-    budgetMicroUsd: 999_000_000, // informational only; must not be treated as a reservation
+    budgetMicroUsd: 999_000_000, // positive context budget is not an atomic reservation
     recordCost: async (e) => void costs.push(e),
     recordProgress: async (m) => void progress.push(m),
   };
@@ -39,6 +39,54 @@ const confirmAll = (body: { message: string }) => {
 };
 
 describe("Track B services over the Track A contract", () => {
+  it.each(['qualify', 'auditTrace', 'auditTraceDetailed', 'renderReport'] as const)('refuses zero context budget before %s can call the runner or reserve', async method => {
+    const h = harness(confirmAll);
+    const run = vi.spyOn(h.service, 'run');
+    const reserve = vi.spyOn(h.ledger, 'reserve');
+    const svc = createTrackBServices({ runner: h.service, resolveJob });
+    const { c, costs, progress } = ctx();
+    c.budgetMicroUsd = 0;
+    const intake = { package: 'trace_audit' as const, trace: FALSE_SUCCESS, authorizedToTest: true as const };
+    const operation = method === 'qualify' ? svc.qualify(c, intake, [])
+      : method === 'renderReport' ? svc.renderReport(c, { intake, findings: [] })
+      : svc[method](c, FALSE_SUCCESS);
+    const error = await operation.catch(e => e);
+    expect(error).toBeInstanceOf(TrackBBlockedError);
+    expect(error).toMatchObject({ code: 'paused_budget', message: 'No evaluation budget remains', retryable: false, sessionIds: [] });
+    expect(run).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+    expect(h.naive.createCalls).toHaveLength(0);
+    expect(h.naive.getCalls).toBe(0);
+    expect(costs).toEqual([]);
+    expect(progress).toEqual([]);
+  });
+
+  it('explicitly enabled operator summary also refuses zero budget before reservation', async () => {
+    const h = harness(confirmAll);
+    const run = vi.spyOn(h.service, 'run');
+    const reserve = vi.spyOn(h.ledger, 'reserve');
+    const svc = createTrackBServices({ runner: h.service, resolveJob, operatorSummary: true });
+    const { c } = ctx(); c.budgetMicroUsd = 0;
+    await expect(svc.renderReport(c, { intake: { package: 'trace_audit', trace: FALSE_SUCCESS, authorizedToTest: true }, findings: [] })).rejects.toMatchObject({ code: 'paused_budget' });
+    expect(run).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it('allows deterministic report rendering at zero budget when operator summary is disabled', async () => {
+    const h = harness(confirmAll);
+    const run = vi.spyOn(h.service, 'run');
+    const reserve = vi.spyOn(h.ledger, 'reserve');
+    const svc = createTrackBServices({ runner: h.service, resolveJob, operatorSummary: false });
+    const { c, costs } = ctx(); c.budgetMicroUsd = 0;
+    const report = await svc.renderReport(c, { intake: { package: 'trace_audit', trace: FALSE_SUCCESS, authorizedToTest: true }, findings: [] });
+    Report.parse(report);
+    expect(report.markdown).not.toContain('Summary written by our operator agent');
+    expect(run).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+    expect(h.naive.createCalls).toHaveLength(0);
+    expect(costs).toEqual([]);
+  });
+
   it('resolves current secrets only after authorization and removes JSON-escaped values from audit evidence', async () => {
     const secret = 'opaque-"value\\with-escapes';
     const order: string[] = [];
@@ -130,7 +178,20 @@ describe("Track B services over the Track A contract", () => {
     expect(progress).toEqual(["investigating"]);
   });
 
-  it("maps budget exhaustion to a blocked error (job -> paused_budget), ignoring ctx.budgetMicroUsd", async () => {
+  it('preserves measured-cost redelivery on a positive-budget completed replay', async () => {
+    const h = harness(confirmAll);
+    const svc = createTrackBServices({ runner: h.service, resolveJob });
+    const { c, costs } = ctx();
+    const first = await svc.auditTrace(c, FALSE_SUCCESS);
+    const creates = h.naive.createCalls.length;
+    const replay = await svc.auditTrace(c, FALSE_SUCCESS);
+    expect(replay).toEqual(first);
+    expect(h.naive.createCalls).toHaveLength(creates);
+    expect(costs).toHaveLength(2);
+    expect(costs[1]).toEqual(costs[0]); // The application's keyed cost sink deduplicates these deliveries.
+  });
+
+  it("maps ledger budget exhaustion to paused_budget despite a positive context budget", async () => {
     const h = harness(confirmAll);
     h.ledger.caps.set(`job:${JOB}`, usd(0.1));
     const svc = createTrackBServices({ runner: h.service, resolveJob });
