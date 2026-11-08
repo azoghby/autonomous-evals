@@ -1,0 +1,104 @@
+EXPECTED-FAIL CHARACTERIZATIONS: R1 budget checkpoint poisoning; secured-adapter receipt attestation integration gap. These are unresolved, not acceptance passes.
+Reviewed HEAD 74ac48672d9ef91dfb9dcbf4d0dd393aa6cadd5c; local Track A 769537d0fce974b355999c8cbcc637796074d0c2; strict types + original evals/judges tests + independent review
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-remediation-review-YWfKr7
+
+ ✓ src/evals/data/discovery/persistence/persistence.test.ts (12 tests) 7119ms
+   ✓ durable discovery operations (real PGlite SQL) (12)
+     ✓ grants exactly one owner across instances and concurrent calls, durably rejects input changes 991ms
+     ✓ survives a late same-instance pending response without losing the winning token 489ms
+     ✓ replays detached results from a new adapter and arbitrates completion races by SQL value 501ms
+     ✓ binds trusted tenant/job with collision-safe framing and snapshots scope 531ms
+     ✓ never reclaims pending or ambiguous calls and enforces underlying token ownership 463ms
+     ✓ keeps ownership for replay after a committed completion loses its acknowledgement 445ms
+     ✓ rejects unsafe identities and malformed digests before SQL 458ms
+     ✓ rejects malformed, secret, lossy and forged candidate results before persistence and on replay 418ms
+     ✓ races rejection against success, preserving the winning terminal outcome and owner scope 491ms
+     ✓ validates rejection diagnostics strictly on write and replay; ambiguous tokens cannot reject 412ms
+     ✓ retains rejection through lost acknowledgement; an uncommitted write stays pending 410ms
+     ✓ reopens SQL after unsafe discovery and resumes acquisition to generation/expert with no rejected data or repeat GETs 1510ms
+ ✓ src/evals/integration/checkpoint.test.ts (5 tests) 2430ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) (5)
+     ✓ atomically gives one claimant ownership and rejects changed inputs under the same identity 644ms
+     ✓ persists full detached output, resumes from a fresh adapter and rejects overwrite 444ms
+     ✓ never takes over a lost response, and ambiguity cannot be released or completed 433ms
+     ✓ allows explicit safe agent polling release while rejecting stale owners 413ms
+     ✓ refuses lossy/non-PostgreSQL JSON before completion, preserving pending state 495ms
+ ✓ src/evals/calendar-integration/services.test.ts (13 tests) 1236ms
+ ✓ src/evals/remediation/remediation.test.ts (23 tests) 990ms
+stderr | src/remediation-review/review.test.ts > remediation: SQL persistence and offline isolated target trials > INTEGRATION GAP: an echoed receipt cannot prove actual application by a dishonest trusted port
+INTEGRATION GAP: privileged fabricated receipt produced verified
+
+ ✓ src/remediation-review/review.test.ts (30 tests) 1090ms
+ ✓ src/evals/integration/services.test.ts (12 tests) 1014ms
+ ✓ src/evals/data/persistence.test.ts (3 tests) 80ms
+ ✓ src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 53ms
+ ✓ src/evals/text/__tests__/behavioral-gateway.test.ts (17 tests) 65ms
+ ✓ src/evals/text/__tests__/design-investigate.test.ts (10 tests) 40ms
+ ✓ src/evals/text/__tests__/admission.test.ts (50 tests) 55ms
+ ✓ src/evals/__tests__/service-adapter.test.ts (15 tests) 24ms
+ ✓ src/evals/text/__tests__/objective-execution.test.ts (29 tests) 37ms
+ ✓ src/evals/data/adapters/generation.test.ts (9 tests) 15ms
+ ✓ src/evals/trace/__tests__/trace-audit.test.ts (24 tests) 17ms
+ ✓ src/evals/text/__tests__/safety-monitoring.test.ts (3 tests) 17ms
+ ✓ src/judges/gateway.test.ts (15 tests) 19ms
+ ✓ src/evals/data/discovery/index.test.ts (26 tests) 15ms
+ ✓ src/evals/data/adapters/mapping.test.ts (7 tests) 14ms
+ ✓ src/evals/data/adapters/sources.test.ts (8 tests) 11ms
+ ✓ src/evals/trace/__tests__/audit-redaction.test.ts (3 tests) 13ms
+ ✓ src/evals/data/acquisition.test.ts (11 tests) 12ms
+ ✓ src/evals/trace/__tests__/detect-regression.test.ts (15 tests) 9ms
+ ✓ src/evals/data/quality.test.ts (23 tests) 8ms
+ ✓ src/evals/trace/__tests__/normalize-regression.test.ts (29 tests) 8ms
+ ✓ src/evals/data/expert.test.ts (11 tests) 5ms
+ ✓ src/evals/data/adapters/expert.test.ts (2 tests) 4ms
+ ✓ src/evals/data/postgres-store.test.ts (39 tests) 17986ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) (39)
+     ✓ persists definitive discovery rejection and resumes generation/expert through fresh SQL adapters 988ms
+     ✓ replays from independent service instances with detached input and outputs 488ms
+     ✓ has one insert and one CAS winner across concurrent callers (PGlite serializes transactions) 503ms
+     ✓ isolates reads, inserts and CAS by both trusted tenant and job 534ms
+     ✓ captures scope values at construction and rejects record job mismatch 462ms
+     ✓ rejects insert and CAS identity drift: hash 454ms
+     ✓ rejects insert and CAS identity drift: description 454ms
+     ✓ rejects insert and CAS identity drift: target 419ms
+     ✓ rejects insert and CAS identity drift: coverage 493ms
+     ✓ rejects insert and CAS identity drift: uses 405ms
+     ✓ rejects insert and CAS identity drift: factual 413ms
+     ✓ compares full spec canonically after jsonb key reordering 420ms
+     ✓ returns null for missing/stale revisions and rejects invalid revisions and history loss 454ms
+     ✓ rejects non-JSON/unsafe text 0 without changing storage 444ms
+     ✓ rejects non-JSON/unsafe text 1 without changing storage 412ms
+     ✓ rejects non-JSON/unsafe text 2 without changing storage 466ms
+     ✓ rejects non-JSON/unsafe text 3 without changing storage 422ms
+     ✓ rejects non-JSON/unsafe text 4 without changing storage 430ms
+     ✓ rejects non-JSON/unsafe text 5 without changing storage 407ms
+     ✓ rejects non-JSON/unsafe text 6 without changing storage 487ms
+     ✓ rejects non-JSON/unsafe text 7 without changing storage 434ms
+     ✓ rejects accessors, custom serialization, sparse arrays, symbols and cycles 522ms
+     ✓ accepts valid Unicode and SQL-shaped text as bound data 451ms
+     ✓ bounds serialized record bytes 416ms
+     ✓ rejects malformed stored row: nested 511ms
+     ✓ rejects malformed stored row: unknown 439ms
+     ✓ rejects malformed stored row: revision 524ms
+     ✓ rejects malformed stored row: task 443ms
+     ✓ rejects malformed stored row: job 420ms
+     ✓ rejects malformed stored row: enum 488ms
+     ✓ rejects actual database rows with malformed nested JSON on read, insert replay and CAS 476ms
+     ✓ screens current secret policy on reads, conflicting inserts and CAS 415ms
+     ✓ rolls back inserts and CAS when the returned row fails validation 412ms
+     ✓ rolls back when the current secret policy changes before RETURNING is validated 403ms
+     ✓ redacts driver failure text with no transaction retries 404ms
+     ✓ preserves complete bound review evidence and decision history across restart 401ms
+     ✓ resumes acquisition with the same operation key after restart, outside any SQL transaction 404ms
+     ✓ replays only correctly bound ready acquisition data after service restart 448ms
+     ✓ rejects stale ready review bindings and new secret policy before completed replay 417ms
+
+ Test Files  28 passed (28)
+      Tests  457 passed | 2 expected fail (459)
+   Start at  16:21:50
+   Duration  18.12s (tests 97%, import 2%, transform 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-remediation-review-YWfKr7/results.json
+src/remediation-review/review.test.ts: 30 tests, passed
+src/evals/remediation/remediation.test.ts: 23 tests, passed
