@@ -25,7 +25,7 @@ async function fixture(rubric=false,fixtureJobId=jobId,shared?:{pg:PGlite;sql:Ag
  vi.stubEnv('NAIVE_JUDGE_MODEL','fixture-jude-model');vi.stubEnv('NAIVE_API_KEY','fixture-proxy-key');
  vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
  const pg=shared?.pg??new PGlite();if(!shared){databases.push(pg);
- for(const file of ['packages/core/src/db/migrations/0000_init.sql','packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
+ for(const file of ['packages/core/src/db/migrations/0000_init.sql','packages/core/src/db/migrations/0005_remediations.sql','packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql','docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
  await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customerId,'publication-fixture@example.test']);}
  const intake:Extract<IntakeInput,{package:'text_eval'}>={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',referenceText:'Canonical grounding text.',systemPrompt:rubric?'Use a polite tone.':'Follow explicit constraints.',apiKey:'fixture-target-key'}};
  // Match workflows/steps/evaluate.ts targetFor: referenceText belongs to design, not the dispatch target.

@@ -113,6 +113,7 @@ export async function createNaiveMethodAuthority(ctx:ServiceContext,deps:NaiveMe
  }
  return {artifacts,checkpoints:new PostgresTextCheckpointStore(deps.sql),
   authorizeDesign:async(request:ServiceContext)=>{if(request.jobId!==captured.jobId||request.environment!==captured.environment)return fail();return deps.sql.transaction(tx=>current(tx));},
+  currentInTransaction:current,
   current:(value?:unknown)=>deps.sql.transaction(tx=>current(tx,value)),designIdentity:(tx?:Tx)=>tx?designIdentity(tx):deps.sql.transaction(tx=>designIdentity(tx)),
   resolveSuite:async(publicSuite?:Suite)=>{
    const a=await deps.sql.transaction(tx=>current(tx)),identity=await deps.sql.transaction(tx=>designIdentity(tx));

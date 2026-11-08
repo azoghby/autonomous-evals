@@ -22,6 +22,15 @@ const getJobForViewer = vi.fn(async (jobId: string, viewer: { id: string; isOper
     report: { summary: "2 findings", markdown: "# Report" },
   };
 });
+const requestJobCancellation = vi.fn(async (jobId: string, viewer: { id: string; allowOperator?: boolean }, reason?: string) => {
+  const job = jobs[jobId];
+  if (!job || job.customerId !== viewer.id) return { ok: false, status: 404, error: "Job not found" };
+  if (job.state === "running") return { ok: false, status: 409, error: "Work has already started", state: job.state };
+  return { ok: true, request: { jobId, reason }, created: true };
+});
+const dispatchJobCancellation = vi.fn(async () => ({ jobId: A_JOB, errors: [] }));
+vi.mock("./job-cancellation", () => ({ requestJobCancellation }));
+vi.mock("./job-cancellation-delivery", () => ({ dispatchJobCancellation }));
 const createJob = vi.fn(async () => ({ jobId: "33333333-3333-4333-8333-333333333333" }));
 const sendJobEvent = vi.fn(async () => undefined);
 const addMessage = vi.fn(async () => "m");
@@ -153,12 +162,17 @@ describe("accept_quote", () => {
 });
 
 describe("cancel_job", () => {
-  it("cancels a pre-planning job, closes checkout and sends the cancel event", async () => {
+  it("accepts durable intent even when immediate delivery fails", async () => {
+    dispatchJobCancellation.mockRejectedValueOnce(new Error("offline"));
+    expect((await cancelJob(A, A_JOB)).isError).toBeUndefined();
+  });
+
+  it("records using authenticated identity and dispatches the durable request", async () => {
     jobs[A_JOB].state = "quoted";
     const r = await cancelJob(A, A_JOB, "changed my mind");
     expect(r.isError).toBeUndefined();
-    expect(expireOpenCheckout).toHaveBeenCalledWith(A_JOB);
-    expect(sendJobEvent).toHaveBeenCalledWith(A_JOB, { type: "cancel", reason: "changed my mind" });
+    expect(requestJobCancellation).toHaveBeenCalledWith(A_JOB, { id: "A", allowOperator: false }, "changed my mind");
+    expect(dispatchJobCancellation).toHaveBeenCalledWith(A_JOB);
   });
   it("refuses once work has started", async () => {
     jobs[A_JOB].state = "running";

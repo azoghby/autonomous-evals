@@ -1,3 +1,4 @@
+import { ExpertSharingConsent } from "@/components/app/expert-sharing-consent";
 import { Suspense } from "react";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
@@ -30,6 +31,7 @@ export default async function JobPage({ params }: { params: Promise<{ jobId: str
   return (
     <EvalCopilotLayout copilot={<EvalCopilot evalRef={{ kind: "job", id: jobId }} title={`Audit ${jobId.slice(0, 8)}`} />}>
       {view}
+      <ExpertSharingConsent jobId={jobId} />
     </EvalCopilotLayout>
   );
 }

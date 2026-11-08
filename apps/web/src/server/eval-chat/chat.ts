@@ -12,6 +12,7 @@ import type { EvalUIMessage } from "@/lib/eval-chat/types";
 import type { ActionDeps, EvalContext } from "./actions";
 import { systemPrompt } from "./prompt";
 import { buildEvalTools } from "./tools";
+import { gatewayRequestDigest, type GatewayTurnBudget, type GatewayTurnIdentity } from "./job-budget";
 
 export const MAX_MESSAGE_CHARS = 4_000;
 const HISTORY_FOR_MODEL = 30;
@@ -37,6 +38,7 @@ const textOf = (m: EvalUIMessage) => m.parts.map((p) => (p.type === "text" ? p.t
 
 export interface ChatDeps extends ActionDeps {
   model?: LanguageModel;
+  reserveJobTurn?: (input: GatewayTurnIdentity) => Promise<GatewayTurnBudget>;
   /** Copilot model spend by this owner in the last 24h (micro-USD); enables the daily cap. */
   spentTodayMicroUsd?: (ownerId: string) => Promise<number>;
   recordCost?: (entry: { ownerId: string; ctx: EvalContext; microUsd: number; inputTokens: number; outputTokens: number; basis: string }) => Promise<void>;
@@ -54,8 +56,8 @@ export function turnCost(steps: readonly Step[], usage: { inputTokens?: number; 
   let reported = 0, sawReported = false;
   for (const s of steps) {
     const gw = (s.providerMetadata as { gateway?: { cost?: string | number } } | undefined)?.gateway;
-    const n = typeof gw?.cost === "string" ? Number.parseFloat(gw.cost) : gw?.cost;
-    if (typeof n === "number" && Number.isFinite(n)) { reported += n; sawReported = true; }
+    const n = typeof gw?.cost === "string" ? Number(gw.cost) : gw?.cost;
+    if (typeof n === "number" && Number.isFinite(n) && n >= 0 && !(typeof gw?.cost === "string" && !gw.cost.trim())) { reported += n; sawReported = true; }
   }
   const inputTokens = usage.inputTokens ?? 0, outputTokens = usage.outputTokens ?? 0;
   const p = MODELS.sonnet.priceUsdPerMTok;
@@ -82,19 +84,45 @@ export async function streamCopilotTurn(deps: ChatDeps, ctx: EvalContext, messag
   const thread = [...history, userMessage];
   const modelMessages = await convertToModelMessages(thread.slice(-HISTORY_FOR_MODEL), { tools, ignoreIncompleteToolCalls: true });
 
+  const instructions = systemPrompt(ctx);
+  const dailyCapMicroUsd = Math.floor(COPILOT_DAILY_BUDGET_USD() * 1e6);
+  const allowanceMicroUsd = Math.min(300_000, dailyCapMicroUsd);
+  let budget: GatewayTurnBudget | undefined;
+  if (ctx.ref.kind === "job") {
+    if (!deps.reserveJobTurn) throw new Error("Job copilot budget is unavailable.");
+    budget = await deps.reserveJobTurn({ jobId: ctx.ref.id, ownerId: ctx.ownerId, messageId: userMessage.id,
+      requestDigest: gatewayRequestDigest({ instructions, modelMessages, model: MODELS.sonnet.vercel, maxSteps: MAX_STEPS, maxOutputTokens: MAX_OUTPUT_TOKENS }),
+      allowanceMicroUsd, dailyCapMicroUsd });
+    // Retained BEFORE streamText, including any synchronous/provider start error.
+    await budget.dispatched();
+  }
+  let failed = false, stepIndex = 0, incurredMicroUsd = 0;
   const result = streamText({
     model: deps.model ?? copilotModel(),
-    instructions: systemPrompt(ctx),
+    instructions,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(MAX_STEPS),
+    stopWhen: budget ? [stepCountIs(MAX_STEPS), () => incurredMicroUsd >= allowanceMicroUsd] : stepCountIs(MAX_STEPS),
+    maxRetries: budget ? 0 : undefined,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     abortSignal,
     // Per step, so a client disconnect mid-turn cannot skip recording what was already spent.
     onStepEnd: async (step) => {
       const cost = turnCost([step], step.usage);
+      if (budget) {
+        try { await budget.step(stepIndex++, cost); incurredMicroUsd += cost.microUsd; }
+        catch (error) { failed = true; throw error; }
+        return;
+      }
       if (cost.microUsd > 0) await deps.recordCost?.({ ownerId: ctx.ownerId, ctx, ...cost }).catch((err) => console.error("eval copilot cost record failed", err instanceof Error ? err.message : err));
     },
+    onError: budget ? async () => { failed = true; } : undefined,
+    onAbort: budget ? async () => { failed = true; } : undefined,
+    onEnd: budget ? async ({ finishReason }) => {
+      if (!failed && !abortSignal?.aborted && finishReason !== "error" && finishReason !== "other") {
+        try { await budget.complete(); } catch (error) { failed = true; throw error; }
+      }
+    } : undefined,
   });
 
   const stream = toUIMessageStream<typeof tools, EvalUIMessage>({
@@ -108,7 +136,7 @@ export async function streamCopilotTurn(deps: ChatDeps, ctx: EvalContext, messag
       return "The copilot could not answer just now. Try again.";
     },
     onEnd: async ({ responseMessage }) => {
-      if (responseMessage.parts.length) await deps.store.saveMessages(ctx.ownerId, ctx.ref, [responseMessage]);
+      if (!failed && responseMessage.parts.length) await deps.store.saveMessages(ctx.ownerId, ctx.ref, [responseMessage]);
     },
   });
   return createUIMessageStreamResponse({ stream });

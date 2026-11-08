@@ -1,3 +1,4 @@
+import {createSourcingSchema,configureSourcing,fakeSourcingLocks} from './expert-sourcing-test-fixture';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
@@ -17,16 +18,18 @@ async function fixture(){
  CREATE TABLE expert_requests(id uuid PRIMARY KEY);CREATE TABLE expert_engagements(id uuid PRIMARY KEY);CREATE TABLE outreach_drafts(id uuid PRIMARY KEY);
  CREATE TABLE expert_responses(id uuid PRIMARY KEY);CREATE TABLE contact_suppressions(email text);`);
  for(const file of ['0024_expert_automation.sql','0025_expert_workflow.sql'])await pg.exec(readFileSync(resolve('packages/core/src/db/migrations',file),'utf8'));
+ await pg.exec(readFileSync('packages/core/src/evals/integration/migrations/001-text-integration.sql','utf8'));
+ await createSourcingSchema(pg);
  const intake={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.com/agent',model:'model',systemPrompt:'Answer product questions.'}};
  await pg.query('INSERT INTO customers VALUES($1)',[tenant]);
  await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake) VALUES($1,$2,'test','text_eval',false,'planning',$3::jsonb)`,[jobId,tenant,JSON.stringify(intake)]);
  const request:FactualGapPlanRequest={jobId,environment:'test',taskId:'factual-entry-v1',versionLabel:'v1',canonicalInputDigest:reviewDigest({...intake,endpoint:{...intake.endpoint,referenceText:null},notes:null}),proposal:{schemaVersion:'text_factual_gap.v1',authority:'model_proposed_coverage_requires_owner_validation',inputDigest:factualGapInputDigest({job:{jobId,customerId:tenant,environment:'test'},versionLabel:'v1',systemPrompt:intake.endpoint.systemPrompt,referenceText:null}),requirements:[{reason:'factual_check_missing_reference',scenarioId:'S01',userMessage:'What are the limits?',check:{id:'S01.r1',kind:'rubric',description:'Product limits',rubric:'Matches product facts.',requiresReference:true,assessesFactualCorrectness:true}}]}};
  const sql:AgentTransactionalSql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
- const deps={sql,decryptCredentials:()=>({endpoint:'fixture-private-secret'})};
+ const deps={sql,decryptCredentials:()=>({endpoint:'fixture-private-secret'}),withLocks:fakeSourcingLocks};
  const plan=deriveFactualGapPlan(request,{customer_id:tenant,intake},reviewDigest({url:intake.endpoint.url,model:intake.endpoint.model,systemPrompt:intake.endpoint.systemPrompt}));
- async function configure(){
+ async function configure(bound=plan,decrypt=deps.decryptCredentials){
   await pg.query(`INSERT INTO expert_automation_policies VALUES('pilot',true,25000000,50000000)`);
-  await pg.query(`INSERT INTO expert_automation_scopes VALUES($1,$2,$3,$4,'pilot','Product support',true,true)`,[jobId,request.taskId,tenant,reviewDigest({task:plan.task,topic:'Product support'})]);
+  await configureSourcing(pg,request,bound,decrypt);
   await pg.query(`INSERT INTO experts VALUES($1,'expert@example.com','active','opt_in','{"contactForPaidWork":true}'::jsonb)`,[expert]);
   await pg.query(`INSERT INTO expert_automation_qualifications VALUES($1,'Product support',true,'["owner recorded evidence"]'::jsonb,'["evaluation"]'::jsonb,'consent-receipt',null)`,[expert]);
  }
@@ -42,7 +45,7 @@ it('installs exact existing owner scope once; retains proposal and canonical tar
  for(const table of ['expert_automation_operations','expert_automation_invitations','outreach_drafts','expert_requests','expert_workflow.contribution_reviews'])expect((await f.pg.query<{n:number}>(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n).toBe(0);
 });
 it('missing scope, policy, sharing consent and qualifications remain prerequisites; no authority is invented',async()=>{
- const f=await fixture();expect(await installFactualGapExpertPlan(f.request,f.deps)).toEqual({status:'prerequisite_blocked',reason:'owner_scope'});await f.configure();
+ const f=await fixture();expect(await installFactualGapExpertPlan(f.request,f.deps)).toEqual({status:'prerequisite_blocked',reason:'sharing_consent'});await f.configure();
  for(const [update,reason,restore] of [
   ["UPDATE expert_automation_policies SET enabled=false",'owner_policy',"UPDATE expert_automation_policies SET enabled=true"],
   ["UPDATE expert_automation_scopes SET customer_sharing_consent=false",'sharing_consent',"UPDATE expert_automation_scopes SET customer_sharing_consent=true"],
@@ -55,7 +58,7 @@ it('foreign target, environment, tenant or altered proposal cannot reuse an auth
  expect(await installFactualGapExpertPlan({...f.request,environment:'live'},f.deps)).toMatchObject({status:'prerequisite_blocked',reason:'job_scope'});
  expect(await installFactualGapExpertPlan({...f.request,canonicalInputDigest:'0'.repeat(64)},f.deps)).toMatchObject({status:'rejected',reason:'input_binding'});
  const changed=structuredClone(f.request);changed.proposal.requirements[0].check.rubric='Changed facts.';
- expect(await installFactualGapExpertPlan(changed,f.deps)).toMatchObject({status:'prerequisite_blocked',reason:'owner_scope'});
+ expect(await installFactualGapExpertPlan(changed,f.deps)).toMatchObject({status:'rejected',reason:'input_binding'});
  await f.pg.query(`UPDATE jobs SET intake=jsonb_set(intake,'{endpoint,url}','"https://other.example.com/agent"'::jsonb) WHERE id=$1`,[jobId]);
  expect(await installFactualGapExpertPlan(f.request,f.deps)).toMatchObject({status:'rejected',reason:'input_binding'});expect(await f.count()).toBe(0);
 });
@@ -110,18 +113,18 @@ it('refuses expired, missing required and inline plaintext credentials before in
  expect(await installFactualGapExpertPlan(f.request,f.deps)).toMatchObject({status:'rejected',reason:'unsafe_input'});expect(await f.count()).toBe(0);
 });
 it('binds the secured target version without retaining keys and refuses credential rotation',async()=>{
- const f=await fixture();await f.configure();
+ const f=await fixture();
  await f.pg.exec("UPDATE jobs SET intake=jsonb_set(intake,'{_credentialSlots}','[\"endpoint\"]'::jsonb)");
  await f.pg.query('INSERT INTO job_credentials VALUES($1,$2)',[jobId,'encrypted-v1']);
  const target={url:f.intake.endpoint.url,model:f.intake.endpoint.model,systemPrompt:f.intake.endpoint.systemPrompt,apiKey:'first-private-key'};
  const bound=deriveFactualGapPlan(f.request,{customer_id:tenant,intake:f.intake},reviewDigest(target));
- await f.pg.query('UPDATE expert_automation_scopes SET request_hash=$1',[reviewDigest({task:bound.task,topic:'Product support'})]);
+ await f.configure(bound,(cipher:string)=>({endpoint:cipher==='encrypted-v1'?'first-private-key':'rotated-private-key'}));
  const deps={...f.deps,decryptCredentials:(cipher:string)=>({endpoint:cipher==='encrypted-v1'?'first-private-key':'rotated-private-key'})};
  expect(await installFactualGapExpertPlan(f.request,deps)).toMatchObject({status:'installed'});
  const input=(await f.pg.query<{input:unknown}>('SELECT input FROM expert_workflow.plans')).rows[0].input;
  expect(input).toEqual(bound);expect(JSON.stringify(input)).not.toContain('first-private-key');
  await f.pg.query('UPDATE job_credentials SET ciphertext=$1',['encrypted-v2']);
- expect(await installFactualGapExpertPlan(f.request,deps)).toMatchObject({status:'prerequisite_blocked',reason:'owner_scope'});
+ expect(await installFactualGapExpertPlan(f.request,deps)).toMatchObject({status:'rejected',reason:'input_binding'});
 });
 it('rechecks credentials after initial resolution and current schema rejects unsupported lower honorarium caps',async()=>{
  const f=await fixture();await f.configure();

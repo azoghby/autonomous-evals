@@ -3,7 +3,8 @@ import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
 import { canonicalJson } from '@ae/core/evals/text/freeze';
 import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
-/** Real generic owner SQL + concrete admission + rich adapters; provider/target transport only are fakes. */
+/** Real generic owner SQL/admission/adapters. Transports and keyed cost delivery use fixtures;
+ * independent attempt composition tests cover the production shared settlement sink. */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
@@ -18,6 +19,14 @@ import { makeScenarios } from '@ae/core/evals/text/__tests__/fixtures';
 import { createNaiveTextMethods,createNaiveTextMethodBuilder } from './naive-text-methods';
 import { getEvalServices } from './services';
 import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
+const accountingSinks=vi.hoisted(()=>new Map<string,ServiceContext['recordCost']>());
+vi.mock('./judge-owner-recovery-production',async importOriginal=>{
+ const actual=await importOriginal<typeof import('./judge-owner-recovery-production')>();
+ const {naiveProxyCostEntry}=await import('@ae/core/judges/naive-proxy-service');
+ return {...actual,trustedJudgeAccountingDependencies:(overrides:Parameters<typeof actual.trustedJudgeAccountingDependencies>[0])=>actual.trustedJudgeAccountingDependencies({...overrides,recordCost:async(job,receipt)=>{
+  const sink=accountingSinks.get(job.id);if(!sink)throw Error('fixture_accounting_sink_missing');await sink(naiveProxyCostEntry(receipt,{jobId:job.id,model:receipt.model}));
+ }})};
+});
 const jobId='123e4567-e89b-42d3-a456-426614174000';
 const databases:PGlite[]=[];
 afterEach(async()=>{vi.unstubAllEnvs();for(const pg of databases.splice(0))await pg.close();});
@@ -28,18 +37,20 @@ async function fixture(rubric=false,fixtureJobId=jobId,shared?:{pg:PGlite;sql:Ag
  vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
  const pg=shared?.pg??new PGlite();if(!shared){databases.push(pg);
  for(const file of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
- await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id text NOT NULL,environment text NOT NULL,package text NOT NULL,is_mock boolean NOT NULL,state text NOT NULL,intake jsonb NOT NULL,retest_of_job_id uuid,credentials_delete_after timestamptz);
+ await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id text NOT NULL,environment text NOT NULL,package text NOT NULL,is_mock boolean NOT NULL,state text NOT NULL,intake jsonb NOT NULL,retest_of_job_id uuid,credentials_delete_after timestamptz,budget_reserved_micro_usd bigint DEFAULT 0);
  CREATE TABLE job_credentials(job_id uuid PRIMARY KEY,ciphertext text NOT NULL);
- CREATE TABLE costs(id text PRIMARY KEY,job_id uuid NOT NULL,micro_usd bigint NOT NULL,receipt jsonb NOT NULL);`);}
+ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
+ CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid NOT NULL,micro_usd bigint NOT NULL,receipt jsonb NOT NULL);`);
+ await pg.exec(readFileSync(resolve('docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));}
  const intake:Extract<IntakeInput,{package:'text_eval'}>={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',referenceText:'Canonical grounding text.',systemPrompt:rubric?'Use a polite tone.':'Follow explicit constraints.',apiKey:'fixture-target-key'}};
  // Match workflows/steps/evaluate.ts targetFor: referenceText belongs to design, not the dispatch target.
  const target={url:intake.endpoint.url,model:intake.endpoint.model,apiKey:intake.endpoint.apiKey,systemPrompt:intake.endpoint.systemPrompt??''};
  const {apiKey:_key,...endpoint}=intake.endpoint;
- await pg.query(`INSERT INTO jobs VALUES($1,'canonical-owner','test','text_eval',false,'planning',$2,null,null)`,[jobId,JSON.stringify({...intake,endpoint,_credentialSlots:['endpoint']})]);
+ await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake,retest_of_job_id,credentials_delete_after) VALUES($1,'223e4567-e89b-42d3-a456-426614174000','test','text_eval',false,'planning',$2,null,null)`,[jobId,JSON.stringify({...intake,endpoint,_credentialSlots:['endpoint']})]);
  await pg.query(`INSERT INTO job_credentials VALUES($1,'encrypted-fixture')`,[jobId]);
  const sql:AgentTransactionalSql=shared?.sql??{query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
  const executionProfile=factual?{policyId:'generic-text-factual-gap-v1' as const,designId:'generic-text-factual-gap-v1' as const,versionLabel:'generic-text-factual-gap-v1' as const,admissionPolicyId:'automated-text-design-factual-gap-v1' as const,factualGapPolicy:'propose_missing_reference.v1' as const,expertTaskId:'fact-task'}:undefined;
- if(executionProfile){const value={schemaVersion:'naive_text_execution_selection.v1',identity:{jobId,customerId:'canonical-owner',environment:'test'},profile:executionProfile};await pg.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_execution_policy','selection-v1',$2,'selection','completed',$3)`,[jobId,createHash('sha256').update(canonicalJson(value)).digest('hex'),JSON.stringify(value)]);}
+ if(executionProfile){const value={schemaVersion:'naive_text_execution_selection.v1',identity:{jobId,customerId:'223e4567-e89b-42d3-a456-426614174000',environment:'test'},profile:executionProfile};await pg.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_execution_policy','selection-v1',$2,'selection','completed',$3)`,[jobId,createHash('sha256').update(canonicalJson(value)).digest('hex'),JSON.stringify(value)]);}
  const scenarios=makeScenarios().map(s=>{if(!rubric)return s;const source=behavioralInstructions(intake.endpoint.systemPrompt,s)[0]!;return {...s,rubricChecks:[{id:`${s.id}.r1`,kind:'rubric' as const,description:'Polite tone',rubric:behavioralRubric(source),behavioralInstructionId:source.id,assessesFactualCorrectness:false}]};});
  const provider=shared?.provider??harness(body=>({structuredOutput:body.metadata.ae_output==='text_design'?{scenarios}:body.metadata.ae_output==='text_review'?{verdicts:scenarios.map(s=>({scenarioId:s.id,accepted:true,reasons:[]}))}:{reproduceScenarioIds:['S01'],verdicts:[{candidateId:'text:S01:S01.o1',verdict:'confirmed',rationale:'Reproduced exact literal constraint failure.',quote:'WRONG',defectNote:null}]}}),{store:new PostgresAgentTaskStore(sql),ledger:new PostgresBudgetLedger(sql),directory:Object.fromEntries(Object.entries(directory).map(([role,agent])=>[role,{...agent,agentVersion:1}])) as typeof directory});
  const proxyBodies=new Map<string,any>();let proxySequence=0;
@@ -52,9 +63,10 @@ async function fixture(rubric=false,fixtureJobId=jobId,shared?:{pg:PGlite;sql:Ag
  let loseCostAck=false,revokeAfterAgent=false,revokeAfterTarget=false;
  const post=vi.fn(async()=>{if(revokeAfterTarget){revokeAfterTarget=false;await pg.query(`UPDATE jobs SET state='cancelled' WHERE id=$1`,[jobId]);}return {choices:[{message:{role:'assistant',content:'WRONG'},finish_reason:'stop'}]};});
  const ctx:ServiceContext={jobId,environment:'test',budgetMicroUsd:1000000,recordProgress:async()=>{},recordCost:async cost=>{
-  const key=String(cost.meta?.idempotencyKey);await sql.transaction(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,$3,$4::jsonb) ON CONFLICT DO NOTHING',[key,jobId,cost.microUsd,JSON.stringify(cost)]);const r=await tx.query<{equal:boolean}>('SELECT receipt=$2::jsonb AS equal FROM costs WHERE id=$1',[key,JSON.stringify(cost)]);if(!r.rows[0]?.equal)throw Error('cost_conflict');});
+  const digest=createHash('sha256').update(String(cost.meta?.idempotencyKey)).digest('hex');const key=`${digest.slice(0,8)}-${digest.slice(8,12)}-${digest.slice(12,16)}-${digest.slice(16,20)}-${digest.slice(20,32)}`;await sql.transaction(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,$3,$4::jsonb) ON CONFLICT DO NOTHING',[key,jobId,cost.microUsd,JSON.stringify(cost)]);const r=await tx.query<{equal:boolean}>('SELECT receipt=$2::jsonb AS equal FROM costs WHERE id=$1',[key,JSON.stringify(cost)]);if(!r.rows[0]?.equal)throw Error('cost_conflict');});
   if(loseCostAck){loseCostAck=false;throw Error('cost_ack_lost');}
  }};
+ accountingSinks.set(jobId,ctx.recordCost);
  function runtime(context=ctx){
   return createNaiveTextMethods(context,{sql,executionProfile,runnerFactory:ledger=>{
    const service=new AgentSessionService({...provider.deps,store:new PostgresAgentTaskStore(sql),ledger,workerId:'reconstructed-worker'});
@@ -94,8 +106,8 @@ describe('generic application text composition with durable SQL authority',()=>{
   const query=vi.fn(async()=>{throw Error('SQL must not be touched');}),transaction=vi.fn(async()=>{throw Error('SQL must not be touched');});
   const sql={query,transaction} as AgentTransactionalSql,base={jobId,environment:'test' as const,budgetMicroUsd:0,recordCost:async()=>{},recordProgress:async()=>{}};
   for(const budgetMicroUsd of [0,-1,Number.NaN,Infinity,Number.MAX_SAFE_INTEGER+1,0.5])await expect(createNaiveTextMethods({...base,budgetMicroUsd},{sql})).rejects.toThrow();
-  const builder=createNaiveTextMethodBuilder({sql});for(const method of ['proposeAndVerifyFix','rerunFinding'] as const)await expect(builder(method,{...base,budgetMicroUsd:1000000})).rejects.toThrow();
-  expect(query).not.toHaveBeenCalled();expect(transaction).not.toHaveBeenCalled();
+  const builder=createNaiveTextMethodBuilder({sql});for(const method of ['rerunFinding'] as const)await expect(builder(method,{...base,budgetMicroUsd:1000000})).rejects.toThrow();
+  expect(query.mock.calls.every(([text])=>String(text).includes("kind='naive_proxy_intent'"))).toBe(true);expect(transaction).not.toHaveBeenCalled();
  });
  it('requires configured judge policy before provider or target calls',async()=>{
   const f=await fixture();vi.stubEnv('NAIVE_JUDGE_MODEL','');await expect(f.runtime()).rejects.toThrow();expect(f.provider.naive.createCalls).toHaveLength(0);expect(f.post).not.toHaveBeenCalled();
@@ -117,9 +129,9 @@ describe('generic application text composition with durable SQL authority',()=>{
  it('uses the configured real Jude proxy adapter for rubric checks and retains keyed billed receipts across restart',async()=>{
   const f=await fixture(true),api=await f.runtime(),suite=await api.designSuite(f.ctx,f.intake),run=await api.runSuite(f.ctx,suite,f.target);
   expect(run.results.every(result=>result.assessment?.kind==='rubric'&&result.assessment.checks.some(check=>check.checkId.endsWith('.r1')&&check.status==='pass'))).toBe(true);
-  expect(f.proxyFetch).toHaveBeenCalledTimes(24);
+  expect(vi.mocked(f.proxyFetch).mock.calls.filter(([url])=>String(url).includes('/anthropic/v1/messages'))).toHaveLength(12);
   const costs=(await f.pg.query<{receipt:{source:string;microUsd:number}}>('SELECT receipt FROM costs')).rows.map(row=>row.receipt);expect(costs.filter(c=>c.source==='naive_proxy')).toHaveLength(12);expect(costs.filter(c=>c.source==='naive_proxy').every(c=>c.microUsd===5)).toBe(true);
-  const fresh=await f.runtime();expect(await fresh.runSuite(f.ctx,suite,f.target)).toEqual(run);expect(f.proxyFetch).toHaveBeenCalledTimes(24);expect(f.post).toHaveBeenCalledTimes(12);
+  const fresh=await f.runtime();expect(await fresh.runSuite(f.ctx,suite,f.target)).toEqual(run);expect(vi.mocked(f.proxyFetch).mock.calls.filter(([url])=>String(url).includes('/anthropic/v1/messages'))).toHaveLength(12);expect(f.post).toHaveBeenCalledTimes(12);
  },60000);
  it('preserves inconclusive rubric checks in public and retained rich runs without publishing boolean pass',async()=>{
   const f=await fixture(true,jobId,undefined,'inconclusive'),api=await f.runtime(),suite=await api.designSuite(f.ctx,f.intake),run=await api.runSuite(f.ctx,suite,f.target);
@@ -144,7 +156,7 @@ describe('generic application text composition with durable SQL authority',()=>{
   expect(await expertBudget.reserve({jobId:first.jobId,operationId,reservationId,inputDigest:'a'.repeat(64),amountMicroUsd:1})).toBe(true);
   const a={...first.ctx,budgetMicroUsd:1000000},b={...second.ctx,budgetMicroUsd:600000};
   for(const [f,ctx] of [[first,a],[second,b]] as const){const api=await f.runtime(ctx),suite=await api.designSuite(ctx,f.intake),run=await api.runSuite(ctx,suite,f.target);expect(run.results.every(r=>r.assessment?.kind==='rubric'&&r.assessment.checks.some(c=>c.checkId.endsWith('.r1')&&c.status==='pass'))).toBe(true);}
-  const judgeScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'agent:judge:%'`)).rows;expect(judgeScopes).toEqual([{key:`agent:judge:${period}`,cap_micro_usd:'60000000'}]);expect(first.proxyFetch).toHaveBeenCalledTimes(48);
+  const judgeScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'agent:judge:%'`)).rows;expect(judgeScopes).toEqual([{key:`agent:judge:${period}`,cap_micro_usd:'60000000'}]);expect(vi.mocked(first.proxyFetch).mock.calls.filter(([url])=>String(url).includes('/anthropic/v1/messages'))).toHaveLength(24);
   const genericScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'generic-text:%' ORDER BY key`)).rows;expect(genericScopes).toEqual([{key:`generic-text:${first.jobId}`,cap_micro_usd:'1000000'},{key:`generic-text:${second.jobId}`,cap_micro_usd:'600000'}]);expect((await first.pg.query<{count:number}>('SELECT count(*)::int AS count FROM agent_persistence.reservations')).rows[0].count).toBe(29);
  },60000);
  it('recovers lost cost acknowledgement via reconstruction without another provider operation',async()=>{
@@ -158,7 +170,7 @@ describe('generic application text composition with durable SQL authority',()=>{
  it('retains measured provider cost before post-await revocation and drains it before revoked factory admission',async()=>{
   const f=await fixture(),api=await f.runtime();f.revokeAfterAgent();await expect(api.designSuite(f.ctx,f.intake)).rejects.toThrow();expect(f.provider.naive.createCalls).toHaveLength(1);
   const outbox=(await f.pg.query<{value:{jobId:string;customerId:string;environment:string;cost:{microUsd:number}}}>(`SELECT value FROM text_integration.checkpoints WHERE kind='naive_generic_cost' AND state='completed'`)).rows;
-  expect(outbox).toHaveLength(1);expect(outbox[0].value).toMatchObject({jobId,customerId:'canonical-owner',environment:'test'});expect(outbox[0].value.cost.microUsd).toBeGreaterThan(0);
+  expect(outbox).toHaveLength(1);expect(outbox[0].value).toMatchObject({jobId,customerId:'223e4567-e89b-42d3-a456-426614174000',environment:'test'});expect(outbox[0].value.cost.microUsd).toBeGreaterThan(0);
   await expect(f.runtime()).rejects.toThrow();expect((await f.pg.query<{count:number}>('SELECT count(*)::int AS count FROM costs')).rows[0].count).toBe(1);
   expect(f.provider.naive.createCalls).toHaveLength(1);expect(f.post).not.toHaveBeenCalled();
  },60000);

@@ -153,6 +153,26 @@ export async function expireOpenCheckout(jobId: string): Promise<"expired" | "sk
   }
 }
 
+/** Strict outbox cleanup: acknowledge only a proven absent, expired or completed Checkout session.
+ * Provider/configuration failures propagate so the durable cancellation worker retries them.
+ */
+export async function expireOpenCheckoutForCancellation(jobId: string): Promise<void> {
+  const [quote] = await db().select({ sessionId: schema.quotes.stripeCheckoutSessionId }).from(schema.quotes)
+    .where(eq(schema.quotes.jobId, jobId)).orderBy(desc(schema.quotes.version)).limit(1);
+  if (!quote?.sessionId) return;
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe is required to expire retained Checkout session");
+  const sessions = stripe().checkout.sessions;
+  const current = await sessions.retrieve(quote.sessionId);
+  if (current.status === "expired" || current.status === "complete") return;
+  if (current.status !== "open") throw new Error("Checkout session status is not proven terminal or open");
+  const expired = await sessions.expire(quote.sessionId);
+  if (expired.status === "expired") return;
+  const verified = await sessions.retrieve(quote.sessionId);
+  if (verified.status !== "expired" && verified.status !== "complete") {
+    throw new Error("Checkout session expiry is not confirmed");
+  }
+}
+
 type StrandedReason = "job_finished" | "stale_quote" | "workflow_gone" | "amount_mismatch" | "duplicate_payment";
 
 const STRANDED_NOTE: Record<StrandedReason, string> = {

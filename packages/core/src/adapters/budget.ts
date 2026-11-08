@@ -1,70 +1,75 @@
-import { sql } from "drizzle-orm";
-import { db } from "../db/client";
-import { JOB_BUDGET_MICRO_USD } from "../contracts/index";
+import { randomUUID } from "node:crypto";
+import { Pool } from "@neondatabase/serverless";
 import type { BudgetReserver, ReserveResult } from "../contracts/services";
+import {
+  lockJobBudget, jobBudgetExposure, reserveJobBudget, reserveWorkflowJobBudget,
+  markJobBudgetDispatched, releaseWorkflowJobBudget, type JobBudgetTx,
+} from "../db/job-budget-authority";
 
-/** CASE over the single source of truth for per-package caps (JOB_BUDGET_MICRO_USD). */
-const capCase = () => sql.join(
-  Object.entries(JOB_BUDGET_MICRO_USD).map(([pkg, cap]) => sql`when ${pkg} then ${cap}::bigint`),
-  sql` `,
-);
+let pool: Pool | undefined;
 
-/**
- * One statement: remaining = cap - unreleased reservations - recorded costs (same rule as the workflow's
- * budgetCheck), insert only if remaining >= amount, and bump jobs.budget_reserved_micro_usd like withBudget does.
- */
-export function reserveStatement(jobId: string, agent: string, microUsd: number) {
-  return sql`
-    with cap as (
-      select j.id, (case j.package::text ${capCase()} end) as cap from jobs j where j.id = ${jobId}
-    ), room as (
-      select cap.id, cap.cap
-        - coalesce((select sum(r.micro_usd) from budget_reservations r where r.job_id = cap.id and r.released_at is null), 0)
-        - coalesce((select sum(c.micro_usd) from costs c where c.job_id = cap.id), 0) as remaining
-      from cap
-    ), ins as (
-      insert into budget_reservations (job_id, agent, micro_usd)
-      select id, ${agent}, ${microUsd}::bigint from room where remaining >= ${microUsd}::bigint
-      returning id, job_id
-    ), bump as (
-      update jobs set budget_reserved_micro_usd = budget_reserved_micro_usd + ${microUsd}::bigint
-      where id in (select job_id from ins)
-    )
-    select (select id from ins) as reservation_id, (select remaining from room) as remaining`;
+/** Pinned READ COMMITTED transaction: no HTTP batches, automatic retries, or callback replay. */
+async function transaction<T>(fn: (tx: JobBudgetTx) => Promise<T>): Promise<T> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is not set");
+  pool ??= new Pool({ connectionString, max: 5 });
+  const connection = await pool.connect();
+  let discard: Error | undefined;
+  try {
+    await connection.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    const tx: JobBudgetTx = {
+      async query<R>(text: string, params?: unknown[]) {
+        const result = await connection.query(text, params);
+        return { rows: result.rows as R[] };
+      },
+    };
+    const result = await fn(tx);
+    try { await connection.query("COMMIT"); }
+    catch (error) { discard = new Error("budget_commit_uncertain"); throw error; }
+    return result;
+  } catch (error) {
+    try { await connection.query("ROLLBACK"); }
+    catch { discard = new Error("budget_rollback_failed"); }
+    throw error;
+  } finally { connection.release(discard); }
 }
 
-/** Per-job transaction-scoped advisory lock; the next statement in the same batch sees a fresh snapshot after acquiring it. */
-export const lockJobStatement = (jobId: string) => sql`select pg_advisory_xact_lock(hashtext(${jobId}))`;
+export type WorkflowAdmission =
+  | { ok: true; reservationId: string; amountMicroUsd: number }
+  | { ok: false; remainingMicroUsd: number };
 
-/**
- * Marks the reservation released and, only if that transition actually happened, decrements the job's
- * reserved counter by the released amount (never below zero).
- */
-export function releaseStatement(jobId: string, reservationId: string) {
-  return sql`
-    with rel as (
-      update budget_reservations set released_at = now()
-      where id = ${reservationId} and job_id = ${jobId} and released_at is null
-      returning job_id, micro_usd
-    )
-    update jobs set budget_reserved_micro_usd = greatest(0, budget_reserved_micro_usd - (select sum(micro_usd) from rel))
-    where id in (select job_id from rel)`;
+/** Reuse an open stage on retry; a subsequent successful same-agent stage gets a new hold. */
+export async function reserveWorkflowBudget(jobId: string, agent: string, share: number): Promise<WorkflowAdmission> {
+  if (!Number.isFinite(share) || share <= 0 || share > 1) throw new Error("invalid budget share");
+  return transaction(async tx => {
+    await lockJobBudget(tx, jobId);
+    const exposure = await jobBudgetExposure(tx, jobId);
+    const amountMicroUsd = Math.floor(exposure.capMicroUsd * share);
+    const result = await reserveWorkflowJobBudget(tx, { jobId, agent, amountMicroUsd });
+    return result.ok
+      ? { ok: true, reservationId: result.reservationId, amountMicroUsd }
+      : { ok: false, remainingMicroUsd: result.remainingMicroUsd };
+  });
+}
+
+export async function releaseWorkflowBudget(jobId: string, reservationId: string): Promise<void> {
+  await transaction(tx => releaseWorkflowJobBudget(tx, jobId, reservationId));
 }
 
 export function createBudgetReserver(jobId: string): BudgetReserver {
   return {
     async reserve(agent, microUsd): Promise<ReserveResult> {
       if (!Number.isSafeInteger(microUsd) || microUsd <= 0) throw new Error("microUsd must be a positive integer");
-      // Non-interactive transaction: the xact lock serializes concurrent reservers of this job, and the
-      // reserve statement then reads a snapshot taken after the lock was granted (READ COMMITTED).
-      const d = db();
-      const [, res] = await d.batch([d.execute(lockJobStatement(jobId)), d.execute(reserveStatement(jobId, agent, microUsd))]);
-      const row = res.rows[0] as { reservation_id: string | null; remaining: string | number | null } | undefined;
-      if (row?.reservation_id) return { ok: true, reservationId: row.reservation_id };
-      return { ok: false, remainingMicroUsd: Math.max(0, Number(row?.remaining ?? 0)) };
+      // This legacy API has no caller idempotency key. An unknown commit remains held;
+      // callers must never assume a failed reserve means no reservation exists.
+      const operationId = `adapter:${randomUUID()}`;
+      return transaction(async tx => {
+        const result = await reserveJobBudget(tx, { jobId, operationId, amountMicroUsd: microUsd, workflowAgent: agent });
+        if (!result.ok) return { ok: false, remainingMicroUsd: result.remainingMicroUsd };
+        await markJobBudgetDispatched(tx, jobId, operationId);
+        return { ok: true, reservationId: result.reservationId };
+      });
     },
-    async release(reservationId) {
-      await db().execute(releaseStatement(jobId, reservationId));
-    },
+    release: reservationId => releaseWorkflowBudget(jobId, reservationId),
   };
 }

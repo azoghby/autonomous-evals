@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash,randomUUID } from 'node:crypto';
 import type { AgentSqlExecutor,AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
-import { IntakeInput,Report,type Finding,type Suite } from '@ae/core/contracts/index';
+import { IntakeInput,Report,Remediation,type Finding,type Suite } from '@ae/core/contracts/index';
 import type { ServiceContext } from '@ae/core/contracts/services';
 import { canonicalJson } from '@ae/core/evals/text/freeze';
 import { SuiteRunSchema } from '@ae/core/evals/text/schema';
@@ -87,16 +87,33 @@ export async function createNaiveTextPublication(ctx:ServiceContext,requestedSui
   const findings=rich.findings.map(f=>toContractFinding(FindingSchema.parse(f)));
   if(requestedFindings&&!equal(requestedFindings,findings))return fail();
   if(!inspectDataSafety({projection,run,rich,findings},secrets).safe)return fail();
+  const remediationRows=(await tx.query<(Checkpoint&{id:string})>(`SELECT id,input_digest,state,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_remediation_receipt' ORDER BY id FOR SHARE`,[jobId])).rows;
+  if(remediationRows.length>findings.length)return fail();
+  const remediations:Remediation[]=[];
+  for(const row of remediationRows){
+   const richFinding=rich.findings.find(f=>f.id===row.id),publicFinding=findings.find(f=>f.id===row.id);
+   if(!richFinding||!publicFinding||richFinding.label!=='confirmed')return fail();
+   const evidenceDigest=hash({binding:binding.value,scope,frozen:projection.retained.frozen,run,rich,finding:richFinding,publicFinding});
+   const input={evidenceDigest,findingId:row.id},v=row.value,detailed=v?.detailed;
+   if(row.state!=='completed'||row.input_digest!==hash(input)||v?.schemaVersion!=='naive_remediation_receipt.v1'||!equal(v.input,input)||v.receiptDigest!==hash({input,detailed})||detailed?.baselineRunId!==runId||detailed.suiteDigest!==scope.suiteDigest)return fail();
+   const remediation=Remediation.parse(detailed.remediation);
+   if(!equal(remediation,detailed.remediation)||remediation.findingId!==row.id)return fail();
+   remediations.push(remediation);
+  }
+  const projected=(await tx.query<{finding_key:string;data:unknown;finding_data:unknown}>(`SELECT f.finding_key,r.data,f.data AS finding_data FROM remediations r JOIN findings f ON f.id=r.finding_row_id WHERE r.job_id=$1 AND f.job_id=$1 AND f.rerun_of_finding_id IS NULL FOR SHARE OF r,f`,[jobId])).rows;
+  if(projected.length!==remediations.length||projected.some(r=>!findings.some(f=>f.id===r.finding_key&&equal(f,r.finding_data))||!remediations.some(f=>f.findingId===r.finding_key&&equal(f,r.data))))return fail();
+  if(!inspectDataSafety({remediationRows,remediations},secrets).safe)return fail();
+  const remediationSummary=remediations.length?`Remediation results: ${remediations.map(r=>`${r.findingId}: ${r.verification.status}; ${r.verification.after.passed}/${r.verification.after.total} original scenarios passed; ${r.verification.regressions} regressions`).join('; ')}. Verification is limited to the retained frozen scenarios; no deployed configuration was changed. Target usage may remain pending monetary reconciliation. Post-delivery reruns were not performed.`:'Remediation and rerun verification were not performed.';
   const assessed=publicRun.results.filter(r=>r.assessment?.kind==='objective'||r.assessment?.kind==='rubric').length;
-  const summary=`Text baseline assessment: ${assessed} of ${publicRun.results.length} scenarios assessed.\n${publicRun.results.map(r=>`${r.scenarioId}: ${r.assessment?.kind??'objective'}; ${r.assessment?.checks.map(c=>`${c.checkId}=${c.status}${c.reason?` (${c.reason})`:''}`).join('; ')??''}`).join('\n')}\nLimitations: ${rich.limitations.join('; ')||'No additional investigator limitations.'}\nRemediation and rerun verification were not performed. Full target responses, check evidence, and reproductions are retained privately.`;
-  const proof={binding,admission,approved,retained,richRun,richIdentity,investigation,engineInvestigation};
-  return {owner,identity,scope,findings,suite:projection.suite,assessed,summary,proof,secrets};
+  const summary=`Text baseline assessment: ${assessed} of ${publicRun.results.length} scenarios assessed.\n${publicRun.results.map(r=>`${r.scenarioId}: ${r.assessment?.kind??'objective'}; ${r.assessment?.checks.map(c=>`${c.checkId}=${c.status}${c.reason?` (${c.reason})`:''}`).join('; ')??''}`).join('\n')}\nLimitations: ${rich.limitations.join('; ')||'No additional investigator limitations.'}\n${remediationSummary} Full target responses, check evidence, and reproductions are retained privately.`;
+  const proof={binding,admission,approved,retained,richRun,richIdentity,investigation,engineInvestigation,...(remediationRows.length?{remediationRows}: {})};
+  return {owner,identity,scope,findings,suite:projection.suite,assessed,summary,proof,secrets,remediations};
  }
  const initial=await sql.transaction(tx=>current(tx,undefined,true)),fixed=hash(initial.proof);
  async function checked(tx:AgentSqlExecutor,value?:unknown,allowDelivered=false){const a=await current(tx,value,allowDelivered);if(hash(a.proof)!==fixed)return fail();return a;}
  return {
   assertCurrent:async(value?:unknown)=>{await sql.transaction(tx=>checked(tx,value,true));},
-  reportContext:async()=>{const a=await sql.transaction(tx=>checked(tx,undefined,true));return {assessed:a.assessed,summary:a.summary};},
+  reportContext:async()=>{const a=await sql.transaction(tx=>checked(tx,undefined,true));return {assessed:a.assessed,summary:a.summary,remediations:a.remediations};},
   atomicPublish:async(raw:Report,paths:NaiveTextPublicationPaths):Promise<{deliveredAtIso:string}>=>sql.transaction(async tx=>{
    const report=Report.parse(raw);
    if(!equal(raw,report)||report.jobId!==jobId||!equal(report.findings,initial.findings)||Object.keys(paths).sort().join(',')!=='evidenceBlobPath,reportBlobPath,reportHtmlBlobPath,suiteBlobPath'||Object.values(paths).some(v=>typeof v!=='string'||!v||v.length>4096||v.includes('\0')))return fail();

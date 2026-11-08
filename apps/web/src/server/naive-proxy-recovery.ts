@@ -1,15 +1,12 @@
 import 'server-only';
-import { createClient } from '@usenaive-sdk/managed-agents';
 import { z } from 'zod';
-import { PostgresBudgetLedger, type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
-import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
+import { type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
 import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
-import { reconcileNaiveProxyBilling, proxyBillingDigest, type NaiveProxyReconcileDeps } from '@ae/core/judges/naive-proxy-reconcile';
-import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
-import { naiveProxyCostEntry } from '@ae/core/judges/naive-proxy-service';
+import { type NaiveProxyReconcileDeps } from '@ae/core/judges/naive-proxy-reconcile';
 import { expertOwnerDatabase } from './automated-expert-owner';
-import { recordSettledCost } from './cost-settlement';
 import { requireOperator } from './http';
+import { drainJudgeAccounting } from './judge-owner-recovery';
+import { trustedJudgeAccountingDependencies } from './judge-owner-recovery-production';
 
 const recoveryHeaders={'Cache-Control':'private, no-store, max-age=0',Vary:'Cookie','X-Content-Type-Options':'nosniff'};
 const json=(value:unknown,status=200)=>Response.json(value,{status,headers:recoveryHeaders});
@@ -33,11 +30,6 @@ export interface ProxyRecoveryDeps {
  /** Audit-only SDK port. No provider creation API is accepted. */
  audit?:NaiveProxyReconcileDeps['proxy'];
 }
-function auditClient():NaiveProxyReconcileDeps['proxy'] {
- const apiKey=process.env.NAIVE_API_KEY;if(!apiKey)throw Error('audit_unconfigured');
- const client=createClient({apiKey,...(process.env.NAIVE_BASE_URL?{baseUrl:process.env.NAIVE_BASE_URL}:{})});
- return {call:id=>client.proxy.call(id)};
-}
 /** Accounting-only operator recovery. Cancelled jobs, revoked expert plans and exhausted
  * inference budgets remain eligible for their already incurred, provider-audited costs. */
 export async function handleProxyBillingRecovery(req:Request,jobId:string,deps:ProxyRecoveryDeps={}):Promise<Response> {
@@ -51,27 +43,14 @@ export async function handleProxyBillingRecovery(req:Request,jobId:string,deps:P
   const sql=deps.sql??expertOwnerDatabase();
   const job=(await sql.query<JobOwner>('SELECT id::text,customer_id::text,environment,package FROM jobs WHERE id=$1',[jobId])).rows[0];
   if(!job||!z.uuid().safeParse(job.customer_id).success||!['test','live'].includes(job.environment)||!(job.package in JOB_BUDGET_MICRO_USD))return jsonError(404,'Job unavailable');
-  const selected=await sql.query<{id:string;operation_id:string}>(`SELECT c.id,c.value->>'operationId' AS operation_id FROM text_integration.checkpoints c
-   JOIN jobs j ON j.id::text=c.job_id WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3
-   AND c.kind='naive_proxy_intent' AND c.state='completed' AND c.id>$4 ORDER BY c.id LIMIT 26`,[jobId,job.customer_id,job.environment,cursor]);
-  const rows=selected.rows.slice(0,PROXY_RECOVERY_BATCH);
-  const ledger=createNaiveProxyBudget(new PostgresBudgetLedger(sql),{jobId,period:'recovery',jobCapMicroUsd:JOB_BUDGET_MICRO_USD[job.package],judgeCapMicroUsd:JOB_BUDGET_MICRO_USD[job.package]});
-  const audit=rows.length?(deps.audit??auditClient()):undefined;
-  let reconciled=0,pending=0;
-  for(const row of rows){
-   const active=await requireOperator();if(active.res)return privateDenial(active.res);if(active.viewer.id!==auth.viewer.id)return jsonError(403,'Operator session changed');
-   try {
-    if(!/^[A-Za-z0-9_.:-]{1,200}$/.test(row.operation_id)||row.id!==proxyBillingDigest({jobId,operationId:row.operation_id}))throw Error('invalid_intent');
-    await reconcileNaiveProxyBilling({jobId,operationId:row.operation_id},{checkpoints:new PostgresTextCheckpointStore(sql),proxy:audit!,budget:ledger,
-     recordCost:async receipt=>{await recordSettledCost({kind:'job',id:jobId,ownerId:job.customer_id,environment:job.environment},naiveProxyCostEntry(receipt,{jobId,model:receipt.model}));}});
-    reconciled++;
-   }catch{pending++;}
-  }
-  const current=await requireOperator();if(current.res)return privateDenial(current.res);
-  if(current.viewer.id!==auth.viewer.id)return jsonError(403,'Operator session changed');
-  return json({status:pending?'requires_reconciliation':'reconciled',scanned:rows.length,reconciled,pending,remaining:selected.rows.length>PROXY_RECOVERY_BATCH,nextCursor:selected.rows.length>PROXY_RECOVERY_BATCH?rows.at(-1)!.id:null});
+  const actor=auth.viewer.id;
+  const accounting=trustedJudgeAccountingDependencies({sql,...(deps.audit?{audit:deps.audit}:{})});
+  return json(await drainJudgeAccounting(jobId,{...accounting,authorizeAccounting:async()=>{
+   const active=await requireOperator();if(active.res||active.viewer.id!==actor)throw Error('operator_required');
+  }},cursor));
  }catch{
   const current=await requireOperator();if(current.res)return privateDenial(current.res);
+  if(current.viewer.id!==auth.viewer.id)return jsonError(403,'Operator session changed');
   return jsonError(503,'Proxy accounting reconciliation unavailable');
  }
 }

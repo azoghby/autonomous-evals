@@ -1,4 +1,7 @@
+import { createWorkflowStageBudgetLedger } from './workflow-stage-budget';
+import { resolveJobNaiveExecution } from './naive-text-execution-runtime';
 import { TextFactualGapError } from '@ae/core/evals/text/factual-gap';
+import { readRoutingSelection, routeNaiveMethods, type NaiveMethodBuilder } from './naive-method-routing';
 import { objectivePassed } from "@ae/core/contracts/services";
 import "server-only";
 import {
@@ -8,13 +11,19 @@ import type { EvalServices, ServiceContext, RunResult } from "@ae/core/contracts
 import { assertPublicTarget } from "./target-url";
 import { mockRedTeamFindings, mockRedTeamResults } from "./redteam-mock";
 import {
-  evalServices as trackBServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
+  createRealEvalServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
 } from "@ae/core/integration/eval-services";
 import { FatalError, RetryableError } from "workflow";
 import { createLiteServices, LiteJudgeOutageError, LiteUnavailableError } from "@ae/core/lite/index";
 import { resolveJobTarget } from "./lite-target";
 
-import { readRoutingSelection, routeNaiveMethods, type NaiveMethodBuilder } from "./naive-method-routing";
+import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
+/** Explicit expert plans use this direct real engine without lite fallback. */
+export const stageRealEvalServices = createRealEvalServices({
+  createBudgetLedger: createWorkflowStageBudgetLedger,
+  decorateNaiveSessions: fenceWorkflowStageSessions,
+  decorateAgentRunner: fenceWorkflowStageRunner,
+});
 
 const MOCK = "[MOCK]";
 const MOCK_CLARIFY_MARKER = "[needs-clarification]";
@@ -171,6 +180,7 @@ export function isMockServices(): boolean {
 }
 
 let real: EvalServices | undefined;
+
 /** Resolve each job's durable profile before constructing a selected paid method. */
 const defaultNaiveBuilder: NaiveMethodBuilder = async (method, ctx) => {
   const { resolveJobNaiveExecution } = await import('./naive-text-execution-runtime');
@@ -248,11 +258,64 @@ function liteServices(): EvalServices {
 export async function getEvalServices(builder: NaiveMethodBuilder = defaultNaiveBuilder): Promise<EvalServices> {
   const selection = readRoutingSelection();
   const mode = evalServicesMode();
-  if (mode === "mock") return selection.realBranches === undefined ? mockServices : withWorkflowErrors(routeNaiveMethods(mockServices, trackBServices, selection, builder));
+  if (mode === "mock") return selection.realBranches === undefined ? mockServices : withWorkflowErrors(routeNaiveMethods(mockServices, stageRealEvalServices, selection, builder));
   if (mode === "lite") {
     lite ??= withWorkflowErrors(liteServices());
-    return selection.realBranches === undefined ? lite : withWorkflowErrors(routeNaiveMethods(lite, trackBServices, selection, builder));
+    return selection.realBranches === undefined ? lite : withWorkflowErrors(routeNaiveMethods(lite, stageRealEvalServices, selection, builder));
   }
-  real ??= withWorkflowErrors(withLiteFallback(trackBServices, liteServices()));
-  return withWorkflowErrors(routeNaiveMethods(real, trackBServices, selection, builder));
+  real ??= withWorkflowErrors(withLiteFallback(stageRealEvalServices, liteServices()));
+  return withWorkflowErrors(routeNaiveMethods(real, stageRealEvalServices, selection, builder));
+}
+
+/** Complete recovery profile for the three single-session real methods only.
+ * Selection is captured before admission and bound into the immutable stage digest.
+ * Raw TrackBPendingError must reach executeWorkflowStage before Workflow conversion.
+ */
+export async function recoverableEvalStage(
+ method: 'qualify' | 'auditTrace' | 'renderReport', jobId: string, key: string, input: unknown,
+): Promise<{services: EvalServices; stage: import('./workflow-stage-runtime').LogicalWorkflowStage}> {
+ const round = /^qualification:(0|[1-9][0-9]*)$/.exec(key)?.[1];
+ const purpose = method === 'qualify' && round !== undefined && Number.isSafeInteger(Number(round))
+  ? `commercial:qualify_r${round}:1`
+  : method === 'auditTrace' && key === 'trace-audit' ? 'quality_investigator:trace_recheck:1'
+  : method === 'renderReport' && key === 'report' ? 'company_operator:report_summary:1' : null;
+ if (!jobId || !purpose) throw new Error('workflow_stage_recovery_profile_invalid');
+ const expectedChildKey = `${jobId}:${purpose}`;
+ const mode = evalServicesMode();
+ return {
+  services: mode === 'real' ? stageRealEvalServices : await getEvalServices(),
+  stage: {key, input: {serviceMode: mode, method, input}, ...(mode === 'real' ? {
+   recovery: 'naive-single-child-v1' as const, expectedChildKey,
+   isPendingError: (error: unknown) => error instanceof TrackBPendingError,
+  } : {})},
+ };
+}
+
+/** Translate only after the stage runtime has retained its pending parent hold. */
+export async function workflowServiceCall<T>(run: () => Promise<T>): Promise<T> {
+ try { return await run(); } catch (error) { throw toWorkflowError(error); }
+}
+
+/** Recognize pending before Workflow translation or after it, without swallowing authority errors. */
+export function isWorkflowStagePendingError(error:unknown):boolean{return error instanceof TrackBPendingError||error instanceof RetryableError||(error instanceof Error&&/^(NAIVE_ADMISSION_PENDING:|NAIVE_OPERATION_PENDING:)/.test(error.message));}
+export function isWorkflowStageControlError(error:unknown):boolean{return isWorkflowStagePendingError(error)||error instanceof FatalError||(error instanceof Error&&/^(workflow_stage_|job_cancellation_)/.test(error.message));}
+
+/** Generic report recovery is restricted to retained generic selection and the real decorated service. */
+export async function recoverableGenericTextReportStage(jobId:string,input:unknown):Promise<{services:EvalServices;stage:import('./workflow-stage-runtime').LogicalWorkflowStage}> {
+ const selected=await resolveJobNaiveExecution(jobId);
+ if(!selected.generic||evalServicesMode()!=='real')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
+ return {services:stageRealEvalServices,stage:{key:'generic-text-report',input:{serviceMode:'real',method:'renderReport',executionProfile:selected.profile,input},recovery:'naive-single-child-v1',expectedChildKey:`${jobId}:company_operator:report_summary:1`,isPendingError:(error:unknown)=>error instanceof TrackBPendingError}};
+}
+
+/** Selected generic runs use raw errors until the durable finite plan retains its parent hold. */
+export async function recoverableGenericTextRunStage(jobId:string,suite:import('@ae/core/contracts/index').Suite,target:Parameters<EvalServices['runSuite']>[2],slot:string,versionLabel:string,branchId?:string):Promise<{services:EvalServices;stage:import('./workflow-stage-runtime').LogicalWorkflowStage}> {
+ const selected=await resolveJobNaiveExecution(jobId);
+ if(!selected.generic)throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
+ const {naiveRunRecoveryStage}=await import('./naive-run-recovery');
+ const services:EvalServices={...stageRealEvalServices,runSuite:async(ctx,...args)=>{
+  const built=await defaultNaiveBuilder('runSuite',ctx);
+  if(!built.runSuite)throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
+  return built.runSuite(ctx,...args);
+ }};
+ return {services,stage:await naiveRunRecoveryStage(jobId,suite,target,slot,versionLabel,branchId,selected)};
 }

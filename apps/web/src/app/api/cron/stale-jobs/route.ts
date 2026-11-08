@@ -3,6 +3,7 @@ import { db, schema } from "@ae/core/db/client";
 import { requireCronAuth } from "../_auth";
 import { processStaleJobs } from "../../../../server/stale-jobs";
 import { loadCandidates, staleJobDeps } from "./recovery";
+import { drainJobCancellations } from "@/server/job-cancellation-delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,12 @@ const AUTH_WARN_MS = 5 * 86_400_000; // Stripe card authorizations expire after 
 export async function GET(request: Request) {
   const denied = requireCronAuth(request);
   if (denied) return denied;
+  // Independent of stale state/age scans: draft, quoted and terminal jobs can have pending notifications.
+  const cancellations = await drainJobCancellations();
   const now = Date.now();
   const summary = await processStaleJobs(await loadCandidates(now), now, staleJobDeps);
   const expiring = await flagExpiringAuthorizations(now);
-  return Response.json({ ...summary, expiringAuthorizations: expiring }, { status: summary.errors.length ? 500 : 200 });
+  return Response.json({ ...summary, cancellations, expiringAuthorizations: expiring }, { status: summary.errors.length || cancellations.errors.length ? 500 : 200 });
 }
 
 /** Per-finding holds still uncaptured after 5 days are about to lapse: flag once per payment for an operator. */

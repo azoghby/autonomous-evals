@@ -13,7 +13,10 @@ import { eq } from "drizzle-orm";
 import type { EvalServices, ServiceContext } from "../contracts/services";
 import { db, schema } from "../db/client";
 import { createNaiveClient, createNaiveSessionsPort } from "../agents/naive-adapter";
-import { PostgresAgentTaskStore, PostgresBudgetLedger } from "../agents/postgres-ports";
+import { PostgresAgentTaskStore } from "../agents/postgres-ports";
+import { SharedJobBudgetLedger } from "../db/job-budget-ledger";
+import type { AgentTaskRunner } from "../agents/session-service";
+import type { NaiveSessionsPort } from "../evals/types";
 import { AgentSessionService } from "../agents/session-service";
 import { pooledCalendarDatabase } from "../simulator/pool";
 import { PostgresBranchLedger } from "../simulator/branch-ledger";
@@ -99,20 +102,26 @@ async function resolveJob(ctx: ServiceContext) {
   return { customerId: job.customerId, package: job.package, isFixture: false, linkedRetestOf: job.retestOfJobId ?? null, quoteVersion: null };
 }
 
-export async function buildAgentDeps(): Promise<TrackBServiceDeps> {
+/** Host-owned boundary instrumentation; core never imports the application runtime. */
+export interface AgentDependencyDecorators {
+  createBudgetLedger?: (sql: import("../agents/postgres-ports").AgentTransactionalSql) => import("../evals/types").BudgetLedger;
+  decorateNaiveSessions?: (port: NaiveSessionsPort) => NaiveSessionsPort;
+  decorateAgentRunner?: (runner: AgentTaskRunner) => AgentTaskRunner;
+}
+export async function buildAgentDeps(decorators: AgentDependencyDecorators = {}): Promise<TrackBServiceDeps> {
   const env = requireEnv("agents", AGENT_ENV);
   const sql = pooledCalendarDatabase(sqlPool());
   const naive = createNaiveSessionsPort(createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined }));
   const runner = new AgentSessionService({
-    naive,
+    naive: decorators.decorateNaiveSessions?.(naive) ?? naive,
     store: new PostgresAgentTaskStore(sql),
-    ledger: new PostgresBudgetLedger(sql),
+    ledger: decorators.createBudgetLedger?.(sql) ?? new SharedJobBudgetLedger(sql),
     directory: agentDirectory(),
     budgetPeriodId: process.env.NAIVE_BUDGET_PERIOD_ID || new Date().toISOString().slice(0, 7),
     idempotencyNamespace: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
     workerId: randomUUID(),
   });
-  return { runner, resolveJob };
+  return { runner: decorators.decorateAgentRunner?.(runner) ?? runner, resolveJob };
 }
 
 async function buildBranchServices(): Promise<BranchServices> {
@@ -133,4 +142,7 @@ async function buildBranchServices(): Promise<BranchServices> {
 }
 
 /** Track A's `getEvalServices()` returns this when EVAL_SERVICES=real. */
-export const evalServices: EvalServices = composeEvalServices({ agents: buildAgentDeps, branches: buildBranchServices });
+export function createRealEvalServices(decorators: AgentDependencyDecorators = {}): EvalServices {
+  return composeEvalServices({ agents: () => buildAgentDeps(decorators), branches: buildBranchServices });
+}
+export const evalServices: EvalServices = createRealEvalServices();

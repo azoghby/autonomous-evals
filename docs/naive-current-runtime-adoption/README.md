@@ -2,7 +2,7 @@
 
 This **147-file source/test patch (43 modified, 104 added; no deletions)** consolidates the accumulated Naïve runtime candidates into one exact source patch against actual `track-a` at `fbedc75d1ede96e792a72119ac606d10ade41fe4`. Main `ca17ce9` is preserved; its recent changes were deployment/company-cycle ledger receipts, not runtime source changes. The desired implementation is the verified bounded-run composition at `f03edc8`.
 
-**This patch is not applied and is not deployment-ready.** Earlier expert26/factual39 approvals are already reflected in the baseline. They do not authorize this cumulative delta. Apply only this exact cumulative patch if separately approved; never replay the overlapping historical owner patches.
+**Source adopted with explicit user approval; deployment remains blocked.** After merging main `029f45c` at `ce59be9`, all 147 reviewed postimages were applied exactly to actual source. Actual-source checks pass: **4,609 tests, zero failures, two documented skips**, web/core types and a clean production build (63 steps/four workflows; 2,286 matching input hashes). The adoption receipt is recorded with this commit. Main company diagram changes are preserved. Do not reapply this cumulative patch or overlapping historical owner patches, including already-adopted expert26/factual39. Immutable manifests, audits and validation files retain their original review-time evidence.
 
 ## What it changes
 
@@ -12,7 +12,7 @@ These capabilities are at different readiness levels. A completed target respons
 
 ## Review and adoption boundary
 
-Read `manifest.json` and `owner.patch` with [scope-review.md](scope-review.md) and [activation-review.md](activation-review.md). The patch includes application/database/integration source and protected core design/judge files, so the approval must cover this exact manifest across both track ownership boundaries. Approval would adopt source only: no migration, configuration change, deployment, provider call, outreach or spending.
+Read `manifest.json` and `owner.patch` with [scope-review.md](scope-review.md) and [activation-review.md](activation-review.md). The user approved this exact application/database/integration and protected core design/judge manifest across both track ownership boundaries. Adoption is source only: no staging/operator/live migration, configuration or flag change, deployment, provider call, outreach or spending.
 
 The manifest pins every committed baseline path and mode. Review assemblies export the current runtime/test/configuration inputs and required SQL, then overlay only listed postimages; unrelated historical documentation is not hydrated into the review directories. Applying the scoped patch preserves all 4,178 existing paths outside its delta. Missing paths in an older sparse assembly are not deletions. Existing untracked files, including customer recruitment work, are outside this package. Generated build files and private environment files are not adoption inputs.
 
@@ -22,6 +22,8 @@ The manifest pins every committed baseline path and mode. Review assemblies expo
 
 Use `assemble.py <unused-directory>` to reproduce the cumulative source tree, and `verify.py` to check independent patch application and reproduction. Final tests/types/build and preservation results are recorded under `validation/`. Historical candidate test counts remain historical evidence; this package must be checked against its own current baseline.
 
-No actual source adoption or live operations occurred while preparing this package. Source approval, migration/configuration, hosted acceptance and deployment remain distinct actions.
+Package preparation performed no source adoption or live operations. The subsequently approved source adoption is now applied; see `adoption-receipt.json` and LEDGER for final actual-source verification and commit. Migration/configuration, hosted acceptance and deployment remain separate, unperformed actions.
 
-Final verification: independent patch application and two fresh assemblies match all **2,412 exported files**. All **1,395 final source files** and execution inputs match the already-verified composition, so its **4,609 passing tests, types and build** are carried forward with explicit hash evidence. The only exported differences are preserved `.env.example`, CI/gitignore and the updated ledger. Current actual source independently passes **4,152 tests and web types**. Both audits pass; source adoption and deployment remain separate. See `validation/results.json`.
+Final verification: independent patch application and two fresh assemblies match all **2,412 exported files**. All **1,395 final source files** and execution inputs match the already-verified composition, so its **4,609 passing tests, types and build** are carried forward with explicit hash evidence. The only exported differences are preserved `.env.example`, CI/gitignore and the updated ledger. At package review time, pre-adoption actual source independently passed **4,152 tests and web types**. Both audits pass; source adoption and deployment remain separate. See `validation/results.json`.
+
+Current status: all runtime candidates represented by this cumulative package through bounded run recovery are actual source. Historical test counts above remain review evidence; the integrator records final actual-source test/type/build results in the adoption receipt. Target monetary unknowns, staging/operator/live migration gates and the full Naïve plan remain open.

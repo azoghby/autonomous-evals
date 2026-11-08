@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/server/workflow-stage-runtime", () => ({ assertWorkflowStageCurrent: vi.fn() }));
 vi.mock("workflow", () => ({ FatalError: class extends Error {} }));
 vi.mock("@ae/core/db/client", () => ({ db: () => ({}), schema: {} }));
 vi.mock("@ae/core/storage/blob", () => ({ putJobArtifact: vi.fn() }));

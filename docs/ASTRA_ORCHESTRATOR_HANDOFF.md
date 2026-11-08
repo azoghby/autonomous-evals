@@ -2,11 +2,15 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
-## Cumulative runtime adoption review (2026-11-08)
+## Approved cumulative runtime source adoption (2026-11-08)
 
-`docs/naive-current-runtime-adoption` is the current reviewable source adoption package against actual `fbedc75`, preserving main `ca17ce9`: **147 source/test paths (43 modified, 104 added), no deletions**. It consolidates the unapplied dependency chain through bounded run recovery without replaying already-adopted expert26/factual39 patches. Read its README, scope/activation reviews, manifest and validation receipt before any adoption. A new exact cross-track source ownership approval is required; this package remains unapplied.
+The user explicitly approved the exact **147-file cumulative source/test patch** (43 modified, 104 added, no deletions). After merging main `029f45c` at `ce59be9`, the integrator applied all 147 reviewed postimages exactly. Source adoption is complete and recorded with this commit. Actual-source verification passes: **4,609 tests, zero failures, two documented skips**, web/core types and a clean production build (63 steps/four workflows; 2,286 matching input hashes). Main's company diagram changes are preserved.
 
-Independent patch application and two assemblies match 2,412 exported files; all 1,395 final source files and executable inputs match the prior 4,609-test/types/build composition. Actual source separately passes 4,152 tests/web types. Full baseline Git pins plus the scoped patch preserve 4,178 existing out-of-scope paths; review directories omit unrelated historical docs. SQL inventory has 69 references with aliases and separate migration authorization, not executable ordering. Lite/customer/chat paths need sidecar schema even with Naïve flags off. Target money uncertainty still keeps recovered stages pending; hosted/native acceptance and full plan gates remain open. No source application or live action occurred.
+The dependency chain through bounded run recovery is now actual source: sourcing authority, shared budgets, stage ownership/recovery/cancellation, internal MCP and initial copilot dispatch, generic remediation, budget envelopes, design/run recovery, judge attempts and independent incurred-cost reconciliation. **Do not reapply the cumulative patch or any overlapping historical owner patch**, including expert26/factual39. Immutable manifests, audits and candidate validation remain historical reproduction evidence.
+
+This approval adopts source only. No staging/operator/live migration, configuration or flag change, deployment, provider call, outreach or spending was performed for adoption. SQL inventory is review material, not an executable migration order. Existing lite/customer/chat paths require sidecar SQL even with Naïve flags off. Target monetary uncertainty still keeps recovered stages pending; native PostgreSQL/hosted acceptance, full Phase 0/roster/conformance and remaining plan gates remain open. See `docs/naive-current-runtime-adoption/adoption-receipt.json` and LEDGER for the integrator's final source checks and commit.
+
+All continuation sections below retain their written-at candidate status and test counts. Their statements that this dependency chain is unapplied are superseded by this adoption record; they do not imply rollout or completion of the full Naïve plan.
 
 ## Latest bounded run recovery continuation (2026-11-08)
 

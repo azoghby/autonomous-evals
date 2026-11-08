@@ -29,6 +29,12 @@ export type TextDesignOutcome =
 export const untrusted = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
 const identity = (value: unknown): string => createHash('sha256').update(canonicalJson(value)).digest('hex').slice(0, 24);
 
+/** Canonical task identity shared with trusted Workflow recovery admission. */
+export function textDesignTaskScope(input: TextDesignInput): string {
+  const { knownSecrets: _secrets, ...safe } = { ...input, referenceText: normalizeReferenceText(input.referenceText) };
+  return identity({ ...safe, admissionVersion: ADMISSION_VERSION, rubricAdmissionVersion: RUBRIC_ADMISSION_VERSION });
+}
+
 /** At most two engineer drafts and two investigator reviews. Same input resumes the same task keys. */
 export async function designTextSuite(input: TextDesignInput, deps: { runner: AgentTaskRunner; budgetMicroUsd?: number; now?: () => Date }): Promise<TextDesignOutcome> {
   input = { ...input, referenceText: normalizeReferenceText(input.referenceText) };
@@ -38,7 +44,7 @@ export async function designTextSuite(input: TextDesignInput, deps: { runner: Ag
   if (containsSecret(JSON.stringify(safe), knownSecrets)) return { status: 'blocked', reason: 'credential_in_input', costs };
   // Validate bounded inputs before any agent dispatch; suite placeholders never reach agents.
   if (input.systemPrompt !== null && input.systemPrompt.length > 20_000 || input.referenceText !== null && input.referenceText.length > 50_000) return { status: 'blocked', reason: 'input_too_large', costs };
-  const scope = identity({ ...safe, admissionVersion: ADMISSION_VERSION, rubricAdmissionVersion: RUBRIC_ADMISSION_VERSION });
+  const scope = textDesignTaskScope(input);
   const review: SuiteReviewRecord = { sessions: [], rejections: [], reductions: [] };
   let feedback: unknown = null;
   for (let revision = 0; revision < 2; revision++) {

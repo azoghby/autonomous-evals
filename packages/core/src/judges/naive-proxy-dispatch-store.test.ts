@@ -40,6 +40,67 @@ async function fixture() {
     rollback: () => { failBeforeCommit = true; }, loseAck: () => { loseAcknowledgement = true; } };
 }
 
+describe('trusted host transaction hooks', () => {
+  it('uses the injected same-transaction ledger for admission and zero recovery', async () => {
+    const f = await fixture();
+    const seen: AgentSqlExecutor[] = [];
+    const store = new PostgresNaiveProxyDispatchStore(f.db, f.config, {
+      beforeTransition: async (tx, phase) => {
+        // Host job authority lock precedes core operation locks and shares rollback.
+        seen.push(tx);
+        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['canonical-job']);
+        await tx.query('INSERT INTO fixture_transitions(phase) VALUES($1)', [phase]);
+      },
+      ledger: tx => {
+        expect(seen.at(-1)).toBe(tx);
+        const ledger = new PostgresBudgetLedger({ query: tx.query.bind(tx), transaction: fn => fn(tx) });
+        return {
+          reserve: request => ledger.reserve({ ...request, scopes: [...request.scopes, { key: 'host-shared-stage', capMicroUsd: 70 }] }),
+          settle: (id, amount) => ledger.settle(id, amount),
+        };
+      },
+    });
+    await f.pg.exec('CREATE TABLE fixture_transitions(phase text NOT NULL)');
+    const first = await store.prepare(f.input);
+    expect(first.state).toBe('prepared');
+    const denied = await store.prepare({ ...f.input, operationId: 'second', amountMicroUsd: 20 });
+    expect(denied.state).toBe('denied');
+    expect((await f.pg.query<{ first_result: unknown }>('SELECT first_result FROM agent_persistence.reservations WHERE id=$1', [denied.reservationId])).rows[0].first_result).toMatchObject({ ok: false, exhaustedScope: 'host-shared-stage' });
+    f.rollback();
+    await expect(store.recoverUndispatched(first, f.owner)).rejects.toThrow('injected rollback');
+    expect(await f.settlement(first.reservationId)).toBeNull();
+    await store.recoverUndispatched(first, f.owner);
+    expect(await f.settlement(first.reservationId)).toBe('0');
+    expect((await f.pg.query('SELECT phase FROM fixture_transitions')).rows).toEqual([{phase:'prepare'}, {phase:'prepare'}, {phase:'recover'}]);
+  });
+
+  it('rolls back admission and refuses dispatch when current host authority is revoked', async () => {
+    const f = await fixture();
+    await f.pg.exec('CREATE TABLE fixture_current_authority(allowed boolean); INSERT INTO fixture_current_authority VALUES(false)');
+    const store = new PostgresNaiveProxyDispatchStore(f.db, f.config, {
+      beforeTransition: async tx => {
+        const row = (await tx.query<{allowed:boolean}>('SELECT allowed FROM fixture_current_authority FOR UPDATE')).rows[0];
+        if (!row.allowed) throw new Error('host authority revoked');
+      },
+    });
+    await expect(store.prepare(f.input)).rejects.toThrow('host authority revoked');
+    expect((await f.pg.query('SELECT * FROM naive_proxy_dispatch.operations')).rows).toHaveLength(0);
+    expect(await f.committed()).toBe('0');
+    await f.pg.exec('UPDATE fixture_current_authority SET allowed=true');
+    const first = await store.prepare(f.input);
+    await f.pg.exec('UPDATE fixture_current_authority SET allowed=false');
+    await expect(store.dispatch(first)).rejects.toThrow('host authority revoked');
+    expect(await f.make().isUndispatched(first)).toBe(true);
+    expect(await f.settlement(first.reservationId)).toBeNull();
+    await expect(store.recoverUndispatched(first, f.owner)).rejects.toThrow('host authority revoked');
+    expect(f.owner).not.toHaveBeenCalled();
+    await f.pg.exec('UPDATE fixture_current_authority SET allowed=true');
+    await store.dispatch(first);
+    await expect(store.recoverUndispatched(first, f.owner)).rejects.toThrow();
+    expect(await f.settlement(first.reservationId)).toBeNull();
+  });
+});
+
 describe('proxy dispatch attempts: migration-backed SQL and serialized interleavings', () => {
   it('replays preparation after restart without another hold and dispatches at most once', async () => {
     const f = await fixture();

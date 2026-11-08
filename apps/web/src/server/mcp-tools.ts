@@ -8,13 +8,14 @@ import {
   PER_FINDING_CENTS, PER_FINDING_CAP_CENTS, PricingMode, type JobState, type Package,
 } from "@ae/core/contracts/index";
 import { PLANS, formatUsd } from "@ae/core/pricing/plans";
-import { createCheckoutForQuote, expireOpenCheckout } from "@ae/core/payments/checkout";
+import { createCheckoutForQuote } from "@ae/core/payments/checkout";
 import { stripe } from "@ae/core/payments/stripe";
 import { createJob } from "./create-job";
 import { withIdempotency, IdempotencyInProgressError } from "./idempotency";
 import { getJobForViewer } from "./queries";
-import { addMessage, latestQuote } from "./job-store";
-import { decideCancel } from "@/workflows/decisions";
+import { latestQuote } from "./job-store";
+import { requestJobCancellation } from "./job-cancellation";
+import { dispatchJobCancellation } from "./job-cancellation-delivery";
 import { sendJobEvent } from "@/workflows/events";
 import { rerunFindingForJob, submitClarificationAnswer } from "./job-actions";
 import type { Viewer } from "./access";
@@ -261,22 +262,13 @@ function x402Option(c: McpCaller, jobId: string, pricingMode: PricingMode, envir
 }
 
 export async function cancelJob(c: McpCaller, jobId: string, reason?: string): Promise<McpToolResult> {
-  const data = await loadOwnedJob(c, jobId);
-  if (!data) return NOT_FOUND();
-  const decision = decideCancel({ customerId: c.customerId, state: data.job.state as JobState }, viewerOf(c));
-  if (!decision.allowed) return fail(decision.error, decision.status === 409 ? { state: data.job.state } : undefined);
-  const why = reason || "Cancelled by the customer";
-  await addMessage(jobId, "customer", `Cancellation requested: ${why}`);
-  try { await expireOpenCheckout(jobId); } catch (err) {
-    console.error("mcp cancel expireOpenCheckout failed", jobId, err instanceof Error ? err.message : err);
+  const result = await requestJobCancellation(jobId, { id: c.customerId, allowOperator: false }, reason);
+  if (!result.ok) return fail(result.error, result.status === 409 ? { state: result.state } : undefined);
+  // Accepted once intent is durable. Cron retries notification and Checkout expiry failures.
+  try { await dispatchJobCancellation(jobId); } catch (err) {
+    console.error("mcp cancel delivery deferred", jobId, err instanceof Error ? err.message : err);
   }
-  try {
-    await sendJobEvent(jobId, { type: "cancel", reason: why });
-  } catch (err) {
-    console.error("mcp cancel sendJobEvent failed", jobId, err instanceof Error ? err.message : err);
-    return fail("Cancellation recorded but the job could not be notified; please retry");
-  }
-  return ok({ ok: true, jobId, state: "cancelling", note: "Cancellation accepted; poll get_job to see state 'cancelled'." });
+  return ok({ ok: true, jobId, state: "cancelling", note: "Cancellation accepted; notification is retried automatically. Poll get_job to see state 'cancelled'." });
 }
 
 const EVIDENCE_EXCERPT_MAX = 600;

@@ -1,9 +1,11 @@
+import { WorkflowStageContentionError } from '@/server/workflow-stage-runtime';
+import { expertOwnerDatabase } from '@/server/automated-expert-owner';
 import { createExpertTextRuntime } from '@/server/expert-text-runtime';
 import { recordProgress, setJobState } from '@/server/job-store';
 import { withBudget, loadIntake } from './common';
-import { evalServices } from '@ae/core/integration/eval-services';
+import { stageRealEvalServices as evalServices } from '@/server/services';
 import { Report } from '@ae/core/contracts/index';
-import { persistReportStep } from './evaluate';
+import { persistReport } from './evaluate';
 import { TrackBPendingError } from '@ae/core/evals/service-adapter';
 import type { Suite, Finding } from '@ae/core/contracts/index';
 
@@ -11,8 +13,9 @@ export type ExpertTextOutcome = {status:'pending'} | {status:'budget_exceeded';m
 /** Existing job owns scheduling/payment/report/delivery. This step only consumes its canonical reviewed suite. */
 export async function expertTextEvaluationStep(jobId:string):Promise<ExpertTextOutcome> {
  'use step';
+ const stage=await expertStage(jobId,'evaluation');
  try {
-  return await withBudget(jobId,'investigator',async ctx=>{
+  return await withBudget(jobId,'investigator',stage,async ctx=>{
    const runtime=await createExpertTextRuntime(ctx);
    await runtime.assertCurrent();
    await setJobState(jobId,'running');
@@ -30,6 +33,7 @@ export async function expertTextEvaluationStep(jobId:string):Promise<ExpertTextO
    return {suite:runtime.suite,findings};
   });
  }catch(error){
+  if(error instanceof WorkflowStageContentionError)throw error;
   // Durable provider polling and ambiguous transport reconciliation retain the paid Workflow.
   // Never route this explicit expert plan through the lite or legacy evaluator.
   if(error instanceof TrackBPendingError)return {status:'pending'};
@@ -42,7 +46,7 @@ expertTextEvaluationStep.maxRetries=0;
 /** Direct existing Naive operator service; explicit text plans never enter withLiteFallback. */
 export async function expertTextReportStep(jobId:string,findings:Finding[],suite:Suite) {
  'use step';
- return withBudget(jobId,'operator',async ctx=>{
+ return withBudget(jobId,'operator',await expertStage(jobId,'report'),async ctx=>{
   const runtime=await createExpertTextRuntime(ctx);
   const assessment=await runtime.reportContext();
   if(!assessment.assessed)throw new Error('expert_text_no_assessment');
@@ -56,9 +60,17 @@ export async function expertTextReportStep(jobId:string,findings:Finding[],suite
   report.summary=`${assessment.summary}\n\n${report.summary}`.slice(0,10000);
   await runtime.assertCurrent(report);
   // Existing private Blob/SQL/report flow remains the publication mechanism.
-  await persistReportStep(jobId,report,suite);
+  await persistReport(jobId,report,suite);
   await runtime.assertCurrent(report);
   return true;
  });
 }
 expertTextReportStep.maxRetries=0;
+
+/** Poll steps select the same retained task; Workflow step IDs and retry counts never change its identity. */
+async function expertStage(jobId:string,phase:string) {
+ const row=(await expertOwnerDatabase().query<{input:{task:{taskId:string}};input_digest:string}>(
+  'SELECT input,input_digest FROM expert_workflow.plans WHERE job_id=$1',[jobId])).rows[0];
+ if(!row?.input.task.taskId||!row.input_digest)throw new Error('expert_text_stage_identity_unavailable');
+ return {key:`expert-text:${phase}:${row.input.task.taskId}`,input:{taskId:row.input.task.taskId,requestDigest:row.input_digest},isPendingError:(error:unknown)=>error instanceof TrackBPendingError};
+}

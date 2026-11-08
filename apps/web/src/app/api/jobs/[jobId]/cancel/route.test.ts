@@ -1,98 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const getCurrentCustomer = vi.fn();
-const selectJob = vi.fn();
-const insertValues = vi.fn(async () => undefined);
-const sendJobEvent = vi.fn(async () => undefined);
-const expireOpenCheckout = vi.fn(async () => "expired");
-const addMessage = vi.fn(async () => "m1");
-
-vi.mock("@/server/queries", () => ({ getCurrentCustomer: () => getCurrentCustomer() }));
-vi.mock("@/server/job-store", () => ({ addMessage: (...a: unknown[]) => addMessage(...a) }));
-vi.mock("@ae/core/payments/checkout", () => ({ expireOpenCheckout: (...a: unknown[]) => expireOpenCheckout(...a) }));
-vi.mock("@/workflows/events", () => ({ sendJobEvent: (...a: unknown[]) => sendJobEvent(...a) }));
-vi.mock("@/server/http", async () => {
-  const { z } = await import("zod");
-  return {
-    jsonError: (status: number, error: string, extra?: object) => Response.json({ error, ...extra }, { status }),
-    isUuid: (s: string) => z.uuid().safeParse(s).success,
-    readJson: async (req: Request, schema: any) => {
-      const parsed = schema.safeParse(await req.json());
-      return parsed.success ? { ok: true, data: parsed.data } : { ok: false, res: Response.json({ error: "bad" }, { status: 400 }) };
-    },
-  };
-});
-vi.mock("@ae/core/db/client", () => ({
-  schema: { jobs: {}, interventions: {} },
-  db: () => ({
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => selectJob() }) }) }),
-    insert: () => ({ values: insertValues }),
-  }),
-}));
-vi.mock("drizzle-orm", () => ({ eq: () => ({}) }));
-
-import { POST } from "./route";
-
-const JOB_ID = "11111111-1111-4111-8111-111111111111";
-const call = (body: object = {}) =>
-  POST(new Request("http://x", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ jobId: JOB_ID }) });
-const owner = { id: "u1", email: "o@x.io", isOperator: false };
-
-describe("POST /api/jobs/[jobId]/cancel", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-
-  it("401 when signed out", async () => {
-    getCurrentCustomer.mockResolvedValue(null);
-    expect((await call()).status).toBe(401);
-  });
-  it("404 for another customer's job", async () => {
-    getCurrentCustomer.mockResolvedValue({ ...owner, id: "u2" });
-    selectJob.mockReturnValue([{ customerId: "u1", state: "quoted" }]);
-    expect((await call()).status).toBe(404);
-    expect(sendJobEvent).not.toHaveBeenCalled();
-  });
-  it("owner cancels while quoted", async () => {
-    getCurrentCustomer.mockResolvedValue(owner);
-    selectJob.mockReturnValue([{ customerId: "u1", state: "quoted" }]);
-    const res = await call({ reason: "changed my mind" });
-    expect(res.status).toBe(202);
-    expect(sendJobEvent).toHaveBeenCalledWith(JOB_ID, { type: "cancel", reason: "changed my mind" });
-    expect(addMessage).toHaveBeenCalled();
-    expect(insertValues).not.toHaveBeenCalled();
-  });
-  it("expires the open Checkout session before notifying the workflow", async () => {
-    getCurrentCustomer.mockResolvedValue(owner);
-    selectJob.mockReturnValue([{ customerId: "u1", state: "awaiting_payment" }]);
-    const order: string[] = [];
-    expireOpenCheckout.mockImplementationOnce(async () => { order.push("expire"); return "expired"; });
-    sendJobEvent.mockImplementationOnce(async () => { order.push("send"); });
-    expect((await call()).status).toBe(202);
-    expect(expireOpenCheckout).toHaveBeenCalledWith(JOB_ID);
-    expect(order).toEqual(["expire", "send"]);
-  });
-  it("still cancels when session expiry throws", async () => {
-    getCurrentCustomer.mockResolvedValue(owner);
-    selectJob.mockReturnValue([{ customerId: "u1", state: "awaiting_payment" }]);
-    expireOpenCheckout.mockRejectedValueOnce(new Error("stripe down"));
-    expect((await call()).status).toBe(202);
-    expect(sendJobEvent).toHaveBeenCalled();
-  });
-  it("owner gets 409 once running", async () => {
-    getCurrentCustomer.mockResolvedValue(owner);
-    selectJob.mockReturnValue([{ customerId: "u1", state: "running" }]);
-    expect((await call()).status).toBe(409);
-    expect(sendJobEvent).not.toHaveBeenCalled();
-  });
-  it("operator cancels a running job and records an intervention", async () => {
-    getCurrentCustomer.mockResolvedValue({ id: "op", email: "op@x.io", isOperator: true });
-    selectJob.mockReturnValue([{ customerId: "u1", state: "running" }]);
-    expect((await call()).status).toBe(202);
-    expect(insertValues).toHaveBeenCalledOnce();
-    expect(sendJobEvent).toHaveBeenCalled();
-  });
-  it("409 for terminal jobs even for operators", async () => {
-    getCurrentCustomer.mockResolvedValue({ id: "op", email: "op@x.io", isOperator: true });
-    selectJob.mockReturnValue([{ customerId: "u1", state: "delivered" }]);
-    expect((await call()).status).toBe(409);
-  });
-});
+import { beforeEach,expect,it,vi } from 'vitest';
+const state=vi.hoisted(()=>({viewer:vi.fn(),record:vi.fn(),dispatch:vi.fn()}));
+vi.mock('@/server/queries',()=>({getCurrentCustomer:state.viewer}));
+vi.mock('@/server/job-cancellation',()=>({requestJobCancellation:state.record}));
+vi.mock('@/server/job-cancellation-delivery',()=>({dispatchJobCancellation:state.dispatch}));
+import { POST } from './route';
+const job='11111111-1111-4111-8111-111111111111';
+const call=(reason='reason',id=job)=>POST(new Request('https://test',{method:'POST',body:JSON.stringify({reason})}),{params:Promise.resolve({jobId:id})});
+beforeEach(()=>{vi.clearAllMocks();state.viewer.mockResolvedValue({id:'owner'});state.record.mockResolvedValue({ok:true,created:true,request:{reason:'retained'}});state.dispatch.mockResolvedValue({errors:[]});});
+it('requires authentication before intent or delivery',async()=>{state.viewer.mockResolvedValue(null);expect((await call()).status).toBe(401);expect(state.record).not.toHaveBeenCalled();expect(state.dispatch).not.toHaveBeenCalled();});
+it('validates job identifiers and reason before recording',async()=>{expect((await call('ok','invalid')).status).toBe(404);expect((await call('x'.repeat(1001))).status).toBe(400);expect(state.record).not.toHaveBeenCalled();});
+it.each([404,409])('preserves current transactional authorization refusal %s',async status=>{state.record.mockResolvedValue({ok:false,status,error:'denied'});expect((await call()).status).toBe(status);expect(state.dispatch).not.toHaveBeenCalled();});
+it('commits authority before delivery and passes only authenticated identity',async()=>{const order:string[]=[];state.record.mockImplementation(async()=>{order.push('commit');return{ok:true};});state.dispatch.mockImplementation(async()=>{order.push('send');return{errors:[]};});expect((await call()).status).toBe(202);expect(order).toEqual(['commit','send']);expect(state.record).toHaveBeenCalledWith(job,{id:'owner'},'reason');});
+it('returns durable acceptance when external notification remains pending',async()=>{state.dispatch.mockResolvedValue({errors:['workflow_notification_pending']});const res=await call();expect(res.status).toBe(202);expect(await res.json()).toEqual({ok:true,notificationPending:true});});
+it('preserves acceptance after delivery lookup failure for cron retry',async()=>{state.dispatch.mockRejectedValue(Error('db'));expect((await call()).status).toBe(202);});
+it('does not send when intent commit fails',async()=>{state.record.mockRejectedValue(Error('commit'));await expect(call()).rejects.toThrow('commit');expect(state.dispatch).not.toHaveBeenCalled();});

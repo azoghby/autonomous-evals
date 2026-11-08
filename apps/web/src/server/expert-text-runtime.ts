@@ -1,10 +1,13 @@
+import { createWorkflowStageBudgetLedger } from './workflow-stage-budget';
 import { assertFactualGapPlanCurrent } from './expert-data-plan-binding';
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { createClient } from '@usenaive-sdk/managed-agents';
 import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
-import { PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
 import type { AgentTaskRunner } from '@ae/core/agents/session-service';
+import { currentWorkflowStageScope, assertWorkflowStageCurrent } from './workflow-stage-runtime';
+import { assertWorkflowStageOwner } from '@ae/core/db/workflow-stage-authority';
+import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
 import { buildAgentDeps } from '@ae/core/integration/eval-services';
 import type { ServiceContext, RunResult } from '@ae/core/contracts/services';
 import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
@@ -25,13 +28,13 @@ import type { DataBatch } from '@ae/core/evals/data/acquisition';
 import { inspectDataSafety } from '@ae/core/evals/data/quality';
 import { createTextTarget } from '@ae/core/targets/text';
 import type { JsonTransport } from '@ae/core/targets/transport';
-import { createNaiveProxyServiceJudge } from '@ae/core/judges/naive-proxy-service';
+import { createAttemptAwareJudge, drainRuntimeJudgeAccounting } from './judge-attempt-runtime';
 import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
 import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 import { decryptJson } from '@ae/core/storage/crypto';
 import { isOperator } from '@ae/core/auth/tokens';
-import { expertOwnerDatabase } from '@/server/automated-expert-owner';
-import { credentialSlotsOf, injectCredentials } from '@/server/intake';
+import { expertOwnerDatabase } from './automated-expert-owner';
+import { credentialSlotsOf, injectCredentials } from './intake';
 import type { ProductionDataInput } from './expert-data-production';
 
 /** Month-wide `agent:judge:<period>` scope cap: the judge role's monthly cap, identical for every writer (never a per-job cap). */
@@ -39,6 +42,15 @@ const JUDGE_MONTHLY_CAP_MICRO_USD = COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroU
 const fail = (): never => { throw new Error('expert_text_authority_unavailable'); };
 const hash = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
 type Tx = Parameters<Parameters<AgentTransactionalSql['transaction']>[0]>[0];
+/** A supplied tx is the artifact/binding writer's pinned transaction. Plain runtime
+ * checks use their own short transaction and do not claim atomic publication. */
+export async function assertExpertTextStage(jobId:string,tx?:Tx):Promise<void>{
+ const scope=currentWorkflowStageScope();if(!scope)return;
+ scope.assertActive?.();
+ if(scope.owner.jobId!==jobId)return fail();
+ if(tx)await assertWorkflowStageOwner(tx,scope.owner);
+ else await assertWorkflowStageCurrent();
+}
 interface OwnerRow { customer_id: string; environment: 'test'|'live'; intake: Record<string,unknown>; retest_of_job_id: string|null;
  input: ProductionDataInput; input_digest: string; last_result: DataOrchestrationResult }
 export interface ExpertTextRuntimeDependencies {
@@ -52,6 +64,7 @@ export interface ExpertTextRuntimeDependencies {
 /** Server-only capability invoked by the existing paid job Workflow. Never expose as a route/action. */
 export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertTextRuntimeDependencies = {}) {
  const sql = deps.sql ?? expertOwnerDatabase();
+ await drainRuntimeJudgeAccounting(ctx.jobId,sql,deps.proxyFetch);
  const cap = JOB_BUDGET_MICRO_USD.text_eval;
  const checkpoints=new PostgresTextCheckpointStore(sql);
  // Measured session costs are retained before any post-dispatch publication permission check.
@@ -145,6 +158,7 @@ export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertT
  const first=await authorized();
  const fixed=hash({scope:first.scope,targetVersion:first.targetVersion,runId:first.runId});
  async function current(tx:Tx=sql,value?:unknown) {
+  await assertExpertTextStage(ctx.jobId,tx===sql?undefined:tx);
   const a=await authorized(tx);
   if(hash({scope:a.scope,targetVersion:a.targetVersion,runId:a.runId})!==fixed||value!==undefined&&!inspectDataSafety(value,a.secrets).safe) return fail();
   return a;
@@ -166,7 +180,7 @@ export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertT
   designId:`expert-${first.frozen.digest}`,versionLabel:first.frozen.versionLabel,inputDigest:hash({scope:first.scope})},first.frozen);
  if(admission.status!=='approved') return fail();
  const projection=projectFrozenTextSuite(first.frozen,first.scope,first.secrets);
- const rawRunner=deps.runner??(await buildAgentDeps()).runner;
+ const rawRunner=deps.runner?fenceWorkflowStageRunner(deps.runner):(await buildAgentDeps({createBudgetLedger:createWorkflowStageBudgetLedger,decorateNaiveSessions:fenceWorkflowStageSessions,decorateAgentRunner:fenceWorkflowStageRunner})).runner;
  const runner:AgentTaskRunner={run:async spec=>{await current();const spent=Number((await sql.query<{spent:string}>('SELECT coalesce(sum(micro_usd),0)::text AS spent FROM costs WHERE job_id=$1',[ctx.jobId])).rows[0]?.spent??0);if(!Number.isSafeInteger(spent)||spent<0||spec.budgetMicroUsd>cap-spent)return fail();const result=await rawRunner.run(spec);if('cost' in result&&result.cost)await deliverSessionCost(result.cost,false);await current(sql,result);return result;}};
  async function resolved() {
   const a=await current();
@@ -175,10 +189,12 @@ export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertT
   const output=Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS);
   const proxyKey=process.env.NAIVE_API_KEY;
   if(!model||!proxyKey||!Number.isSafeInteger(reservation)||reservation<=0||!Number.isSafeInteger(output)||output<1)return fail();
-  const judge=createNaiveProxyServiceJudge(ctx,{jobId:ctx.jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints,
-   budget:createNaiveProxyBudget(new PostgresBudgetLedger(sql),{jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:JUDGE_MONTHLY_CAP_MICRO_USD}),
-   client:idempotencyKey=>createClient({apiKey:process.env.NAIVE_API_KEY!,...(process.env.NAIVE_BASE_URL?{baseUrl:process.env.NAIVE_BASE_URL}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
-   authorize:async()=>{const fresh=await current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey)return fail();return {knownSecrets:fresh.secrets};}});
+  const baseUrl=process.env.NAIVE_BASE_URL;
+  const judgeConfig={jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:JUDGE_MONTHLY_CAP_MICRO_USD};
+  const judge=createAttemptAwareJudge(ctx,{jobId:ctx.jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints,
+   budget:createNaiveProxyBudget(createWorkflowStageBudgetLedger(sql),judgeConfig),
+   client:idempotencyKey=>createClient({apiKey:proxyKey,...(baseUrl?{baseUrl}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
+   authorize:async()=>{const fresh=await current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey||process.env.NAIVE_BASE_URL!==baseUrl||Number(process.env.NAIVE_JUDGE_RESERVATION_MICRO_USD)!==reservation||Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS)!==output)return fail();return {knownSecrets:fresh.secrets};}},{sql,config:judgeConfig,authorizeTransaction:async tx=>{await current(tx);if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey||process.env.NAIVE_BASE_URL!==baseUrl||Number(process.env.NAIVE_JUDGE_RESERVATION_MICRO_USD)!==reservation||Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS)!==output)return fail();}});
   return {...a,retained:projection.retained,canonicalTarget:a.target,target:createTextTarget(a.target,deps.targetTransport),judge,knownSecrets:a.secrets};
  }
  const runService=createNaiveRunService({runner,checkpoints,resolve:resolved,persistRun:artifacts.persistRun});

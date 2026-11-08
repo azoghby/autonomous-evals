@@ -1,11 +1,8 @@
 import { FatalError } from "workflow";
-import { releaseStatement } from "@ae/core/adapters/budget";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { db, schema } from "@ae/core/db/client";
-import { JOB_BUDGET_MICRO_USD } from "@ae/core/contracts/index";
+import { executeWorkflowStage, type LogicalWorkflowStage } from "@/server/workflow-stage-runtime";
 import type { ServiceContext } from "@ae/core/contracts/services";
-import { getJob, makeServiceContext, jobKnownCostMicroUsd } from "@/server/job-store";
-import { budgetCheck, type BudgetAgent } from "../decisions";
+import { getJob, makeServiceContext } from "@/server/job-store";
+import { BUDGET_SHARE, type BudgetAgent } from "../decisions";
 
 /** Result of a step that may stop on budget exhaustion instead of throwing (so it is never retried). */
 export type BudgetResult<T> = { status: "ok"; data: T } | { status: "budget_exceeded"; message: string };
@@ -17,39 +14,23 @@ export async function requireJob(jobId: string) {
 }
 
 /**
- * Reserves per-job budget for one agent-calling stage, runs it, then releases the reservation (actual
- * spend is recorded in costs by the services). A reservation left by a failed attempt is reused, not doubled.
+ * Claims one immutable logical operation under the shared job budget authority.
+ * Completed retries replay a private result; pending/uncertain attempts retain their hold.
+ * Child dispatch and publication composition must consume the trusted server stage scope.
  */
 export async function withBudget<T>(
-  jobId: string, agent: BudgetAgent, run: (ctx: ServiceContext) => Promise<T>,
+  jobId: string, agent: BudgetAgent, stage: LogicalWorkflowStage, run: (ctx: ServiceContext) => Promise<T>,
 ): Promise<BudgetResult<T>> {
   const job = await requireJob(jobId);
-  const cap = JOB_BUDGET_MICRO_USD[job.package];
-  const spent = await jobKnownCostMicroUsd(jobId);
-  const open = await db().select().from(schema.budgetReservations)
-    .where(and(eq(schema.budgetReservations.jobId, jobId), isNull(schema.budgetReservations.releasedAt)));
-  const mine = open.find((r) => r.agent === agent);
-  const otherReserved = open.filter((r) => r !== mine).reduce((s, r) => s + r.microUsd, 0);
-  const check = budgetCheck(cap, spent, otherReserved, agent);
-  if (!check.ok) {
-    return {
-      status: "budget_exceeded",
-      message: `Per-job budget exhausted before the ${agent} stage (cap ${cap}, spent ${spent}, reserved ${otherReserved} micro-USD).`,
-    };
-  }
-  let reservationId = mine?.id;
-  if (!reservationId) {
-    const [row] = await db().insert(schema.budgetReservations)
-      .values({ jobId, agent, microUsd: check.reserve }).returning({ id: schema.budgetReservations.id });
-    reservationId = row!.id;
-    await db().update(schema.jobs).set({ budgetReservedMicroUsd: sql`${schema.jobs.budgetReservedMicroUsd} + ${check.reserve}` })
-      .where(eq(schema.jobs.id, jobId));
-  }
-  const ctx = await makeServiceContext(jobId);
-  const data = await run(ctx);
-  // Releases the row and decrements jobs.budget_reserved_micro_usd in one statement (same rule as the BudgetReserver).
-  await db().execute(releaseStatement(jobId, reservationId));
-  return { status: "ok", data };
+  const result = await executeWorkflowStage({ jobId, ownerId: job.customerId, environment: job.environment,
+    role: agent, share: BUDGET_SHARE[agent], stage }, async amountMicroUsd => {
+    const ctx = await makeServiceContext(jobId);
+    ctx.budgetMicroUsd = amountMicroUsd;
+    return run(ctx);
+  });
+  return result.ok ? { status: "ok", data: result.data } : {
+    status: "budget_exceeded", message: `Per-job budget exhausted before the ${agent} stage (${result.remainingMicroUsd} micro-USD available).`,
+  };
 }
 
 import type { IntakeInput } from "@ae/core/contracts/index";

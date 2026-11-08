@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const inserted = vi.hoisted(() => [] as Array<{ table: string; values: Record<string, unknown> }>);
 
+vi.mock("@/server/job-cancellation-delivery", () => ({ drainJobCancellations: async () => ({ attempted: 0, errors: [] }) }));
 vi.mock("../_auth", () => ({ requireCronAuth: () => null }));
 vi.mock("../../../../server/stale-jobs", () => ({ processStaleJobs: async () => ({ errors: [] }) }));
 vi.mock("./recovery", () => ({ loadCandidates: async () => [], staleJobDeps: {} }));

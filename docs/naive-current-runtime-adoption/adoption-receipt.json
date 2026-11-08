@@ -1,0 +1,45 @@
+{
+  "status": "source-adopted-not-deployed",
+  "approvedPackageCommit": "0e759c4731350af165a76d59f9dae1e46bcc32d2",
+  "preAdoptionCommit": "ce59be942de3bc5477d07f56633d0b30194ffc85",
+  "preservedMainCommit": "029f45c6f40b7f8a0847589aeca58d1bc447609f",
+  "approvedSourcePaths": 147,
+  "modifiedSourcePaths": 43,
+  "addedSourcePaths": 104,
+  "deletions": 0,
+  "manifestSha256": "a51ba35c57fbbba98d37659f3955c544bb5aafdc5de5b1a812a1092724fd790b",
+  "ownerPatchSha256": "91ead12ea30be6aeebc273e9d48f2e6a8660bd6bf4e13445b858a20e5ccc30f0",
+  "allActualPostimagesMatch": true,
+  "sourceAudit": "adoption-source-verification.json",
+  "tests": {
+    "success": true,
+    "numPassedTests": 4609,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1097
+  },
+  "testCommand": "npm test -- --maxWorkers=4 --reporter=json --outputFile=/tmp/naive-cumulative-adopted-actual-tests.json",
+  "webTypes": {
+    "command": "npx tsc -p apps/web --noEmit",
+    "exitCode": 0
+  },
+  "build": {
+    "productionBuildExit": 0,
+    "coreTypesExit": 0,
+    "workflowSteps": 63,
+    "workflows": 4,
+    "checkedSourceAndBuildInputs": 2286,
+    "mismatches": [],
+    "offlineFontMock": true,
+    "liveActions": false
+  },
+  "buildInputPins": "adoption-build-input-pins.json",
+  "conflictCopies": {
+    "count": 35,
+    "status": "resolved-by-reversible-quarantine",
+    "backupManifest": "/tmp/naive-cumulative-conflict-copies-ce59be9/manifest.json"
+  },
+  "liveActions": false,
+  "deployment": "Blocked pending separately authorized sidecar schema preparation and hosted acceptance; flags off do not remove schema requirements.",
+  "remaining": "Full Phase 0/roster/conformance, native PostgreSQL contention, target monetary reconciliation, remaining recovery and copilot conversation/idle gates remain open."
+}

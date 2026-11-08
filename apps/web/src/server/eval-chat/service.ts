@@ -15,6 +15,7 @@ import type { ChatDeps } from "./chat";
 import { sandboxSuggestions } from "./grounding";
 import { jobSuggestions, type JobGroundingInput } from "./job-grounding";
 import { createDbEvalChatStore } from "./store";
+import { gatewayBudgetSql, reserveGatewayTurn } from "./job-budget";
 
 const RUN_ID = /^(sample|run_[0-9a-f-]{36})$/;
 const JOB_ID = /^[0-9a-f-]{36}$/i;
@@ -45,6 +46,7 @@ export function copilotDeps(): ChatDeps {
   const store = createDbEvalChatStore();
   return {
     store,
+    reserveJobTurn: input => reserveGatewayTurn(gatewayBudgetSql(), input),
     sandbox: getSandboxService(),
     jobs: {
       async rerunFinding(data, findingId) {

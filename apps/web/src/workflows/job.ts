@@ -12,7 +12,7 @@ import {
 } from "./steps/lifecycle";
 import { connectionCheckStep, createQuoteStep, qualifyStep } from "./steps/quote";
 import {
-  auditTraceStep, createBranchStep, designSuiteStep, factualGapEntryStep, investigateStep, genericTextExecutionPolicyStep, genericTextReportStep, genericTextCommittedReceiptStep, genericTextNotifyStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
+  auditTraceStep, createBranchStep, designSuiteStep, factualGapEntryStep, investigateStep, genericTextExecutionPolicyStep, genericTextRemediationPolicyStep, genericTextReportStep, genericTextCommittedReceiptStep, genericTextNotifyStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
 } from "./steps/evaluate";
 import { notifyCustomerStep } from "./steps/notify";
 import { flagSettlementFailureStep, settlePaymentStep } from "./steps/billing";
@@ -320,6 +320,15 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
     if (inv.status === "budget_exceeded") { await pauseBudgetStep(jobId, inv.message); return { stopped: "paused_budget" }; }
     if (generic) {
       genericAttempted = true;
+      if (await genericTextRemediationPolicyStep()) {
+        for (const finding of selectFindingsForFix(inv.data)) {
+          const fix = await proposeFixStep(jobId, finding, suite);
+          if (fix.status === "budget_exceeded") {
+            await progressStep(jobId, "fixes_skipped", "Skipped remaining fix verification: per-job budget is limited. Findings are still reported.");
+            break;
+          }
+        }
+      }
       const report = await genericTextReportStep(jobId, inv.data, suite);
       if (report.status === "budget_exceeded") { await pauseBudgetStep(jobId, report.message); return { stopped: "paused_budget" }; }
       if (!report.data.assessed) return { stopped: "on_hold" };
@@ -390,8 +399,8 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
           return { jobId, status: "on_hold" };
         }
       }
-      await failStep(jobId, message);
-      return { jobId, status: "failed" };
+      const status = await failStep(jobId, message);
+      return { jobId, status: status === "cancelled" ? "cancelled" : "failed" };
     }
   }
 }

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { JobState, Package } from "@ae/core/contracts/index";
-import { recordProgress } from "@/server/job-store";
+import { discardPartialJobEvaluation } from "@/server/job-store";
 import type { ResumeSnapshot } from "../decisions";
 
 const COUNTED_MILESTONES = ["received", "qualified", "connection_check_failed"] as const;
@@ -64,15 +64,5 @@ export async function loadResumeSnapshotStep(jobId: string): Promise<ResumeSnaps
  */
 export async function discardPartialEvaluationStep(jobId: string): Promise<{ findings: number; remediations: number }> {
   "use step";
-  const [job] = await db().select({ state: schema.jobs.state, reportBlobPath: schema.jobs.reportBlobPath })
-    .from(schema.jobs).where(eq(schema.jobs.id, jobId)).limit(1);
-  const preDelivery: readonly string[] = ["quoted", "awaiting_payment", "planning", "running", "investigating"];
-  if (!job || job.reportBlobPath || !preDelivery.includes(job.state)) return { findings: 0, remediations: 0 };
-  const rem = await db().delete(schema.remediations).where(eq(schema.remediations.jobId, jobId)).returning({ id: schema.remediations.id });
-  const fnd = await db().delete(schema.findings).where(eq(schema.findings.jobId, jobId)).returning({ id: schema.findings.id });
-  if (rem.length || fnd.length) {
-    await recordProgress(jobId, "partial_results_discarded",
-      `Internal note: discarded ${fnd.length} finding(s) and ${rem.length} fix(es) from an interrupted run before re-running the evaluation.`);
-  }
-  return { findings: fnd.length, remediations: rem.length };
+  return discardPartialJobEvaluation(jobId);
 }

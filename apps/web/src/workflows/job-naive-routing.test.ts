@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const p = vi.hoisted(() => ({
-  gap:vi.fn(), design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),progress:vi.fn(),
+  selectedFixes:vi.fn(),fixPolicy:vi.fn(),gap:vi.fn(), design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),progress:vi.fn(),
 }));
 vi.mock('workflow', () => ({FatalError: class FatalError extends Error {}, sleep: p.sleep, createHook: () => ({[Symbol.dispose]() {}, [Symbol.asyncIterator]: () => ({next: p.next})})}));
-vi.mock('@/workflows/decisions', () => ({decideResumePlan: p.plan, selectFindingsForFix: () => [], needsConnectionCheck: () => false}));
+vi.mock('@/workflows/decisions', () => ({decideResumePlan: p.plan, selectFindingsForFix: p.selectedFixes, needsConnectionCheck: () => false}));
 vi.mock('@/workflows/steps/expert-data', () => ({expertDataGateStep: p.gate, expertDataHoldStep: vi.fn()}));
 vi.mock('@/workflows/steps/expert-text', () => ({expertTextEvaluationStep: p.expert, expertTextReportStep: async () => ({status:'ok'})}));
 vi.mock('@/workflows/steps/resume', () => ({loadResumeSnapshotStep:p.snapshot, discardPartialEvaluationStep: vi.fn()}));
-vi.mock('@/workflows/steps/evaluate', () => ({factualGapEntryStep:p.gap,createBranchStep:p.branch, designSuiteStep:p.design, runSuiteStep:p.run, investigateStep:async () => ({status:'ok',data:[]}), renderReportStep:async () => ({status:'ok',data:{}}), persistReportStep:vi.fn(), proposeFixStep:p.fix,genericTextExecutionPolicyStep:p.policy,genericTextReportStep:p.genericReport,genericTextCommittedReceiptStep:p.receipt,genericTextNotifyStep:p.notify, auditTraceStep:vi.fn()}));
+vi.mock('@/workflows/steps/evaluate', () => ({factualGapEntryStep:p.gap,createBranchStep:p.branch, designSuiteStep:p.design, runSuiteStep:p.run, investigateStep:async () => ({status:'ok',data:[]}), renderReportStep:async () => ({status:'ok',data:{}}), persistReportStep:vi.fn(), proposeFixStep:p.fix,genericTextExecutionPolicyStep:p.policy,genericTextRemediationPolicyStep:p.fixPolicy,genericTextReportStep:p.genericReport,genericTextCommittedReceiptStep:p.receipt,genericTextNotifyStep:p.notify, auditTraceStep:vi.fn()}));
 vi.mock('@/workflows/steps/lifecycle', () => ({setStateStep:async () => true, progressStep:p.progress, deliverStep:p.deliver, neonDeliverySafetyStep:vi.fn(), failStep:p.fail, cancelStep:p.cancel}));
 vi.mock('@/workflows/steps/quote', () => ({connectionCheckStep:vi.fn(), createQuoteStep:vi.fn(), qualifyStep:vi.fn()}));
 vi.mock('@/workflows/steps/notify', () => ({notifyCustomerStep:vi.fn()}));
@@ -16,7 +16,7 @@ import { TrackBBlockedError } from '@ae/core/integration/eval-services';
 import { routeNaiveMethods,readRoutingSelection } from '@/server/naive-method-routing';
 import { jobWorkflow } from '@/workflows/job';
 describe('actual candidate Workflow caller', () => {
- beforeEach(() => {vi.clearAllMocks();p.gap.mockReset().mockResolvedValue('absent');p.gate.mockResolvedValue('legacy');p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});p.plan.mockReturnValue({phase:'execute',quoteVersion:1});p.receipt.mockResolvedValue(null);p.notify.mockResolvedValue(true);p.policy.mockResolvedValue(false);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});p.deliver.mockResolvedValue({deliveredAtIso:''});p.branch.mockResolvedValue({});p.design.mockResolvedValue({status:'ok',data:{scenarios:[]}});p.run.mockResolvedValue({status:'ok',data:{results:[]}});p.next.mockImplementation(() => new Promise(() => {}));p.sleep.mockResolvedValue(undefined);});
+ beforeEach(() => {vi.clearAllMocks();p.selectedFixes.mockReturnValue([]);p.fixPolicy.mockResolvedValue(false);p.fix.mockResolvedValue({status:"ok",data:{}});p.gap.mockReset().mockResolvedValue('absent');p.gate.mockResolvedValue('legacy');p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});p.plan.mockReturnValue({phase:'execute',quoteVersion:1});p.receipt.mockResolvedValue(null);p.notify.mockResolvedValue(true);p.policy.mockResolvedValue(false);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});p.deliver.mockResolvedValue({deliveredAtIso:''});p.branch.mockResolvedValue({});p.design.mockResolvedValue({status:'ok',data:{scenarios:[]}});p.run.mockResolvedValue({status:'ok',data:{results:[]}});p.next.mockImplementation(() => new Promise(() => {}));p.sleep.mockResolvedValue(undefined);});
  it('durably waits for admission then resumes generic evaluation', async () => {
   p.design.mockRejectedValueOnce(new Error('NAIVE_ADMISSION_PENDING: review'));
   expect((await jobWorkflow('job')).status).toBe('delivered');expect(p.sleep).toHaveBeenCalledWith('30m');expect(p.design).toHaveBeenCalledTimes(2);expect(p.fail).not.toHaveBeenCalled();
@@ -37,11 +37,21 @@ describe('actual candidate Workflow caller', () => {
   p.policy.mockResolvedValue(true);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:false}});
   expect((await jobWorkflow('job')).status).toBe('on_hold');expect(p.deliver).not.toHaveBeenCalled();expect(p.settle).not.toHaveBeenCalled();expect(p.fix).not.toHaveBeenCalled();
  });
- it('generic rich reporting skips legacy automatic fix verification',async()=>{
+ it('generic rich reporting skips unselected fix verification',async()=>{
   p.policy.mockResolvedValue(true);
   expect((await jobWorkflow('job')).status).toBe('delivered');expect(p.genericReport).toHaveBeenCalledOnce();expect(p.fix).not.toHaveBeenCalled();expect(p.deliver).not.toHaveBeenCalled();
  });
 
+ it('routes selected generic fixes before retained-evidence publication',async()=>{
+  p.policy.mockResolvedValue(true);p.fixPolicy.mockResolvedValue(true);p.selectedFixes.mockReturnValue([{id:'canonical-finding'}]);
+  expect((await jobWorkflow('job')).status).toBe('delivered');
+  expect(p.fix).toHaveBeenCalledWith('job',{id:'canonical-finding'},{scenarios:[]});
+  expect(p.fix.mock.invocationCallOrder[0]).toBeLessThan(p.genericReport.mock.invocationCallOrder[0]);
+ });
+ it('holds ambiguous selected generic fixes without publishing',async()=>{
+  p.policy.mockResolvedValue(true);p.fixPolicy.mockResolvedValue(true);p.selectedFixes.mockReturnValue([{id:'canonical-finding'}]);p.fix.mockRejectedValue(Error('NAIVE_RECONCILIATION_REQUIRED'));
+  expect((await jobWorkflow('job')).status).toBe('on_hold');expect(p.genericReport).not.toHaveBeenCalled();expect(p.deliver).not.toHaveBeenCalled();expect(p.fail).not.toHaveBeenCalled();
+ });
  it('recovers an acknowledged committed publication without overwriting delivered state',async()=>{
   p.policy.mockResolvedValue(true);p.genericReport.mockRejectedValueOnce(new Error('commit_ack_lost'));p.receipt.mockResolvedValue({deliveredAtIso:'2026-11-08T00:00:00.000Z'});
   expect((await jobWorkflow('job')).status).toBe('delivered');expect(p.fail).not.toHaveBeenCalled();expect(p.deliver).not.toHaveBeenCalled();expect(p.notify).toHaveBeenCalledOnce();
@@ -105,4 +115,15 @@ it('unrelated hook events do not exhaust the expert execution timer budget',asyn
  expect((await jobWorkflow('job')).status).toBe('cancelled');expect(p.next).toHaveBeenCalledTimes(341);expect(p.expert).toHaveBeenCalledOnce();
 });
 
+});
+
+it('preserves terminal cancellation when an execution failure races cancellation', async () => {
+ p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});
+ p.plan.mockReturnValue({phase:'execute',quoteVersion:1});
+ p.gap.mockResolvedValue('absent');p.gate.mockResolvedValue('legacy');
+ p.policy.mockResolvedValue(false);p.branch.mockResolvedValue({});
+ p.design.mockRejectedValueOnce(new Error('execution failed after cancel'));
+ p.fail.mockResolvedValueOnce('cancelled');
+ expect(await jobWorkflow('job')).toEqual({jobId:'job',status:'cancelled'});
+ expect(p.fail).toHaveBeenCalledWith('job','execution failed after cancel');
 });

@@ -1,8 +1,8 @@
+import { naiveDesignRecoveryStage } from '@/server/naive-design-recovery';
+import { recoverableGenericTextRunStage, recoverableGenericTextReportStage } from '@/server/services';
 import { TextFactualGapError } from '@ae/core/evals/text/factual-gap';
 import { resolveJobNaiveExecution } from '@/server/naive-text-execution-runtime';
 import { retainNaiveFactualGapProposal, retryNaiveFactualGapEntry } from '@/server/naive-factual-gap-workflow';
-import { releaseStatement } from '@ae/core/adapters/budget';
-import { and, isNull } from 'drizzle-orm';
 import { summarizeRunResults } from "@ae/core/contracts/services";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
@@ -16,11 +16,11 @@ import { resolveBranchConnection } from "@/server/branch-connection";
 import { requireNaivePackage, selectedNaiveMethod, selectedNaiveEvaluation, toNaiveWorkflowError } from "@/server/naive-method-routing";
 import { makeServiceContext } from "@/server/job-store";
 import { createNaiveTextPublication, readNaiveTextDeliveryReceipt, claimNaiveTextDeliveryNotification, completeNaiveTextDeliveryNotification } from "@/server/naive-text-publication";
-import { evalServices as naiveReportServices } from "@ae/core/integration/eval-services";
-import { getEvalServices } from "@/server/services";
+import { getEvalServices, isWorkflowStageControlError, isWorkflowStagePendingError, recoverableEvalStage, workflowServiceCall } from "@/server/services";
 import { notifyCustomerStep } from "./notify";
 import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
 
+import { assertWorkflowStageCurrent } from "@/server/workflow-stage-runtime";
 /** Feature flag: on by default; REDTEAM_PACK=0|false|off|no disables. */
 function redTeamPackEnabled(): boolean {
   return !/^(0|false|off|no)$/i.test(process.env.REDTEAM_PACK ?? "");
@@ -32,16 +32,17 @@ export async function auditTraceStep(jobId: string): Promise<BudgetResult<Findin
   "use step";
   const intake = await loadIntake(jobId, false);
   if (intake.package !== "trace_audit") throw new FatalError("auditTrace requires a trace_audit job");
-  const services = await getEvalServices();
-  const result = await withBudget(jobId, "investigator", async (ctx) => {
+  const {services, stage} = await recoverableEvalStage("auditTrace", jobId, "trace-audit", intake);
+  const result = await workflowServiceCall(() => withBudget(jobId, "investigator", stage, async (ctx) => {
     await ctx.recordProgress("auditing_trace", "Checking the trace for unsupported claims, ignored errors, and instruction violations.");
     const audit = await services.auditTrace(ctx, intake.trace, intake.systemPrompt);
     return audit.findings;
-  });
+  }));
   if (result.status === "ok") await recordProgress(jobId, "trace_audited", `Trace audit found ${result.data.length} finding(s).`);
   return result;
 }
-auditTraceStep.maxRetries = 1;
+// Allow retained-session polling and expired-owner recovery; stage admission prevents fresh callback replay.
+auditTraceStep.maxRetries = 120;
 
 /** Creates the per-job Neon branch. Returns only the branch id: step I/O is persisted in plaintext, so the connection string is never returned. */
 export async function createBranchStep(jobId: string): Promise<{ branchId?: string }> {
@@ -49,7 +50,7 @@ export async function createBranchStep(jobId: string): Promise<{ branchId?: stri
   const intake = await loadIntake(jobId, false);
   if (selectedNaiveEvaluation()) {
     requireNaivePackage(intake.package);
-    return {}; // text execution has no simulator isolation requirement
+    return {};
   }
   const services = await getEvalServices();
   const job = await requireJob(jobId);
@@ -61,12 +62,6 @@ export async function createBranchStep(jobId: string): Promise<{ branchId?: stri
   return { branchId: branch.branchId };
 }
 
-/** Repair a lost Workflow-stage release acknowledgement after proposal retention. */
-async function releaseRetainedDesignBudget(jobId:string):Promise<void> {
- const rows=await db().select({id:schema.budgetReservations.id}).from(schema.budgetReservations)
-  .where(and(eq(schema.budgetReservations.jobId,jobId),eq(schema.budgetReservations.agent,'engineer'),isNull(schema.budgetReservations.releasedAt)));
- for(const row of rows)await db().execute(releaseStatement(jobId,row.id));
-}
 export type FactualDesignResult={status:'factual_gap'};
 /** Called before the expert gate: a retained gap must never become a legacy no-plan path. */
 export async function factualGapEntryStep(jobId:string):Promise<'absent'|'installed'|'pending'> {
@@ -75,7 +70,6 @@ export async function factualGapEntryStep(jobId:string):Promise<'absent'|'instal
  if(!selected.generic)return 'absent';
  const entry=await retryNaiveFactualGapEntry(selected.sql,selected.identity,selected.profile);
  if(entry.status==='absent')return 'absent';
- if(entry.proposalRetained)await releaseRetainedDesignBudget(jobId);
  return entry.status==='installed'||entry.status==='replayed'?'installed':'pending';
 }
 factualGapEntryStep.maxRetries=0;
@@ -85,31 +79,35 @@ export async function designSuiteStep(jobId: string): Promise<BudgetResult<Suite
   const selected=await resolveJobNaiveExecution(jobId);
   if(selected.generic){
     const entry=await retryNaiveFactualGapEntry(selected.sql,selected.identity,selected.profile);
-    if(entry.status!=='absent'){if(entry.proposalRetained)await releaseRetainedDesignBudget(jobId);return {status:'factual_gap'};}
+    if(entry.status!=='absent')return {status:'factual_gap'};
   }
   const intake = await loadIntake(jobId, false);
   const services = await getEvalServices();
-  const result = await withBudget(jobId, "engineer", async (ctx):Promise<Suite|FactualDesignResult> => {
+  const stage = selected.generic ? await naiveDesignRecoveryStage(jobId,intake,selected) : {key: "suite-design", input: {intake, redTeam: redTeamPackEnabled()}, isPendingError: isWorkflowStagePendingError};
+  const result = await workflowServiceCall(() => withBudget(jobId, "engineer", stage, async (ctx):Promise<Suite|FactualDesignResult> => {
     let designed:Suite;
     try { designed=await services.designSuite(ctx, intake); }
     catch(error){
       if(!(error instanceof TextFactualGapError)||!selected.generic||!('factualGapPolicy' in selected.profile))throw error;
       // Retain before releasing the stage reservation or crossing the Workflow boundary.
+      await assertWorkflowStageCurrent();
       await retainNaiveFactualGapProposal(selected.sql,selected.identity,selected.profile,error);
       return {status:'factual_gap'};
     }
     const suite = !selected.generic && redTeamPackEnabled() ? appendRedTeamToSuite(designed, intake) : designed;
+    await assertWorkflowStageCurrent();
     const path = await putJobArtifact(jobId, "suite", JSON.stringify(suite), "application/json");
     const job = await requireJob(jobId);
+    await assertWorkflowStageCurrent();
     await setJobState(jobId, job.state, { suiteBlobPath: path });
     return suite;
-  });
+  }));
   if(result.status==='budget_exceeded')return result;
   if('status' in result.data)return result.data;
   await recordProgress(jobId, "suite_frozen", `Test suite frozen: ${result.data.scenarios.length} scenario(s).`);
   return {status:'ok',data:result.data};
 }
-designSuiteStep.maxRetries = 1;
+designSuiteStep.maxRetries = 120;
 
 function targetFor(intake: Awaited<ReturnType<typeof loadIntake>>, slot: EndpointSlot) {
   const ep = (intake as unknown as Record<string, { url: string; model: string; apiKey?: string; systemPrompt?: string } | undefined>)[slot];
@@ -130,68 +128,84 @@ export async function runSuiteStep(
       throw new FatalError("Target credentials were deleted before the run");
     }
   }
-  const services = await getEvalServices();
+  const selected=await resolveJobNaiveExecution(jobId);
+  const recovery=selected.generic?await recoverableGenericTextRunStage(jobId,suite,target,slot,versionLabel,branchId):null;
+  const services = recovery?.services ?? await getEvalServices();
   const branchConnectionString = branchId ? await resolveBranchConnection(branchId) : undefined;
-  const result = await withBudget(jobId, "judge", async (ctx) => {
+  const result = await workflowServiceCall(() => withBudget(jobId, "judge", recovery?.stage ?? {key: `suite-run:${slot}:${versionLabel}`, input: {suite, slot, versionLabel, branchId, target}, isPendingError: isWorkflowStagePendingError}, async (ctx) => {
     await ctx.recordProgress("running_suite", `Running ${suite.scenarios.length} scenario(s) against ${versionLabel}.`);
     return services.runSuite(ctx, selectedNaiveEvaluation() ? suite : { ...suite, versionLabel }, target, branchConnectionString);
-  });
+  }));
   if (result.status === "ok") {
     const counts = summarizeRunResults(result.data.results);
     await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${counts.passed} objective passed, ${counts.failed} objective failed, ${counts.rubric} rubric, ${counts.inconclusive} inconclusive, ${counts.infrastructure} infrastructure.`);
   }
   return result;
 }
-runSuiteStep.maxRetries = 1;
+runSuiteStep.maxRetries = 120;
 
 export async function investigateStep(jobId: string, suite: Suite, runs: RunResult[]): Promise<BudgetResult<Finding[]>> {
   "use step";
   const services = await getEvalServices();
-  const result = await withBudget(jobId, "investigator", (ctx) => services.investigate(ctx, suite, runs));
+  const result = await withBudget(jobId, "investigator", {key: "investigation", input: {suite, runs}, isPendingError: isWorkflowStagePendingError}, (ctx) => services.investigate(ctx, suite, runs));
   if (result.status === "ok") await recordProgress(jobId, "investigated", `Investigation produced ${result.data.length} finding(s).`);
   return result;
 }
 investigateStep.maxRetries = 1;
 
-/**
- * Proposes + verifies a fix for one confirmed finding (engineer budget share). Never fails the job:
- * a service error yields data=null and a progress note. The finding row is stored first (idempotent) so the
- * remediation can reference it; persistReportStep later skips already-stored keys.
+/** Proposes and verifies a fix. Only definitive service failures become a null result.
+ * Pending work retains the mixed callback's parent hold; it never enables automatic replay.
+ * Publication and ownership failures escape the semantic service-failure catch.
  */
 export async function proposeFixStep(jobId: string, finding: Finding, suite?: Suite): Promise<BudgetResult<Remediation | null>> {
   "use step";
   const intake = await loadIntake(jobId, false);
   const services = await getEvalServices();
-  const result = await withBudget(jobId, "engineer", async (ctx) => {
+  return workflowServiceCall(() => withBudget(jobId, "engineer", {
+    key: `remediation:${finding.id}`, input: {finding, suite, intake},
+    isPendingError: isWorkflowStagePendingError,
+  }, async (ctx) => {
+    await ctx.recordProgress("proposing_fix", `Proposing and verifying a fix for "${finding.title.slice(0, 120)}".`);
+    let fix: Remediation;
     try {
-      await ctx.recordProgress("proposing_fix", `Proposing and verifying a fix for "${finding.title.slice(0, 120)}".`);
-      const fix = await services.proposeAndVerifyFix(ctx, { finding, suite, intake });
-      await saveFindings(jobId, [finding]);
-      const rowId = await findingRowIdByKey(jobId, finding.id);
-      if (!rowId) throw new Error("finding row missing");
-      await saveRemediation(jobId, rowId, fix);
-      return fix;
+      fix = await services.proposeAndVerifyFix(ctx, { finding, suite, intake });
     } catch (err) {
-      if (selectedNaiveMethod("proposeAndVerifyFix")) throw err;
-      await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
+      if (isWorkflowStageControlError(err) || selectedNaiveMethod("proposeAndVerifyFix")) throw err;
+      await assertWorkflowStageCurrent();
+      await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}.`);
       return null;
     }
-  });
-  return result;
+    await assertWorkflowStageCurrent();
+    // The owner runtime atomically retained detailed evidence and projected this exact result.
+    if (selectedNaiveMethod("proposeAndVerifyFix")) return fix;
+    await saveFindings(jobId, [finding]);
+    const rowId = await findingRowIdByKey(jobId, finding.id);
+    if (!rowId) throw new Error("finding row missing");
+    await assertWorkflowStageCurrent();
+    await saveRemediation(jobId, rowId, fix);
+    return fix;
+  }));
 }
 proposeFixStep.maxRetries = 1;
 
 export async function renderReportStep(jobId: string, findings: Finding[], suite?: Suite, remediations?: Remediation[]): Promise<BudgetResult<Report>> {
   "use step";
   const intake = await loadIntake(jobId, false);
-  const services = await getEvalServices();
-  return withBudget(jobId, "operator", (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations }));
+  const {services, stage} = await recoverableEvalStage("renderReport", jobId, "report", {intake, findings, suite, remediations});
+  return workflowServiceCall(() => withBudget(jobId, "operator", stage, (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations })));
 }
-renderReportStep.maxRetries = 1;
+// Allow retained-session polling and expired-owner recovery; stage admission prevents fresh callback replay.
+renderReportStep.maxRetries = 120;
 
 /** Writes report, evidence, and findings to Blob + Neon. Safe to retry: findings are keyed, blobs get random suffixes. */
 export async function persistReportStep(jobId: string, report: Report, suite?: Suite): Promise<void> {
   "use step";
+  return persistReport(jobId,report,suite);
+}
+
+/** Non-step helper preserves the current server stage scope for authoritative SQL publication.
+ * Blob writes precede their fenced SQL references; failed ownership may leave private orphan blobs. */
+export async function persistReport(jobId:string,report:Report,suite?:Suite):Promise<void> {
   const markdownPath = await putJobArtifact(jobId, "report", report.markdown, "text/markdown");
   await putJobArtifact(jobId, "report-html", report.html, "text/html");
   await putJobArtifact(jobId, "evidence", JSON.stringify(report.findings.map((f) => ({ id: f.id, evidence: f.evidence }))), "application/json");
@@ -203,18 +217,23 @@ export async function persistReportStep(jobId: string, report: Report, suite?: S
   await recordProgress(jobId, "report_stored", "Report and evidence stored.");
 }
 
-/** Durable Workflow reads configuration inside a step; selected generic text has no verified fix runtime. */
+/** Durable Workflow reads configuration inside a step. */
 export async function genericTextExecutionPolicyStep(jobId:string): Promise<boolean> {
   "use step";
   const selected = (await resolveJobNaiveExecution(jobId)).generic;
-  if (selected && selectedNaiveMethod("proposeAndVerifyFix")) throw new FatalError("Generic Naive remediation requires its own owner runtime.");
   return selected;
+}
+
+export async function genericTextRemediationPolicyStep():Promise<boolean> {
+  "use step";
+  return selectedNaiveMethod("proposeAndVerifyFix");
 }
 
 /** Rich baseline coverage and current retained authority gate generic publication. */
 export async function genericTextReportStep(jobId: string, findings: Finding[], suite: Suite): Promise<BudgetResult<{ assessed: boolean; deliveredAtIso?: string }>> {
   "use step";
-  const prepared = await withBudget(jobId, "operator", async ctx => {
+  const {services:reportServices,stage}=await recoverableGenericTextReportStage(jobId,{suite,findings});
+  const prepared = await workflowServiceCall(() => withBudget(jobId, "operator", stage, async ctx => {
     const publication = await createNaiveTextPublication(ctx, suite, findings);
     const coverage = await publication.reportContext();
     if (!coverage.assessed) {
@@ -224,8 +243,7 @@ export async function genericTextReportStep(jobId: string, findings: Finding[], 
     const intake = await loadIntake(jobId, false);
     await publication.assertCurrent({ findings, suite });
     let report: Report;
-    try { report = await naiveReportServices.renderReport(ctx, { intake, findings, suite, remediations: [] }); }
-    catch (error) { throw toNaiveWorkflowError(error); }
+    report = await reportServices.renderReport(ctx, { intake, findings, suite, remediations: coverage.remediations });
     await publication.assertCurrent(report);
     const escape = (s: string) => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
     report.markdown += `\n\n## Assessment coverage and limitations\n\n${coverage.summary}\n`;
@@ -233,7 +251,7 @@ export async function genericTextReportStep(jobId: string, findings: Finding[], 
     report.summary = `${coverage.summary}\n\n${report.summary}`.slice(0, 10000);
     await publication.assertCurrent(report);
     return report;
-  });
+  }));
   if (prepared.status === "budget_exceeded") return prepared;
   if (!prepared.data) return { status: "ok", data: { assessed: false } };
   // Release the paid-stage reservation before atomic publication, so a lost release
@@ -249,7 +267,7 @@ export async function genericTextReportStep(jobId: string, findings: Finding[], 
   const receipt = await publication.atomicPublish(report, { reportBlobPath, reportHtmlBlobPath, evidenceBlobPath, suiteBlobPath });
   return { status: "ok", data: { assessed: true, deliveredAtIso: receipt.deliveredAtIso } };
 }
-genericTextReportStep.maxRetries = 0;
+genericTextReportStep.maxRetries = 120;
 
 /** A committed receipt is reconciliation evidence, never new publication authority. */
 export async function genericTextCommittedReceiptStep(jobId: string): Promise<{ deliveredAtIso: string } | null> {

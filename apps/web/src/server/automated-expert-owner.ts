@@ -1,3 +1,5 @@
+import { assertDerivedSourcingAuthorityCurrent, discoverSourcingLockKeys } from './expert-sourcing-bridge';
+import { withSourcingLocks } from './expert-sourcing-locks';
 import { isOperator } from '@ae/core/auth/tokens';
 import { Pool } from '@neondatabase/serverless';
 import { randomBytes, createHash } from 'node:crypto';
@@ -17,6 +19,27 @@ export interface SqlExpertOwnerOptions {
  sendEmail?: typeof applicationSendEmail; knownSecrets?: readonly string[] | (() => readonly string[] | Promise<readonly string[]>);
 }
 const denied = (): never => { throw Error('expert_owner_denied_or_conflict'); };
+/** Explicit legacy scopes alone may omit the derived receipt. Factual metadata always wins. */
+async function derivedScope(tx:AgentSqlExecutor,jobId:string,taskId:string):Promise<boolean>{
+ const row=(await tx.query<{authority_kind:string;factual:boolean}>(`SELECT s.authority_kind,coalesce(p.input ? 'factualGapEntry',false) AS factual FROM expert_automation_scopes s LEFT JOIN expert_workflow.plans p ON p.job_id=s.job_id WHERE s.job_id=$1 AND s.task_id=$2`,[jobId,taskId])).rows[0];
+ if(!row)denied();
+ if(row.authority_kind==='legacy_configured'&&!row.factual)return false;
+ if(row.authority_kind!=='derived_standing_policy'&&!row.factual)denied();
+ return true;
+}
+async function currentSourcing(tx:AgentSqlExecutor,jobId:string,taskId:string){
+ if(await derivedScope(tx,jobId,taskId))await assertDerivedSourcingAuthorityCurrent(tx,jobId,taskId);
+}
+/** Discovery is only a hint; compare again while holding policy then job mutexes. */
+async function sourcingDispatch<T>(sql:AgentTransactionalSql,scope:ExpertLoopScope,work:(assertHeld:()=>Promise<void>)=>Promise<T>):Promise<T>{
+ if(!await derivedScope(sql,scope.jobId,scope.taskId))return withSourcingLocks([`expert-sourcing:job:${scope.jobId.toLowerCase()}`],work);
+ const selected=await discoverSourcingLockKeys(sql,scope.jobId);
+ return withSourcingLocks(selected.keys,async assertHeld=>{
+  const current=await discoverSourcingLockKeys(sql,scope.jobId);
+  if(current.policyId!==selected.policyId)denied();
+  return work(assertHeld);
+ });
+}
 type Authority = { policy_id:string; customer_sharing_consent:boolean; day_scope:string; knownSecrets:readonly string[] };
 type Contact = {id:string;email:string;name:string;source:string;consent_flags:{contactForPaidWork?:boolean};allowed_uses:string[]};
 /** Concrete owner SQL boundary. One invocation advances the existing adapter once; no scheduler,
@@ -32,6 +55,7 @@ export function createSqlExpertOwner(sql: AgentTransactionalSql, options: SqlExp
  function same(s:ExpertLoopScope) { if(reviewDigest({jobId:s.jobId,taskId:s.taskId,operationId:s.operationId,requestHash:s.requestHash})!==reviewDigest(scope))denied(); }
  async function authority(tx:AgentSqlExecutor,s:ExpertLoopScope):Promise<Authority> {
   same(s);
+  await currentSourcing(tx,s.jobId,s.taskId);
   const secrets=await currentSecrets();safe(s,secrets);
   const r=(await tx.query<Authority>(`SELECT s.policy_id,s.customer_sharing_consent,
    coalesce(o.first_promise_day,CURRENT_DATE)::text AS day_scope
@@ -105,7 +129,7 @@ export function createSqlExpertOwner(sql: AgentTransactionalSql, options: SqlExp
    const reserveShared=createExpertPromiseReservation(options.ledger(tx),{dayScope:a.day_scope,authorize:async current=>{const auth=await authority(tx,current);return {allowed:true,policyId:auth.policy_id,dayScope:auth.day_scope};}});
    if(!await reserveShared(s,input))return false;
    await tx.query('UPDATE expert_automation_invitations SET promised=true,promise_day=$1::date,promise_key=$2 WHERE engagement_id=$3',[a.day_scope,input.key,prepared.engagement_id]);return true;});},
-  invite:async(s,inv,key)=>{
+  invite:async(s,inv,key)=>sourcingDispatch(sql,s,async assertHeld=>{
    await store.get(s.operationId);
    const claim=await sql.transaction(async tx=>{const a=await authority(tx,s),c=await contact(tx,inv.contactId);safe(inv,a.knownSecrets);await operation(tx);
     const r=(await tx.query<{engagement_id:string;draft_id:string;invitation_digest:string;promised:boolean;promise_key:string;founder_approved_by:string|null;send_state:string;subject:string;body:string;status:string;to_email:string;engagement_status:string}>(`SELECT i.*,d.subject,d.body,d.status,d.to_email,e.status AS engagement_status FROM expert_automation_invitations i JOIN outreach_drafts d ON d.id=i.draft_id JOIN expert_engagements e ON e.id=i.engagement_id WHERE i.operation_id=$1 AND i.expert_id=$2 AND e.expires_at>now() FOR UPDATE OF i,d,e`,[s.operationId,c.id])).rows[0];
@@ -113,10 +137,14 @@ export function createSqlExpertOwner(sql: AgentTransactionalSql, options: SqlExp
     if(r.send_state!=='prepared')return null;
     await tx.query("UPDATE expert_automation_invitations SET send_state='claimed' WHERE engagement_id=$1",[r.engagement_id]);return r;});
    if(!claim)return {status:'ambiguous'};
-   try {await sql.transaction(async tx=>{const a=await authority(tx,s);safe(inv,a.knownSecrets);if(redactSecrets(JSON.stringify({subject:claim.subject,text:claim.body}),a.knownSecrets).redactions>0)denied();});const receipt=await (options.sendEmail??applicationSendEmail)({purpose:'commercial',to:claim.to_email,subject:claim.subject,text:claim.body});
+   try {await sql.transaction(async tx=>{const a=await authority(tx,s),c=await contact(tx,inv.contactId);safe(inv,a.knownSecrets);await operation(tx);
+    const r=(await tx.query<{engagement_id:string;draft_id:string;invitation_digest:string;promised:boolean;promise_key:string;founder_approved_by:string|null;send_state:string;subject:string;body:string;status:string;to_email:string;engagement_status:string}>(`SELECT i.*,d.subject,d.body,d.status,d.to_email,e.status AS engagement_status FROM expert_automation_invitations i JOIN outreach_drafts d ON d.id=i.draft_id JOIN expert_engagements e ON e.id=i.engagement_id WHERE i.operation_id=$1 AND i.expert_id=$2 AND e.expires_at>now() FOR UPDATE OF i,d,e`,[s.operationId,c.id])).rows[0];
+    if(!r||!r.promised||r.promise_key!==key||r.invitation_digest!==reviewDigest(inv)||r.engagement_status!=='invited'||r.status==='rejected'||r.to_email!==c.email||inv.sharesCustomerScope&&!a.customer_sharing_consent||!opted(c)&&(r.status!=='approved'||!r.founder_approved_by||!isOperator(r.founder_approved_by)))denied();
+    if(r.send_state!=='claimed'||r.subject!==claim.subject||r.body!==claim.body||r.draft_id!==claim.draft_id||r.engagement_id!==claim.engagement_id)denied();
+    if(redactSecrets(JSON.stringify({subject:claim.subject,text:claim.body}),a.knownSecrets).redactions>0)denied();});await assertHeld();const receipt=await (options.sendEmail??applicationSendEmail)({purpose:'commercial',to:claim.to_email,subject:claim.subject,text:claim.body});
     await sql.transaction(async tx=>{await tx.query("UPDATE expert_automation_invitations SET send_state='sent',message_id=$1,thread_id=$2 WHERE engagement_id=$3 AND send_state='claimed'",[receipt.id??null,receipt.threadId??null,claim.engagement_id]);await tx.query("UPDATE outreach_drafts SET status='sent',sent_at=now() WHERE id=$1",[claim.draft_id]);});return {status:'sent',deliveryId:claim.engagement_id};
    }catch{return {status:'ambiguous'};}
-  },
+  }),
   recoverDelivery:async(s,key)=>{await store.get(s.operationId);return sql.transaction(async tx=>{await authority(tx,s);await operation(tx);const r=(await tx.query<{send_state:string;engagement_id:string}>('SELECT send_state,engagement_id FROM expert_automation_invitations WHERE operation_id=$1 AND promise_key=$2',[s.operationId,key])).rows[0];return r?.send_state==='sent'?{status:'sent',deliveryId:r.engagement_id}:null;});},
   contributions:async(s,deliveryId)=>{await sql.transaction(async tx=>{await authority(tx,s);await operation(tx);const r=(await tx.query('SELECT engagement_id FROM expert_automation_invitations WHERE operation_id=$1 AND engagement_id=$2 AND send_state=\'sent\'',[s.operationId,deliveryId])).rows[0];if(!r)denied();});const values=await options.contributions(s,deliveryId);await sql.transaction(async tx=>{const a=await authority(tx,s);safe(values,a.knownSecrets);});return values;},
  };return owner;
@@ -128,9 +156,11 @@ export function createOwnerExpertStep(sql:AgentTransactionalSql,options:SqlExper
  * budget reservation and dispatch through the durable claim. Never fabricates approved_by. */
 export async function approveSqlManagedExpertDraft(sql:AgentTransactionalSql,id:string,operatorEmail:string):Promise<boolean>{
  return sql.transaction(async tx=>{
-  const row=(await tx.query<{draft_id:string}>("SELECT draft_id FROM expert_automation_invitations WHERE draft_id=$1 FOR UPDATE",[id])).rows[0];
+  const row=(await tx.query<{draft_id:string;job_id:string;task_id:string}>("SELECT i.draft_id,o.job_id,o.task_id FROM expert_automation_invitations i JOIN expert_automation_operations o USING(operation_id) WHERE i.draft_id=$1",[id])).rows[0];
   if(!row)return false;
   if(!isOperator(operatorEmail))denied();
+  await currentSourcing(tx,row.job_id,row.task_id);
+  await tx.query("SELECT draft_id FROM expert_automation_invitations WHERE draft_id=$1 FOR UPDATE",[id]);
   await tx.query("SELECT pg_advisory_xact_lock(hashtext('expert-cold-contact-approvals'))");
   const source=(await tx.query<{source:string}>(`SELECT e.source FROM expert_automation_invitations i JOIN experts e ON e.id=i.expert_id WHERE i.draft_id=$1`,[id])).rows[0];
   if(source?.source==='agent_researched'){

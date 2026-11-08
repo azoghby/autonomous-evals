@@ -8,6 +8,18 @@ Branch: **`main`** (track-a was merged into main at e99f8c4 on Nov 7 evening; al
 
 Last prod deploy: e99f8c4 (merged main), https://standard-evals.vercel.app (alias autonomous-evals.vercel.app still serves). Deploy from a clean worktree of main with `vercel deploy --prod --scope agents-db31`.
 
+## Current Naïve source adoption (2026-11-08)
+
+The explicit user-approved 147-file cumulative patch from `0e759c4` is adopted on **track-a**, after preserving main `029f45c` in merge `ce59be9`. This scoped continuation uses track-a; the older main-only operating note below records Track A history. All 147 source postimages match the reviewed patch exactly (43 modified, 104 added, no deletions). Historical candidate/unapplied statements for this dependency chain below are superseded; their test receipts remain historical evidence.
+
+| Scope | Current status |
+| --- | --- |
+| Shared budgets, stage recovery/cancellation, expert sourcing, initial copilot/MCP, remediation, design/run recovery and judge accounting | Actual source adopted; not deployed |
+| Actual-source verification | 4,609 passing tests, zero failures, two documented skips; web/core types and clean production build pass; 2,286 build input hashes match |
+| Activation and full Naïve plan | Still open; sidecar schema and hosted checks required, including existing lite/chat paths |
+
+See `docs/naive-current-runtime-adoption/adoption-receipt.json`. No migration, configuration change, deployment, provider call, outreach or spending occurred. Unrelated customer recruitment files remain untouched.
+
 ## 1. What the product is
 
 Standard Evals (repo and package name still `autonomous-evals`) is a company run by agents that evaluates other companies' AI agents. A customer submits a trace or a live endpoint. The Commercial agent qualifies it and returns a quote; code sets the price, never an agent. The customer pays through Stripe Checkout, either a fixed package price or per confirmed finding ($3 each, capped at $15, $0 if nothing is real). A durable Workflow tests the target, records confirmed findings, proposes and verifies fixes with before/after pass counts, and delivers a report. Customers are humans in the web app or agents over MCP (`/api/mcp/mcp`). x402 USDC payments on Base Sepolia testnet are merged. Human experts are hired for domain ground truth, and every outreach is approval-gated. The eval engine is mock by default; the real Track B engine is wired behind `EVAL_SERVICES=real` but not switched on.
@@ -191,6 +203,8 @@ Security and compliance
 - CAN-SPAM: no postal address. `COMPANY_ADDRESS` is identity only. Required before any cold outreach at volume.
 
 ## Next steps (hackathon)
+
+- Cumulative source is adopted: do not reapply historical owner patches. Next prepare the sidecar migration dependency/order and hosted acceptance work separately; target monetary reconciliation, remaining recovery, conversation/idle and full Phase 0 gates remain open. Source adoption does not authorize deployment or live activity.
 
 - Copilot continuation: bridge model-ledger reservations with existing Gateway/Workflow budgets; implement cumulative session accounting, per-turn capability renewal and `sessions.send`, then authenticated runtime/history/pending/streaming and idle reconciliation. Follow the initial-dispatch candidate's explicit lifecycle/held-budget limits; source adoption and native PostgreSQL/hosted acceptance remain separate gates.
 - Shared-budget continuation: shared admission, exact proxy receipt substitution, stage fencing and cancellation now exist in the composed candidate. Exact stage/model parent envelopes now have a composed candidate; next complete Gateway envelope coverage and combined customer daily authority; the attempt-aware judge admission/drain composition now has its own candidate; source/sidecar activation and hosted verification remain separate. Native PostgreSQL contention and hosted acceptance remain open.
@@ -463,3 +477,5 @@ Times are PT, as recorded.
 - ~10:25 PT: ran the 4 missing leaderboard cells under a $6 cap, as the founder approved. smolagents on Gemini 3.8 Flash scored 30/32 (red-team 20/20) and is on the leaderboard (run 1c935783). LangGraph on Sonnet 5.5 was killed at scenario 24/32 after about $4 of gateway spend at roughly $0.40/min (no row written). smolagents on Opus 5.5 and LangGraph on Opus 5.5 were not started because of the cap. Gateway credit went from $13.71 to $7.87 ($5.84). Note: `--timeout-min` defaults to a value too low for smolagents (about 22 min per run); use 40. Details: docs/REAL_AGENT_RESULTS.md.
 
 - Approved cumulative adoption main reconciliation: preserved main `029f45c`, including Track A company diagram/video files and leaderboard receipts. Resolved only the append-only ledger conflict, retaining both tracks. The new company source is outside the approved cumulative patch. No Track A deployment is performed by this adoption.
+
+- 2026-11-08: Adopted the explicitly approved cumulative 147-file source patch from `0e759c4`, preserving main `029f45c` at `ce59be9`. Exact postimages and outside-path preservation verified. Actual suite: 4,609 passed / zero failed / two documented skips; web/core types and clean production build pass (63 steps/four workflows, 2,286 matching input pins). Reversibly quarantined 35 identical filesystem conflict copies; no unique content deleted. Three Sol review/build/documentation workers completed. Receipt: `docs/naive-current-runtime-adoption/adoption-receipt.json`. No migration, deployment, outreach or spend. Full Naïve goal remains unfinished.

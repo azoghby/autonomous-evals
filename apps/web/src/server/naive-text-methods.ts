@@ -1,8 +1,12 @@
+import { createWorkflowStageBudgetLedger } from './workflow-stage-budget';
+import { fenceWorkflowRunCheckpoints } from './workflow-run-checkpoints';
+import { fenceWorkflowDesignCheckpoints } from './workflow-design-checkpoints';
+import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
 import 'server-only';
 import { createHash,randomUUID } from 'node:crypto';
 import { createClient } from '@usenaive-sdk/managed-agents';
 import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
-import { PostgresAgentTaskStore,PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
+import { PostgresAgentTaskStore } from '@ae/core/agents/postgres-ports';
 import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
 import { createNaiveClient,createNaiveSessionsPort } from '@ae/core/agents/naive-adapter';
@@ -19,7 +23,7 @@ import { canonicalJson } from '@ae/core/evals/text/freeze';
 import { TrackBBlockedError,toContractCost } from '@ae/core/evals/service-adapter';
 import { createTextTarget } from '@ae/core/targets/text';
 import type { JsonTransport } from '@ae/core/targets/transport';
-import { createNaiveProxyServiceJudge } from '@ae/core/judges/naive-proxy-service';
+import { createAttemptAwareJudge, drainRuntimeJudgeAccounting } from './judge-attempt-runtime';
 import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
 import { LEGACY_EXECUTION_PROFILE,retainedNaiveExecutionProfile,createNaiveMethodAuthority } from './naive-method-authority';
 import { createNaiveEngineAdmissionPolicy } from './naive-engine-admission-policy';
@@ -36,14 +40,17 @@ export interface NaiveTextMethodsDependencies {
  runnerFactory?:(ledger:BudgetLedger)=>AgentTaskRunner;
  clock?:Clock;
  targetTransport?:JsonTransport;
+ remediationTransport?:JsonTransport;
  proxyFetch?:typeof fetch;
  decryptCredentials?:(ciphertext:string)=>Record<string,string>;
 }
 interface CostEnvelope {jobId:string;customerId:string;environment:'test'|'live';cost:ContractCost}
 /** Internal composition of existing durable services, never an alternate job Workflow. */
-export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}):Promise<Pick<EvalServices,NaiveTextMethod>> {
- if(!Number.isSafeInteger(ctx.budgetMicroUsd)||ctx.budgetMicroUsd<=0)throw new TrackBBlockedError('paused_budget','Positive safe integer Naive budget required before constructing providers.');
+export async function createNaiveTextRuntime(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}) {
  const sql=deps.sql??(await import('@/server/automated-expert-owner')).expertOwnerDatabase();
+ await drainRuntimeJudgeAccounting(ctx.jobId,sql,deps.proxyFetch);
+ if(!Number.isSafeInteger(ctx.budgetMicroUsd)||ctx.budgetMicroUsd<=0)throw new TrackBBlockedError('paused_budget','Positive safe integer Naive budget required before constructing providers.');
+
  const jobId=ctx.jobId,environment=ctx.environment;
  const profile=structuredClone(deps.executionProfile??LEGACY_EXECUTION_PROFILE);
  const cap=JOB_BUDGET_MICRO_USD.text_eval;
@@ -94,7 +101,7 @@ export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMe
   return {...input,budgetMicroUsd:allocation,recordCost:async cost=>{const retained=await retainCost(cost);await deliver(retained);}};
  };
  const stable=stableContext(ctx);
- const rawLedger=new PostgresBudgetLedger(sql);
+ const rawLedger=createWorkflowStageBudgetLedger(sql);
  // A third scope is appended to the SAME reservation as canonical role/job scopes.
  // This bounds the initial allowance without changing shared caps or double-counting spend.
  const ledger:BudgetLedger={reserve:input=>{
@@ -108,10 +115,10 @@ export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMe
    if(!match||!Number.isSafeInteger(Number(match[2])))return fail('All four Naive agent role versions must be configured and pinned.');
    return [role,{agentId:match[1],agentVersion:Number(match[2])}];
   })) as AgentDirectory;
-  return new AgentSessionService({naive:createNaiveSessionsPort(createNaiveClient({apiKey:proxyKey!,...(baseUrl?{baseUrl}: {})})),store:new PostgresAgentTaskStore(sql),ledger,directory,
+  return new AgentSessionService({naive:fenceWorkflowStageSessions(createNaiveSessionsPort(createNaiveClient({apiKey:proxyKey!,...(baseUrl?{baseUrl}: {})}))),store:new PostgresAgentTaskStore(sql),ledger,directory,
    budgetPeriodId:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),idempotencyNamespace:process.env.VERCEL_ENV||process.env.NODE_ENV||'development',workerId:randomUUID()});
  }
- const rawRunner=deps.runnerFactory?deps.runnerFactory(ledger):defaultRunner();
+ const rawRunner=fenceWorkflowStageRunner(deps.runnerFactory?deps.runnerFactory(ledger):defaultRunner());
  const runner:AgentTaskRunner={run:async spec=>{
   await authority.current();
   if(spec.job.jobId!==jobId||spec.job.environment!==environment||spec.budgetMicroUsd!==allocation)return fail();
@@ -132,31 +139,38 @@ export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMe
   if('cost' in result&&result.cost){const parsed=CostEntrySchema.parse(result.cost);if(parsed.jobId!==jobId)return fail();await retainCost(toContractCost(parsed));}
   await authority.current(result);return result;
  }};
- const proxyBudget=createNaiveProxyBudget(ledger,{jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd});
- const judge=createNaiveProxyServiceJudge(stable,{jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints:authority.checkpoints,
+ const judgeConfig={jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd,additionalScopes:[{key:profile.policyId==='generic-text-v1'?`generic-text:${jobId}`:`generic-text:${profile.policyId}:${jobId}`,capMicroUsd:allocation}]};
+ const proxyBudget=createNaiveProxyBudget(ledger,judgeConfig);
+ const judge=createAttemptAwareJudge(stable,{jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints:authority.checkpoints,
   budget:proxyBudget,
   client:idempotencyKey=>createClient({apiKey:proxyKey,...(baseUrl?{baseUrl}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
-  authorize:async()=>{const fresh=await authority.current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey||process.env.NAIVE_BASE_URL!==baseUrl||Number(process.env.NAIVE_JUDGE_RESERVATION_MICRO_USD)!==reservation||Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS)!==output)return fail();return {knownSecrets:fresh.secrets};}});
+  authorize:async()=>{const fresh=await authority.current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey||process.env.NAIVE_BASE_URL!==baseUrl||Number(process.env.NAIVE_JUDGE_RESERVATION_MICRO_USD)!==reservation||Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS)!==output)return fail();return {knownSecrets:fresh.secrets};}},{sql,config:judgeConfig,authorizeTransaction:async tx=>{await authority.currentInTransaction(tx);if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey||process.env.NAIVE_BASE_URL!==baseUrl||Number(process.env.NAIVE_JUDGE_RESERVATION_MICRO_USD)!==reservation||Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS)!==output)return fail();}});
  async function targetDependencies(){
   const a=await authority.current(),secured=createTextTarget(a.target,deps.targetTransport);
   return {...a,knownSecrets:a.secrets,judge,target:{send:async(request:Parameters<typeof secured.send>[0])=>{await authority.current();return secured.send(request);}}};
  }
- const rich=createTextEvaluationServices({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:targetDependencies});
- const design=createNaiveDesignService({...('factualGapPolicy' in profile?{factualGapPolicy:profile.factualGapPolicy}:{}),engine:rich,admission:authority.artifacts.admission,authorize:authority.authorizeDesign});
+ const designRich=createTextEvaluationServices({runner,checkpoints:fenceWorkflowDesignCheckpoints(authority.checkpoints),clock:deps.clock,resolve:targetDependencies});
+ const design=createNaiveDesignService({...('factualGapPolicy' in profile?{factualGapPolicy:profile.factualGapPolicy}:{}),engine:designRich,admission:authority.artifacts.admission,authorize:authority.authorizeDesign});
  async function resolved(){const a=await authority.resolveSuite(),ports=await targetDependencies();return {...ports,...a,knownSecrets:a.secrets,canonicalTarget:a.target,target:ports.target,judge};}
- const run=createNaiveRunService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:resolved,persistRun:authority.artifacts.persistRun});
+ const run=createNaiveRunService({runner,checkpoints:fenceWorkflowRunCheckpoints(authority.checkpoints),clock:deps.clock,resolve:resolved,persistRun:authority.artifacts.persistRun});
  const investigation=createNaiveInvestigationService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:async()=>{
   const a=await resolved(),retainedRun=await authority.artifacts.loadRun(stable,a.scope,a.runId,a.targetVersion);if(!retainedRun)return fail();return {...a,retainedSuite:a.retained,retainedRun};
  },persistInvestigation:authority.artifacts.persistInvestigation});
- return {
+ const methods:Pick<EvalServices,NaiveTextMethod>={
   designSuite:(input,intake)=>design.designSuite(stableContext(input),intake),
   runSuite:(input,suite,target,branch)=>run.runSuite(stableContext(input),suite,target,branch),
   investigate:(input,suite,runs)=>investigation.investigate(stableContext(input),suite,runs),
  };
+ return {sql,profile,authority,stableContext,runner,judge,ledger,targetDependencies,resolved,methods,allocation,cap,allocationScope:profile.policyId==='generic-text-v1'?`generic-text:${jobId}`:`generic-text:${profile.policyId}:${jobId}`};
 }
+export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}):Promise<Pick<EvalServices,NaiveTextMethod>> {
+ return (await createNaiveTextRuntime(ctx,deps)).methods;
+}
+export type NaiveTextRuntime=Awaited<ReturnType<typeof createNaiveTextRuntime>>;
 /** Routing installs this builder lazily. Unsupported trial/rerun semantics stay unavailable. */
 export function createNaiveTextMethodBuilder(deps:NaiveTextMethodsDependencies={}){
  return async(method:NaiveMethod,ctx:ServiceContext):Promise<Partial<Pick<EvalServices,NaiveMethod>>>=>{
+  if(method==='proposeAndVerifyFix')return (await import('./naive-remediation-runtime')).createNaiveRemediationMethods(ctx,deps);
   if(!['designSuite','runSuite','investigate'].includes(method))return fail('Generic Naive remediation/rerun requires its own owner runtime.');
   return createNaiveTextMethods(ctx,deps);
  };

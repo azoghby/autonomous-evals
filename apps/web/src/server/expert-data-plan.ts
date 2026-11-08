@@ -1,4 +1,6 @@
 import 'server-only';
+import { discoverSourcingLockKeys, installDerivedSourcingAuthority } from './expert-sourcing-bridge';
+import { withSourcingLocks } from './expert-sourcing-locks';
 import type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
 import { IntakeInput } from '@ae/core/contracts/index';
 import { reviewDigest } from '@ae/core/evals/data/binding';
@@ -30,8 +32,8 @@ export type FactualGapProductionInput = ProductionDataInput & {
 const blocked = (reason: Extract<FactualGapPlanResult,{status:'prerequisite_blocked'}>['reason']): FactualGapPlanResult => ({ status: 'prerequisite_blocked', reason });
 const rejected = (reason: Extract<FactualGapPlanResult,{status:'rejected'}>['reason']): FactualGapPlanResult => ({ status: 'rejected', reason });
 
-/** Pure candidate for trusted owner configuration. Its exact task/topic hash must already
- * be authorized in expert_automation_scopes. Calling this does not approve the proposal. */
+/** Pure candidate for trusted owner configuration. Its exact task/topic hash is authorized only by the retained standing-policy bridge.
+ * Calling this does not approve factual evidence or cold outreach. */
 export function deriveFactualGapPlan(request: FactualGapPlanRequest, job: Pick<Job,'customer_id'|'intake'>, securedTargetVersion: string): FactualGapProductionInput {
   const proposal = FactualGapProposalSchema.parse(request.proposal);
   if (!/^[a-f0-9]{64}$/.test(securedTargetVersion) || request.expectedTargetDigest !== undefined && request.expectedTargetDigest !== securedTargetVersion) throw Error('input_binding');
@@ -57,11 +59,13 @@ export function deriveFactualGapPlan(request: FactualGapPlanRequest, job: Pick<J
     initial: { sources: [], cases: [] }, context: { versionLabel: request.versionLabel, systemPrompt: parsed.endpoint.systemPrompt }, factualGapEntry: entry };
 }
 
-/** Private Workflow seam. Installs only an already configured exact owner scope. No provider,
+/** Private Workflow seam. Derives exact scope under standing policy and authenticated consent. No provider,
  * invitation, promise, review or new Workflow is dispatched. The existing expert gate advances it. */
 export async function installFactualGapExpertPlan(request: FactualGapPlanRequest, deps: {
   sql?: AgentTransactionalSql;
   decryptCredentials?: (ciphertext: string) => Record<string,string>;
+  discoverLocks?: typeof discoverSourcingLockKeys;
+  withLocks?: typeof withSourcingLocks;
 } = {}): Promise<FactualGapPlanResult> {
   request = structuredClone(request);
   if (process.env.EVAL_SERVICES !== 'real') return blocked('real_mode');
@@ -99,35 +103,49 @@ export async function installFactualGapExpertPlan(request: FactualGapPlanRequest
   }
   const initial = await resolve(sql);
   if ('status' in initial) return initial;
-  return sql.transaction(async tx => {
+  // Discovery is advisory only; the bridge compares the selected policy under both mutexes.
+  class RollbackResult extends Error { constructor(readonly result:FactualGapPlanResult){super('expert_sourcing_install_rollback');} }
+  const abort=(result:FactualGapPlanResult):never=>{throw new RollbackResult(result);};
+  try {
+  const discovery=await (deps.discoverLocks??discoverSourcingLockKeys)(sql,request.jobId);
+  return await (deps.withLocks??withSourcingLocks)(discovery.keys,async assertHeld=> {
+   await assertHeld();
+   return sql.transaction<FactualGapPlanResult>(async tx => {
     // Reload canonical identity and credentials under locks immediately before authority/write.
     const fresh = await resolve(tx,true);
     if ('status' in fresh) return fresh;
     if (reviewDigest(fresh.input) !== reviewDigest(initial.input)) return rejected('input_binding');
-    const scope = (await tx.query<{tenant_id:string;request_hash:string;policy_id:string;topic:string;enabled:boolean;customer_sharing_consent:boolean}>(
-      'SELECT tenant_id::text,request_hash,policy_id,topic,enabled,customer_sharing_consent FROM expert_automation_scopes WHERE job_id=$1 AND task_id=$2 FOR UPDATE', [request.jobId,request.taskId])).rows[0];
-    if (!scope || !scope.enabled || scope.tenant_id !== fresh.row.customer_id || !scope.topic.trim() || scope.topic.length > 160 || scope.request_hash !== reviewDigest({task:fresh.input.task,topic:scope.topic})) return blocked('owner_scope');
-    const policy = (await tx.query<{enabled:boolean;job_cap_micro_usd:string;daily_cap_micro_usd:string}>(
-      'SELECT enabled,job_cap_micro_usd::text,daily_cap_micro_usd::text FROM expert_automation_policies WHERE id=$1 FOR UPDATE',[scope.policy_id])).rows[0];
-    if (!policy?.enabled || policy.job_cap_micro_usd !== '25000000' || policy.daily_cap_micro_usd !== '50000000') return blocked('owner_policy');
-    if (scope.customer_sharing_consent !== true) return blocked('sharing_consent');
+    await assertHeld();
+    const scope=await installDerivedSourcingAuthority(tx,{request,input:fresh.input,targetDigest:fresh.input.factualGapEntry.targetDigest},
+      {decryptCredentials:decrypt,expectedPolicyId:discovery.policyId});
     const experts = await tx.query<{id:string;source:string;consent_flags:{contactForPaidWork?:boolean}}>(`SELECT e.id,e.source,e.consent_flags FROM experts e JOIN expert_automation_qualifications q ON q.expert_id=e.id
       WHERE q.topic=$1 AND q.qualified AND CASE WHEN jsonb_typeof(q.evidence)='array' THEN jsonb_array_length(q.evidence)>0 ELSE false END
       AND length(q.consent_receipt)>0 AND q.allowed_uses @> '["evaluation"]'::jsonb AND e.status='active'
       AND NOT EXISTS(SELECT 1 FROM contact_suppressions x WHERE lower(x.email)=lower(e.email))
       ORDER BY (e.source='opt_in' AND e.consent_flags->>'contactForPaidWork'='true') DESC,e.id LIMIT 10 FOR UPDATE OF e,q`,[scope.topic]);
-    if (!experts.rows.length) return blocked('expert_qualification');
+    if (!experts.rows.length) return abort(blocked('expert_qualification'));
     // Existing discovery queues non-opted contacts for founder approval. A plan never grants it.
     const contactGate = experts.rows.some(e => e.source === 'opt_in' && e.consent_flags?.contactForPaidWork === true) ? 'opted_in' as const : 'cold_approval_required' as const;
-    if (process.env.EVAL_SERVICES !== 'real' || !inspectDataSafety({input:fresh.input,topic:scope.topic},fresh.secrets).safe) return rejected('unsafe_input');
+    if (process.env.EVAL_SERVICES !== 'real' || !inspectDataSafety({input:fresh.input,topic:scope.topic},fresh.secrets).safe) return abort(rejected('unsafe_input'));
     const digest = reviewDigest(fresh.input),deadline = new Date(fresh.row.response_deadline).toISOString();
     const inserted = await tx.query(`INSERT INTO expert_workflow.plans(job_id,tenant_id,input,input_digest,topic,enabled,response_deadline)
       VALUES($1,$2,$3::jsonb,$4,$5,true,$6) ON CONFLICT DO NOTHING RETURNING job_id`,[request.jobId,fresh.row.customer_id,JSON.stringify(fresh.input),digest,scope.topic,deadline]);
     const retained = (await tx.query<{tenant_id:string;input:unknown;input_digest:string;topic:string;enabled:boolean;response_deadline:Date|string}>(
       'SELECT tenant_id::text,input,input_digest,topic,enabled,response_deadline FROM expert_workflow.plans WHERE job_id=$1 FOR UPDATE',[request.jobId])).rows[0];
-    if (!retained || retained.tenant_id !== fresh.row.customer_id || retained.input_digest !== digest || reviewDigest(retained.input) !== digest || retained.topic !== scope.topic || new Date(retained.response_deadline).toISOString() !== deadline) return rejected('plan_conflict');
+    if (!retained || retained.tenant_id !== fresh.row.customer_id || retained.input_digest !== digest || reviewDigest(retained.input) !== digest || retained.topic !== scope.topic || new Date(retained.response_deadline).toISOString() !== deadline) return abort(rejected('plan_conflict'));
     // Revoked plans are never re-enabled by replay.
-    if (!retained.enabled) return blocked('owner_scope');
+    if (!retained.enabled) return abort(blocked('owner_scope'));
+    await assertHeld();
     return { status: inserted.rows.length ? 'installed' : 'replayed', inputDigest: digest, proposalDigest: fresh.input.factualGapEntry.proposalDigest, contactGate };
+   });
   });
+  } catch(error) {
+    if(error instanceof RollbackResult)return error.result;
+    const reason=error instanceof Error?error.message:'';
+    const prerequisite={expert_sourcing_owner_scope:'owner_scope',expert_sourcing_owner_policy:'owner_policy',expert_sourcing_sharing_consent:'sharing_consent'} as const;
+    if(reason in prerequisite)return blocked(prerequisite[reason as keyof typeof prerequisite]);
+    const rejection={expert_sourcing_input_binding:'input_binding',expert_sourcing_unsafe_input:'unsafe_input',expert_sourcing_plan_conflict:'plan_conflict'} as const;
+    if(reason in rejection)return rejected(rejection[reason as keyof typeof rejection]);
+    throw error;
+  }
 }

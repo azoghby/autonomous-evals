@@ -1,3 +1,4 @@
+import {createSourcingSchema,configureSourcing,fakeSourcingLocks} from './expert-sourcing-test-fixture';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
@@ -37,6 +38,7 @@ async function fixture() {
     CREATE TABLE expert_responses(id uuid PRIMARY KEY);CREATE TABLE contact_suppressions(email text);`);
   for (const file of ['0024_expert_automation.sql', '0025_expert_workflow.sql']) await pg.exec(readFileSync(resolve('packages/core/src/db/migrations', file), 'utf8'));
   await pg.exec(readFileSync(resolve('packages/core/src/evals/integration/migrations/001-text-integration.sql'), 'utf8'));
+  await createSourcingSchema(pg);
   const intake = { package: 'text_eval', authorizedToTest: true, endpoint: { url: 'https://example.com/agent', model: 'model', systemPrompt: 'Answer product questions.' }, _credentialSlots: ['endpoint'] };
   await pg.query('INSERT INTO customers VALUES($1)', [tenant]);
   await pg.query("INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake,credentials_delete_after) VALUES($1,$2,'test','text_eval',false,'planning',$3::jsonb,now()+interval '1 day')", [jobId, tenant, JSON.stringify(intake)]);
@@ -49,10 +51,10 @@ async function fixture() {
   ports.sql = sql;
   const decryptCredentials = (cipher: string) => ({ endpoint: cipher === 'encrypted-v1' ? 'first-private-key' : 'rotated-private-key' });
   await pg.query("INSERT INTO expert_automation_policies VALUES('pilot',true,25000000,50000000)");
-  await pg.query("INSERT INTO expert_automation_scopes VALUES($1,$2,$3,$4,'pilot','Product support',true,true)", [jobId, request.taskId, tenant, reviewDigest({ task: plan.task, topic: 'Product support' })]);
+  await configureSourcing(pg,request,plan,decryptCredentials);
   await pg.query("INSERT INTO experts VALUES($1,'expert@example.com','active','opt_in','{\"contactForPaidWork\":true}'::jsonb)", [expert]);
   await pg.query("INSERT INTO expert_automation_qualifications VALUES($1,'Product support',true,'[\"owner evidence\"]'::jsonb,'[\"evaluation\"]'::jsonb,'consent-receipt',null)", [expert]);
-  async function install() { expect(await installFactualGapExpertPlan(request, { sql, decryptCredentials })).toMatchObject({ status: 'installed' }); }
+  async function install() { expect(await installFactualGapExpertPlan(request, { sql, decryptCredentials, withLocks:fakeSourcingLocks })).toMatchObject({ status: 'installed' }); }
   async function effects() {
     const counts: Record<string, number> = {};
     for (const table of ['expert_automation_operations', 'expert_automation_invitations', 'outreach_drafts', 'expert_requests', 'expert_workflow.contribution_reviews', 'text_integration.checkpoints']) counts[table] = (await pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n;
@@ -98,7 +100,7 @@ it('refuses canonical customer changes after installation', async () => {
   const other = '423e4567-e89b-42d3-a456-426614174000';
   await f.pg.query('INSERT INTO customers VALUES($1)', [other]); await f.pg.query('UPDATE jobs SET customer_id=$1', [other]);
   await expect(assertFactualGapPlanCurrent(f.sql, jobId, { decryptCredentials: f.decryptCredentials })).rejects.toThrow();
-  expect(Object.values(await f.effects()).every(n => n === 0)).toBe(true);
+  expect(Object.entries(await f.effects()).every(([table,n]) => n === (table==='text_integration.checkpoints'?2:0))).toBe(true);
 });
 
 it.each([null, {}, { schemaVersion: 'unexpected' }])('rejects malformed retained factual metadata %j even with a matching input digest', async entry => {
@@ -106,16 +108,16 @@ it.each([null, {}, { schemaVersion: 'unexpected' }])('rejects malformed retained
   const malformed = { ...f.plan, factualGapEntry: entry };
   await f.pg.query("INSERT INTO expert_workflow.plans(job_id,tenant_id,input,input_digest,topic,enabled,response_deadline) VALUES($1,$2,$3::jsonb,$4,'Product support',true,now()+interval '1 day')", [jobId, tenant, JSON.stringify(malformed), reviewDigest(malformed)]);
   await expect(assertFactualGapPlanCurrent(f.sql, jobId, { decryptCredentials: f.decryptCredentials })).rejects.toThrow();
-  expect(Object.values(await f.effects()).every(n => n === 0)).toBe(true);
+  expect(Object.entries(await f.effects()).every(([table,n]) => n === (table==='text_integration.checkpoints'?2:0))).toBe(true);
 });
 
 it('leaves legacy plans without factualGapEntry to their existing authority checks', async () => {
   const f = await fixture();
   const { factualGapEntry: _entry, ...legacy } = f.plan;
   await f.pg.query("INSERT INTO expert_workflow.plans(job_id,tenant_id,input,input_digest,topic,enabled,response_deadline) VALUES($1,$2,$3::jsonb,$4,'Product support',true,now()+interval '1 day')", [jobId, tenant, JSON.stringify(legacy), reviewDigest(legacy)]);
-  await f.pg.exec('DELETE FROM job_credentials; UPDATE expert_automation_scopes SET enabled=false');
+  await f.pg.exec("DELETE FROM job_credentials; UPDATE expert_automation_scopes SET enabled=false,authority_kind='legacy_configured'");
   await expect(assertFactualGapPlanCurrent(f.sql, jobId, { decryptCredentials: f.decryptCredentials })).resolves.toBeUndefined();
-  expect(Object.values(await f.effects()).every(n => n === 0)).toBe(true);
+  expect(Object.entries(await f.effects()).every(([table,n]) => n === (table==='text_integration.checkpoints'?2:0))).toBe(true);
 });
 
 it.each(['input digest', 'proposal digest', 'changed proposal', 'required uses', 'extra metadata'] as const)('rejects retained %s tampering without installing another binding', async mutation => {

@@ -1,6 +1,7 @@
 /** Explicit owner recovery for proven-undispatched proxy attempts. No paid/provider API. */
 import { randomUUID } from 'node:crypto';
 import { PostgresBudgetLedger, type AgentSqlExecutor, type AgentTransactionalSql } from '../agents/postgres-ports';
+import type { BudgetLedger } from '../evals/types';
 import { canonicalJson } from '../evals/text/freeze';
 import { proxyBillingDigest } from './naive-proxy-reconcile';
 
@@ -18,6 +19,13 @@ export interface NaiveProxyDispatchPort {
 export interface NaiveProxyRecoveryIdentity {jobId:string;operationId:string;inputDigest:string;attempt:number}
 export type NaiveProxyRecoveryAuthorization = (tx:AgentSqlExecutor, identity:Readonly<NaiveProxyRecoveryIdentity>)=>Promise<{actorId:string;reason:string}>;
 export interface NaiveProxyDispatchConfig {jobId:string;period:string;jobCapMicroUsd:number;judgeCapMicroUsd:number;additionalScopes?:readonly {key:string;capMicroUsd:number}[]}
+/** Trusted host hooks run on the same pinned transaction. beforeTransition must acquire
+ * the canonical job lock before checking current authority, ahead of operation locks.
+ * ledger must return the shared stage-aware ledger bound to this exact transaction. */
+export interface NaiveProxyDispatchHooks {
+ beforeTransition?(tx:AgentSqlExecutor, phase:'prepare'|'dispatch'|'recover', identity:Readonly<{jobId:string;operationId:string;inputDigest:string}>):Promise<void>;
+ ledger?(tx:AgentSqlExecutor):BudgetLedger;
+}
 type AttemptRow={attempt:number;token:string;checkpoint_id:string;reservation_id:string;state:NaiveProxyDispatchAttempt['state']|'abandoned';reserved:boolean};
 type OperationRow={input_digest:string;policy:unknown;active_attempt:number};
 const fail=():never=>{throw new Error('naive_proxy_dispatch_unavailable');};
@@ -38,7 +46,7 @@ const boundLedger=(tx:AgentSqlExecutor)=>new PostgresBudgetLedger({query:tx.quer
  * it must validate current owner authority from trusted state, never customer request flags. */
 export class PostgresNaiveProxyDispatchStore implements NaiveProxyDispatchPort {
  private readonly config:NaiveProxyDispatchConfig;
- constructor(private readonly db:AgentTransactionalSql,config:NaiveProxyDispatchConfig){
+ constructor(private readonly db:AgentTransactionalSql,config:NaiveProxyDispatchConfig,private readonly hooks:NaiveProxyDispatchHooks={}){
   this.config={...config,additionalScopes:config.additionalScopes?.map(s=>({...s})).sort((a,b)=>a.key.localeCompare(b.key))};
   if(!/^[A-Za-z0-9_-]{1,96}$/.test(config.jobId)||!/^[A-Za-z0-9_-]{1,80}$/.test(config.period)||[config.jobCapMicroUsd,config.judgeCapMicroUsd].some(n=>!Number.isSafeInteger(n)||n<=0))fail();
   const extra=this.config.additionalScopes??[];
@@ -48,6 +56,7 @@ export class PostgresNaiveProxyDispatchStore implements NaiveProxyDispatchPort {
   const input={...raw};identity(input);if(input.jobId!==this.config.jobId||!Number.isSafeInteger(input.amountMicroUsd)||input.amountMicroUsd<=0)fail();
   const policy={amountMicroUsd:input.amountMicroUsd,period:this.config.period,jobCapMicroUsd:this.config.jobCapMicroUsd,judgeCapMicroUsd:this.config.judgeCapMicroUsd,additionalScopes:this.config.additionalScopes??[]};
   return this.db.transaction(async tx=>{
+   await this.hooks.beforeTransition?.(tx,'prepare',Object.freeze({...input}));
    // Historical dispatch identity cannot be silently converted into a fresh attempt.
    const legacy=proxyBillingDigest({jobId:input.jobId,operationId:input.operationId});
    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1),hashtext($2))',[input.jobId,legacy]);
@@ -63,7 +72,7 @@ export class PostgresNaiveProxyDispatchStore implements NaiveProxyDispatchPort {
    }
    if(!row){
     const checkpointId=naiveProxyAttemptCheckpointId(input.jobId,input.operationId,attempt),reservationId=`naive-proxy:${checkpointId}`;
-    const result=await boundLedger(tx).reserve({reservationId,jobId:input.jobId,amountMicroUsd:input.amountMicroUsd,scopes:[{key:`job:${input.jobId}`,capMicroUsd:this.config.jobCapMicroUsd},{key:`agent:judge:${this.config.period}`,capMicroUsd:this.config.judgeCapMicroUsd},...(this.config.additionalScopes??[])]});
+    const result=await (this.hooks.ledger?this.hooks.ledger(tx):boundLedger(tx)).reserve({reservationId,jobId:input.jobId,amountMicroUsd:input.amountMicroUsd,scopes:[{key:`job:${input.jobId}`,capMicroUsd:this.config.jobCapMicroUsd},{key:`agent:judge:${this.config.period}`,capMicroUsd:this.config.judgeCapMicroUsd},...(this.config.additionalScopes??[])]});
     row={attempt,token:randomUUID(),checkpoint_id:checkpointId,reservation_id:reservationId,state:result.ok?'prepared':'denied',reserved:result.ok};
     await tx.query('INSERT INTO naive_proxy_dispatch.attempts(job_id,operation_id,attempt,token,checkpoint_id,reservation_id,state,reserved) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[input.jobId,input.operationId,attempt,row.token,checkpointId,reservationId,row.state,row.reserved]);
    }
@@ -74,6 +83,7 @@ export class PostgresNaiveProxyDispatchStore implements NaiveProxyDispatchPort {
  async dispatch(raw:NaiveProxyDispatchAttempt):Promise<void>{
   const input={...raw};identity(input);
   await this.db.transaction(async tx=>{
+   await this.hooks.beforeTransition?.(tx,'dispatch',Object.freeze({...input}));
    const op=(await tx.query<OperationRow>('SELECT * FROM naive_proxy_dispatch.operations WHERE job_id=$1 AND operation_id=$2 FOR UPDATE',[input.jobId,input.operationId])).rows[0];
    if(!op||op.input_digest!==input.inputDigest||op.active_attempt!==input.attempt||input.jobId!==this.config.jobId)fail();
    const row=(await tx.query<AttemptRow>('SELECT * FROM naive_proxy_dispatch.attempts WHERE job_id=$1 AND operation_id=$2 AND attempt=$3',[input.jobId,input.operationId,input.attempt])).rows[0];
@@ -107,6 +117,7 @@ export class PostgresNaiveProxyDispatchStore implements NaiveProxyDispatchPort {
  async recoverUndispatched(raw:NaiveProxyRecoveryIdentity,authorize:NaiveProxyRecoveryAuthorization):Promise<{attempt:number;replayed:boolean}>{
   const input={...raw};identity(input);if(input.jobId!==this.config.jobId||!Number.isSafeInteger(input.attempt)||input.attempt<1||input.attempt>2147483647||typeof authorize!=='function')fail();
   return this.db.transaction(async tx=>{
+   await this.hooks.beforeTransition?.(tx,'recover',Object.freeze({...input}));
    const op=(await tx.query<OperationRow>('SELECT * FROM naive_proxy_dispatch.operations WHERE job_id=$1 AND operation_id=$2 FOR UPDATE',[input.jobId,input.operationId])).rows[0];
    if(!op||op.input_digest!==input.inputDigest)fail();
    const authority=await authorize(tx,Object.freeze({...input}));
@@ -115,7 +126,7 @@ export class PostgresNaiveProxyDispatchStore implements NaiveProxyDispatchPort {
    if(!row||row.state==='dispatched')fail();
    if(row.state==='abandoned')return {attempt:input.attempt,replayed:true};
    if(op.active_attempt!==input.attempt)fail();
-   if(row.reserved){const settled=await boundLedger(tx).settle(row.reservation_id,0);if(settled.settledMicroUsd!==0)fail();}
+   if(row.reserved){const settled=await (this.hooks.ledger?this.hooks.ledger(tx):boundLedger(tx)).settle(row.reservation_id,0);if(settled.settledMicroUsd!==0)fail();}
    await tx.query(`UPDATE naive_proxy_dispatch.attempts SET state='abandoned' WHERE job_id=$1 AND operation_id=$2 AND attempt=$3`,[input.jobId,input.operationId,input.attempt]);
    await tx.query('INSERT INTO naive_proxy_dispatch.recoveries(job_id,operation_id,attempt,actor_id,reason) VALUES($1,$2,$3,$4,$5)',[input.jobId,input.operationId,input.attempt,authority.actorId,authority.reason]);
    return {attempt:input.attempt,replayed:false};

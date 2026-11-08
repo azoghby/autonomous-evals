@@ -1,4 +1,5 @@
 import 'server-only';
+import { assertDerivedSourcingAuthorityCurrent } from './expert-sourcing-bridge';
 import { z } from 'zod';
 import type { AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
 import { reviewDigest } from '@ae/core/evals/data/binding';
@@ -12,7 +13,7 @@ const Entry=z.object({schemaVersion:z.literal('factual_gap_plan.v1'),proposal:Fa
  proposalDigest:digest,canonicalInputDigest:digest,targetDigest:digest,environment:z.enum(['test','live']),tenantId:z.uuid()}).strict();
 const fail=():never=>{throw new Error('factual_gap_plan_binding_revoked');};
 /** Recheck the immutable factual-entry authority at EVERY downstream current-authority
- * boundary. Legacy plans have no entry metadata and retain their existing policy.
+ * boundary. Non-factual legacy plans require an explicit legacy scope discriminator.
  * This guard reads only; it never changes a plan, stores a key, or grants send authority. */
 export async function assertFactualGapPlanCurrent(sql:AgentSqlExecutor,jobId:string,options:{decryptCredentials?:(ciphertext:string)=>Record<string,string>}={}):Promise<void>{
  const row=(await sql.query<{input:unknown;input_digest:string;tenant_id:string;customer_id:string;environment:'test'|'live';intake:unknown;package:string;is_mock:boolean;state:string;enabled:boolean;before_deadline:boolean;credentials_current:boolean;topic:string}>(
@@ -22,7 +23,12 @@ export async function assertFactualGapPlanCurrent(sql:AgentSqlExecutor,jobId:str
    FROM expert_workflow.plans p JOIN jobs j ON j.id=p.job_id WHERE p.job_id=$1`,[jobId])).rows[0];
  if(!row)return fail();
  if(!row.input||typeof row.input!=='object'||Array.isArray(row.input))return fail();
- if(!Object.prototype.hasOwnProperty.call(row.input,'factualGapEntry'))return;
+ if(!Object.prototype.hasOwnProperty.call(row.input,'factualGapEntry')){
+  const taskId=(row.input as {task?:{taskId?:unknown}}).task?.taskId;
+  if(typeof taskId!=='string')return fail();
+  // Missing factual metadata is legacy only when the scope explicitly says so.
+  await assertDerivedSourcingAuthorityCurrent(sql,jobId,taskId);return;
+ }
  const input=row.input as {factualGapEntry:unknown;task?:{taskId?:unknown};context?:{versionLabel?:unknown}};
  const metadata=Entry.safeParse(input.factualGapEntry);if(!metadata.success)return fail();const entry=metadata.data;
  if(process.env.EVAL_SERVICES!=='real'||!row.enabled||!row.before_deadline||!row.credentials_current||row.package!=='text_eval'||row.is_mock
@@ -44,6 +50,7 @@ export async function assertFactualGapPlanCurrent(sql:AgentSqlExecutor,jobId:str
  try{expected=deriveFactualGapPlan({jobId,environment:row.environment,taskId:input.task.taskId,versionLabel:input.context.versionLabel,
   proposal:entry.proposal,canonicalInputDigest:entry.canonicalInputDigest},{customer_id:row.customer_id,intake:row.intake},entry.targetDigest);}catch{return fail();}
  if(reviewDigest(expected)!==row.input_digest)return fail();
+ await assertDerivedSourcingAuthorityCurrent(sql,jobId,input.task.taskId);
  const authority=(await sql.query<{tenant_id:string;request_hash:string;topic:string;enabled:boolean;customer_sharing_consent:boolean;policy_enabled:boolean;job_cap:string;daily_cap:string}>(
   `SELECT s.tenant_id::text,s.request_hash,s.topic,s.enabled,s.customer_sharing_consent,p.enabled AS policy_enabled,
    p.job_cap_micro_usd::text AS job_cap,p.daily_cap_micro_usd::text AS daily_cap

@@ -63,6 +63,7 @@ export function OperatorConsole() {
         {liveOp.mode === "live" && <div className="mt-4 flex items-center gap-4"><LiveChip /></div>}
       </header>
       <Link href="/operator/expert-reviews" className="mb-6 inline-flex text-sm text-accent underline underline-offset-4">Review expert evidence</Link>
+      <Link href="/operator/expert-sourcing" className="mb-6 ml-6 inline-flex text-sm text-accent underline underline-offset-4">Configure expert sourcing</Link>
       <Tabs tab={tab} onChange={setTab} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.24, ease: EASE }}>

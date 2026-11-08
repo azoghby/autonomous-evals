@@ -24,3 +24,15 @@ it('preserves a typed factual gap through both real service wrappers for private
  const services=await getEvalServices(async()=>({designSuite:async()=>{throw gap;}}));
  await expect(services.designSuite({jobId:'job',environment:'test',budgetMicroUsd:100} as ServiceContext,{} as never)).rejects.toBe(gap);
 });
+
+
+it('retains owner-routed pending holds after Workflow translation without granting callback recovery',async()=>{
+ const {isWorkflowStagePendingError,isWorkflowStageControlError}=await import('./services');
+ const {FatalError}=await import('workflow');
+ for(const message of ['NAIVE_ADMISSION_PENDING: review','NAIVE_OPERATION_PENDING: running']){
+  const error=new FatalError(message);
+  expect(isWorkflowStagePendingError(error)).toBe(true);
+  expect(isWorkflowStageControlError(error)).toBe(true);
+ }
+ expect(isWorkflowStagePendingError(new FatalError('NAIVE_RECONCILIATION_REQUIRED'))).toBe(false);
+});

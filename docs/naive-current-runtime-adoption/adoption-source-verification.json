@@ -1,0 +1,172 @@
+{
+  "status": "passed",
+  "preAdoptionCommit": "ce59be942de3bc5477d07f56633d0b30194ffc85",
+  "approvedPackageCommit": "0e759c4731350af165a76d59f9dae1e46bcc32d2",
+  "manifestSha256": "a51ba35c57fbbba98d37659f3955c544bb5aafdc5de5b1a812a1092724fd790b",
+  "ownerPatchSha256": "91ead12ea30be6aeebc273e9d48f2e6a8660bd6bf4e13445b858a20e5ccc30f0",
+  "approvedSourcePaths": 147,
+  "verifiedPreimages": 147,
+  "verifiedActualPostimages": 147,
+  "actualSourceDeltaExactlyManifest": true,
+  "newSourcePaths": 104,
+  "modifiedTrackedSourcePaths": 43,
+  "outsideApprovedTrackedChangesAtAudit": [],
+  "preservedOutOfScopeTrackedPaths": 4180,
+  "missingOutOfScopePaths": [],
+  "customerRecruitmentTouched": false,
+  "tests": "pending; no test claims in this audit",
+  "liveActions": false,
+  "errors": [],
+  "preimageVerification": "147 exact hashes/absence verified using baseline Git tree membership and blob content",
+  "unexpectedUntrackedSourcePaths": [],
+  "approvedPackageManifestMatches": true,
+  "approvedPackagePatchMatches": true,
+  "conflictCopies": {
+    "status": "resolved-by-reversible-quarantine",
+    "backupDirectory": "/tmp/naive-cumulative-conflict-copies-ce59be9",
+    "count": 35,
+    "proof": "Each backup file SHA256 independently matches its approved original preimage or postimage; all copies absent from actual source delta.",
+    "files": [
+      {
+        "path": "apps/web/src/app/(app)/jobs/[jobId]/page 2.tsx",
+        "sha256": "5d1b8887a852969824e03b3752db34eb14b1f8c5b597e15ea291a10f47ad9e91"
+      },
+      {
+        "path": "apps/web/src/app/api/cron/stale-jobs/route 2.ts",
+        "sha256": "74f0b05aa0c118de6ecd764af8877e72be3ec4ced753e27d94c5d82457f848f5"
+      },
+      {
+        "path": "apps/web/src/app/api/cron/stale-jobs/route.test 2.ts",
+        "sha256": "4e89828c00e7b4e9c2241f893c1da0bfa2947d38121020e0dc0ff937e6fa79b4"
+      },
+      {
+        "path": "apps/web/src/app/api/jobs/[jobId]/cancel/route 2.ts",
+        "sha256": "50418f7311d8695b9580a004976d838d83c060710a7457d8c7b29f2f6c7ac1a4"
+      },
+      {
+        "path": "apps/web/src/app/api/jobs/[jobId]/cancel/route.test 2.ts",
+        "sha256": "c605573649ea48e375fa407b6cc541a822e44e5f3ca6b796b33aada49f220731"
+      },
+      {
+        "path": "apps/web/src/components/app/operator-console 2.tsx",
+        "sha256": "c24fe58b86c58993ac4970ede1ca85f7ec95ad21bc5cfb66799d8d4940654f7d"
+      },
+      {
+        "path": "apps/web/src/server/eval-chat/chat 2.ts",
+        "sha256": "2099d7a4274d026de3adfd0807946b9b4afd9c5f1a5112056c92c2c45e4f1e57"
+      },
+      {
+        "path": "apps/web/src/server/eval-chat/service 2.ts",
+        "sha256": "e301ba974e689789115e7144e700fdcc4c025cc1dc30159623e3cc626bb00136"
+      },
+      {
+        "path": "apps/web/src/server/expert-data-plan 2.ts",
+        "sha256": "0338ac04dd37b635c0d15c7b8836446ce5ac50a77df315a5937d4c6dc0a71c86"
+      },
+      {
+        "path": "apps/web/src/server/expert-data-plan-binding.test 2.ts",
+        "sha256": "a4269904d2e99c21d6e16bd497eaea9f2a9f51347fcf454abaa4a1381f1856ec"
+      },
+      {
+        "path": "apps/web/src/server/expert-data-plan.test 2.ts",
+        "sha256": "f001e675cf99dd93037c46343bdfa5c05e3a8d978d2bacb5ae17a1d1fdd10608"
+      },
+      {
+        "path": "apps/web/src/server/expert-text-runtime 2.ts",
+        "sha256": "a5056eb957be2190a5a9eac85157143b936b9ca8c7467e34fdd5845394486518"
+      },
+      {
+        "path": "apps/web/src/server/job-store 2.ts",
+        "sha256": "a758d267c6a0c134fede3d31f0a377d73b8d78c30d2f04a2b4d80f72c4efb0a3"
+      },
+      {
+        "path": "apps/web/src/server/mcp-tools.test 2.ts",
+        "sha256": "c4db85fe8d7e3635867a878c9e364d52fa99f4dafb18c71e1ac0e3b2fdd60094"
+      },
+      {
+        "path": "apps/web/src/server/naive-method-authority 2.ts",
+        "sha256": "99f7dfaa0755f55d4c2a729b1829c2d9bdee7025ec8b0eb4f8dc2e36530b0171"
+      },
+      {
+        "path": "apps/web/src/server/naive-text-methods 2.ts",
+        "sha256": "d909a5754808feca9ccb1456eabccd9f442856567f5a41398a5497c206fd2232"
+      },
+      {
+        "path": "apps/web/src/server/naive-text-publication 2.ts",
+        "sha256": "9db56b8a74aa21a677bbde39642fac3b7f665c305ea4f285a5a2829728004005"
+      },
+      {
+        "path": "apps/web/src/server/naive-text-publication.test 2.ts",
+        "sha256": "c780d78c9ba2db5ea0ca8e1472bc772e7a9743e47e113b40ea5304903e575eaa"
+      },
+      {
+        "path": "apps/web/src/server/services 2.ts",
+        "sha256": "fe5da4790e8a3cc7a08c60615e2c685beb6d0d15d7491da74d783bff24f6d58e"
+      },
+      {
+        "path": "apps/web/src/workflows/job 2.ts",
+        "sha256": "f040927c2ea75a92ae2118c67e5f018d36200469b2bde26881a27ceed02e05d4"
+      },
+      {
+        "path": "apps/web/src/workflows/job-naive-routing.test 2.ts",
+        "sha256": "295c7d1b3c3eda0792ec27490f1a24e87bb359ca4d08ff4ee18a0da731468af4"
+      },
+      {
+        "path": "apps/web/src/workflows/steps/common 2.ts",
+        "sha256": "72cb4a9495015cddc5a9efca5e8081083533d30c6647c47d3c67dda9e7f44bd9"
+      },
+      {
+        "path": "apps/web/src/workflows/steps/evaluate 2.ts",
+        "sha256": "4c2e733944fb07d19ae3b8d0875e9428e383902efb2629dac63038ea27ce4ba0"
+      },
+      {
+        "path": "apps/web/src/workflows/steps/expert-text 2.ts",
+        "sha256": "0573b47ac8d580c66f730e56ce919055592598f9c18ff001bb881ec9b25a1138"
+      },
+      {
+        "path": "apps/web/src/workflows/steps/lifecycle 2.ts",
+        "sha256": "741e4ee4404021bdf6273ffe90a867bbb16862de3a27e57b6cc1dcdb7c7b2786"
+      },
+      {
+        "path": "apps/web/src/workflows/steps/quote 2.ts",
+        "sha256": "778edb7091c8af4bacc9fc1b19693ea3a5a161994c331f615d0314c49c0d5671"
+      },
+      {
+        "path": "apps/web/src/workflows/steps/resume 2.ts",
+        "sha256": "d6fc873da6d8ee366a73e671f9a38c17281f61e4c445c23a32d92097ea475f77"
+      },
+      {
+        "path": "packages/core/src/adapters/budget 2.ts",
+        "sha256": "a077b9861cc2fcf97b2b7eb2b7b4ac9020f2dd5d7f7de8ab653117f6dd38931b"
+      },
+      {
+        "path": "packages/core/src/adapters/budget.test 2.ts",
+        "sha256": "f0df39175be03bbea3638a01ed5ba8df8d8298389d060cbd0fd3dfe8cc25635f"
+      },
+      {
+        "path": "packages/core/src/db/cost-settlement 2.ts",
+        "sha256": "6601e712b210294f6a6e9ba30c1928ec3e753f81341f43eb8b4a5fb51ea91dca"
+      },
+      {
+        "path": "packages/core/src/evals/text/design 2.ts",
+        "sha256": "04b36a73acbb83df0cbd352a507d5a013a0915b9495213ff6d834515921ba594"
+      },
+      {
+        "path": "packages/core/src/integration/eval-services 2.ts",
+        "sha256": "cda660b0495dd0048baa6c5caf3530cb250a105d11ae2e3a60d4b6c156bb8508"
+      },
+      {
+        "path": "packages/core/src/judges/naive-proxy-dispatch-store 2.ts",
+        "sha256": "16b92b4f34baa8152716f294d0edd6c60127bcbdadc4f6b00cd6f615f342ee6b"
+      },
+      {
+        "path": "packages/core/src/judges/naive-proxy-dispatch-store.test 2.ts",
+        "sha256": "6eb3c3969b7223d7bf34a3285ac86909b0bf197cf69c5d4a0617b5b22f43b3f7"
+      },
+      {
+        "path": "packages/core/src/payments/checkout 2.ts",
+        "sha256": "2db153d4350988035aecbbf59a83f6359c23a2def4fa51122d851e46ab8e721b"
+      }
+    ]
+  }
+}

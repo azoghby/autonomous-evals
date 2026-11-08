@@ -1,3 +1,4 @@
+import { linkRetainedModelReceipt } from './job-budget-receipts';
 import { CostEntry } from '../contracts/index';
 
 export interface CostTransaction {
@@ -77,6 +78,7 @@ export async function settleCost(sql: CostSql, rawTarget: CostTarget, rawEntry: 
     if (!inserted.rows.length) {
       const retained = (await tx.query<{ receipt_identity: unknown }>('SELECT receipt_identity FROM costs WHERE source=$1 AND receipt_key=$2 FOR UPDATE', [entry.source, receiptKey])).rows[0];
       if (!retained || canonical(retained.receipt_identity) !== canonical(identity)) return conflict();
+      if(target.kind==='job' && receiptKey)await linkRetainedModelReceipt(tx,target.id,receiptKey);
       return { inserted: false, microUsd: entry.microUsd };
     }
     if (target.kind !== 'job') {
@@ -84,6 +86,7 @@ export async function settleCost(sql: CostSql, rawTarget: CostTarget, rawEntry: 
       const result = await tx.query<{ id: string }>(`UPDATE ${table} SET cost_micro_usd=cost_micro_usd+$1 WHERE id=$2 AND cost_micro_usd+$1 <= 9007199254740991 RETURNING id`, [entry.microUsd,target.id]);
       if (result.rows.length !== 1) return conflict();
     }
+    if(target.kind==='job' && receiptKey)await linkRetainedModelReceipt(tx,target.id,receiptKey);
     return { inserted: true, microUsd: entry.microUsd };
   });
 }
