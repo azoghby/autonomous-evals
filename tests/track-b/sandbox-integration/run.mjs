@@ -13,7 +13,9 @@ function git(args) {
   if (result.status !== 0) throw new Error(result.stderr);
   return result.stdout;
 }
-const sha = git(['rev-parse', 'aa94505^{commit}']).trim();
+const ref = process.env.TRACK_A_REF ?? 'aa94505';
+if (ref.startsWith('-') || /[\0\r\n]/.test(ref)) throw new Error('Invalid contract ref');
+const sha = git(['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`]).trim();
 const spec = git(['show', `${sha}:packages/core/src/sandbox/spec.ts`]);
 const stage = await mkdtemp(join(tmpdir(), 'sandbox-integration-check-'));
 try {
@@ -41,7 +43,12 @@ try {
   ]) {
     const run = spawnSync(process.execPath, [join(deps, bin), ...args], { cwd: stage, stdio: 'inherit' });
     if (run.status !== 0) {
-      if (bin.startsWith('vitest')) { const report = JSON.parse(await readFile(join(stage, 'results.json'), 'utf8')); for (const file of report.testResults) for (const test of file.assertionResults) if (test.status !== 'passed') console.error(test.fullName, test.failureMessages); }
+      if (bin.startsWith('vitest')) {
+        try {
+          const report = JSON.parse(await readFile(join(stage, 'results.json'), 'utf8'));
+          for (const file of report.testResults) for (const test of file.assertionResults) if (test.status !== 'passed') console.error(test.fullName, test.failureMessages);
+        } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      }
       throw new Error(`${bin} failed: ${run.status}`);
     }
   }
