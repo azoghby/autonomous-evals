@@ -1,0 +1,765 @@
+diff --git a/apps/web/src/server/job-store-stage-sql.test.ts b/apps/web/src/server/job-store-stage-sql.test.ts
+--- a/apps/web/src/server/job-store-stage-sql.test.ts
++++ b/apps/web/src/server/job-store-stage-sql.test.ts
+@@ -35,6 +35,7 @@
+  await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
+  await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
+  await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/002-stage-progress.sql','utf8'));
++ await pg.exec(readFileSync('docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql','utf8'));
+  await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4),($5,$2,$3,$4)',[job,'trace_audit',customer,'test',other]);
+  const decision=await tx(t=>claimWorkflowStage(t,claim));if(decision.kind!=='owned')throw Error('owner');state.scope={owner:decision.owner,transaction:tx};
+ });
+diff --git a/apps/web/src/server/naive-design-recovery-integration.test.ts b/apps/web/src/server/naive-design-recovery-integration.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-design-recovery-integration.test.ts
+@@ -0,0 +1,91 @@
++/** Offline composition: real stage/task/checkpoint/admission SQL and adapters; fake provider/Workflow/Pool only. */
++import {PGlite} from '@electric-sql/pglite';
++import {readFileSync,readdirSync} from 'node:fs';
++import {resolve} from 'node:path';
++import {beforeEach,afterEach,it,expect,vi} from 'vitest';
++import {AgentSessionService} from '@ae/core/agents/session-service';
++import {PostgresAgentTaskStore,type AgentTransactionalSql} from '@ae/core/agents/postgres-ports';
++import {FakeNaive,directory} from '@ae/core/agents/__tests__/fakes';
++import {makeScenarios} from '@ae/core/evals/text/__tests__/fixtures';
++import type {ServiceContext} from '@ae/core/contracts/services';
++import {TrackBPendingError} from '@ae/core/evals/service-adapter';
++import {createNaiveTextMethods} from './naive-text-methods';
++import {naiveDesignRecoveryStage} from './naive-design-recovery';
++import {executeWorkflowStage,currentWorkflowStageScope} from './workflow-stage-runtime';
++import {fenceWorkflowStageSessions} from './workflow-stage-children';
++import {fenceWorkflowDesignCheckpoints} from './workflow-design-checkpoints';
++import {PostgresTextCheckpointStore} from '@ae/core/evals/integration/checkpoints';
++const state=vi.hoisted(()=>({pg:undefined as PGlite|undefined,stepId:'first'}));
++vi.mock('workflow',()=>({getStepMetadata:()=>({stepId:state.stepId,attempt:0}),getWorkflowMetadata:()=>({workflowRunId:'design-fixture'}),FatalError:class extends Error{},RetryableError:class extends Error{}}));
++vi.mock('@neondatabase/serverless',()=>({Pool:class{async connect(){return {query:(sql:string,params?:unknown[])=>state.pg!.query(sql,params),release(){}};}}}));
++let pg:PGlite,sql:AgentTransactionalSql;
++const job='a1b2c3d4-e5f6-47a8-9b0c-d1e2f3a4b5c6',customer='b1c2d3e4-f5a6-47b8-9c0d-e1f2a3b4c5d6';
++const intake={package:'text_eval' as const,authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',systemPrompt:'Follow explicit constraints.',referenceText:'Canonical grounding text.'}};
++const profile={policyId:'generic-text-v1' as const,designId:'generic-text-v1',versionLabel:'generic-text-v1',admissionPolicyId:'automated-text-design-v1'};
++const migrationFiles=[
++ 'packages/core/src/agents/persistence-migrations/001-agent-persistence.sql',
++ 'packages/core/src/evals/integration/migrations/001-text-integration.sql',
++ 'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql',
++ 'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql',
++ 'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql',
++ 'docs/naive-cancellation-integration/sql/001-job-cancellation.sql',
++ 'docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql',
++ 'docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql',
++];
++beforeEach(async()=>{
++ vi.stubEnv('DATABASE_URL','postgres://offline-design-fixture');vi.stubEnv('CREDENTIALS_ENCRYPTION_KEY',Buffer.alloc(32,7).toString('base64'));
++ vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('EVAL_NAIVE_METHODS','designSuite,runSuite,investigate');
++ vi.stubEnv('NAIVE_JUDGE_MODEL','fixture-model');vi.stubEnv('NAIVE_API_KEY','offline-proxy-key');vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
++ pg=new PGlite();state.pg=pg;state.stepId='first';
++ const dir='packages/core/src/db/migrations';
++ for(const file of readdirSync(dir).filter(f=>f.endsWith('.sql')).sort())await pg.exec(readFileSync(resolve(dir,file),'utf8'));
++ for(const file of migrationFiles)await pg.exec(readFileSync(resolve(file),'utf8'));
++ await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customer,'offline@example.test']);
++ await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake) VALUES($1,$2,'test','text_eval',false,'planning',$3::jsonb)`,[job,customer,JSON.stringify(intake)]);
++ sql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
++});
++afterEach(async()=>{await pg.close();vi.unstubAllEnvs();});
++async function fixture(){
++ const scenarios=makeScenarios();const naive=new FakeNaive(body=>({pollsUntilDone:1,structuredOutput:body.metadata.ae_output==='text_design'?{scenarios}:{verdicts:scenarios.map(s=>({scenarioId:s.id,accepted:true,reasons:[]}))}}));
++ const stage=await naiveDesignRecoveryStage(job,intake,{generic:true,identity:{jobId:job,customerId:customer,environment:'test'},profile,sql});
++ const input={jobId:job,ownerId:customer,environment:'test' as const,role:'engineer',share:.4,stage};
++ const recordCost:ServiceContext['recordCost']=async cost=>{await pg.query(`INSERT INTO costs(job_id,source,agent,session_id,micro_usd,meta,receipt_key) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7) ON CONFLICT DO NOTHING`,[job,cost.source,cost.agent??null,cost.sessionId??null,cost.microUsd,JSON.stringify(cost.meta??{}),String(cost.meta?.idempotencyKey)]);};
++ const generations:number[]=[];
++ const callback=vi.fn(async(amount:number)=>{
++ generations.push(currentWorkflowStageScope()!.owner.generation);
++ const ctx:ServiceContext={jobId:job,environment:'test',budgetMicroUsd:amount,recordCost,recordProgress:async()=>{}};
++ const api=await createNaiveTextMethods(ctx,{sql,executionProfile:profile,runnerFactory:ledger=>new AgentSessionService({naive:fenceWorkflowStageSessions(naive),store:new PostgresAgentTaskStore(sql),ledger,directory:Object.fromEntries(Object.entries(directory).map(([r,a])=>[r,{...a,agentVersion:1}])),budgetPeriodId:'fixture',idempotencyNamespace:'design-fixture',workerId:'reconstructed',maxWaitMs:0})});
++ return api.designSuite(ctx,intake);
++ });
++ return {naive,stage,input,callback,generations};
++}
++it('continues pending engineer then reviewer through three owned generations, admits and replays exactly two sessions',async()=>{
++ const f=await fixture();
++ await expect(executeWorkflowStage(f.input,f.callback)).rejects.toBeInstanceOf(TrackBPendingError);
++ expect(f.naive.createCalls).toHaveLength(1);
++ state.stepId='reviewer';await expect(executeWorkflowStage(f.input,f.callback)).rejects.toBeInstanceOf(TrackBPendingError);
++ expect(f.naive.createCalls).toHaveLength(2);
++ state.stepId='complete';const completed=await executeWorkflowStage(f.input,f.callback);expect(completed).toMatchObject({ok:true,data:{versionLabel:'generic-text-v1',scenarios:expect.any(Array)}});
++ expect(f.generations).toEqual([1,2,3]);expect(f.naive.createCalls).toHaveLength(2);
++ expect((await pg.query(`SELECT state FROM workflow_stage.stages`)).rows).toEqual([{state:'completed'}]);
++ expect((await pg.query(`SELECT value->>'status' AS status FROM text_integration.checkpoints WHERE kind='naive_admission'`)).rows).toEqual([{status:'approved'}]);
++ state.stepId='completion-ack-retry';expect(await executeWorkflowStage(f.input,f.callback)).toEqual(completed);expect(f.callback).toHaveBeenCalledTimes(3);expect(f.naive.createCalls).toHaveLength(2);
++ expect((await pg.query('SELECT count(*)::int AS n FROM agent_persistence.tasks')).rows[0]).toEqual({n:2});
++ expect((await pg.query('SELECT count(*)::int AS n FROM workflow_stage.children')).rows[0]).toEqual({n:2});
++ expect((await pg.query('SELECT released_at IS NOT NULL AS released FROM budget_reservations')).rows).toEqual([{released:true}]);
++ expect((await pg.query('SELECT count(*)::int AS n FROM costs')).rows[0]).toEqual({n:2});
++},60000);
++it('recovers an interrupted outer design claim only after stage lease expiry, then completes without replacement sessions',async()=>{
++ const f=await fixture(),plan=f.stage.expectedChildPlan!;
++ const interrupted=new Error('crash after outer design claim');
++ await expect(executeWorkflowStage(f.input,async()=>{const store=fenceWorkflowDesignCheckpoints(new PostgresTextCheckpointStore(sql));expect(await store.claim({jobId:job,kind:'design',id:plan.outerDesignId,inputDigest:plan.inputDigest})).toMatchObject({state:'claimed'});throw interrupted;})).rejects.toBe(interrupted);
++ expect((await pg.query('SELECT kind,generation FROM workflow_stage.design_checkpoints')).rows).toEqual([{kind:'design',generation:1}]);
++ state.stepId='too-early';await expect(executeWorkflowStage(f.input,f.callback)).rejects.toThrow();expect(f.callback).not.toHaveBeenCalled();
++ await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second'");
++ state.stepId='recovered';await expect(executeWorkflowStage(f.input,f.callback)).rejects.toBeInstanceOf(TrackBPendingError);
++ state.stepId='reviewer';await expect(executeWorkflowStage(f.input,f.callback)).rejects.toBeInstanceOf(TrackBPendingError);
++ state.stepId='completed';expect(await executeWorkflowStage(f.input,f.callback)).toMatchObject({ok:true,data:{versionLabel:'generic-text-v1'}});
++ expect(f.generations).toEqual([2,3,4]);expect(f.naive.createCalls).toHaveLength(2);
++ expect((await pg.query("SELECT state FROM text_integration.checkpoints WHERE kind='design'")).rows).toEqual([{state:'completed'}]);
++ state.stepId='recovered-ack-retry';await executeWorkflowStage(f.input,f.callback);expect(f.callback).toHaveBeenCalledTimes(3);expect(f.naive.createCalls).toHaveLength(2);
++},60000);
+diff --git a/apps/web/src/server/naive-design-recovery.test.ts b/apps/web/src/server/naive-design-recovery.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-design-recovery.test.ts
+@@ -0,0 +1,25 @@
++import {describe,it,expect,vi,afterEach} from 'vitest';
++import {createHash} from 'node:crypto';
++vi.mock('server-only',()=>({}));
++vi.mock('./services',()=>({isWorkflowStagePendingError:()=>false}));
++import {naiveDesignRecoveryStage} from './naive-design-recovery';
++import {textDesignTaskScope} from '@ae/core/evals/text/design';
++import {canonicalJson} from '@ae/core/evals/text/freeze';
++const intake={package:'text_eval' as const,authorizedToTest:true,endpoint:{url:'https://example.com',model:'m',systemPrompt:'Be useful.',referenceText:'Reference.'}};
++const job={jobId:'job',customerId:'customer',environment:'test' as const,package:'text_eval' as const,isFixture:false,quoteVersion:null,linkedRetestOf:null};
++const profile={policyId:'generic-text-v1' as const,designId:'generic-text-v1',versionLabel:'generic-text-v1',admissionPolicyId:'automated-text-design-v1'};
++function fixture(row:unknown={customer_id:'customer',environment:'test',intake,retest_of_job_id:null}){return {generic:true as const,identity:{jobId:'job',customerId:'customer',environment:'test' as const},profile,sql:{query:vi.fn(async()=>({rows:row?[row]:[]})),transaction:vi.fn()}};}
++afterEach(()=>vi.unstubAllEnvs());
++describe('canonical design recovery descriptor',()=>{
++ it('derives exact core scope and outer checkpoint digest before admission',async()=>{
++ vi.stubEnv('EVAL_SERVICES','real');const selected=fixture();const stage=await naiveDesignRecoveryStage('job',intake,selected as never);
++ const input={versionLabel:profile.versionLabel,systemPrompt:intake.endpoint.systemPrompt,referenceText:intake.endpoint.referenceText};
++ expect(stage.expectedChildPlan).toEqual({profile:'naive-design-v1',scope:textDesignTaskScope({job,...input}),outerDesignId:profile.designId,inputDigest:createHash('sha256').update(canonicalJson({environment:'test',input:{suiteId:profile.designId,...input}})).digest('hex')});
++ expect(stage.recovery).toBe('naive-design-v1');
++ });
++ it('holds mode rollback, changed canonical ownership and changed input',async()=>{
++ vi.stubEnv('EVAL_SERVICES','lite');await expect(naiveDesignRecoveryStage('job',intake,fixture() as never)).rejects.toThrow('NAIVE_EXECUTION_SELECTION_HOLD');
++ vi.stubEnv('EVAL_SERVICES','real');await expect(naiveDesignRecoveryStage('job',intake,fixture(null) as never)).rejects.toThrow('NAIVE_EXECUTION_SELECTION_HOLD');
++ await expect(naiveDesignRecoveryStage('job',{...intake,endpoint:{...intake.endpoint,systemPrompt:'changed'}},fixture() as never)).rejects.toThrow('NAIVE_EXECUTION_SELECTION_HOLD');
++ });
++});
+diff --git a/apps/web/src/server/naive-design-recovery.ts b/apps/web/src/server/naive-design-recovery.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-design-recovery.ts
+@@ -0,0 +1,27 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { FatalError } from 'workflow';
++import { IntakeInput, type IntakeInput as Intake } from '@ae/core/contracts/index';
++import { textDesignTaskScope } from '@ae/core/evals/text/design';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { normalizeReferenceText } from '@ae/core/evals/text/schema';
++import type { JobRef } from '@ae/core/evals/types';
++import { resolveJobNaiveExecution } from './naive-text-execution-runtime';
++import { isWorkflowStagePendingError } from './services';
++import type { LogicalWorkflowStage } from './workflow-stage-runtime';
++const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
++/** Resolve immutable, code-derived scope before paid stage admission. No provider construction. */
++export async function naiveDesignRecoveryStage(jobId:string,intake:Intake,selected:Awaited<ReturnType<typeof resolveJobNaiveExecution>>):Promise<LogicalWorkflowStage> {
++ if(!selected.generic||process.env.EVAL_SERVICES!=='real')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ const row=(await selected.sql.query<{customer_id:string;environment:'test'|'live';intake:unknown;retest_of_job_id:string|null}>(`SELECT customer_id::text,environment,intake,retest_of_job_id::text FROM jobs WHERE id=$1 AND package='text_eval' AND NOT is_mock AND state IN ('planning','running','investigating')`,[jobId])).rows[0];
++ if(!row||row.customer_id!==selected.identity.customerId||row.environment!==selected.identity.environment)throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ const stored=IntakeInput.parse(row.intake);
++ const clean=(v:Intake)=>{if(v.package!=='text_eval')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');const {apiKey:_key,...endpoint}=v.endpoint;return {...v,endpoint};};
++ if(canonicalJson(clean(stored))!==canonicalJson(clean(intake)))throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ if(stored.package!=='text_eval')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ const job:JobRef={jobId,customerId:row.customer_id,environment:row.environment,package:'text_eval',isFixture:false,quoteVersion:null,linkedRetestOf:row.retest_of_job_id};
++ const {designId,versionLabel}=selected.profile;
++ const designInput={versionLabel,systemPrompt:stored.endpoint.systemPrompt,referenceText:normalizeReferenceText(stored.endpoint.referenceText??null),...('factualGapPolicy' in selected.profile?{factualGapPolicy:selected.profile.factualGapPolicy}:{})};
++ const expectedChildPlan={profile:'naive-design-v1' as const,scope:textDesignTaskScope({job,...designInput}),outerDesignId:designId,inputDigest:hash({environment:job.environment,input:{suiteId:designId,...designInput}})};
++ return {key:'suite-design',input:{intake:clean(stored),redTeam:false,executionProfile:selected.profile,expectedChildPlan},recovery:'naive-design-v1',expectedChildPlan,isPendingError:isWorkflowStagePendingError};
++}
+diff --git a/apps/web/src/server/naive-remediation-runtime.test.ts b/apps/web/src/server/naive-remediation-runtime.test.ts
+--- a/apps/web/src/server/naive-remediation-runtime.test.ts
++++ b/apps/web/src/server/naive-remediation-runtime.test.ts
+@@ -19,6 +19,8 @@
+ import { composeNaiveRemediationMethods } from './naive-remediation-runtime';
+ vi.mock('./workflow-stage-children',()=>({fenceWorkflowStageRunner:(runner:unknown)=>runner,fenceWorkflowStageSessions:(sessions:unknown)=>sessions}));
+ vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>({owner:{jobId}})}));
++// This fixture deliberately mocks stage ownership; real stage/checkpoint recovery is tested separately.
++vi.mock('./workflow-design-checkpoints',()=>({fenceWorkflowDesignCheckpoints:(store:unknown)=>store}));
+ vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:async()=>{}}));
+ import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
+ const jobId='123e4567-e89b-42d3-a456-426614174000';
+diff --git a/apps/web/src/server/naive-text-methods.ts b/apps/web/src/server/naive-text-methods.ts
+--- a/apps/web/src/server/naive-text-methods.ts
++++ b/apps/web/src/server/naive-text-methods.ts
+@@ -1,3 +1,4 @@
++import { fenceWorkflowDesignCheckpoints } from './workflow-design-checkpoints';
+ import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
+ import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
+ import 'server-only';
+@@ -144,8 +145,8 @@
+   const a=await authority.current(),secured=createTextTarget(a.target,deps.targetTransport);
+   return {...a,knownSecrets:a.secrets,judge,target:{send:async(request:Parameters<typeof secured.send>[0])=>{await authority.current();return secured.send(request);}}};
+  }
+- const rich=createTextEvaluationServices({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:targetDependencies});
+- const design=createNaiveDesignService({...('factualGapPolicy' in profile?{factualGapPolicy:profile.factualGapPolicy}:{}),engine:rich,admission:authority.artifacts.admission,authorize:authority.authorizeDesign});
++ const designRich=createTextEvaluationServices({runner,checkpoints:fenceWorkflowDesignCheckpoints(authority.checkpoints),clock:deps.clock,resolve:targetDependencies});
++ const design=createNaiveDesignService({...('factualGapPolicy' in profile?{factualGapPolicy:profile.factualGapPolicy}:{}),engine:designRich,admission:authority.artifacts.admission,authorize:authority.authorizeDesign});
+  async function resolved(){const a=await authority.resolveSuite(),ports=await targetDependencies();return {...ports,...a,knownSecrets:a.secrets,canonicalTarget:a.target,target:ports.target,judge};}
+  const run=createNaiveRunService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:resolved,persistRun:authority.artifacts.persistRun});
+  const investigation=createNaiveInvestigationService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:async()=>{
+diff --git a/apps/web/src/server/services.ts b/apps/web/src/server/services.ts
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -1,3 +1,4 @@
++import { resolveJobNaiveExecution } from './naive-text-execution-runtime';
+ import { TextFactualGapError } from '@ae/core/evals/text/factual-gap';
+ import { readRoutingSelection, routeNaiveMethods, type NaiveMethodBuilder } from './naive-method-routing';
+ import { objectivePassed } from "@ae/core/contracts/services";
+@@ -296,3 +297,10 @@
+ /** Recognize pending before Workflow translation or after it, without swallowing authority errors. */
+ export function isWorkflowStagePendingError(error:unknown):boolean{return error instanceof TrackBPendingError||error instanceof RetryableError||(error instanceof Error&&/^(NAIVE_ADMISSION_PENDING:|NAIVE_OPERATION_PENDING:)/.test(error.message));}
+ export function isWorkflowStageControlError(error:unknown):boolean{return isWorkflowStagePendingError(error)||error instanceof FatalError||(error instanceof Error&&/^(workflow_stage_|job_cancellation_)/.test(error.message));}
++
++/** Generic report recovery is restricted to retained generic selection and the real decorated service. */
++export async function recoverableGenericTextReportStage(jobId:string,input:unknown):Promise<{services:EvalServices;stage:import('./workflow-stage-runtime').LogicalWorkflowStage}> {
++ const selected=await resolveJobNaiveExecution(jobId);
++ if(!selected.generic||evalServicesMode()!=='real')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ return {services:stageRealEvalServices,stage:{key:'generic-text-report',input:{serviceMode:'real',method:'renderReport',executionProfile:selected.profile,input},recovery:'naive-single-child-v1',expectedChildKey:`${jobId}:company_operator:report_summary:1`,isPendingError:(error:unknown)=>error instanceof TrackBPendingError}};
++}
+diff --git a/apps/web/src/server/workflow-design-checkpoints.test.ts b/apps/web/src/server/workflow-design-checkpoints.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-design-checkpoints.test.ts
+@@ -0,0 +1,25 @@
++import { PGlite } from '@electric-sql/pglite';
++import { readFileSync } from 'node:fs';
++import { beforeEach,afterEach,it,expect,vi } from 'vitest';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { fenceWorkflowDesignCheckpoints } from './workflow-design-checkpoints';
++import type { WorkflowStageScope } from './workflow-stage-runtime';
++const state=vi.hoisted(()=>({generation:1}));
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>undefined}));
++// Association protocol unit tests use real SQL; full integration additionally runs
++// the actual canonical job/budget/stage ownership guard.
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:async(_tx:unknown,owner:{generation:number})=>{if(owner.generation!==state.generation)throw Error('stale_stage');}}));
++let pg:PGlite,scope:WorkflowStageScope,plain:PostgresTextCheckpointStore;
++const key={jobId:'job',kind:'design',id:'design',inputDigest:'d'.repeat(64)};
++const plan={profile:'naive-design-v1',scope:'a'.repeat(24),outerDesignId:key.id,inputDigest:key.inputDigest};
++const sql=()=>({query:<R>(s:string,p?:unknown[])=>pg.query<R>(s,p),transaction:<T>(fn:(tx:{query:<R>(s:string,p?:unknown[])=>Promise<{rows:R[]}>})=>Promise<T>)=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))});
++const wrapped=()=>fenceWorkflowDesignCheckpoints(plain,()=>scope);
++beforeEach(async()=>{state.generation=1;pg=new PGlite();await pg.exec(readFileSync('packages/core/src/evals/integration/migrations/001-text-integration.sql','utf8'));await pg.exec('CREATE SCHEMA workflow_stage;CREATE TABLE workflow_stage.stages(job_id text,stage_key text,recovery_profile text,expected_child_plan jsonb)');await pg.exec(readFileSync('docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql','utf8'));await pg.query('INSERT INTO workflow_stage.stages VALUES($1,$2,$3,$4::jsonb)',['job','design','naive-design-v1',JSON.stringify(plan)]);scope={owner:{jobId:'job',stageKey:'design',token:'owner',generation:1},transaction:sql().transaction};plain=new PostgresTextCheckpointStore(sql());});
++afterEach(async()=>{await pg.close();});
++async function claimed(store=wrapped(),k=key){const claim=await store.claim(k);if(claim.state!=='claimed')throw Error('claim');return claim.token;}
++it('recovers crash between atomic claim and completion; rotates token and fences stale owner',async()=>{const old=wrapped(),oldToken=await claimed(old);state.generation=2;const nextScope={...scope,owner:{...scope.owner,generation:2}};const next=fenceWorkflowDesignCheckpoints(plain,()=>nextScope);const nextToken=await claimed(next);expect(nextToken).not.toBe(oldToken);await expect(old.complete(key,oldToken,{})).rejects.toThrow('stale_stage');await expect(next.complete(key,oldToken,{})).rejects.toThrow('checkpoint_conflict');await next.complete(key,nextToken,{done:true});expect(await next.get(key)).toEqual({state:'completed',value:{done:true}});});
++it('never adopts unassociated pending or ambiguous claims',async()=>{await claimed(plain);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(key)).toEqual({state:'pending'});await pg.query("UPDATE text_integration.checkpoints SET state='ambiguous'");expect(await wrapped().claim(key)).toEqual({state:'ambiguous'});});
++it('holds another stage association and changed input',async()=>{await claimed();await pg.query("UPDATE workflow_stage.stages SET stage_key='other'");scope.owner.stageKey='other';await expect(wrapped().claim(key)).rejects.toThrow('checkpoint_conflict');scope.owner.stageKey='design';await pg.query("UPDATE workflow_stage.stages SET stage_key='design'");await expect(wrapped().claim({...key,inputDigest:'e'.repeat(64)})).rejects.toThrow('checkpoint_conflict');});
++it('never reclaims ambiguous associated checkpoint',async()=>{const token=await claimed();await wrapped().markAmbiguous(key,token);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(key)).toEqual({state:'ambiguous'});});
++it('bounds pure artifacts and never reclaims external dispatch',async()=>{await claimed();for(let i=0;i<4;i++)await claimed(wrapped(),{...key,kind:'cost',id:`cost${i}`});await expect(wrapped().claim({...key,kind:'cost',id:'cost4'})).rejects.toThrow('checkpoint_conflict');const target={...key,kind:'target',id:'target'};await claimed(wrapped(),target);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(target)).toEqual({state:'pending'});});
++it('guards every API after profile revocation and ownership loss',async()=>{const token=await claimed();await pg.query("UPDATE workflow_stage.stages SET recovery_profile='none',expected_child_plan=NULL");state.generation=2;for(const op of [()=>wrapped().claim(key),()=>wrapped().get(key),()=>wrapped().complete(key,token,{}),()=>wrapped().release(key,token),()=>wrapped().markAmbiguous(key,token)])await expect(op()).rejects.toThrow('stale_stage');expect(await plain.get(key)).toEqual({state:'pending'});});
+diff --git a/apps/web/src/server/workflow-design-checkpoints.ts b/apps/web/src/server/workflow-design-checkpoints.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-design-checkpoints.ts
+@@ -0,0 +1,70 @@
++import { randomUUID } from 'node:crypto';
++import { PostgresTextCheckpointStore, type TextCheckpointStore, type CheckpointKey, type CheckpointLookup } from '@ae/core/evals/integration/checkpoints';
++import type { AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++import { assertWorkflowStageOwner } from '@ae/core/db/workflow-stage-authority';
++import { currentWorkflowStageScope, type WorkflowStageScope } from './workflow-stage-runtime';
++
++type Plan={profile:string;scope:string;outerDesignId:string;inputDigest:string};
++type Association={stage_key:string;generation:number|string;token:string;input_digest:string;outer_id:string;outer_digest:string};
++const fail=():never=>{throw Error('workflow_design_checkpoint_conflict');};
++/** Mount only on the canonical generic design service. Stage ownership and checkpoint
++ * mutations share one pinned transaction; the supplied store is used outside stages.
++ * No recovery privilege is ever granted to target, judge or investigation claims. */
++export function fenceWorkflowDesignCheckpoints(store:TextCheckpointStore,getScope:()=>WorkflowStageScope|undefined=currentWorkflowStageScope):TextCheckpointStore {
++ async function guarded<T>(key:CheckpointLookup,run:(inner:TextCheckpointStore,tx:AgentSqlExecutor,scope:WorkflowStageScope,plan:Plan|null)=>Promise<T>,fallback:()=>Promise<T>):Promise<T>{
++  const scope=getScope();if(!scope)return fallback();
++  return scope.transaction(async tx=>{
++   await assertWorkflowStageOwner(tx,scope.owner);
++   if(key.jobId!==scope.owner.jobId)return fail();
++   const stage=(await tx.query<{recovery_profile:string;expected_child_plan:Plan|null}>('SELECT recovery_profile,expected_child_plan FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[key.jobId,scope.owner.stageKey])).rows[0];
++   const plan=stage?.recovery_profile==='naive-design-v1'&&stage.expected_child_plan?.profile==='naive-design-v1'?stage.expected_child_plan:null;
++   const inner=new PostgresTextCheckpointStore({query:(s,p)=>tx.query(s,p),transaction:fn=>fn(tx)});
++   return run(inner,tx,scope,plan);
++  });
++ }
++ function approved(key:CheckpointLookup,plan:Plan|null):plan is Plan {
++  if(!plan||!['design','suite','cost'].includes(key.kind))return false;
++  if(key.kind==='design'&&(key.id!==plan.outerDesignId||key.inputDigest!==plan.inputDigest))return fail();
++  if(!key.inputDigest)return fail();
++  return true;
++ }
++ const params=(k:CheckpointLookup)=>[k.jobId,k.kind,k.id];
++ async function association(tx:AgentSqlExecutor,k:CheckpointLookup){return (await tx.query<Association>('SELECT * FROM workflow_stage.design_checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',params(k))).rows[0];}
++ function exact(a:Association,k:CheckpointLookup,s:WorkflowStageScope,p:Plan,token?:string){if(a.stage_key!==s.owner.stageKey||a.input_digest!==k.inputDigest||a.outer_id!==p.outerDesignId||a.outer_digest!==p.inputDigest||(token!==undefined&&(a.token!==token||Number(a.generation)!==s.owner.generation)))return fail();}
++ async function write(k:CheckpointKey,token:string,action:(inner:TextCheckpointStore)=>Promise<void>){return guarded(k,async(inner,tx,scope,plan)=>{
++  if(approved(k,plan)){const a=await association(tx,k);if(!a)return fail();exact(a,k,scope,plan,token);}
++  return action(inner);
++ },()=>action(store));}
++ return {
++  claim:k=>guarded(k,async(inner,tx,scope,plan)=>{
++   if(!approved(k,plan))return inner.claim(k);
++   const before=(await tx.query<{state:string;token:string;input_digest:string}>('SELECT state,token,input_digest FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',params(k))).rows[0];
++   const a=await association(tx,k);
++   if(a)exact(a,k,scope,plan);
++   if(before?.state==='pending'&&a&&Number(a.generation)<scope.owner.generation){
++    if(before.token!==a.token||before.input_digest!==k.inputDigest)return fail();
++    const token=randomUUID();
++    await tx.query('UPDATE text_integration.checkpoints SET token=$4 WHERE job_id=$1 AND kind=$2 AND id=$3',[...params(k),token]);
++    await tx.query('UPDATE workflow_stage.design_checkpoints SET generation=$4,token=$5 WHERE job_id=$1 AND kind=$2 AND id=$3',[...params(k),scope.owner.generation,token]);
++    return {state:'claimed' as const,token};
++   }
++   // Existing unassociated pending/ambiguous rows are deliberately never adopted.
++   if(!a&&(!before||before.state==='ready')){
++    const count=(await tx.query<{count:string|number}>('SELECT count(*) AS count FROM workflow_stage.design_checkpoints WHERE job_id=$1 AND stage_key=$2 AND kind=$3',[k.jobId,scope.owner.stageKey,k.kind])).rows[0];
++    if(Number(count?.count??0)>=(k.kind==='cost'?4:1))return fail();
++   }
++   const result=await inner.claim(k);
++   if(result.state==='claimed'){
++    if(before?.state==='pending'||before?.state==='ambiguous')return fail();
++    if(a&&Number(a.generation)>scope.owner.generation)return fail();
++    await tx.query(`INSERT INTO workflow_stage.design_checkpoints(job_id,kind,id,input_digest,stage_key,generation,token,outer_id,outer_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
++     ON CONFLICT(job_id,kind,id) DO UPDATE SET generation=EXCLUDED.generation,token=EXCLUDED.token`,[...params(k),k.inputDigest,scope.owner.stageKey,scope.owner.generation,result.token,plan.outerDesignId,plan.inputDigest]);
++   }
++   return result;
++  },()=>store.claim(k)),
++  get:k=>guarded(k,async(inner,tx,scope,plan)=>{if(approved(k,plan)){const a=await association(tx,k);if(a)exact(a,k,scope,plan);}return inner.get(k);},()=>store.get(k)),
++  complete:(k,t,v)=>write(k,t,inner=>inner.complete(k,t,v)),
++  release:(k,t)=>write(k,t,inner=>inner.release(k,t)),
++  markAmbiguous:(k,t)=>write(k,t,inner=>inner.markAmbiguous(k,t)),
++ };
++}
+diff --git a/apps/web/src/server/workflow-stage-children.test.ts b/apps/web/src/server/workflow-stage-children.test.ts
+--- a/apps/web/src/server/workflow-stage-children.test.ts
++++ b/apps/web/src/server/workflow-stage-children.test.ts
+@@ -22,6 +22,7 @@
+  await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
+  await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
+  await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/002-stage-progress.sql','utf8'));
++ await pg.exec(readFileSync('docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql','utf8'));
+  await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);
+  const owned=await tx(t=>claimWorkflowStage(t,claim));if(owned.kind!=='owned')throw Error('owner');scope={owner:owned.owner,transaction:tx};
+  record={taskKey:`${job}:quality_investigator:audit:1`,jobId:job,idempotencyKey:'immutable-key',revision:0,state:'creating',requestBody:{agent_id:'agent',message:'hello',budget_micro_usd:100,structured_output_required:true,output_schema:{type:'object'},metadata:{ae_job_id:job,ae_task_key:`${job}:quality_investigator:audit:1`}},sessionId:null,result:null,consumedMicroUsd:null} as AgentTaskRecord;await save();
+@@ -92,3 +93,22 @@
+  await pg.query('INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd) VALUES($1,$2,100,0)',[record.reservationId,job]);
+  expect(await tx(t=>recoverWorkflowStage(t,claim,workflowStageRecoveryReader))).toMatchObject({kind:'owned'});
+ });
++
++it('design runner bounds fresh recovered work before invoking the core runner',async()=>{
++ const plan={profile:'naive-design-v1' as const,scope:'a'.repeat(24),outerDesignId:'design:canonical',inputDigest:'b'.repeat(64)};
++ const design={...claim,stageKey:'design',recoveryProfile:'naive-design-v1' as const,expectedChildPlan:plan};
++ const first=await tx(t=>claimWorkflowStage(t,design));if(first.kind!=='owned')throw Error('owner');
++ await tx(t=>markWorkflowStagePending(t,first.owner));const recovered=await tx(t=>recoverWorkflowStage(t,design,workflowStageRecoveryReader));if(recovered.kind!=='owned')throw Error('owner');scope={owner:recovered.owner,transaction:tx};
++ const run=vi.fn(async()=>({status:'blocked'}));const fenced=fenceWorkflowStageRunner({run} as never,()=>scope);
++ const spec={job:{jobId:job},role:'evaluation_engineer',purpose:`text_design_${plan.scope}_0`,attempt:1};
++ for(const changed of [{...spec,role:'commercial'},{...spec,attempt:2},{...spec,purpose:`text_design_${plan.scope}_2`},{...spec,purpose:`text_design_${'c'.repeat(24)}_0`}])await expect(fenced.run(changed as never)).rejects.toThrow('reconciliation_required');
++ expect(run).not.toHaveBeenCalled();await fenced.run(spec as never);expect(run).toHaveBeenCalledOnce();
++});
++it('design session guard fixes one reviewer request body and suffix per revision',async()=>{
++ const plan={profile:'naive-design-v1' as const,scope:'a'.repeat(24),outerDesignId:'design:canonical',inputDigest:'b'.repeat(64)};
++ const design={...claim,stageKey:'design',recoveryProfile:'naive-design-v1' as const,expectedChildPlan:plan};const first=await tx(t=>claimWorkflowStage(t,design));if(first.kind!=='owned')throw Error('owner');scope={owner:first.owner,transaction:tx};
++ const key=`${job}:quality_investigator:text_review_${plan.scope}_0_${'b'.repeat(12)}:1`;
++ record={...record,taskKey:key,requestBody:{...record.requestBody,metadata:{ae_job_id:job,ae_task_key:key}}};await save();const port=provider();const fenced=fenceWorkflowStageSessions(port,()=>scope);await fenced.createSession(record.requestBody,record.idempotencyKey);await fenced.createSession(record.requestBody,record.idempotencyKey);
++ record={...record,requestBody:{...record.requestBody,message:'substitution'}};await save();await expect(fenced.createSession(record.requestBody,record.idempotencyKey)).rejects.toThrow('reconciliation_required');
++ const alternate=key.replace('b'.repeat(12),'c'.repeat(12));record={...record,taskKey:alternate,requestBody:{...record.requestBody,metadata:{ae_job_id:job,ae_task_key:alternate}}};await save();await expect(fenced.createSession(record.requestBody,record.idempotencyKey)).rejects.toThrow('reconciliation_required');expect(port.createSession).toHaveBeenCalledTimes(2);
++});
+diff --git a/apps/web/src/server/workflow-stage-children.ts b/apps/web/src/server/workflow-stage-children.ts
+--- a/apps/web/src/server/workflow-stage-children.ts
++++ b/apps/web/src/server/workflow-stage-children.ts
+@@ -1,7 +1,7 @@
+ import { taskKeyFor } from '@ae/core/agents/session-service';
+ import type { NaiveSessionsPort, NaiveSessionCreateBody, AgentTaskRecord } from '@ae/core/evals/types';
+ import { NaiveCallError } from '@ae/core/evals/types';
+-import { assertWorkflowStageOwner, registerWorkflowStageChild, markWorkflowStageChildDispatch, type WorkflowStageRecoveryReader } from '@ae/core/db/workflow-stage-authority';
++import { assertWorkflowStageOwner, registerWorkflowStageChild, markWorkflowStageChildDispatch, workflowStageDesignSlot, type WorkflowStageChildPlan, type WorkflowStageRecoveryReader } from '@ae/core/db/workflow-stage-authority';
+ import type { JobBudgetTx } from '@ae/core/db/job-budget-authority';
+ import { currentWorkflowStageScope, workflowStageDigest, type WorkflowStageScope } from './workflow-stage-runtime';
+ 
+@@ -75,11 +75,12 @@
+   const taskKey=taskKeyFor(spec.job.jobId,spec.role,spec.purpose,spec.attempt??1);
+   async function associate(){await scope!.transaction(async tx=>{
+    await assertWorkflowStageOwner(tx,scope!.owner);
+-   const stage=(await tx.query<{recovery:boolean;recovery_profile:string;expected_child_key:string|null}>('SELECT recovery,recovery_profile,expected_child_key FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[scope!.owner.jobId,scope!.owner.stageKey])).rows[0];
++   const stage=(await tx.query<{recovery:boolean;recovery_profile:string;expected_child_key:string|null;expected_child_plan:WorkflowStageChildPlan|null}>('SELECT recovery,recovery_profile,expected_child_key,expected_child_plan FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[scope!.owner.jobId,scope!.owner.stageKey])).rows[0];
+    if(stage?.recovery_profile==='naive-single-child-v1'&&stage.expected_child_key!==taskKey)return refuse();
++   if(stage?.recovery_profile==='naive-design-v1'&&(!stage.expected_child_plan||!workflowStageDesignSlot(scope!.owner.jobId,stage.expected_child_plan,{kind:KIND,operationKey:taskKey,requestDigest:'pending'})))return refuse();
+    const record=await retained(tx,taskKey);
+    if(!record){
+-    if(stage?.recovery&&stage.recovery_profile!=='naive-single-child-v1')return refuse();
++    if(stage?.recovery&&!['naive-single-child-v1','naive-design-v1'].includes(stage.recovery_profile))return refuse();
+     return;
+    }
+    if(record.taskKey!==taskKey||record.jobId!==scope!.owner.jobId||record.requestBody?.metadata?.ae_task_key!==taskKey||record.requestBody?.metadata?.ae_job_id!==scope!.owner.jobId)return refuse();
+diff --git a/apps/web/src/server/workflow-stage-recovery-integration.test.ts b/apps/web/src/server/workflow-stage-recovery-integration.test.ts
+--- a/apps/web/src/server/workflow-stage-recovery-integration.test.ts
++++ b/apps/web/src/server/workflow-stage-recovery-integration.test.ts
+@@ -23,6 +23,7 @@
+  'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql',
+  'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql',
+  'docs/naive-cancellation-integration/sql/001-job-cancellation.sql',
++ 'docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql',
+ ];
+ beforeEach(async()=>{
+  process.env.DATABASE_URL='postgres://offline-fixture';process.env.CREDENTIALS_ENCRYPTION_KEY=Buffer.alloc(32,7).toString('base64');
+diff --git a/apps/web/src/server/workflow-stage-runtime.ts b/apps/web/src/server/workflow-stage-runtime.ts
+--- a/apps/web/src/server/workflow-stage-runtime.ts
++++ b/apps/web/src/server/workflow-stage-runtime.ts
+@@ -45,14 +45,14 @@
+ }
+ /** Recovery is opt-in only after ALL callback side effects have retained child authority.
+  * Current mixed Naive/lite/target callbacks intentionally stay held after interruption. */
+-export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children'|'naive-single-child-v1';expectedChildKey?:string;isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
++export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children'|'naive-single-child-v1'|'naive-design-v1';expectedChildPlan?:{profile:'naive-design-v1';scope:string;outerDesignId:string;inputDigest:string};expectedChildKey?:string;isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
+ export async function executeWorkflowStage<T>(input:{jobId:string;ownerId:string;environment:'test'|'live';role:string;share:number;stage:LogicalWorkflowStage},run:(amountMicroUsd:number)=>Promise<T>):Promise<{ok:true;data:T}|{ok:false;remainingMicroUsd:number}> {
+  const inputDigest=workflowStageDigest(input.stage.input);
+  const step=getStepMetadata();
+  const invocation={workflowRunId:getWorkflowMetadata().workflowRunId,stepId:step.stepId,attempt:step.attempt};
+  const admission=await workflowStageTransaction(async tx=>{
+   const exposure=await jobBudgetExposure(tx,input.jobId);
+-  const claim:Parameters<typeof claimWorkflowStage>[1]={jobId:input.jobId,ownerId:input.ownerId,environment:input.environment,stageKey:input.stage.key,inputDigest,role:input.role,amountMicroUsd:Math.floor(exposure.capMicroUsd*input.share),invocation,leaseMs:300_000,recoveryProfile:input.stage.recovery??'none',expectedChildKey:input.stage.expectedChildKey??null};
++  const claim:Parameters<typeof claimWorkflowStage>[1]={jobId:input.jobId,ownerId:input.ownerId,environment:input.environment,stageKey:input.stage.key,inputDigest,role:input.role,amountMicroUsd:Math.floor(exposure.capMicroUsd*input.share),invocation,leaseMs:300_000,recoveryProfile:input.stage.recovery??'none',expectedChildKey:input.stage.expectedChildKey??null,expectedChildPlan:input.stage.expectedChildPlan??null};
+   const decision=await claimWorkflowStage(tx,claim);
+   return decision.kind==='recovery_required' && input.stage.recovery!==undefined
+    ? recoverWorkflowStage(tx,claim,workflowStageRecoveryReader) : decision;
+diff --git a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+--- a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
++++ b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+@@ -6,7 +6,8 @@
+ vi.mock('@/server/naive-text-publication',()=>({createNaiveTextPublication:async()=>({reportContext:p.coverage,assertCurrent:p.assert,atomicPublish:p.publish}),claimNaiveTextDeliveryNotification:p.claim,completeNaiveTextDeliveryNotification:p.complete,readNaiveTextDeliveryReceipt:vi.fn()}));
+ vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),evalServices:{renderReport:()=>{throw Error('unfenced report runtime');}}}));
+ vi.mock('@/workflows/steps/notify',()=>({notifyCustomerStep:p.notify}));
+-vi.mock('@/server/services',()=>({getEvalServices:async()=>p.services,stageRealEvalServices:{renderReport:p.report},isWorkflowStagePendingError:()=>false}));
++vi.mock('@/server/naive-design-recovery',()=>({naiveDesignRecoveryStage:async()=>({key:'suite-design',input:{},recovery:'naive-design-v1',expectedChildPlan:{profile:'naive-design-v1'}})}));
++vi.mock('@/server/services',()=>({workflowServiceCall:async(fn:()=>unknown)=>fn(),recoverableGenericTextReportStage:async()=>({services:{renderReport:p.report},stage:{key:'generic-text-report',input:{},recovery:'naive-single-child-v1'}}),getEvalServices:async()=>p.services,stageRealEvalServices:{renderReport:p.report},isWorkflowStagePendingError:()=>false}));
+ vi.mock('@/server/workflow-stage-runtime',()=>({assertWorkflowStageCurrent:async()=>{}}));
+ vi.mock('@/workflows/steps/common',()=>({loadIntake:async()=>p.intake,requireJob:async()=>({state:'planning'}),withBudget:async(_j:unknown,_a:unknown,stage:unknown,fn:(ctx:unknown)=>unknown)=>{expect(stage).toMatchObject({key:expect.any(String),input:expect.any(Object)});const data=await fn({recordProgress:async()=>{}});p.released=true;return {status:'ok',data};}}));
+ vi.mock('@ae/core/redteam/index',()=>({appendRedTeamToSuite:p.append}));
+@@ -25,7 +26,7 @@
+   p.coverage.mockResolvedValue({assessed:0,summary:'no assessment'});expect(await genericTextReportStep('job',[],{} as never)).toEqual({status:'ok',data:{assessed:false}});expect(p.report).not.toHaveBeenCalled();expect(p.put).not.toHaveBeenCalled();expect(p.publish).not.toHaveBeenCalled();
+  });
+  it('publishes assessed coverage atomically after releasing the paid reservation',async()=>{
+-  expect(await genericTextReportStep('job',[],{} as never)).toMatchObject({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});expect(p.report.mock.calls[0][1].remediations).toEqual([]);expect(p.publish.mock.calls[0][0].summary).toContain('12 assessed');expect(p.put).toHaveBeenCalledTimes(4);expect(genericTextReportStep.maxRetries).toBe(0);
++  expect(await genericTextReportStep('job',[],{} as never)).toMatchObject({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});expect(p.report.mock.calls[0][1].remediations).toEqual([]);expect(p.publish.mock.calls[0][0].summary).toContain('12 assessed');expect(p.put).toHaveBeenCalledTimes(4);expect(genericTextReportStep.maxRetries).toBe(120);
+  });
+  it('refuses changed current authority before uploading or publishing',async()=>{
+   p.assert.mockRejectedValueOnce(new Error('authority_revoked'));await expect(genericTextReportStep('job',[],{} as never)).rejects.toThrow('authority_revoked');expect(p.put).not.toHaveBeenCalled();expect(p.publish).not.toHaveBeenCalled();
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -1,3 +1,5 @@
++import { naiveDesignRecoveryStage } from '@/server/naive-design-recovery';
++import { recoverableGenericTextReportStage } from '@/server/services';
+ import { TextFactualGapError } from '@ae/core/evals/text/factual-gap';
+ import { resolveJobNaiveExecution } from '@/server/naive-text-execution-runtime';
+ import { retainNaiveFactualGapProposal, retryNaiveFactualGapEntry } from '@/server/naive-factual-gap-workflow';
+@@ -14,7 +16,6 @@
+ import { requireNaivePackage, selectedNaiveMethod, selectedNaiveEvaluation, toNaiveWorkflowError } from "@/server/naive-method-routing";
+ import { makeServiceContext } from "@/server/job-store";
+ import { createNaiveTextPublication, readNaiveTextDeliveryReceipt, claimNaiveTextDeliveryNotification, completeNaiveTextDeliveryNotification } from "@/server/naive-text-publication";
+-import { stageRealEvalServices as naiveReportServices } from "@/server/services";
+ import { getEvalServices, isWorkflowStageControlError, isWorkflowStagePendingError, recoverableEvalStage, workflowServiceCall } from "@/server/services";
+ import { notifyCustomerStep } from "./notify";
+ import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+@@ -82,7 +83,8 @@
+   }
+   const intake = await loadIntake(jobId, false);
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "engineer", {key: "suite-design", input: {intake, redTeam: !selected.generic && redTeamPackEnabled()}, isPendingError: isWorkflowStagePendingError}, async (ctx):Promise<Suite|FactualDesignResult> => {
++  const stage = selected.generic ? await naiveDesignRecoveryStage(jobId,intake,selected) : {key: "suite-design", input: {intake, redTeam: redTeamPackEnabled()}, isPendingError: isWorkflowStagePendingError};
++  const result = await workflowServiceCall(() => withBudget(jobId, "engineer", stage, async (ctx):Promise<Suite|FactualDesignResult> => {
+     let designed:Suite;
+     try { designed=await services.designSuite(ctx, intake); }
+     catch(error){
+@@ -99,13 +101,13 @@
+     await assertWorkflowStageCurrent();
+     await setJobState(jobId, job.state, { suiteBlobPath: path });
+     return suite;
+-  });
++  }));
+   if(result.status==='budget_exceeded')return result;
+   if('status' in result.data)return result.data;
+   await recordProgress(jobId, "suite_frozen", `Test suite frozen: ${result.data.scenarios.length} scenario(s).`);
+   return {status:'ok',data:result.data};
+ }
+-designSuiteStep.maxRetries = 1;
++designSuiteStep.maxRetries = 120;
+ 
+ function targetFor(intake: Awaited<ReturnType<typeof loadIntake>>, slot: EndpointSlot) {
+   const ep = (intake as unknown as Record<string, { url: string; model: string; apiKey?: string; systemPrompt?: string } | undefined>)[slot];
+@@ -228,7 +230,8 @@
+ /** Rich baseline coverage and current retained authority gate generic publication. */
+ export async function genericTextReportStep(jobId: string, findings: Finding[], suite: Suite): Promise<BudgetResult<{ assessed: boolean; deliveredAtIso?: string }>> {
+   "use step";
+-  const prepared = await withBudget(jobId, "operator", {key: "generic-text-report", input: {suite, findings}, isPendingError: isWorkflowStagePendingError}, async ctx => {
++  const {services:reportServices,stage}=await recoverableGenericTextReportStage(jobId,{suite,findings});
++  const prepared = await workflowServiceCall(() => withBudget(jobId, "operator", stage, async ctx => {
+     const publication = await createNaiveTextPublication(ctx, suite, findings);
+     const coverage = await publication.reportContext();
+     if (!coverage.assessed) {
+@@ -238,8 +241,7 @@
+     const intake = await loadIntake(jobId, false);
+     await publication.assertCurrent({ findings, suite });
+     let report: Report;
+-    try { report = await naiveReportServices.renderReport(ctx, { intake, findings, suite, remediations: coverage.remediations }); }
+-    catch (error) { throw toNaiveWorkflowError(error); }
++    report = await reportServices.renderReport(ctx, { intake, findings, suite, remediations: coverage.remediations });
+     await publication.assertCurrent(report);
+     const escape = (s: string) => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
+     report.markdown += `\n\n## Assessment coverage and limitations\n\n${coverage.summary}\n`;
+@@ -247,7 +249,7 @@
+     report.summary = `${coverage.summary}\n\n${report.summary}`.slice(0, 10000);
+     await publication.assertCurrent(report);
+     return report;
+-  });
++  }));
+   if (prepared.status === "budget_exceeded") return prepared;
+   if (!prepared.data) return { status: "ok", data: { assessed: false } };
+   // Release the paid-stage reservation before atomic publication, so a lost release
+@@ -263,7 +265,7 @@
+   const receipt = await publication.atomicPublish(report, { reportBlobPath, reportHtmlBlobPath, evidenceBlobPath, suiteBlobPath });
+   return { status: "ok", data: { assessed: true, deliveredAtIso: receipt.deliveredAtIso } };
+ }
+-genericTextReportStep.maxRetries = 0;
++genericTextReportStep.maxRetries = 120;
+ 
+ /** A committed receipt is reconciliation evidence, never new publication authority. */
+ export async function genericTextCommittedReceiptStep(jobId: string): Promise<{ deliveredAtIso: string } | null> {
+diff --git a/packages/core/src/db/workflow-stage-authority.test.ts b/packages/core/src/db/workflow-stage-authority.test.ts
+--- a/packages/core/src/db/workflow-stage-authority.test.ts
++++ b/packages/core/src/db/workflow-stage-authority.test.ts
+@@ -21,6 +21,7 @@
+ await pg.exec(readFileSync(resolve(process.env.WORKFLOW_STAGE_RECOVERY_SQL??'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql'),'utf8'));
+  await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
+  await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
++await pg.exec(readFileSync('docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql','utf8'));
+ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);});
+ afterEach(async()=>{await pg.close();});
+ it('exclusive claim rejects duplicate delivery, even same invocation and overlapping SDK retry',async()=>{await claim();expect(await run(tx=>claimWorkflowStage(tx,input))).toMatchObject({kind:'busy'});expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{...input.invocation,attempt:1}}))).toMatchObject({kind:'busy'});expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
+@@ -53,3 +54,33 @@
+  for(const action of [(tx:JobBudgetTx)=>claimWorkflowStage(tx,input),(tx:JobBudgetTx)=>claimWorkflowStage(tx,completedInput),(tx:JobBudgetTx)=>renewWorkflowStageLease(tx,owner,300000),(tx:JobBudgetTx)=>completeWorkflowStage(tx,owner,'ciphertext'),(tx:JobBudgetTx)=>recoverWorkflowStage(tx,input,proof)])await expect(run<unknown>(action)).rejects.toThrow('workflow_stage_conflict');
+  expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);
+ });
++
++const plan={profile:'naive-design-v1' as const,scope:'a'.repeat(24),outerDesignId:'design:canonical',inputDigest:'b'.repeat(64)};
++const designInput:WorkflowStageClaim={...input,recoveryProfile:'naive-design-v1',expectedChildPlan:plan};
++const engineer=(rev=0)=>({kind:'naive_session',operationKey:`${job}:evaluation_engineer:text_design_${plan.scope}_${rev}:1`,requestDigest:`engineer-body-${rev}`});
++const reviewer=(suffix='c'.repeat(12),rev=0)=>({kind:'naive_session',operationKey:`${job}:quality_investigator:text_review_${plan.scope}_${rev}_${suffix}:1`,requestDigest:`review-body-${rev}`});
++it('bounded design zero-child recovery fences old callbacks and admits only remaining planned slots',async()=>{
++ const old=await claim(designInput);await expire();const recovered=await run(tx=>recoverWorkflowStage(tx,designInput,proof));if(recovered.kind!=='owned')throw Error('owner');
++ expect(recovered.recovery).toBe('undispatched');await expect(run(tx=>registerWorkflowStageChild(tx,old,engineer()))).rejects.toThrow();
++ for(const c of [engineer(),reviewer(),engineer(1),reviewer('d'.repeat(12),1)])await run(tx=>registerWorkflowStageChild(tx,recovered.owner,c));
++ expect((await pg.query<{n:number}>('SELECT count(*)::int AS n FROM workflow_stage.children')).rows[0].n).toBe(4);
++ await run(tx=>registerWorkflowStageChild(tx,recovered.owner,reviewer()));
++ for(const c of [reviewer('e'.repeat(12)),{...engineer(),requestDigest:'substitution'},engineer(2),{...engineer(),kind:'other'},{...engineer(),operationKey:engineer().operationKey.replace(':1',':3')},{...engineer(),operationKey:engineer().operationKey.replace(plan.scope,'f'.repeat(24))}])await expect(run(tx=>registerWorkflowStageChild(tx,recovered.owner,c))).rejects.toThrow();
++ expect(await run(tx=>workflowStageChildrenSettled(tx,recovered.owner,proof))).toBe(false);
++ expect(await run(tx=>workflowStageChildrenSettled(tx,recovered.owner,{read:async()=>({state:'terminal',evidenceKey:'settled'})}))).toBe(true);
++});
++it('immutable plan and SQL slot uniqueness refuse substitution after takeover',async()=>{
++ const owner=await claim(designInput);await run(tx=>registerWorkflowStageChild(tx,owner,reviewer()));await expire();
++ const r=await run(tx=>recoverWorkflowStage(tx,designInput,proof));if(r.kind!=='owned')throw Error('owner');
++ await expect(run(tx=>claimWorkflowStage(tx,{...designInput,expectedChildPlan:{...plan,inputDigest:'f'.repeat(64)}}))).rejects.toThrow();
++ await expect(pg.query('UPDATE workflow_stage.stages SET expected_child_plan=$1',[{...plan,outerDesignId:'different'}])).rejects.toThrow();
++ for(const c of [reviewer('e'.repeat(12)),engineer(2),{...engineer(),operationKey:engineer().operationKey.replace('evaluation_engineer','commercial')}])await expect(pg.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6)',[job,input.stageKey,c.kind,c.operationKey,c.requestDigest,r.owner.generation])).rejects.toThrow();
++ await expect(pg.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6)',[job,input.stageKey,'naive_session',engineer().operationKey,'body',owner.generation])).rejects.toThrow();
++});
++it('unknown design evidence remains held; expiration and cancellation revoke registration',async()=>{
++ const owner=await claim(designInput);await run(tx=>registerWorkflowStageChild(tx,owner,engineer()));await expire();
++ await expect(run(tx=>registerWorkflowStageChild(tx,owner,engineer(1)))).rejects.toThrow();
++ expect((await run(tx=>recoverWorkflowStage(tx,designInput,{read:async()=>({state:'unknown',evidenceKey:'unknown'})}))).kind).toBe('recovery_required');
++ expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);
++ await pg.query("UPDATE jobs SET state='cancelled'");await expect(run(tx=>recoverWorkflowStage(tx,designInput,proof))).rejects.toThrow();
++});
+diff --git a/packages/core/src/db/workflow-stage-authority.ts b/packages/core/src/db/workflow-stage-authority.ts
+--- a/packages/core/src/db/workflow-stage-authority.ts
++++ b/packages/core/src/db/workflow-stage-authority.ts
+@@ -1,19 +1,30 @@
+ import { randomUUID } from 'node:crypto';
+ import { lockJobBudget, reserveJobBudget, releaseWorkflowJobBudget, type JobBudgetTx } from './job-budget-authority';
+ export interface WorkflowStageInvocation {workflowRunId:string;stepId:string;attempt:number}
+-export type WorkflowStageRecoveryProfile = 'none'|'retained-children'|'naive-single-child-v1';
+-export interface WorkflowStageClaim {recoveryProfile?:WorkflowStageRecoveryProfile;expectedChildKey?:string|null;jobId:string;ownerId:string;environment:string;stageKey:string;inputDigest:string;role:string;amountMicroUsd:number;invocation:WorkflowStageInvocation;leaseMs:number}
++export type WorkflowStageRecoveryProfile = 'none'|'retained-children'|'naive-single-child-v1'|'naive-design-v1';
++export interface WorkflowStageChildPlan {profile:"naive-design-v1";scope:string;outerDesignId:string;inputDigest:string}
++export interface WorkflowStageClaim {expectedChildPlan?:WorkflowStageChildPlan|null;recoveryProfile?:WorkflowStageRecoveryProfile;expectedChildKey?:string|null;jobId:string;ownerId:string;environment:string;stageKey:string;inputDigest:string;role:string;amountMicroUsd:number;invocation:WorkflowStageInvocation;leaseMs:number}
+ export interface WorkflowStageOwner {jobId:string;stageKey:string;token:string;generation:number}
+ export interface WorkflowStageChild {kind:string;operationKey:string;requestDigest:string}
+-interface Stage {recovery_profile:WorkflowStageRecoveryProfile;expected_child_key:string|null;job_id:string;stage_key:string;customer_id:string;environment:string;input_digest:string;role:string;operation_id:string;reservation_id:string;amount_micro_usd:string|number;owner_token:string;generation:string|number;state:string;result_ciphertext:string|null;expired:boolean;recovery:boolean}
++interface Stage {expected_child_plan:WorkflowStageChildPlan|null;recovery_profile:WorkflowStageRecoveryProfile;expected_child_key:string|null;job_id:string;stage_key:string;customer_id:string;environment:string;input_digest:string;role:string;operation_id:string;reservation_id:string;amount_micro_usd:string|number;owner_token:string;generation:string|number;state:string;result_ciphertext:string|null;expired:boolean;recovery:boolean}
+ type Details={reservationId:string;amountMicroUsd:number};
+ export type WorkflowStageDecision=({kind:'owned';owner:WorkflowStageOwner;recovery?:'undispatched'|'resume'} & Details)|({kind:'completed';resultCiphertext:string} & Details)|({kind:'busy'} & Details)|({kind:'recovery_required'} & Details)|{kind:'budget_exceeded';remainingMicroUsd:number};
+ const fail=():never=>{throw Error('workflow_stage_conflict');};
+ function key(v:string){if(typeof v!=='string'||!v.length||v.length>4096||/[\u0000\uD800-\uDFFF]/u.test(v))fail();}
+-function validate(i:WorkflowStageClaim){const profile=i.recoveryProfile??'none';if(!['none','retained-children','naive-single-child-v1'].includes(profile))fail();if(profile==='naive-single-child-v1'){key(i.expectedChildKey!);}else if(i.expectedChildKey!=null)fail();[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
++function validate(i:WorkflowStageClaim){const profile=i.recoveryProfile??'none';if(!['none','retained-children','naive-single-child-v1','naive-design-v1'].includes(profile))fail();if(profile==='naive-single-child-v1'){key(i.expectedChildKey!);}else if(i.expectedChildKey!=null)fail();if(profile==='naive-design-v1'){validatePlan(i.expectedChildPlan);}else if(i.expectedChildPlan!=null)fail();[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
++function validatePlan(p:WorkflowStageChildPlan|null|undefined):asserts p is WorkflowStageChildPlan {if(!p)return fail();if(Object.keys(p).sort().join(',')!=='inputDigest,outerDesignId,profile,scope'||p.profile!=='naive-design-v1'||!/^([a-f0-9]{24})$/.test(p.scope)||!/^([a-f0-9]{64})$/.test(p.inputDigest))fail();key(p.outerDesignId);}
++function samePlan(a:WorkflowStageChildPlan|null|undefined,b:WorkflowStageChildPlan|null|undefined){return (!a&&!b)||!!a&&!!b&&a.profile===b.profile&&a.scope===b.scope&&a.outerDesignId===b.outerDesignId&&a.inputDigest===b.inputDigest;}
++/** Exact bounded task grammar; requestDigest pins the immutable task body within a slot. */
++export function workflowStageDesignSlot(jobId:string,plan:WorkflowStageChildPlan,c:WorkflowStageChild):string|null{
++ validatePlan(plan);if(c.kind!=='naive_session')return null;
++ for(const revision of [0,1]){if(c.operationKey===`${jobId}:evaluation_engineer:text_design_${plan.scope}_${revision}:1`)return `engineer:${revision}`;
++ const prefix=`${jobId}:quality_investigator:text_review_${plan.scope}_${revision}_`;
++ if(c.operationKey.startsWith(prefix)&&/^[a-f0-9]{12}:1$/.test(c.operationKey.slice(prefix.length)))return `reviewer:${revision}`;}
++ return null;
++}
+ async function row(tx:JobBudgetTx,jobId:string,stageKey:string){return (await tx.query<Stage>('SELECT *,lease_until<=clock_timestamp() AS expired FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2 FOR UPDATE',[jobId,stageKey])).rows[0];}
+ async function canonical(tx:JobBudgetTx,jobId:string,customerId:string,environment:string){await lockJobBudget(tx,jobId);const j=(await tx.query<{customer_id:string;environment:string;state:string}>('SELECT customer_id,environment::text,state::text FROM jobs WHERE id=$1',[jobId])).rows[0];if(!j||j.customer_id!==customerId||j.environment!==environment||!['draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'].includes(j.state)||(await tx.query('SELECT 1 FROM workflow_stage.cancellations WHERE job_id=$1',[jobId])).rows.length)fail();}
+-function identity(s:Stage,i:WorkflowStageClaim){if(s.recovery_profile!==(i.recoveryProfile??'none')||s.expected_child_key!==(i.expectedChildKey??null)||s.customer_id!==i.ownerId||s.environment!==i.environment||s.input_digest!==i.inputDigest||s.role!==i.role||Number(s.amount_micro_usd)!==i.amountMicroUsd)fail();}
++function identity(s:Stage,i:WorkflowStageClaim){if(!samePlan(s.expected_child_plan,i.expectedChildPlan)||s.recovery_profile!==(i.recoveryProfile??'none')||s.expected_child_key!==(i.expectedChildKey??null)||s.customer_id!==i.ownerId||s.environment!==i.environment||s.input_digest!==i.inputDigest||s.role!==i.role||Number(s.amount_micro_usd)!==i.amountMicroUsd)fail();}
+ function details(s:Stage):Details{return {reservationId:s.reservation_id,amountMicroUsd:Number(s.amount_micro_usd)};}
+ function owned(s:Stage,recovery?:'undispatched'|'resume'):WorkflowStageDecision{return {kind:'owned',owner:{jobId:s.job_id,stageKey:s.stage_key,token:s.owner_token,generation:Number(s.generation)},...details(s),...(recovery?{recovery}:{})};}
+ /** Must run in one pinned transaction, without automatic callback retry. Claims NEVER
+@@ -25,10 +36,10 @@
+  const operationId=`workflow-stage:${randomUUID()}`;
+  // Deliberately does not call legacy reserveWorkflowJobBudget(job,agent) reuse.
+  const r=await reserveJobBudget(tx,{jobId:i.jobId,operationId,amountMicroUsd:i.amountMicroUsd,workflowAgent:i.role});if(!r.ok)return {kind:'budget_exceeded',remainingMicroUsd:r.remainingMicroUsd};
+- const token=randomUUID();await tx.query(`INSERT INTO workflow_stage.stages(job_id,stage_key,customer_id,environment,input_digest,role,operation_id,reservation_id,amount_micro_usd,owner_token,generation,workflow_run_id,step_id,attempt,state,lease_until,recovery_profile,expected_child_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$13,'running',clock_timestamp()+$14*interval '1 millisecond',$15,$16)`,[i.jobId,i.stageKey,i.ownerId,i.environment,i.inputDigest,i.role,operationId,r.reservationId,i.amountMicroUsd,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs,i.recoveryProfile??'none',i.expectedChildKey??null]);return owned((await row(tx,i.jobId,i.stageKey))!);
++ const token=randomUUID();await tx.query(`INSERT INTO workflow_stage.stages(job_id,stage_key,customer_id,environment,input_digest,role,operation_id,reservation_id,amount_micro_usd,owner_token,generation,workflow_run_id,step_id,attempt,state,lease_until,recovery_profile,expected_child_key,expected_child_plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$13,'running',clock_timestamp()+$14*interval '1 millisecond',$15,$16,$17)`,[i.jobId,i.stageKey,i.ownerId,i.environment,i.inputDigest,i.role,operationId,r.reservationId,i.amountMicroUsd,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs,i.recoveryProfile??'none',i.expectedChildKey??null,i.expectedChildPlan??null]);return owned((await row(tx,i.jobId,i.stageKey))!);
+ }
+ export async function assertWorkflowStageOwner(tx:JobBudgetTx,o:WorkflowStageOwner){await lockJobBudget(tx,o.jobId);const s=await row(tx,o.jobId,o.stageKey);if(!s)fail();await canonical(tx,o.jobId,s.customer_id,s.environment);if(s.owner_token!==o.token||Number(s.generation)!==o.generation||s.state!=='running'||s.expired)fail();return details(s);}
+-export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;const exactNaive=stage.recovery_profile==='naive-single-child-v1'&&c.kind==='naive_session'&&c.operationKey===stage.expected_child_key;if(stage.recovery_profile==='naive-single-child-v1'&&!exactNaive)fail();if(stage.recovery&&!exactNaive&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
++export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;const designSlot=stage.recovery_profile==='naive-design-v1'?workflowStageDesignSlot(o.jobId,stage.expected_child_plan!,c):null;if(stage.recovery_profile==='naive-design-v1'){if(!designSlot)fail();const existing=(await tx.query<{kind:string;operation_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2',[o.jobId,o.stageKey])).rows;for(const e of existing){const slot=workflowStageDesignSlot(o.jobId,stage.expected_child_plan!,{kind:e.kind,operationKey:e.operation_key,requestDigest:e.request_digest});if(!slot||slot===designSlot&&(e.operation_key!==c.operationKey||e.request_digest!==c.requestDigest))fail();}}const exactNaive=stage.recovery_profile==='naive-single-child-v1'&&c.kind==='naive_session'&&c.operationKey===stage.expected_child_key;if(stage.recovery_profile==='naive-single-child-v1'&&!exactNaive)fail();if(stage.recovery&&!exactNaive&&!designSlot&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
+ /** Called under the same transaction as the child's retained dispatch intent. The
+  * transaction commits before network I/O; it is not permission for a new child key. */
+ export async function markWorkflowStageChildDispatch(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await registerWorkflowStageChild(tx,o,c);const r=(await tx.query<{dispatch_intent_at:unknown}>('SELECT dispatch_intent_at FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4 FOR UPDATE',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows[0];if(r?.dispatch_intent_at)fail();await tx.query('UPDATE workflow_stage.children SET dispatch_generation=$5,dispatch_intent_at=clock_timestamp() WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey,o.generation]);}
+@@ -43,7 +54,7 @@
+ export async function recoverWorkflowStage(tx:JobBudgetTx,i:WorkflowStageClaim,reader:WorkflowStageRecoveryReader):Promise<WorkflowStageDecision>{validate(i);await canonical(tx,i.jobId,i.ownerId,i.environment);const s=await row(tx,i.jobId,i.stageKey);if(!s)fail();identity(s,i);if(s.state==='completed')return {kind:'completed',resultCiphertext:s.result_ciphertext!,...details(s)};if(s.state==='running'&&!s.expired)return {kind:'busy',...details(s)};
+  const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[i.jobId,i.stageKey])).rows;
+  // Only the immutable strict single-child composition may recover before registration.
+- let resume=false,unknown=children.length===0&&s.recovery_profile!=='naive-single-child-v1';if(s.recovery_profile==='naive-single-child-v1'&&children.some(c=>c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))unknown=true;for(const c of children){const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
++ let resume=false,unknown=children.length===0&&!['naive-single-child-v1','naive-design-v1'].includes(s.recovery_profile);if(s.recovery_profile==='naive-single-child-v1'&&children.some(c=>c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))unknown=true;for(const c of children){if(s.recovery_profile==='naive-design-v1'&&!workflowStageDesignSlot(i.jobId,s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))unknown=true;const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
+  if(unknown){await tx.query("UPDATE workflow_stage.stages SET state='recovery_required' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey]);return {kind:'recovery_required',...details(s)};}
+  const token=randomUUID();await tx.query("UPDATE workflow_stage.stages SET owner_token=$3,generation=generation+1,recovery=true,workflow_run_id=$4,step_id=$5,attempt=$6,state='running',lease_until=clock_timestamp()+$7*interval '1 millisecond' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs]);return owned((await row(tx,i.jobId,i.stageKey))!,resume?'resume':'undispatched');}
+ 
+@@ -53,10 +64,11 @@
+  * unresolved accounting. Must be called in the completion transaction. */
+ export async function workflowStageChildrenSettled(tx:JobBudgetTx,o:WorkflowStageOwner,reader:WorkflowStageRecoveryReader):Promise<boolean>{
+  await assertWorkflowStageOwner(tx,o);const s=(await row(tx,o.jobId,o.stageKey))!;
+- if(s.recovery_profile!=='naive-single-child-v1')return true;
++ if(!['naive-single-child-v1','naive-design-v1'].includes(s.recovery_profile))return true;
+  const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[o.jobId,o.stageKey])).rows;
+  for(const c of children){
+-  if(c.kind!=='naive_session'||c.operation_key!==s.expected_child_key)return false;
++  if(s.recovery_profile==='naive-single-child-v1'&&(c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))return false;
++  if(s.recovery_profile==='naive-design-v1'&&!workflowStageDesignSlot(o.jobId,s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))return false;
+   const proof=await reader.read(tx,{jobId:o.jobId,stageKey:o.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});
+   key(proof.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(proof.state))fail();
+   if(proof.state!=='terminal')return false;
+diff --git a/packages/core/src/evals/text/design-scope.test.ts b/packages/core/src/evals/text/design-scope.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/evals/text/design-scope.test.ts
+@@ -0,0 +1,20 @@
++import { describe,it,expect } from 'vitest';
++import { createHash } from 'node:crypto';
++import { textDesignTaskScope,type TextDesignInput } from './design';
++import { canonicalJson } from './freeze';
++import { normalizeReferenceText } from './schema';
++import { ADMISSION_VERSION } from './admission';
++import { RUBRIC_ADMISSION_VERSION } from './rubric-admission';
++const input:TextDesignInput={job:{jobId:'j',customerId:'c',environment:'test',package:'text_eval',isFixture:false,quoteVersion:null,linkedRetestOf:null},versionLabel:'v',systemPrompt:'Be useful.',referenceText:'  reference\r\ntext  '};
++describe('canonical design scope',()=>{
++ it('preserves historical exact identity and excludes secrets',()=>{
++ const safe={...input,referenceText:normalizeReferenceText(input.referenceText)};
++ const expected=createHash('sha256').update(canonicalJson({...safe,admissionVersion:ADMISSION_VERSION,rubricAdmissionVersion:RUBRIC_ADMISSION_VERSION})).digest('hex').slice(0,24);
++ expect(textDesignTaskScope(input)).toBe(expected);
++ expect(textDesignTaskScope({...input,knownSecrets:['hidden']})).toBe(expected);
++ });
++ it('binds canonical job, version, prompt, reference and policy',()=>{
++ const scope=textDesignTaskScope(input);
++ for(const modified of [{...input,job:{...input.job,linkedRetestOf:'other'}},{...input,versionLabel:'v2'},{...input,systemPrompt:'other'},{...input,referenceText:'other'},{...input,factualGapPolicy:'propose_missing_reference.v1' as const}])expect(textDesignTaskScope(modified)).not.toBe(scope);
++ });
++});
+diff --git a/packages/core/src/evals/text/design.ts b/packages/core/src/evals/text/design.ts
+--- a/packages/core/src/evals/text/design.ts
++++ b/packages/core/src/evals/text/design.ts
+@@ -29,6 +29,12 @@
+ export const untrusted = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
+ const identity = (value: unknown): string => createHash('sha256').update(canonicalJson(value)).digest('hex').slice(0, 24);
+ 
++/** Canonical task identity shared with trusted Workflow recovery admission. */
++export function textDesignTaskScope(input: TextDesignInput): string {
++  const { knownSecrets: _secrets, ...safe } = { ...input, referenceText: normalizeReferenceText(input.referenceText) };
++  return identity({ ...safe, admissionVersion: ADMISSION_VERSION, rubricAdmissionVersion: RUBRIC_ADMISSION_VERSION });
++}
++
+ /** At most two engineer drafts and two investigator reviews. Same input resumes the same task keys. */
+ export async function designTextSuite(input: TextDesignInput, deps: { runner: AgentTaskRunner; budgetMicroUsd?: number; now?: () => Date }): Promise<TextDesignOutcome> {
+   input = { ...input, referenceText: normalizeReferenceText(input.referenceText) };
+@@ -38,7 +44,7 @@
+   if (containsSecret(JSON.stringify(safe), knownSecrets)) return { status: 'blocked', reason: 'credential_in_input', costs };
+   // Validate bounded inputs before any agent dispatch; suite placeholders never reach agents.
+   if (input.systemPrompt !== null && input.systemPrompt.length > 20_000 || input.referenceText !== null && input.referenceText.length > 50_000) return { status: 'blocked', reason: 'input_too_large', costs };
+-  const scope = identity({ ...safe, admissionVersion: ADMISSION_VERSION, rubricAdmissionVersion: RUBRIC_ADMISSION_VERSION });
++  const scope = textDesignTaskScope(input);
+   const review: SuiteReviewRecord = { sessions: [], rejections: [], reductions: [] };
+   let feedback: unknown = null;
+   for (let revision = 0; revision < 2; revision++) {
+diff --git a/docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql b/docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql
+new file mode 100644
+--- /dev/null
++++ b/docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql
+@@ -0,0 +1,47 @@
++-- Apply after stage recovery and cancellation migrations. No existing profile is broadened.
++ALTER TABLE workflow_stage.stages ADD COLUMN expected_child_plan jsonb;
++ALTER TABLE workflow_stage.children ADD COLUMN design_slot text;
++ALTER TABLE workflow_stage.stages DROP CONSTRAINT stages_recovery_profile_check;
++ALTER TABLE workflow_stage.stages ADD CONSTRAINT stages_recovery_profile_check CHECK(recovery_profile IN ('none','retained-children','naive-single-child-v1','naive-design-v1'));
++ALTER TABLE workflow_stage.stages ADD CONSTRAINT design_plan_shape CHECK(
++ (recovery_profile='naive-design-v1' AND expected_child_plan IS NOT NULL AND jsonb_typeof(expected_child_plan)='object'
++ AND expected_child_plan ?& ARRAY['profile','scope','outerDesignId','inputDigest']
++ AND expected_child_plan - ARRAY['profile','scope','outerDesignId','inputDigest'] = '{}'::jsonb
++ AND jsonb_typeof(expected_child_plan->'profile')='string' AND jsonb_typeof(expected_child_plan->'scope')='string' AND jsonb_typeof(expected_child_plan->'outerDesignId')='string' AND jsonb_typeof(expected_child_plan->'inputDigest')='string'
++ AND expected_child_plan->>'profile'='naive-design-v1'
++ AND expected_child_plan->>'scope' ~ '^[a-f0-9]{24}$'
++ AND expected_child_plan->>'inputDigest' ~ '^[a-f0-9]{64}$'
++ AND length(expected_child_plan->>'outerDesignId') BETWEEN 1 AND 4096)
++ OR (recovery_profile<>'naive-design-v1' AND expected_child_plan IS NULL));
++CREATE UNIQUE INDEX design_child_slot ON workflow_stage.children(job_id,stage_key,design_slot) WHERE design_slot IS NOT NULL;
++CREATE FUNCTION workflow_stage.bound_design_child() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE s workflow_stage.stages; suffix text; rev integer;
++BEGIN
++ SELECT * INTO s FROM workflow_stage.stages WHERE job_id=NEW.job_id AND stage_key=NEW.stage_key FOR UPDATE;
++ IF s.recovery_profile<>'naive-design-v1' THEN IF NEW.design_slot IS NOT NULL THEN RAISE EXCEPTION 'workflow_stage_conflict'; END IF; RETURN NEW; END IF;
++ IF EXISTS(SELECT 1 FROM workflow_stage.cancellations WHERE job_id=NEW.job_id) OR NOT EXISTS(SELECT 1 FROM jobs WHERE id=NEW.job_id AND state::text IN ('draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating')) OR s.state<>'running' OR s.lease_until<=clock_timestamp() OR NEW.registered_generation<>s.generation OR NEW.kind<>'naive_session' THEN RAISE EXCEPTION 'workflow_stage_conflict'; END IF;
++ NEW.design_slot=NULL;
++ FOR rev IN 0..1 LOOP
++ IF NEW.operation_key=NEW.job_id::text||':evaluation_engineer:text_design_'||(s.expected_child_plan->>'scope')||'_'||rev||':1' THEN NEW.design_slot='engineer:'||rev; END IF;
++ suffix=NEW.job_id::text||':quality_investigator:text_review_'||(s.expected_child_plan->>'scope')||'_'||rev||'_';
++ IF left(NEW.operation_key,length(suffix))=suffix AND substring(NEW.operation_key FROM length(suffix)+1) ~ '^[a-f0-9]{12}:1$' THEN NEW.design_slot='reviewer:'||rev; END IF;
++ END LOOP;
++ IF NEW.design_slot IS NULL THEN RAISE EXCEPTION 'workflow_stage_conflict'; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER bounded_design_child BEFORE INSERT ON workflow_stage.children FOR EACH ROW EXECUTE FUNCTION workflow_stage.bound_design_child();
++CREATE OR REPLACE FUNCTION workflow_stage.immutable_evidence() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'workflow_stage_evidence_immutable'; END IF;
++ IF TG_TABLE_NAME='stages' THEN
++  IF ROW(NEW.job_id,NEW.stage_key,NEW.customer_id,NEW.environment,NEW.input_digest,NEW.role,NEW.operation_id,NEW.reservation_id,NEW.amount_micro_usd,NEW.recovery_profile,NEW.expected_child_key,NEW.expected_child_plan)
++   IS DISTINCT FROM ROW(OLD.job_id,OLD.stage_key,OLD.customer_id,OLD.environment,OLD.input_digest,OLD.role,OLD.operation_id,OLD.reservation_id,OLD.amount_micro_usd,OLD.recovery_profile,OLD.expected_child_key,OLD.expected_child_plan)
++   OR (OLD.state='completed' AND NEW IS DISTINCT FROM OLD) THEN RAISE EXCEPTION 'workflow_stage_evidence_immutable'; END IF;
++ ELSE
++  IF ROW(NEW.job_id,NEW.stage_key,NEW.kind,NEW.operation_key,NEW.request_digest,NEW.registered_generation,NEW.design_slot)
++   IS DISTINCT FROM ROW(OLD.job_id,OLD.stage_key,OLD.kind,OLD.operation_key,OLD.request_digest,OLD.registered_generation,OLD.design_slot)
++   OR (OLD.dispatch_intent_at IS NOT NULL AND ROW(NEW.dispatch_generation,NEW.dispatch_intent_at) IS DISTINCT FROM ROW(OLD.dispatch_generation,OLD.dispatch_intent_at))
++   THEN RAISE EXCEPTION 'workflow_stage_evidence_immutable'; END IF;
++ END IF;
++ RETURN NEW;
++END $$;
+diff --git a/docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql b/docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql
+new file mode 100644
+--- /dev/null
++++ b/docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql
+@@ -0,0 +1,19 @@
++-- Apply after stage ownership, design recovery profile and text integration SQL.
++-- This table associates only pure design/artifact checkpoints, never external sends.
++CREATE TABLE workflow_stage.design_checkpoints (
++ job_id text NOT NULL,kind text NOT NULL CHECK(kind IN ('design','suite','cost')),
++ id text NOT NULL,input_digest text NOT NULL,stage_key text NOT NULL,
++ generation bigint NOT NULL CHECK(generation>0),token text NOT NULL,
++ outer_id text NOT NULL,outer_digest text NOT NULL,
++ PRIMARY KEY(job_id,kind,id),
++ FOREIGN KEY(job_id,kind,id) REFERENCES text_integration.checkpoints(job_id,kind,id)
++);
++CREATE FUNCTION workflow_stage.immutable_design_checkpoint() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'workflow_design_checkpoint_immutable'; END IF;
++ IF ROW(NEW.job_id,NEW.kind,NEW.id,NEW.input_digest,NEW.stage_key,NEW.outer_id,NEW.outer_digest)
++ IS DISTINCT FROM ROW(OLD.job_id,OLD.kind,OLD.id,OLD.input_digest,OLD.stage_key,OLD.outer_id,OLD.outer_digest)
++ OR NEW.generation<OLD.generation THEN RAISE EXCEPTION 'workflow_design_checkpoint_immutable'; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER immutable_design_checkpoint BEFORE UPDATE OR DELETE ON workflow_stage.design_checkpoints FOR EACH ROW EXECUTE FUNCTION workflow_stage.immutable_design_checkpoint();

@@ -1,0 +1,59 @@
+{
+  "reviewedRepositoryCommit": "ba9f4c417add517ea971502a1d5427b38f767dc9",
+  "preservedMain": "ef368fc",
+  "status": "unapplied_candidate_not_deployed",
+  "manifestSha256": "cdde70c78749df9e14f6fed8667825fe4014bb4c19380a6682c3d8ca28c559f1",
+  "ownerPatchSha256": "e9fb16f6b122efa60bdc0164f8b38a591cd48274cdaaabda218a31f951c96ad1",
+  "candidateTests": {
+    "numPassedTests": 4493,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1081,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualSourceTests": {
+    "numPassedTests": 3956,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 987,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "candidateWebTypes": "pass",
+  "candidateCoreTypes": "pass",
+  "actualSourceWebTypes": "pass",
+  "offlineFontProductionBuild": {
+    "status": "pass",
+    "workflowSteps": 63,
+    "workflows": 4
+  },
+  "independentPatchAndReproductionReceipt": "verification.json",
+  "postBuildVerifiedFiles": 2385,
+  "behavioralEvidence": {
+    "realWorkflowRuntimeSqlSessionServiceAndDesignAdmission": true,
+    "externalProviderWorkflowMetadataAndPoolTransport": "fake",
+    "costSink": "idempotent SQL fixture, not full hosted receipt settlement",
+    "pendingContinuationGenerations": [
+      1,
+      2,
+      3
+    ],
+    "interruptedOuterClaimContinuationGenerations": [
+      2,
+      3,
+      4
+    ],
+    "providerSessionsPerScenario": 2,
+    "completionReplay": "no callback or replacement session",
+    "inheritedFixtureCorrections": "new migration added to prior recovery fixture; intentionally mocked remediation stage boundary extended to checkpoint wrapper"
+  },
+  "limitations": [
+    "Suite/cost keys rely on trusted canonical core code; checkpoint wrapper is not a public artifact authorization API",
+    "Target/proxy/investigation/remediation mixed callback recovery remains disabled",
+    "Target monetary holds and complete budget envelopes/reconciliation remain open",
+    "Native PostgreSQL contention, full hosted receipt settlement and provider acceptance unverified",
+    "Full Naive Phase 0 and later plan gates remain open",
+    "No actual source adoption, credentials, provider calls, live migration, outreach, spend or deployment"
+  ]
+}

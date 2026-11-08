@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Latest bounded design recovery continuation (2026-11-08)
+
+Resume from `docs/naive-design-recovery-integration/README.md`, manifest and validation receipt. This 19-file/two-SQL increment layers over the exact remediation candidate at `ba9f4c4`, preserving main `ef368fc`. Canonical generic design now has bounded four-slot recovery and exact generation-owned pure checkpoint token rotation. Generic reports use strict retained single-child recovery. Actual composed offline tests exercise pending sessions and interrupted outer checkpoints, exact two-session identity and completion replay. Trust boundary: core code supplies suite/cost identities; the wrapper is not a public artifact authorization API.
+
+No application source is adopted or deployed. Target/proxy/investigation/remediation mixed callbacks still require separate recovery protocols; unknown usage remains held, and their nonstrict completion does not prove settled children. Continue budget envelopes, monetary reconciliation, post-delivery rerun, conversation/idle, roster and Phase 0 acceptance. Keep source adoption, native PostgreSQL, hosted/provider gates and historical Track A deployment receipts distinct. Do not touch unrelated customer-recruitment work or reapply already adopted historical patches.
+
 ## Latest remediation owner continuation (2026-11-08)
 
 Resume from `docs/naive-remediation-owner-integration/README.md`, manifest and final validation receipt after reading LEDGER. This is a 19-file increment over the unified candidate at actual repository `6fa1fe7` / main `ef368fc`; it does not adopt application source. It connects canonical full-baseline remediation, shared budgets, actual serialized prompt trials, immutable detailed/public receipts, selected Workflow routing and scoped report context. Its operator policy API supports exact target-version declaration and irreversible revocation. A real composed offline test proves 0/12→12/12 unchanged scenarios and replay without redispatch.

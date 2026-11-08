@@ -1,0 +1,110 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { createHash } from 'node:crypto';
+import { Pool } from '@neondatabase/serverless';
+import { getWorkflowMetadata, getStepMetadata, RetryableError } from 'workflow';
+import { encryptJson, decryptJson } from '@ae/core/storage/crypto';
+import { jobBudgetExposure, type JobBudgetTx } from '@ae/core/db/job-budget-authority';
+import { claimWorkflowStage, recoverWorkflowStage, assertWorkflowStageOwner, completeWorkflowStage, markWorkflowStagePending, renewWorkflowStageLease, workflowStageChildrenSettled } from '@ae/core/db/workflow-stage-authority';
+
+import { workflowStageRecoveryReader } from './workflow-stage-children';
+
+type Owner = Parameters<typeof assertWorkflowStageOwner>[1];
+export interface WorkflowStageScope { owner: Owner; transaction: typeof workflowStageTransaction; assertActive?:()=>void; signal?:AbortSignal }
+let scopes: AsyncLocalStorage<WorkflowStageScope> | undefined;
+function stageScopes() { return scopes ??= new AsyncLocalStorage<WorkflowStageScope>(); }
+/** Trusted server capability only. Never serialize into Workflow I/O or model prompts. */
+export function currentWorkflowStageScope(): WorkflowStageScope | undefined { return stageScopes().getStore(); }
+export async function assertWorkflowStageCurrent(): Promise<void> {
+ const scope=stageScopes().getStore();
+ if(scope) await scope.transaction(tx=>assertWorkflowStageOwner(tx,scope.owner));
+}
+let pool: Pool | undefined;
+export async function workflowStageTransaction<T>(fn:(tx:JobBudgetTx)=>Promise<T>):Promise<T> {
+ const connectionString=process.env.DATABASE_URL_UNPOOLED??process.env.DATABASE_URL;
+ if(!connectionString)throw new Error('workflow_stage_database_unavailable');
+ pool ??= new Pool({connectionString,max:5});
+ const connection=await pool.connect(); let discard:Error|undefined;
+ try {
+  await connection.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+  const tx:JobBudgetTx={query:async <R>(text:string,params?:unknown[])=>({rows:(await connection.query(text,params)).rows as R[]})};
+  const result=await fn(tx);
+  try { await connection.query('COMMIT'); } catch(error) {discard=new Error('workflow_stage_commit_uncertain');throw error;}
+  return result;
+ } catch(error) {try{await connection.query('ROLLBACK');}catch{discard=new Error('workflow_stage_rollback_failed');}throw error;}
+ finally{connection.release(discard);}
+}
+function canonical(value:unknown):string {
+ if(value===undefined)return 'null';
+ if(value===null||typeof value!=='object')return JSON.stringify(value);
+ if(Array.isArray(value))return `[${value.map(canonical).join(',')}]`;
+ return `{${Object.keys(value).sort().filter(k=>(value as Record<string,unknown>)[k]!==undefined).map(k=>`${JSON.stringify(k)}:${canonical((value as Record<string,unknown>)[k])}`).join(',')}}`;
+}
+export function workflowStageDigest(input:unknown):string {return createHash('sha256').update(canonical(input)).digest('hex');}
+export class WorkflowStageContentionError extends RetryableError {
+ constructor(readonly reason:'busy'|'recovery_required'){super(`Workflow stage ${reason}`,{retryAfter:'5s'});this.name='WorkflowStageContentionError';}
+}
+/** Recovery is opt-in only after ALL callback side effects have retained child authority.
+ * Current mixed Naive/lite/target callbacks intentionally stay held after interruption. */
+export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children'|'naive-single-child-v1'|'naive-design-v1';expectedChildPlan?:{profile:'naive-design-v1';scope:string;outerDesignId:string;inputDigest:string};expectedChildKey?:string;isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
+export async function executeWorkflowStage<T>(input:{jobId:string;ownerId:string;environment:'test'|'live';role:string;share:number;stage:LogicalWorkflowStage},run:(amountMicroUsd:number)=>Promise<T>):Promise<{ok:true;data:T}|{ok:false;remainingMicroUsd:number}> {
+ const inputDigest=workflowStageDigest(input.stage.input);
+ const step=getStepMetadata();
+ const invocation={workflowRunId:getWorkflowMetadata().workflowRunId,stepId:step.stepId,attempt:step.attempt};
+ const admission=await workflowStageTransaction(async tx=>{
+  const exposure=await jobBudgetExposure(tx,input.jobId);
+  const claim:Parameters<typeof claimWorkflowStage>[1]={jobId:input.jobId,ownerId:input.ownerId,environment:input.environment,stageKey:input.stage.key,inputDigest,role:input.role,amountMicroUsd:Math.floor(exposure.capMicroUsd*input.share),invocation,leaseMs:300_000,recoveryProfile:input.stage.recovery??'none',expectedChildKey:input.stage.expectedChildKey??null,expectedChildPlan:input.stage.expectedChildPlan??null};
+  const decision=await claimWorkflowStage(tx,claim);
+  return decision.kind==='recovery_required' && input.stage.recovery!==undefined
+   ? recoverWorkflowStage(tx,claim,workflowStageRecoveryReader) : decision;
+ });
+ if(admission.kind==='budget_exceeded')return {ok:false,remainingMicroUsd:admission.remainingMicroUsd};
+ if(admission.kind==='busy'||admission.kind==='recovery_required')throw new WorkflowStageContentionError(admission.kind);
+ if(admission.kind==='completed') {
+  const retained=decryptJson<{schema:number;jobId:string;stageKey:string;inputDigest:string;data:T}>(admission.resultCiphertext);
+  if(retained.schema!==1||retained.jobId!==input.jobId||retained.stageKey!==input.stage.key||retained.inputDigest!==inputDigest)throw new Error('workflow_stage_result_binding');
+  return {ok:true,data:retained.data};
+ }
+ if(admission.kind!=='owned')throw new Error('workflow_stage_invalid_admission');
+ // Native timers are created only in the executing step, never at module load.
+ const controller=new AbortController();
+ let lifecycle:'active'|'closing'|'revoked'='active';
+ let failure:unknown;let failed=false;
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ let renewal:Promise<void>|undefined;
+ const stopTimer=()=>{if(timer!==undefined){clearTimeout(timer);timer=undefined;}};
+ const revoke=()=>{lifecycle='revoked';stopTimer();controller.abort();};
+ const assertActive=()=>{if(lifecycle!=='active')throw failed?failure:new Error('workflow_stage_scope_revoked');};
+ const scope:WorkflowStageScope={owner:admission.owner,signal:controller.signal,assertActive,transaction:async fn=>{
+  assertActive();
+  return workflowStageTransaction(async tx=>{assertActive();const value=await fn(tx);assertActive();return value;});
+ }};
+ const schedule=()=>{if(lifecycle!=='active')return;timer=setTimeout(()=>{
+  timer=undefined;
+  if(lifecycle!=='active')return;
+  renewal=workflowStageTransaction(tx=>renewWorkflowStageLease(tx,admission.owner,300_000)).then(()=>{},error=>{if(!failed){failed=true;failure=error;}revoke();}).finally(()=>{renewal=undefined;schedule();});
+ },60_000);};
+ const close=async()=>{if(lifecycle==='active')lifecycle='closing';stopTimer();await renewal;if(failed)throw failure;};
+ return stageScopes().run(scope,async()=>{
+  schedule();
+  try {
+   let data:T;
+   try {data=await run(admission.amountMicroUsd);} catch(error) {
+    await close();
+    if(input.stage.isPendingError?.(error))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
+    throw error;
+   }
+   await close();
+   if(input.stage.isPending?.(data))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
+   else {
+    const completed=await workflowStageTransaction(async tx=>{
+     if(!await workflowStageChildrenSettled(tx,admission.owner,workflowStageRecoveryReader)){
+      await markWorkflowStagePending(tx,admission.owner);return false;
+     }
+     await completeWorkflowStage(tx,admission.owner,encryptJson({schema:1,jobId:input.jobId,stageKey:input.stage.key,inputDigest,data}));return true;
+    });
+    if(!completed)throw new WorkflowStageContentionError('recovery_required');
+   }
+   return {ok:true as const,data};
+  }finally{revoke();}
+ });
+}

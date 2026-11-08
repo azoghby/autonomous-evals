@@ -1,0 +1,24 @@
+{
+  "manifestSha256": "cdde70c78749df9e14f6fed8667825fe4014bb4c19380a6682c3d8ca28c559f1",
+  "ownerPatchSha256": "e9fb16f6b122efa60bdc0164f8b38a591cd48274cdaaabda218a31f951c96ad1",
+  "ownerPatchApplied": true,
+  "independentPatchCheckedFiles": 2385,
+  "inheritedSourceAndBaselinePaths": 2360,
+  "incrementalPaths": 19,
+  "composedSourceAndBaselinePaths": 2366,
+  "inheritedSqlPaths": 18,
+  "incrementalSqlPaths": 2,
+  "checks": [
+    {
+      "assembly": "/private/tmp/naive-design-final-v3",
+      "checkedFiles": 2385,
+      "mismatches": []
+    },
+    {
+      "assembly": "/private/tmp/naive-design-repro-v3",
+      "checkedFiles": 2385,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true
+}
