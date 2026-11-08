@@ -35,12 +35,14 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from oss_bb_common import GATEWAY, PROVIDER_REFUSAL, TURN_TIMEOUT_S, Adapter, Turn, gateway_key, load_env, serve  # noqa: E402
+from oss_bb_common import GATEWAY, PROVIDER_REFUSAL, TURN_TIMEOUT_S, Adapter, Turn, gateway_key, gateway_model_id, gateway_url, neon_http_clients, load_env, serve  # noqa: E402
 
 ARGS = load_env()
 NOTEBOOK = Path(os.environ["LG_TUTORIAL"])
 WORKDIR = Path(os.environ["LG_WORKDIR"])
-os.environ["OPENAI_API_KEY"] = gateway_key()
+# The tutorial's policy retriever embeds with OpenAIEmbeddings (env OPENAI_*). Neon's gateway has no embeddings model, so
+# under SHIM_GATEWAY=neon only the chat model moves to Neon; embeddings (a few cents) stay on the Vercel gateway.
+os.environ["OPENAI_API_KEY"] = os.environ["AI_GATEWAY_API_KEY"]
 os.environ["OPENAI_BASE_URL"] = GATEWAY
 
 from langchain_core.tools import tool  # noqa: E402
@@ -103,7 +105,8 @@ class GatewayChat(ChatOpenAI):
 def _install_model(model: str) -> None:
     mod = types.ModuleType("langchain_anthropic")
     mod.ChatAnthropic = lambda model=None, temperature=None, **_: GatewayChat(  # noqa: ARG005
-        model=CURRENT_MODEL, temperature=temperature, base_url=GATEWAY, api_key=gateway_key(), timeout=100, max_retries=2)
+        model=gateway_model_id(CURRENT_MODEL), temperature=temperature, base_url=gateway_url(), api_key=gateway_key(), timeout=100, max_retries=2,
+        http_client=neon_http_clients()[0], http_async_client=neon_http_clients()[1])
     sys.modules["langchain_anthropic"] = mod
     globals()["CURRENT_MODEL"] = model
 

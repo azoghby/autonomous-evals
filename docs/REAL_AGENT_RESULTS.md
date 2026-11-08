@@ -17,14 +17,16 @@ Pass rate on `standard-v1` (passed / 32). Red-team pass rate in brackets.
 | [OpenAI Agents SDK (JS) customer-service example](https://github.com/openai/openai-agents-js/tree/252236c32d30010ef974db77395e19dfb03bbeff/examples/customer-service) (MIT, `252236c`) | 30/32 (95%) | 31/32 (95%) | 32/32 (100%) | 29/32 (85%) |
 | [OpenAI Agents SDK customer_service example](https://github.com/openai/openai-agents-python/tree/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/examples/customer_service) (MIT, `27c75c5`) | 29/32 (95%) | 32/32 (100%) | 29/32 (90%) | 29/32 (85%) |
 | [Pydantic AI bank_support example](https://github.com/pydantic/pydantic-ai/blob/0f7648a1b0685389ea368ea4f7b754b393cea8c7/examples/pydantic_ai_examples/bank_support.py) (MIT, `0f7648a`) | 29/32 (95%) | 30/32 (100%) | 30/32 (100%) | 27/32 (85%) |
-| [LangGraph customer-support tutorial bot (Part 1)](https://github.com/langchain-ai/langgraph/blob/23961cff61a42b52525f3b20b4094d8d2fba1744/docs/docs/tutorials/customer-support/customer-support.ipynb) (MIT, `23961cf`) | not run | 29/32 (100%) | 27/32 (100%) | not run |
+| [LangGraph customer-support tutorial bot (Part 1)](https://github.com/langchain-ai/langgraph/blob/23961cff61a42b52525f3b20b4094d8d2fba1744/docs/docs/tutorials/customer-support/customer-support.ipynb) (MIT, `23961cf`) | 26/32 (90%)\*\* | 29/32 (100%) | 27/32 (100%) | 26/32 (85%)\*\* |
 | [Semantic Kernel handoff support sample](https://github.com/microsoft/semantic-kernel/blob/df1cb33d0d32699c8d6a2e5b3ea7e5f8990d86d5/python/samples/getting_started_with_agents/multi_agent_orchestration/step4_handoff.py) (MIT, `df1cb33`) | 26/32 (85%) | 30/32 (95%) | 29/32 (100%) | 27/32 (80%) |
 | [Microsoft Agent Framework handoff support sample](https://github.com/microsoft/agent-framework/blob/924a6e50ec0336f3c965ee8b1151c54085888b6e/python/samples/03-workflows/orchestrations/handoff_simple.py) (MIT, `924a6e5`) | 28/32 (90%) | 31/32 (100%) | 29/32 (95%) | 23/32 (80%) |
-| [smolagents text_to_sql CodeAgent](https://github.com/huggingface/smolagents/blob/96f33faaf028479119ec8d34507b47694cf14e34/examples/text_to_sql.py) (Apache-2.0, `96f33fa`) | 25/32 (65%) | 29/32 (95%) | 30/32 (100%) | not run |
+| [smolagents text_to_sql CodeAgent](https://github.com/huggingface/smolagents/blob/96f33faaf028479119ec8d34507b47694cf14e34/examples/text_to_sql.py) (Apache-2.0, `96f33fa`) | 25/32 (65%) | 29/32 (95%) | 30/32 (100%) | 22/32 (50%)\*\* |
 | [Anthropic claude-quickstarts customer-support-agent](https://github.com/anthropics/claude-quickstarts/tree/4a4224bdf0e9cfb3332167b69c90457403813625/customer-support-agent) (MIT, `4a4224b`) | 22/32 (80%) on Sonnet 4.5\* | 20/32 (75%) | not run | not run |
 
 Previously listed and unchanged in this pass: `openai-cs-agents` (openai/openai-cs-agents-demo, MIT) and
 `adk-customer-service` (google/adk-samples, Apache-2.0).
+
+\*\* Agent model calls for these three cells went through the Neon AI Gateway (same model, Neon id `claude-opus-5-5` / `claude-sonnet-5-5`) instead of the Vercel AI Gateway; the grader stayed on the Vercel gateway. See the follow-up section.
 
 "not run": the run was not possible, or its result was discarded (see Spend). \* claude-quickstarts sends an assistant prefill (`{`). Claude Sonnet 5.5, Claude Opus 5.5 and Gemini 3.8 Flash reject
 prefill on the gateway, so this agent ran on GPT-5.5 and Claude Sonnet 4.5, the model family it was written for.
@@ -267,3 +269,26 @@ Re-run of the four "not run" cells with the new key, under a $6 spend cap (team 
   tutorial's tool loop is expensive on this model). We stopped it to stay under the cap. No run row was written.
 - **smolagents on Claude Opus 5.5 and LangGraph on Claude Opus 5.5: not run.** The cap was reached before they could start.
   Re-run them with a larger budget: `scripts/public-agents.ts run <slug> --allow-local --timeout-min 40` with the shim up.
+
+### Follow-up pass 2 (2026-11-08, agent calls via the Neon AI Gateway)
+
+The Vercel gateway balance was nearly empty (about $7.8), so with the founder's approval the remaining cells ran with
+the **agent's** model calls routed through the Neon AI Gateway, which has ample credit. The model is the same; only the
+route changed. The runner's own grader and scenario calls stayed on the Vercel gateway (the balance moved by under $0.01).
+The switch is opt-in: start a shim with `SHIM_GATEWAY=neon` (reads `NEON_AI_GATEWAY_URL` + `/v1` and
+`NEON_AI_GATEWAY_KEY` from `.env`; ids map `anthropic/claude-opus-5.5` to `claude-opus-5-5`). Without it, behaviour is
+unchanged. Run each cell with `scripts/public-agents.ts run <slug> --allow-local --timeout-min 40`.
+
+| Cell | Result | Red-team | Notes |
+|---|---|---|---|
+| smolagents text_to_sql, Claude Opus 5.5 | **22/32** | 10/20 | Weakest on prompt injection (0/4). Several turns came back with empty content (zero completion tokens, likely an unmapped provider refusal), which the example's CodeAgent reports as a parse error, so this is a lower bound (same known limitation as the other smolagents rows). |
+| LangGraph customer-support, Claude Opus 5.5 | **26/32** | 17/20 | 5 provider refusals mapped to refusals by the shim. |
+| LangGraph customer-support, Claude Sonnet 5.5 | **26/32** | 18/20 | 5 provider refusals mapped to refusals by the shim. |
+
+Two Neon-specific harness fixes (not agent changes): Neon returns Claude thinking-model replies as a block list
+(reasoning plus text), so the shim flattens `message.content` to the text blocks; and Neon has no embeddings model, so the
+LangGraph tutorial's policy-retriever embeddings (a few cents) still go to the Vercel gateway. A first smolagents Opus run,
+before the flattening fix, scored 8/32 because every reply failed to parse; its row was deleted by id and the cell re-run.
+
+Spend: shim-estimated Neon cost about $1.8 (discarded first run) + $3.5 (smolagents Opus) + $1.1 (LangGraph Opus) + $1.7
+(LangGraph Sonnet), roughly $8 in total and well under the $25 per-cell cap. Neon's own usage dashboard was not checked.

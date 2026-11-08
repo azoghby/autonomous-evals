@@ -107,17 +107,82 @@ def load_env(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--port", type=int, required=True)
     ap.add_argument("--env-file", default=None)
     args, _ = ap.parse_known_args(argv)
-    if args.env_file and not os.environ.get("AI_GATEWAY_API_KEY"):
+    wanted = ["AI_GATEWAY_API_KEY"] + (["NEON_AI_GATEWAY_URL", "NEON_AI_GATEWAY_KEY"] if use_neon() else [])
+    if args.env_file:
         for line in open(args.env_file, encoding="utf8"):
-            if line.startswith("AI_GATEWAY_API_KEY="):
-                os.environ["AI_GATEWAY_API_KEY"] = line.split("=", 1)[1].strip().strip('"').strip("'")
-    if not os.environ.get("AI_GATEWAY_API_KEY"):
-        sys.exit("AI_GATEWAY_API_KEY missing (env or --env-file)")
+            for name in wanted:
+                if line.startswith(name + "=") and not os.environ.get(name):
+                    os.environ[name] = line.split("=", 1)[1].strip().strip('"').strip("'")
+    for name in (wanted if use_neon() else wanted[:1]):
+        if not os.environ.get(name):
+            sys.exit(f"{name} missing (env or --env-file)")
     return args
 
 
+def use_neon() -> bool:
+    """Opt-in: SHIM_GATEWAY=neon sends the agent's model calls to the Neon AI Gateway instead of the Vercel one."""
+    return os.environ.get("SHIM_GATEWAY", "").lower() == "neon"
+
+
+def gateway_url() -> str:
+    return os.environ["NEON_AI_GATEWAY_URL"].rstrip("/") + "/v1" if use_neon() else GATEWAY
+
+
+def _flatten_content(body: dict) -> bool:
+    """Neon returns Anthropic thinking models' message.content as a block list (reasoning + text). Frameworks written
+    for OpenAI-style replies expect a string, so keep only the text blocks. Returns True if anything changed."""
+    changed = False
+    for ch in body.get("choices") or []:
+        msg = ch.get("message") or {}
+        c = msg.get("content")
+        if isinstance(c, list):
+            msg["content"] = "".join(b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") in ("text", "output_text"))
+            changed = True
+    return changed
+
+
+def neon_http_clients():
+    """(sync, async) httpx clients that flatten Neon block-list content to a string. (None, None) on the default path."""
+    if not use_neon():
+        return None, None
+    try:
+        import httpx
+    except ImportError:  # newer openai releases ship the client as httpx2
+        import httpx2 as httpx
+
+    def fix(resp_bytes: bytes) -> bytes:
+        try:
+            body = json.loads(resp_bytes)
+            return json.dumps(body).encode() if _flatten_content(body) else resp_bytes
+        except Exception:
+            return resp_bytes
+
+    class Sync(httpx.HTTPTransport):
+        def handle_request(self, request):
+            r = super().handle_request(request)
+            if "application/json" not in r.headers.get("content-type", ""):
+                return r
+            r.read()
+            return httpx.Response(r.status_code, headers={k: v for k, v in r.headers.items() if k.lower() not in ("content-length", "content-encoding")}, content=fix(r.content), request=request)
+
+    class Async(httpx.AsyncHTTPTransport):
+        async def handle_async_request(self, request):
+            r = await super().handle_async_request(request)
+            if "application/json" not in r.headers.get("content-type", ""):
+                return r
+            await r.aread()
+            return httpx.Response(r.status_code, headers={k: v for k, v in r.headers.items() if k.lower() not in ("content-length", "content-encoding")}, content=fix(r.content), request=request)
+
+    return httpx.Client(transport=Sync(), timeout=100), httpx.AsyncClient(transport=Async(), timeout=100)
+
+
+def gateway_model_id(model: str) -> str:
+    """Neon ids drop the vendor prefix and use dashes: anthropic/claude-opus-5.5 -> claude-opus-5-5."""
+    return model.split("/", 1)[-1].replace(".", "-") if use_neon() else model
+
+
 def gateway_key() -> str:
-    return os.environ["AI_GATEWAY_API_KEY"]
+    return os.environ["NEON_AI_GATEWAY_KEY"] if use_neon() else os.environ["AI_GATEWAY_API_KEY"]
 
 
 def _text(m: dict) -> str:

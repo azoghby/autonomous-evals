@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from oss_bb_common import GATEWAY, Adapter, Turn, gateway_key, load_env, serve  # noqa: E402
+from oss_bb_common import Adapter, Turn, gateway_key, gateway_model_id, gateway_url, neon_http_clients, load_env, serve  # noqa: E402
 
 ARGS = load_env()
 ROOT = Path(os.environ["SMOLAGENTS_DIR"])
@@ -33,8 +33,13 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 from smolagents import CodeAgent, OpenAIServerModel  # noqa: E402
 
 
+def _client_kwargs() -> dict:
+    sync, _ = neon_http_clients()
+    return {"http_client": sync} if sync else {}
+
+
 def gateway_model(model: str) -> OpenAIServerModel:
-    return OpenAIServerModel(model_id=model, api_base=GATEWAY, api_key=gateway_key())
+    return OpenAIServerModel(model_id=gateway_model_id(model), api_base=gateway_url(), api_key=gateway_key(), client_kwargs=_client_kwargs())
 
 
 # Harness fix (not an agent change): the example's engine is an in-memory SQLite URL, which SQLAlchemy keeps per THREAD
