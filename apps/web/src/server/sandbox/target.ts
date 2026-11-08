@@ -19,6 +19,11 @@ export const GATEWAY_TARGET_MODELS: Record<string, { input: number; output: numb
   "openai/gpt-4.1-mini": { input: 0.4, output: 1.6 },
   "anthropic/claude-haiku-5.5": { input: 0.1, output: 0.5 },
   "google/gemini-2.5-flash": { input: 0.3, output: 2.5 },
+  // Frontier models (AI Gateway list prices, USD per 1M tokens, checked Nov 8 2026).
+  "anthropic/claude-sonnet-5.5": { input: 2, output: 10 },
+  "anthropic/claude-opus-5.5": { input: 4, output: 20 },
+  "openai/gpt-5.5": { input: 5, output: 30 },
+  "google/gemini-3.8-flash": { input: 0.75, output: 3.75 },
 };
 
 export class SandboxInputError extends Error {

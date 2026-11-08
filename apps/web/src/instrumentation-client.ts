@@ -8,5 +8,6 @@ initBotId({
     { path: "/api/jobs", method: "POST" },
     { path: "/api/experts/signup", method: "POST" },
     { path: "/api/leaderboard/submit", method: "POST" },
+    { path: "/api/sandbox/drafts", method: "POST" },
   ],
 });
