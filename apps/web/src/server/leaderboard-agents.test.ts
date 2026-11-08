@@ -32,17 +32,13 @@ describe("PublicAgentInput", () => {
     expect(raw.todo.length).toBeGreaterThan(0);
     const parsed = raw.agents.map((a) => PublicAgentInput.parse(a));
     const active = parsed.filter((p) => p.active);
-    expect(active).toHaveLength(7);
+    expect(active).toHaveLength(8);
     for (const p of active) {
       expect(() => assertAuthorizedToTest(p)).not.toThrow();
       expect(p.kind).toBe("local_reference");
       expect(p.authEnvVar ?? null).toBeNull();
     }
-    const inactive = parsed.filter((x) => !x.active);
-    for (const p of inactive.filter((x) => x.kind === "reference")) expect(p.slug).toMatch(/^acme-/);
-    expect(inactive.filter((x) => x.kind === "reference")).toHaveLength(10);
-    // Paused until re-run under the provider-refusal rule (see todo).
-    expect(inactive.filter((x) => x.kind === "local_reference").map((x) => x.slug)).toEqual(["adk-customer-service--claude-opus-5-5"]);
+    for (const p of parsed.filter((x) => !x.active)) { expect(p.kind).toBe("reference"); expect(p.slug).toMatch(/^acme-/); }
     expect(JSON.stringify(raw)).not.toMatch(/sk-[A-Za-z0-9]{10,}/);
   });
 
