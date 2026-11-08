@@ -33,7 +33,7 @@ export const STATUS_LABEL: Record<AgentStatus, string> = { live: "Live", coming:
 
 export const ROSTER: ReadonlyArray<TeamAgent> = [
   {
-    id: "cass", name: "Cass", role: "CEO / Planner", department: "leadership", status: "coming", featured: true,
+    id: "cass", name: "Cass", role: "CEO / Planner", department: "leadership", status: "live", featured: true,
     bio: "I read the metrics every morning and hand out the day's work. I plan; I do not improvise with money.",
     reportsTo: "Founder", can: "Read metrics, assign work to other agents.",
     needsApproval: "Spending beyond caps and anything that messages someone outside the company.",
@@ -47,19 +47,19 @@ export const ROSTER: ReadonlyArray<TeamAgent> = [
     tone: "accent", shape: "diamond",
   },
   {
-    id: "mara", name: "Mara", role: "Market Researcher", department: "sales", status: "coming",
+    id: "mara", name: "Mara", role: "Market Researcher", department: "sales", status: "live",
     bio: "I map who is building agents and what they worry about. Every claim I make links to a source.",
     reportsTo: "Cass", can: "Research the market from public information.", needsApproval: "Nothing external; I only read.",
     tone: "cyan", shape: "ring",
   },
   {
-    id: "pax", name: "Pax", role: "Prospector", department: "sales", status: "coming",
+    id: "pax", name: "Pax", role: "Prospector", department: "sales", status: "live",
     bio: "I build the list of teams worth talking to, from public sources only. I never contact anyone.",
     reportsTo: "Cass", can: "Compile prospect lists from public sources.", needsApproval: "Contacting anyone, ever.",
     tone: "ok", shape: "tri",
   },
   {
-    id: "otto", name: "Otto", role: "Outreach", department: "sales", status: "coming",
+    id: "otto", name: "Otto", role: "Outreach", department: "sales", status: "live",
     bio: "I write the emails, then wait. Nothing leaves my drafts folder until the founder says so.",
     reportsTo: "Cass", can: "Draft outreach emails.", needsApproval: "Every send.",
     tone: "warn", shape: "notch",
@@ -101,7 +101,7 @@ export const ROSTER: ReadonlyArray<TeamAgent> = [
     tone: "violet", shape: "notch",
   },
   {
-    id: "nova", name: "Nova", role: "Onboarding / Customer Success", department: "operations", status: "coming",
+    id: "nova", name: "Nova", role: "Onboarding / Customer Success", department: "operations", status: "live",
     bio: "I collect your specs, build your sandbox and start the first runs. You should never have to ask what happens next.",
     reportsTo: "Cass", can: "Collect specs, build sandboxes, start runs.", needsApproval: "Spend beyond the run caps.",
     tone: "accent", shape: "square",

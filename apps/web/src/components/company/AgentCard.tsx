@@ -1,5 +1,6 @@
 import type { PublicAgentNode } from "@/server/company/queries";
 import { humanizeKey, relativeTime } from "./format";
+import { personaFor } from "./personas";
 
 const STATUS_LABEL: Record<string, string> = { ok: "ran", failed: "failed", skipped: "skipped", budget: "paused at budget cap", running: "running" };
 
@@ -46,7 +47,9 @@ function Activity({ node, now, available }: { node: PublicAgentNode; now: Date; 
 }
 
 export function AgentCard({ node, byId, now, available, lead }: { node: PublicAgentNode; byId: Map<string, PublicAgentNode>; now: Date; available: boolean; lead?: boolean }) {
-  const boss = node.reportsTo ? byId.get(node.reportsTo)?.name : null;
+  const bossNode = node.reportsTo ? byId.get(node.reportsTo) : null;
+  const boss = bossNode ? (personaFor(bossNode.id)?.name ?? bossNode.name) : null;
+  const persona = personaFor(node.id);
   const on = node.enabled;
   return (
     <article aria-labelledby={`agent-${node.id}`} className={`flex min-w-0 flex-col gap-5 rounded-[4px] border bg-bg-raised p-5 transition-colors duration-150 hover:bg-bg-hover sm:p-6 ${lead ? "border-line-3" : "border-line-2"} ${on ? "" : "opacity-80"}`}>
@@ -55,7 +58,10 @@ export function AgentCard({ node, byId, now, available, lead }: { node: PublicAg
           <span className="font-mono text-[11px] uppercase text-subtle">{node.model}</span>
           <StateDot on={on} managed={node.managed} />
         </div>
-        <h3 id={`agent-${node.id}`} className={`text-balance text-fg ${lead ? "t-h3" : "t-h4"}`}>{node.name}</h3>
+        <h3 id={`agent-${node.id}`} className={`text-balance text-fg ${lead ? "t-h3" : "t-h4"}`}>
+          {persona ? <>{persona.name} <span className="text-muted">· {node.name}</span></> : node.name}
+        </h3>
+        {persona && <p className="t-small text-fg-2">{persona.bio}</p>}
         <p className="t-small text-muted">{node.role}</p>
         {boss && <p className="font-mono text-[11px] uppercase text-subtle">Reports to {boss}</p>}
       </header>
