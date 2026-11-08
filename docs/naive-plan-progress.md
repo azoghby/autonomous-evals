@@ -4,9 +4,11 @@ Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explici
 
 ## Latest repository checkpoint
 
-Track A main `8637532` is preserved in `track-a` merge `7c61008`, including billing, the Revenue tab, auth hardening and session-lock fixes. Current merged web TypeScript passes; the original npm suite passes **3,681 tests, zero failures and two documented opt-in skips**. Fresh installed dependencies are available. Earlier missing-executable statements below describe historical checkpoints.
+Track A main `41bb78f` is preserved in `track-a` merge `c24e341`, including security, feedback, billing/trial and migration source changes. Required current web TypeScript passes; the original npm suite passes **3,850 tests, zero failures and two documented opt-in skips**. Fresh installed dependencies are available. Earlier checkpoint counts and missing-executable statements below are historical. A final fetch observed newer Track A `d1ceaf0`; it remains unmerged and outside this verification baseline.
 
-The approved 15-file accounting/expert and 26-file expert text patches are actual source. Operator review/recovery and generic text routing remain proposed artifacts, not deployed features. The isolated staging database has the 27 app migrations through 0026 plus four sidecars; newly merged 0027/0028 are not yet applied. Full Phase 0 and later acceptance gates remain open.
+The approved 15-file accounting/expert and 26-file expert text patches are actual source. Typed factual-gap proposals and optional judge-attempt recovery are core source at `35fbcab`; their application wiring is not complete. Operator review/recovery, generic text routing and guarded factual-gap entry remain proposed artifacts. The operator console candidate must be refreshed to preserve current Feedback and Revenue tabs before adoption; its older build receipt does not certify the changed console.
+
+This orchestrator's isolated staging has the 27 app migrations through 0026 plus four sidecars; later application migrations and the optional judge dispatch sidecar have not been applied there. Track A separately records production `19766e0` and migrations 0029–0030 in LEDGER; this is their receipt, not a deployment by this work. Full Phase 0 and later acceptance gates remain open.
 
 ## Phase 0
 
@@ -230,3 +232,12 @@ This source candidate still does not install the optional dispatchstore/sidecar 
 `naive-factual-gap-entry-integration` now packages six files and explicitly requires the reviewed operator candidate first because both touch production review code. Independent review found that installation-only checks did not protect later acquisition or text execution. The candidate now rechecks the original factual plan’s canonical input/target, credential lifetime/slots, scope/policy and sharing consent at every existing downstream authority boundary. Post-install rotation, deletion, expiry and input changes reject before provider work or new records. Legacy plans retain their existing semantics.
 
 Parent independently repeated **41SQLtests/0failures/0skips**, applied the operator patch followed by the entry patch and verified all six postimages, nine preserved operator files and1181unchanged tracked stageblobs (1184baselinepins). The coherent stage passes fullwebtypes and Next typegen; a fullbuild was not run for this artifact. Its exact scope remains private entry/binding support; Workflow interception and trusted policy/scope configuration are not implemented by this patch. Automatic opted-in contact and cold approval remain enforced by the existing downstream loop, not granted by a proposal. This is not deployed automation.
+
+## Recovery and execution selection candidates (c24e341 baseline)
+
+Two new, unapplied app integration slices are pinned by manifests and owner patches:
+
+- `naive-judge-owner-recovery-integration`: private operator recovery, bounded v1/v2 accounting enumeration, immutable retained policy reconstruction, and audit-only provider capability. Exact undispatched recovery rechecks authority and holds a canonical job row lock through atomic zero settlement/abandonment/audit. Parent independently ran nine migration-backed PGlite tests and candidate types. This is not a background-authorized factory adapter; operator session authorization, shared factory wiring, sidecar activation, PostgreSQL contention and hosted acceptance remain separate gates.
+- `naive-factual-workflow-integration`: selection-only helper pins legacy versus opt-in factual policy identity and trusted expert task. Parent independently ran ten SQL tests and candidate types. Missing selection preserves legacy; disabling factual execution holds selected factual jobs without changing identity. New-job enrollment requires the same transaction that inserts the job; no route invokes it yet. Existing authority writers must join the job-lock protocol. Generic profile propagation, durable proposal capture and expert Workflow handoff remain unimplemented integration work.
+
+Both patches pass applicability checks against `c24e341`; no active application source was changed. Local SQL tests do not certify multi-connection PostgreSQL behavior, production deployment or Phase 0 completion.

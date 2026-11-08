@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "baseline": "c24e341636218fa622a63d2e6f3e171814c3cb66",
+  "status": "unapplied candidate; no hosted acceptance",
+  "files": [
+    {
+      "path": "apps/web/src/app/api/operator/jobs/[id]/judge-recovery/route.ts",
+      "preimage": null,
+      "sha256": "5d5ccd2b0402eb14e007c21f3881da94cf7038ed375e72137889af0958ae7240"
+    },
+    {
+      "path": "apps/web/src/server/judge-owner-recovery-production.ts",
+      "preimage": null,
+      "sha256": "c7f9cbd6d33f26292de455b6af2d7e0a659911a5724a443bfaee195e2920b62b"
+    },
+    {
+      "path": "apps/web/src/server/judge-owner-recovery.ts",
+      "preimage": null,
+      "sha256": "924c898b5941e300ec0049a45a1b927f87d5800b29741d3b746cfd5d64d3a1a2"
+    }
+  ],
+  "patchSha256": "f8447309a312b1f97a3dacf708f57fefc84a4cb84feb9d87839dbee5f0e33e95"
+}

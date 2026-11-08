@@ -1,0 +1,28 @@
+{
+  "extends": "../../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "baseUrl": "../..",
+    "paths": {
+      "@/*": [
+        "apps/web/src/*"
+      ],
+      "@/server/judge-owner-recovery": [
+        "docs/naive-judge-owner-recovery-integration/source/apps/web/src/server/judge-owner-recovery.ts"
+      ],
+      "@/server/judge-owner-recovery-production": [
+        "docs/naive-judge-owner-recovery-integration/source/apps/web/src/server/judge-owner-recovery-production.ts"
+      ],
+      "@ae/core/*": [
+        "packages/core/src/*"
+      ]
+    },
+    "ignoreDeprecations": "6.0"
+  },
+  "include": [
+    "source/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

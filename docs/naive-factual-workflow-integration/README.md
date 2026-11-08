@@ -1,0 +1,21 @@
+# Factual Workflow integration — execution selection slice
+
+Unapplied candidate source only. This slice adds a private selection helper and real SQL tests. It does not adopt or copy the generic sixteen-file candidate, edit application source, mount Workflow entry, install a plan, grant scope/consent, migrate a database, dispatch providers or deploy. Generic method/profile propagation and Workflow proposal handling remain separate dependent slices.
+
+## Private API
+
+`enrollNewNaiveTextExecution(tx, identity, {factualGapEnabled, expertTaskId?})` pins a legacy or factual profile in `text_integration.checkpoints` (`kind=naive_execution_policy`, `id=selection-v1`). Its exact caller contract is mandatory: invoke inside the SAME transaction that inserts the previously nonexistent job, before commit/exposure or any evaluation operation. The helper takes an existing transaction and never nests one. It cannot independently prove that a previously stored job is new: absence of design rows is insufficient. No route currently invokes it. Enrollment configuration and task ID are trusted operator/application inputs, never customer or model inputs. Enrollment grants no expert authority; the exact scope still must exist when the proposal arrives.
+
+`resolveNaiveTextExecution(sql, identity, {realMode, factualGapEnabled})` locks the canonical job, verifies customer/environment/text package/nonmock mode, verifies the selection digest/schema, rejects all multiple, unknown or conflicting generic method bindings, and returns `{status: ready | on_hold, profile}`. Missing enrollment pins legacy regardless of current feature flags. A new-policy binding without its selection marker is rejected. Existing legacy binding bodies and design results are not modified.
+
+Legacy uses design/version `generic-text-v1` and admission policy `automated-text-design-v1`. New policy uses design/version `generic-text-factual-gap-v1`, admission policy `automated-text-design-factual-gap-v1`, `factualGapPolicy=propose_missing_reference.v1`, and an exact pinned `expertTaskId`. Disabled real mode holds both profiles. Disabling factual execution holds existing factual jobs with their identity intact; reenabling resumes the same selection. The caller supplies explicit booleans; environment-name parsing is not installed by this slice.
+
+All helper writes are insert-once plus exact canonical readback under the job lock. Changed profiles, task IDs and canonical owners reject. Existing checkpoint SQL has no database immutability trigger: this is application-enforced selection immutability, not protection from a privileged SQL writer rewriting body and digest together. Adopters requiring database-enforced immutability must add a reviewed migration; this candidate applies none. All cooperating writers must acquire the job lock before selection/binding writes, or the enclosing transaction must provide equivalent serialization. Existing generic authority binding writers do not yet obey this coordinated selection protocol; integration must update them before activating enrollment.
+
+## Dependent integration requirements
+
+Before activation: atomically wire new-job enrollment; call runtime resolution before budget/provider construction and before flag-based fallback; propagate profile into generic authority, budget slots, cost reconciliation, admission replay and publication/receipt recovery; pass policy in engine design input and deterministic admission reconstruction. Catch typed gaps within the Workflow step before error serialization, retain canonical proposal identity in SQL, and retry only entry installation when prerequisites are missing. Reuse existing expert acquisition timers and reviewed-data consumer. Preserve legacy design/checkpoint/admission policy semantics. No dependent integration is claimed here.
+
+Run portable SQL tests with `npx vitest run --config docs/naive-factual-workflow-integration/tests/vitest.config.mjs` and candidate types with `npx tsc -p docs/naive-factual-workflow-integration/tests/tsconfig.json --noEmit`.
+
+`manifest.json` pins the new-file postimages and `owner.patch` against source checkpoint `c24e341`. Parent verified patch applicability and independently repeated the documented SQL tests and types. This is a focused candidate check, not a complete composed application build.

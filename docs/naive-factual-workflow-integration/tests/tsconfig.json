@@ -1,0 +1,23 @@
+{
+  "extends": "../../../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "../../../apps/web/src/*"
+      ],
+      "@ae/core/*": [
+        "../../../packages/core/src/*"
+      ]
+    },
+    "incremental": false,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "../postimages/apps/web/src/server/*.ts"
+  ],
+  "exclude": [
+    "../../../node_modules"
+  ]
+}

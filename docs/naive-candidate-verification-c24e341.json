@@ -1,0 +1,19 @@
+{
+  "baseline": "c24e341",
+  "sourceChanged": false,
+  "webTypes": "passed",
+  "rootTests": {
+    "passed": 3850,
+    "failed": 0,
+    "skipped": 2
+  },
+  "candidateTests": {
+    "judgeRecovery": 9,
+    "executionSelection": 10
+  },
+  "candidateTypes": "passed",
+  "patchApplicability": "passed",
+  "composedBuild": "not run",
+  "hostedAcceptance": "not run",
+  "newerFetchedMain": "d1ceaf0 (not merged)"
+}

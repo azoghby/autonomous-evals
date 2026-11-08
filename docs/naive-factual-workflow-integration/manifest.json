@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "baseline": "c24e341636218fa622a63d2e6f3e171814c3cb66",
+  "status": "unapplied candidate; no hosted acceptance",
+  "files": [
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.test.ts",
+      "preimage": null,
+      "sha256": "79b485daaafd14dda36a20d18c3714ac48a8074a29e74f66f18e13c6ded08c2e"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.ts",
+      "preimage": null,
+      "sha256": "80f532c0f8f805ceab275ff413edb825e3da57aab8a11f3cd36d8e7f129528b8"
+    }
+  ],
+  "patchSha256": "9a0a4dc520d65775c8c27fc03a8f9220d2b6ddf91663348bd61a04bc5affb2cc"
+}
