@@ -1,0 +1,27 @@
+Strict applied comparison app/route typecheck passed (transitive source included; server-only marker declared).
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-comparison-piYkY0
+
+ ✓ comparison-tests/app.test.ts (12 tests) 15513ms
+   ✓ actual app + engine + durable SQL checkpoints (offline fixtures) (12)
+     ✓ claims tick before dispatch, retains rich results and replays without targets 2679ms
+     ✓ refuses tenant before dispatch/replay 916ms
+     ✓ refuses environment before dispatch/replay 1052ms
+     ✓ refuses payment before dispatch/replay 924ms
+     ✓ refuses subscription before dispatch/replay 1027ms
+     ✓ refuses pack before dispatch/replay 1115ms
+     ✓ refuses hidden-pack before dispatch/replay 1072ms
+     ✓ refuses changed-binding before dispatch/replay 1043ms
+     ✓ requires a monitoring subscription and protects private reads 1128ms
+     ✓ reopens durable app/core checkpoints without dispatch after process storage restart 1933ms
+     ✓ serializes duplicate dispatchers behind one durable tick claim 1477ms
+     ✓ fences lost workers permanently 1144ms
+ ✓ comparison-tests/routes.test.ts (3 tests) 25ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  17:42:45
+   Duration  16.77s (tests 95%, transform 3%, import 2%)
+
+JSON report written to /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-comparison-piYkY0/results.json
+{"stage":"/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-comparison-piYkY0","passed":15,"offline":true}

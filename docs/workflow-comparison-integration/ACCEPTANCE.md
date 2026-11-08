@@ -1,0 +1,9 @@
+# Acceptance / parent handoff
+
+Owned changes are exclusively docs/workflow-comparison-integration/** and tests/track-b/workflow-comparison-integration/**. Base cd38228. No push or PR.
+
+Child review found complete-inventory, subscription, policy-cap, retained-target correspondence, Calendar prompt, admission/reconciliation and replay-configuration hazards. Implementation addresses each through concrete app functions/routes. Its last Calendar findings are resolved without changing frozen artifacts: historical `default` remains the retained version label while targetId binds the original target hash; dispatch sequence now spans the factory lifetime. Calendar factory suite initialization was also added explicitly. Review note preserves the findings as recorded, rather than editing the reviewer's history.
+
+Next order: parent retains current core and selected data/remediation composition; resolve older producer/core hunks as documented; apply this new app patch; evaluate pack composition independently and keep unsupported appended comparison scope visibly blocked. Review private grants, original retention and proposed SQL through the owner's normal migration process. Then verify actual deployed auth, payment/subscription facts, production concurrency/restart and Calendar app execution before enabling real dispatch. Notifications stay drafts throughout.
+
+Validation: 15/15 tests in two files, none skipped, and strict TypeScript over applied app/core/transitive sources and test sources passed. Serialized SQL fixtures include real checkpoint/budget adapters and disk close/reopen. Final Calendar suite-reference composition adjustment received a fresh applied-source typecheck (`final-typecheck.log`); Calendar runtime execution remains explicitly unverified here. The complete offline stager applies successfully with checksum validation.

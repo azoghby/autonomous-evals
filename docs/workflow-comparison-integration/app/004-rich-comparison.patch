@@ -1,0 +1,384 @@
+--- /dev/null
++++ b/apps/web/migrations/004-rich-comparison.sql
+@@ -0,0 +1,20 @@
++-- Owner-reviewed SQL artifact only. No runtime DDL. Apply after prior workflow migrations.
++CREATE SCHEMA IF NOT EXISTS workflow_comparison;
++CREATE TABLE workflow_comparison.bindings (
++ job_id uuid PRIMARY KEY REFERENCES jobs(id), suite jsonb NOT NULL, retained jsonb NOT NULL,
++ binding jsonb NOT NULL, binding_digest text NOT NULL CHECK (binding_digest ~ '^[a-f0-9]{64}$')
++);
++-- Canonical operator binding publication is INSERT-only; replacement needs a new job/version authority.
++CREATE TABLE workflow_comparison.costs (
++ job_id uuid NOT NULL REFERENCES jobs(id), operation_id text NOT NULL, source text NOT NULL,
++ id text NOT NULL, micro_usd bigint NOT NULL CHECK(micro_usd >= 0),
++ PRIMARY KEY(job_id,source,id)
++);
++-- Grant the runtime role SELECT,INSERT only on bindings/costs; never UPDATE/DELETE.
++-- Reconciliation is evidence inspection, never checkpoint release or automatic retry.
++CREATE TABLE workflow_comparison.reconciliation (
++ job_id uuid NOT NULL REFERENCES jobs(id), operation_id text NOT NULL, operator_id uuid NOT NULL,
++ evidence_digest text NOT NULL CHECK(evidence_digest ~ '^[a-f0-9]{64}$'),
++ decision text NOT NULL CHECK(decision IN ('retain_blocked','accept_retained_completion')),
++ created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(job_id,operation_id,evidence_digest)
++);
+--- a/apps/web/src/app/api/cron/monitoring/route.ts
++++ b/apps/web/src/app/api/cron/monitoring/route.ts
+@@ -1,16 +1,24 @@
+-import { requireCronAuth } from "../_auth";
+-import { runMonitoring } from "../../../../server/monitoring";
+-
+-export const dynamic = "force-dynamic";
+-export const maxDuration = 300;
+-
+-/** Nightly: re-runs each active subscription's frozen suite and emails the customer on regressions. */
+-export async function GET(request: Request) {
+-  const denied = requireCronAuth(request);
+-  if (denied) return denied;
++import { requireCronAuth } from '../_auth';
++import { workflowSql } from '@/server/rich-services';
++import { comparisonProduction } from '@/server/comparison-production';
++import { makeServiceContext } from '@/server/job-store';
++import { comparisonBindingSchema } from '@/server/rich-comparison';
++export const dynamic='force-dynamic';
++export const maxDuration=300;
++export async function GET(request:Request) {
++ const denied=requireCronAuth(request); if(denied) return denied;
++ const environment=process.env.STRIPE_MODE==='live'?'live':'test';
++ const sql=workflowSql(); const day=new Date().toISOString().slice(0,10);
++ const subs=await sql.query<{id:string;job_id:string;customer_id:string;binding:unknown}>(`SELECT s.id,s.job_id,s.customer_id,b.binding FROM monitoring_subscriptions s JOIN workflow_comparison.bindings b ON b.job_id=s.job_id WHERE s.status='active' AND s.environment=$1`,[environment]);
++ const result=[];
++ for(const s of subs.rows) {
++  let runtime:Awaited<ReturnType<typeof comparisonProduction>>|undefined;
+   try {
+-    return Response.json(await runMonitoring());
+-  } catch (err) {
+-    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+-  }
++   const b=comparisonBindingSchema.parse(s.binding); runtime=await comparisonProduction(s.job_id);
++   await runtime.app.compare({tenantId:s.customer_id,environment},await makeServiceContext(s.job_id),{operationId:`monitor:${s.id}:${day}`,baselineVersion:b.baseline.version,currentVersion:b.current.version,mode:'monitoring'},s.id);
++   result.push({subscriptionId:s.id,status:'retained',notifications:'draft_only'});
++  } catch { result.push({subscriptionId:s.id,status:'needs_operator',notifications:'draft_only'}); }
++  finally {await runtime?.dispose();}
++ }
++ return Response.json({result,sent:0});
+ }
+--- /dev/null
++++ b/apps/web/src/app/api/jobs/[jobId]/comparison/route.ts
+@@ -0,0 +1,30 @@
++import { getCurrentCustomer } from '@/server/queries';
++import { getJob,makeServiceContext } from '@/server/job-store';
++import { comparisonProduction } from '@/server/comparison-production';
++import { comparisonBindingSchema } from '@/server/rich-comparison';
++import { isUuid } from '@/server/http';
++export const dynamic='force-dynamic';
++async function owned(jobId:string) {
++ const me=await getCurrentCustomer(); if(!me || !isUuid(jobId)) return null;
++ const job=await getJob(jobId);return job?.customerId===me.id?{tenantId:me.id,environment:job.environment}:null;
++}
++export async function GET(request:Request,context:{params:Promise<{jobId:string}>}) {
++ const {jobId}=await context.params;const p=await owned(jobId);if(!p)return Response.json({error:'Not found'},{status:404});
++ const runtime=await comparisonProduction(jobId);
++ try {
++  const op=new URL(request.url).searchParams.get('operationId');
++  const body=op?await runtime.app.read(p,jobId,op):await runtime.app.inventory(p,jobId);
++  return Response.json(body,{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
++ } catch {return Response.json({error:'Evidence unavailable'},{status:409});}finally{await runtime.dispose();}
++}
++export async function POST(request:Request,context:{params:Promise<{jobId:string}>}) {
++ const {jobId}=await context.params; const p=await owned(jobId);if(!p)return Response.json({error:'Not found'},{status:404});
++ const body=await request.json().catch(()=>null) as {operationId?:unknown}|null;
++ if(typeof body?.operationId!=='string'|| !/^[A-Za-z0-9_-]{1,64}$/.test(body.operationId))return Response.json({error:'Stable operation ID required'},{status:400});
++ const runtime=await comparisonProduction(jobId);
++ try {
++  const b=comparisonBindingSchema.parse(await runtime.app.inventory(p,jobId));
++  const result=await runtime.app.compare(p,await makeServiceContext(jobId),{operationId:`compare:${body.operationId}`,baselineVersion:b.baseline.version,currentVersion:b.current.version,mode:'comparison'});
++  return Response.json(result,{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
++ }catch{return Response.json({error:'Comparison requires operator review'},{status:409});}finally{await runtime.dispose();}
++}
+--- /dev/null
++++ b/apps/web/src/app/api/operator/jobs/[jobId]/comparison-binding/route.ts
+@@ -0,0 +1,24 @@
++import { requireOperator,readJson,jsonError,isUuid } from '@/server/http';
++import { workflowSql } from '@/server/rich-services';
++import { getJob } from '@/server/job-store';
++import { comparisonProduction } from '@/server/comparison-production';
++import { comparisonBindingSchema,comparisonDigest } from '@/server/rich-comparison';
++import type { RichRunArtifact } from '@ae/core/monitoring/composition';
++export async function POST(request:Request,context:{params:Promise<{jobId:string}>}) {
++ const auth=await requireOperator();if(auth.res)return auth.res;
++ const {jobId}=await context.params;if(!isUuid(jobId))return jsonError(404,'Not found');
++ const input=await readJson(request,comparisonBindingSchema);if(!input.ok)return input.res;
++ const job=await getJob(jobId);if(!job || job.state!=='delivered'||job.isMock)return jsonError(409,'Delivered rich job required');
++ const sql=workflowSql(); const saved=await sql.query<{body:{format:string;suite:RichRunArtifact['suite'];run:RichRunArtifact['run'];investigation:unknown;limitations:string[]}}>('SELECT body FROM workflow_integration.rich_artifacts WHERE job_id=$1 AND tenant_id=$2 AND environment=$3',[jobId,job.customerId,job.environment]);
++ const body=saved.rows[0]?.body;if(!body)return jsonError(409,'Retained original required');
++ const retained={kind:body.format==='rich_text.v1'?'text':'calendar',suite:body.suite,run:body.run,investigation:body.investigation,limitations:body.limitations,costs:[],unknownCosts:['original_baseline_and_design_costs_not_measured_here']} as RichRunArtifact;
++ const runtime=await comparisonProduction(jobId);
++ try {
++  const inventory=await runtime.verify(jobId,input.data,retained);
++  if(comparisonDigest([...inventory.scenarioIds].sort())!==comparisonDigest([...input.data.scenarioIds].sort()))return jsonError(409,'Complete application inventory required');
++  const digest=comparisonDigest({suite:body.suite,retained,binding:input.data});
++  const inserted=await sql.query(`INSERT INTO workflow_comparison.bindings(job_id,suite,retained,binding,binding_digest) VALUES($1,$2::jsonb,$3::jsonb,$4::jsonb,$5) ON CONFLICT DO NOTHING RETURNING job_id`,[jobId,JSON.stringify(body.suite),JSON.stringify(retained),JSON.stringify(input.data),digest]);
++  if(!inserted.rows.length){const same=await sql.query('SELECT job_id FROM workflow_comparison.bindings WHERE job_id=$1 AND binding_digest=$2',[jobId,digest]);if(!same.rows.length)return jsonError(409,'Immutable admission conflict');}
++  return Response.json({admitted:true,scope:input.data.scope,inventory:input.data.scenarioIds,packExecution:'unsupported',notifications:'draft_only'});
++ }catch{return jsonError(409,'Canonical baseline/configuration review required');}finally{await runtime.dispose();}
++}
+--- /dev/null
++++ b/apps/web/src/app/api/operator/jobs/[jobId]/comparison-reconcile/route.ts
+@@ -0,0 +1,21 @@
++import { z } from 'zod';
++import { requireOperator,readJson,jsonError,isUuid } from '@/server/http';
++import { workflowSql } from '@/server/rich-services';
++import { getJob } from '@/server/job-store';
++import { comparisonDigest } from '@/server/rich-comparison';
++const Input=z.object({operationId:z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/),decision:z.enum(['retain_blocked','accept_retained_completion'])}).strict();
++/** Records authoritative local evidence. Never unlocks, releases, or redispatches ambiguous operations. */
++export async function POST(request:Request,context:{params:Promise<{jobId:string}>}) {
++ const auth=await requireOperator();if(auth.res)return auth.res;
++ const {jobId}=await context.params;if(!isUuid(jobId))return jsonError(404,'Not found');
++ const input=await readJson(request,Input);if(!input.ok)return input.res;
++ if(!await getJob(jobId))return jsonError(404,'Not found');
++ const accepted=await workflowSql().transaction(async tx=>{
++  const evidence=await tx.query<{kind:string;state:string;input_digest:string;value:unknown}>(`SELECT kind,state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND id=$2 AND kind IN ('app_rich_tick','rich_comparison_identity','rich_comparison_baseline','rich_comparison_current') ORDER BY kind FOR UPDATE`,[jobId,input.data.operationId]);
++  if(!evidence.rows.length)return false;
++  if(input.data.decision==='accept_retained_completion'&&!evidence.rows.some(r=>r.kind==='app_rich_tick'&&r.state==='completed'))return false;
++  await tx.query(`INSERT INTO workflow_comparison.reconciliation(job_id,operation_id,operator_id,evidence_digest,decision) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,[jobId,input.data.operationId,auth.viewer.id,comparisonDigest(evidence.rows),input.data.decision]);
++  return true;
++ });
++ return accepted?Response.json({recorded:true,redispatch:false}):jsonError(409,'No authoritative completion; preserve blocked claims and reservations');
++}
+--- /dev/null
++++ b/apps/web/src/server/comparison-production.ts
+@@ -0,0 +1,90 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import { containsSecret } from '@ae/core/agents/redact';
++import { Suite, IntakeInput } from '@ae/core/contracts/index';
++import { buildAgentDeps, evalServices } from '@ae/core/integration/eval-services';
++import { readJobArtifactText } from '@ae/core/storage/blob';
++import { createTextTarget } from '@ae/core/targets/text';
++import { platformTarget } from '@ae/core/targets/adapters';
++import { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration';
++import { PostgresBranchLedger } from '@ae/core/simulator/branch-ledger';
++import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
++import { CalendarSimulator } from '@ae/core/simulator/calendar';
++import { PostgresCalendarStore } from '@ae/core/simulator/postgres';
++import { getJobWithDecryptedCredentials } from './job-store';
++import { workflowSql } from './rich-services';
++import { createRichComparisonApp, comparisonDigest, type ComparisonBinding, type ComparisonRuntime } from './rich-comparison';
++const deny=():never=>{throw new Error('rich_comparison_configuration_refused');};
++/** No network performed by construction. Credentials remain in this internal closure. */
++export async function comparisonProduction(jobId:string) {
++ const sql=workflowSql(); const initial=await getJobWithDecryptedCredentials(jobId); if(!initial) return deny();
++ const runner=(await buildAgentDeps()).runner; const pools:Pool[]=[];
++ const endpoint=async(v:ComparisonBinding['current'])=>{
++  const latest=await getJobWithDecryptedCredentials(jobId); if(!latest || latest.job.customerId!==initial.job.customerId || latest.job.environment!==initial.job.environment) return deny();
++  const canonicalEndpoint=(IntakeInput.parse(latest.intake) as unknown as Record<string,unknown>)[v.endpointSlot] as {url:string;model:string;apiKey?:string;systemPrompt:string}|undefined;
++  const ep=canonicalEndpoint?{...canonicalEndpoint,...v.endpointOverride}:undefined;
++  const cred=await sql.query<{ciphertext:string}>('SELECT ciphertext FROM job_credentials WHERE job_id=$1',[jobId]);
++  if(!ep || comparisonDigest({endpoint:{...ep,apiKey:undefined},credentialCiphertext:cred.rows[0]?.ciphertext??null})!==v.configurationDigest) return deny();
++  return {latest,ep};
++ };
++ const config:ComparisonRuntime={
++  runner,knownSecrets:Object.values(initial.credentials).filter((s):s is string=>typeof s==='string'),
++  verify:async(id,b,retained)=>{
++   if(id!==jobId || Object.values(initial.credentials).some(s=>typeof s==='string'&&s.length<4) || containsSecret(JSON.stringify({binding:b,retained}),Object.values(initial.credentials))) return deny();
++   const {latest}=await endpoint(b.current); const base=await endpoint(b.baseline);
++   if(b.current.version!==b.current.configurationDigest)return deny();
++   const revision=await sql.query<{target_revision:string}>('SELECT target_revision FROM workflow_integration.bindings WHERE job_id=$1',[jobId]);
++   const ciphertext=await sql.query<{ciphertext:string}>('SELECT ciphertext FROM job_credentials WHERE job_id=$1',[jobId]);
++   const baselineVersion=createHash('sha256').update(JSON.stringify({endpoint:{...base.ep,apiKey:undefined},revision:revision.rows[0]?.target_revision,credentialCiphertext:ciphertext.rows[0]?.ciphertext??null})).digest('hex');
++   if(retained.kind==='text' ? b.baseline.version!==baselineVersion : b.baseline.targetId!==`target:${baselineVersion}`)return deny();
++   const applicationIds=new Set<string>();
++   if(latest.job.suiteBlobPath){
++    const text=await readJobArtifactText(latest.job.suiteBlobPath);if(text===null)return deny();
++    for(const s of Suite.parse(JSON.parse(text)).scenarios)applicationIds.add(s.id);
++   }else{
++    // Original rich producer publishes this complete expected inventory before dispatch; it does not write a legacy Suite blob.
++    const inventory=await sql.query<{plan:{checkpoints:{scenarioIds?:string[]}[]}}>('SELECT plan FROM structured_progress.inventory WHERE job_id=$1 AND tenant_id=$2 AND environment=$3',[jobId,latest.job.customerId,latest.job.environment]);
++    if(!inventory.rows[0])return deny();
++    for(const cp of inventory.rows[0].plan.checkpoints)for(const id of cp.scenarioIds??[])applicationIds.add(id);
++   }
++   const packTable=await sql.query<{present:string|null}>("SELECT to_regclass('workflow_integration.pack_approvals')::text AS present");
++   if(packTable.rows[0]?.present){
++    const packs=await sql.query<{manifest:{inventory:{id:string}[]}}>('SELECT manifest FROM workflow_integration.pack_approvals WHERE job_id=$1',[jobId]);
++    for(const pack of packs.rows)for(const entry of pack.manifest.inventory)applicationIds.add(entry.id);
++   }
++   const original=await sql.query<{body:Record<string,unknown>}>(`SELECT a.body FROM workflow_integration.rich_artifacts a JOIN jobs j ON j.id=a.job_id AND j.customer_id=a.tenant_id AND j.environment=a.environment WHERE j.id=$1`,[jobId]);
++   const body=original.rows[0]?.body;
++   const appended=body?.appendedPack as {manifest?:{inventory?:{id:string}[]}}|undefined;
++   for(const entry of appended?.manifest?.inventory??[])applicationIds.add(entry.id); if(!body || comparisonDigest(body.suite)!==comparisonDigest(retained.suite) || comparisonDigest(body.run)!==comparisonDigest(retained.run) || comparisonDigest(body.investigation)!==comparisonDigest(retained.investigation)) return deny();
++   if(retained.kind==='text') {
++    const identity=await sql.query<{value:{targetVersion?:string}}>("SELECT value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='run_identity' AND id=$2 AND state='completed'",[jobId,retained.run.runId]);
++    if(identity.rows[0]?.value.targetVersion!==b.baseline.version || b.baseline.branchId!==null || b.current.branchId!==null) return deny();
++   } else if(retained.run.branchId!==b.baseline.branchId || retained.run.versionLabel!==b.baseline.version) return deny();
++   return {scenarioIds:[...applicationIds]};
++  },
++  target:async v=>createTextTarget((await endpoint(v)).ep),
++  calendar:async(v,guard,checkpoints)=>{
++   if(!v.branchId) return deny();
++   const journalPool=new Pool({connectionString:process.env.DATABASE_URL,max:2}); pools.push(journalPool);
++   let sequence=0;
++   return createCalendarEvaluationServices({checkpoints,journalPool,resolve:async()=>{
++    const {latest,ep}=await endpoint(v);
++    const branch=await new PostgresBranchLedger(journalPool).findOwnedBranch(v.branchId!);
++    if(!branch || branch.jobId!==jobId || branch.state!=='ready') return deny();
++    const conn=await evalServices.getJobBranchConnection!(v.branchId!);
++    const pool=new Pool({connectionString:conn,max:2}); pools.push(pool); const db=pooledCalendarDatabase(pool);
++    const saved=await sql.query<{suite:Record<string,unknown>;retained:{run:{systemPrompt?:string}}}>('SELECT suite,retained FROM workflow_comparison.bindings WHERE job_id=$1',[jobId]);
++    const {hash:_,...reviewed}=saved.rows[0]!.suite;
++    return {job:{jobId,customerId:latest.job.customerId,environment:latest.job.environment,package:'workflow_eval' as const,isFixture:false,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,branch:{jobId,branchId:v.branchId!,targetVersion:v.version},systemPrompt:saved.rows[0]!.retained.run.systemPrompt,reviewedSuite:reviewed as unknown as Parameters<typeof import('@ae/core/simulator/workflow').freezeCalendarSuite>[0],knownSecrets:Object.values(latest.credentials),
++      dependencies:{db,simulator:new CalendarSimulator(new PostgresCalendarStore(db)),targetForScenario:scope=>({complete:async(messages,tools)=>{
++       await guard(`${scope.id}:${sequence++}`); await endpoint(v);
++       const again=await new PostgresBranchLedger(journalPool).findOwnedBranch(v.branchId!); if(!again || again.jobId!==jobId || again.state!=='ready') return deny();
++       return platformTarget(ep).complete(messages,tools);
++      }})}};
++   }});
++  },
++ };
++ const app=createRichComparisonApp(sql,config);
++ return {app,verify:config.verify,dispose:async()=>{await Promise.all(pools.map(p=>p.end()));}};
++}
+--- /dev/null
++++ b/apps/web/src/server/rich-comparison.ts
+@@ -0,0 +1,140 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { z } from 'zod';
++import { containsSecret } from '@ae/core/agents/redact';
++import { MONITORING_RUN_BUDGET_MICRO_USD, JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { ROLE_DEFINITIONS } from '@ae/core/agents/roles';
++import { PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
++import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { createTextEvaluationServices } from '@ae/core/evals/integration/services';
++import { createComparisonMonitoringService } from '@ae/core/monitoring/composition';
++import type { ComparisonRequest, ComparisonSuite, RichRunArtifact } from '@ae/core/monitoring/composition';
++import { createTextComparisonAdapter, createCalendarComparisonAdapter, createRetainedComparisonAdapter } from '@ae/core/monitoring/adapters';
++import { canonicalJson } from '@ae/core/evals/text';
++import type { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration';
++import type { TextTargetPort } from '@ae/core/evals/types';
++
++const id = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/);
++const version = z.object({ version: id, targetId: id, branchId: id.nullable(), configurationDigest: z.string().regex(/^[a-f0-9]{64}$/), endpointSlot: z.enum(['endpoint', 'endpointA', 'endpointB']), endpointOverride:z.object({url:z.string().url().max(4096),model:z.string().min(1).max(256)}).strict().optional() }).strict();
++export const comparisonBindingSchema = z.object({
++  suiteId: id, scope: z.enum(['base12', 'augmented']), scenarioIds: z.array(id),
++  baseline: version, current: version,
++  // Reviewed policy: reservation per outbound target call; unmeasured reservations remain held.
++  targetCallMicroUsd: z.number().int().positive().safe(), jobCapMicroUsd: z.number().int().positive().safe(),
++}).strict();
++export type ComparisonBinding = z.infer<typeof comparisonBindingSchema>;
++export const comparisonDigest = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
++const refused = (): never => { throw new Error('rich_comparison_refused'); };
++export interface ComparisonPrincipal { tenantId: string; environment: 'test' | 'live' }
++export interface ComparisonRuntime {
++  runner: AgentTaskRunner;
++  knownSecrets: readonly string[];
++  verify(jobId: string, binding: ComparisonBinding, retained: RichRunArtifact): Promise<{scenarioIds:string[]}>;
++  /** Called again immediately before every target operation; closure loads decrypted canonical intake. */
++  target(binding: ComparisonBinding['current']): Promise<TextTargetPort>;
++  /** Calendar factory must guard every outbound complete() with guard(), and verify branch ownership. */
++  calendar?(binding: ComparisonBinding['current'], guard: (operation: string) => Promise<void>, checkpoints: PostgresTextCheckpointStore): Promise<ReturnType<typeof createCalendarEvaluationServices>>;
++}
++/** Concrete SQL-backed app coordinator. Runtime contains transports, not authorization decisions. */
++export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: ComparisonRuntime) {
++  const checkpoints = new PostgresTextCheckpointStore(sql);
++  async function authority(principal: ComparisonPrincipal, jobId: string, subscriptionId?: string) {
++    const row = (await sql.query<{ customer_id: string; environment: string; state: string; package: keyof typeof JOB_BUDGET_MICRO_USD; is_mock: boolean; is_internal_fixture: boolean; suite: ComparisonSuite; retained: RichRunArtifact; binding: unknown; binding_digest: string }>(`SELECT j.customer_id,j.environment,j.state,j.package,j.is_mock,c.is_internal_fixture,b.suite,b.retained,b.binding,b.binding_digest
++      FROM jobs j JOIN customers c ON c.id=j.customer_id JOIN workflow_comparison.bindings b ON b.job_id=j.id
++      WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3`, [jobId,principal.tenantId,principal.environment])).rows[0];
++    if (!row || row.is_mock || row.state !== 'delivered' || comparisonDigest({suite:row.suite,retained:row.retained,binding:row.binding}) !== row.binding_digest) return refused();
++    if(runtime.knownSecrets.some(s=>s.length<4) || containsSecret(canonicalJson(row),runtime.knownSecrets)) return refused();
++    const binding = comparisonBindingSchema.parse(row.binding);
++    const canonical = await runtime.verify(jobId,binding,row.retained);
++    if (binding.jobCapMicroUsd > JOB_BUDGET_MICRO_USD[row.package] || !JOB_BUDGET_MICRO_USD[row.package]
++      || canonicalJson([...canonical.scenarioIds].sort()) !== canonicalJson([...binding.scenarioIds].sort())) return refused();
++    // Full inventory stays visible even when execution is refused. Explicit base12 never means pack coverage.
++    if (binding.scope !== 'base12' || binding.scenarioIds.length !== 12 || new Set(binding.scenarioIds).size !== 12
++      || canonicalJson([...binding.scenarioIds].sort()) !== canonicalJson(row.suite.scenarios.map(s=>s.id).sort())) return refused();
++    if (subscriptionId) {
++      const sub = await sql.query(`SELECT id FROM monitoring_subscriptions WHERE id=$1 AND job_id=$2 AND customer_id=$3 AND environment=$4 AND status='active' AND stripe_subscription_id IS NOT NULL`, [subscriptionId,jobId,principal.tenantId,principal.environment]);
++      if (!sub.rows.length) return refused();
++    }
++    const paid = await sql.query(`SELECT id FROM payments WHERE job_id=$1 AND environment=$2 AND status IN ('paid','captured') AND kind='one_time'`,[jobId,principal.environment]);
++    if (!paid.rows.length) return refused();
++    return { ...row, binding };
++  }
++  async function compare(principal: ComparisonPrincipal, ctx: ServiceContext, request: ComparisonRequest, subscriptionId?: string) {
++    if ((request.mode === 'monitoring') !== Boolean(subscriptionId)) return refused();
++    const a = await authority(principal,ctx.jobId,subscriptionId);
++    if (ctx.environment !== principal.environment || request.baselineVersion !== a.binding.baseline.version || request.currentVersion !== a.binding.current.version) return refused();
++    const immutable = { tenantId:principal.tenantId, environment:principal.environment, jobId:ctx.jobId, bindingDigest:a.binding_digest, request, subscriptionId:subscriptionId??null };
++    // Stable tick/request identity is committed before factory construction, agent calls, or targets.
++    const tick = {jobId:ctx.jobId,kind:'app_rich_tick',id:request.operationId,inputDigest:comparisonDigest(immutable)};
++    const claim = await checkpoints.claim(tick);
++    if (claim.state === 'completed') return claim.value;
++    if (claim.state !== 'claimed') throw new Error('rich_tick_needs_reconciliation');
++    const reauthorize = async () => { const latest = await authority(principal,ctx.jobId,subscriptionId); if(latest.binding_digest !== a.binding_digest) refused(); };
++    try {
++      const costs = async (operationId: string) => {
++        const rows = await sql.query<{ id:string; source:string; micro_usd:string|number }>('SELECT id,source,micro_usd FROM workflow_comparison.costs WHERE job_id=$1 AND operation_id=$2',[ctx.jobId,operationId]);
++        return {costs:rows.rows.map(r=>({id:r.id,source:r.source,microUsd:Number(r.micro_usd),measured:true as const})),unknownCosts:['target_provider_usage_unmeasured','hosting_unmeasured','investigation_usage_not_in_ledger_is_unknown','retained_baseline_and_suite_design_costs_not_fully_measured']};
++      };
++      const adapter = async (v:ComparisonBinding['current']) => {
++        const guard = async (operation:string) => {
++          await reauthorize();
++          const period=process.env.NAIVE_BUDGET_PERIOD_ID; if(!period || !/^[A-Za-z0-9_-]+$/.test(period))return refused();
++          const reserved = await new PostgresBudgetLedger(sql).reserve({reservationId:`cmp:${comparisonDigest({immutable,v,operation})}`,jobId:ctx.jobId,amountMicroUsd:a.binding.targetCallMicroUsd,scopes:[{key:`agent:evaluation_engineer:${period}`,capMicroUsd:ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd},{key:`job:${ctx.jobId}`,capMicroUsd:a.binding.jobCapMicroUsd}, ...(subscriptionId?[{key:`monitor:${subscriptionId}:${request.operationId}`,capMicroUsd:MONITORING_RUN_BUDGET_MICRO_USD}]:[])]});
++          if (!reserved.ok) refused();
++          // No automatic settlement/release: target transport supplies no measured receipt. Hold for reconciliation.
++        };
++        if ('digest' in a.suite) {
++          const suite = a.suite;
++          const operationId = comparisonDigest([principal.tenantId,ctx.jobId,request.operationId,v===a.binding.baseline?'baseline':'current']);
++          const scopedCtx = {...ctx, recordCost:async (cost:Parameters<ServiceContext['recordCost']>[0])=>{
++            const key=String(cost.meta?.idempotencyKey??''); if(!key || !Number.isSafeInteger(cost.microUsd) || cost.microUsd<0) refused();
++            await sql.transaction(async tx=>{
++              await tx.query('INSERT INTO workflow_comparison.costs(job_id,operation_id,source,id,micro_usd) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',[ctx.jobId,operationId,cost.source,key,cost.microUsd]);
++              const same=await tx.query('SELECT id FROM workflow_comparison.costs WHERE job_id=$1 AND operation_id=$2 AND source=$3 AND id=$4 AND micro_usd=$5',[ctx.jobId,operationId,cost.source,key,cost.microUsd]);
++              if(!same.rows.length) refused();
++            });
++          }};
++          const services = createTextEvaluationServices({checkpoints,runner:runtime.runner,resolveApprovedSuite:async()=>suite,resolve:async()=>{
++            await reauthorize();
++            return {job:{jobId:ctx.jobId,customerId:principal.tenantId,environment:ctx.environment,package:'text_eval' as const,isFixture:a.is_internal_fixture,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,knownSecrets:runtime.knownSecrets,judge:null,
++              target:{send:async req=>{await guard(`${req.runId}:${req.scenarioId}`);return (await runtime.target(v)).send(req);}}};
++          }});
++          return createTextComparisonAdapter({services,ctx:scopedCtx,suiteDigest:suite.digest,readCosts:costs});
++        }
++        if (!runtime.calendar) return refused();
++        const services=await runtime.calendar(v,guard,checkpoints);
++        // Calendar checkpoint identity includes target/branch. Use distinct references to identical frozen content.
++        const suiteId=comparisonDigest({suiteId:a.binding.suiteId,version:v.version,targetId:v.targetId,branchId:v.branchId});
++        await services.freezeSuite(ctx,{suiteId});
++        return createCalendarComparisonAdapter({services,ctx,suiteId,readCosts:costs});
++      };
++      const service = createComparisonMonitoringService({checkpoints,resolve:async()=>{
++        await reauthorize();
++        return {tenantId:principal.tenantId,jobId:ctx.jobId,environment:ctx.environment,isFixture:a.is_internal_fixture,suite:a.suite,scenarioIds:a.binding.scenarioIds,knownSecrets:runtime.knownSecrets,
++          baseline:{...a.binding.baseline,adapter:request.mode==='monitoring'?createRetainedComparisonAdapter(a.retained):await adapter(a.binding.baseline)},
++          current:{...a.binding.current,adapter:await adapter(a.binding.current)}};
++      }});
++      const result = await service.compare(ctx,request);
++      await reauthorize();
++      await checkpoints.complete(tick,claim.token,result); // full rich result + generic alert drafts, never boolean RunResult
++      return result;
++    } catch (error) { await checkpoints.markAmbiguous(tick,claim.token); throw error; }
++  }
++  return {compare,
++    async inventory(principal:ComparisonPrincipal,jobId:string) {
++      const row=await sql.query<{binding:unknown;retained:RichRunArtifact}>(`SELECT b.binding,b.retained FROM workflow_comparison.bindings b JOIN jobs j ON j.id=b.job_id WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3`,[jobId,principal.tenantId,principal.environment]);
++      const saved=row.rows[0];if(!saved)return null;
++      const binding=comparisonBindingSchema.parse(saved.binding);
++      const source=await runtime.verify(jobId,binding,saved.retained);
++      const scenarioIds=[...new Set([...binding.scenarioIds,...source.scenarioIds])];
++      return {...binding,scenarioIds,scope:scenarioIds.length===12?binding.scope:'augmented'};
++    },
++    async read(principal:ComparisonPrincipal,jobId:string,operationId:string) {
++      await authority(principal,jobId); // every read reauthenticates canonical ownership/payment, including replay
++      return checkpoints.get({jobId,kind:'app_rich_tick',id:operationId});
++    },
++  };
++}
