@@ -225,6 +225,13 @@
       "when": 1794135863587,
       "tag": "0031_usage_warnings_trial_end",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794148305345,
+      "tag": "0032_feedback_quote_approval",
+      "breakpoints": true
     }
   ]
 }

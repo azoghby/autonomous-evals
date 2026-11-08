@@ -47,8 +47,26 @@ export function parseFeedback(raw: unknown): ParsedFeedback {
   return { kind: "ok", value: { ...value, quoteConsent: value.quoteConsent && !!value.quote } };
 }
 
-/** A public quote card: only what the person typed and explicitly consented to show. */
+/** A public quote card: a consented, operator-approved quote; company comes from the invite row. */
 export interface PublicQuote { id: string; quote: string; name: string | null; company: string | null }
+
+/** A response joined to its invite, as read for the homepage. */
+export interface QuoteCandidate {
+  id: string; quote: string | null; quoteConsent: boolean; quoteApprovedAt: Date | string | null;
+  name: string | null; inviteId: string | null; inviteOrg: string | null; inviteName: string | null;
+}
+
+/**
+ * Public-quote gate (defence in depth behind the SQL filter): consented, non-empty, operator-approved, and from a
+ * real invite. The company shown is always the invite's org (what we vetted), never the free-text company field.
+ */
+export function selectPublicQuotes(rows: readonly QuoteCandidate[]): PublicQuote[] {
+  return rows.flatMap((r) => {
+    const quote = r.quote?.trim();
+    if (!quote || !r.quoteConsent || !r.quoteApprovedAt || !r.inviteId || !r.inviteOrg) return [];
+    return [{ id: r.id, quote, name: r.inviteName ?? r.name, company: r.inviteOrg }];
+  });
+}
 
 export const attribution = (q: Pick<PublicQuote, "name" | "company">): string =>
   [q.name, q.company].filter(Boolean).join(", ") || "An agent builder";

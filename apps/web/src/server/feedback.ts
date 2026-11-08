@@ -6,7 +6,7 @@ import "server-only";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { isOptOut } from "@ae/core/company/outreach";
-import { FEEDBACK_RATE_LIMIT, FEEDBACK_RATE_WINDOW_SECONDS, parseFeedback, type FeedbackInput, type PublicQuote } from "./feedback-logic";
+import { FEEDBACK_RATE_LIMIT, FEEDBACK_RATE_WINDOW_SECONDS, parseFeedback, selectPublicQuotes, type FeedbackInput, type PublicQuote } from "./feedback-logic";
 import { ipHash } from "./owner-policy";
 import { rateLimit, type RateLimitResult } from "./rate-limit";
 import { suppressEmail } from "./owner-shared";
@@ -15,7 +15,7 @@ export interface InviteRef { id: string; email: string; org: string; name: strin
 
 export interface FeedbackRow {
   id: string; createdAt: string; wouldUse: string; mustHave: string | null; pricePerMonth: string | null;
-  quote: string | null; quoteConsent: boolean; name: string | null; company: string | null;
+  quote: string | null; quoteConsent: boolean; quoteApprovedAt: string | null; name: string | null; company: string | null;
   invite: { org: string; name: string | null; email: string } | null;
 }
 
@@ -27,8 +27,12 @@ export interface InviteRow {
 export interface FeedbackStore {
   inviteByToken(token: string): Promise<InviteRef | null>;
   inviteByEmail(email: string): Promise<InviteRef | null>;
-  /** Insert, or update the invite's existing response (one per invite). */
-  saveResponse(row: Omit<FeedbackInput, "ref" | "website"> & { inviteId: string | null; ipHash: string }): Promise<void>;
+  /** Insert, or update the invite's existing response (one per invite). quoteApprovedAt is always null: a resubmit
+   *  must be re-approved before its (possibly changed) quote shows publicly. */
+  saveResponse(row: Omit<FeedbackInput, "ref" | "website"> & { inviteId: string | null; ipHash: string; quoteApprovedAt: null }): Promise<void>;
+  /** Operator approve (at) / unapprove (null). Only an invite-linked, consented, non-empty quote can be approved.
+   *  Returns false when no such response exists. */
+  setQuoteApproval(responseId: string, at: Date | null): Promise<boolean>;
   recordReply(inviteId: string, text: string, at: Date): Promise<void>;
   suppress(email: string): Promise<void>;
 }
@@ -55,7 +59,7 @@ export async function submitFeedback(raw: unknown, ip: string, deps: SubmitDeps 
   const store = deps.store ?? drizzleFeedbackStore();
   const { ref, ...v } = parsed.value;
   const invite = ref ? await store.inviteByToken(ref) : null;
-  await store.saveResponse({ ...v, inviteId: invite?.id ?? null, ipHash: hash });
+  await store.saveResponse({ ...v, inviteId: invite?.id ?? null, ipHash: hash, quoteApprovedAt: null });
   return { ok: true };
 }
 
@@ -80,6 +84,13 @@ export async function recordFeedbackReply(
   return { matched: true, optedOut };
 }
 
+/** Operator-only (caller enforces auth): approve or unapprove a quote for the homepage. */
+export async function setQuoteApproval(
+  responseId: string, approved: boolean, store: FeedbackStore = drizzleFeedbackStore(), now = new Date(),
+): Promise<boolean> {
+  return store.setQuoteApproval(responseId, approved ? now : null);
+}
+
 /* ---------------- drizzle ---------------- */
 
 const I = schema.feedbackInvites;
@@ -102,6 +113,13 @@ export function drizzleFeedbackStore(): FeedbackStore {
       const { inviteId: _id, ...set } = values;
       await db().insert(R).values(values).onConflictDoUpdate({ target: R.inviteId, set });
     },
+    async setQuoteApproval(responseId, at) {
+      const where = at
+        ? and(eq(R.id, responseId), isNotNull(R.inviteId), eq(R.quoteConsent, true), isNotNull(R.quote), sql`length(trim(${R.quote})) > 0`)
+        : eq(R.id, responseId);
+      const rows = await db().update(R).set({ quoteApprovedAt: at }).where(where).returning({ id: R.id });
+      return rows.length > 0;
+    },
     async recordReply(inviteId, text, at) {
       await db().update(I).set({ status: "replied", replyText: text, repliedAt: at }).where(eq(I.id, inviteId));
     },
@@ -116,6 +134,7 @@ export async function listFeedbackResponses(limit = 100): Promise<FeedbackRow[]>
   return rows.map(({ r, org, inviteName, email }) => ({
     id: r.id, createdAt: new Date(r.createdAt).toISOString(), wouldUse: r.wouldUse, mustHave: r.mustHave,
     pricePerMonth: r.pricePerMonth, quote: r.quote, quoteConsent: r.quoteConsent, name: r.name, company: r.company,
+    quoteApprovedAt: r.quoteApprovedAt ? new Date(r.quoteApprovedAt).toISOString() : null,
     invite: org && email ? { org, name: inviteName, email } : null,
   }));
 }
@@ -130,11 +149,15 @@ export async function listFeedbackInvites(limit = 100): Promise<InviteRow[]> {
   }));
 }
 
-/** Public quotes: consented, non-empty, from a real invite only (anonymous submissions are never shown). */
+/** Public quotes: consented, operator-approved, non-empty, from a real invite only (anonymous never shown).
+ *  Attribution company is the invite's org, not the free-text company field. */
 export async function listPublicQuotes(limit = 6): Promise<PublicQuote[]> {
-  const rows = await db().select({ id: R.id, quote: R.quote, name: R.name, company: R.company }).from(R)
+  const rows = await db().select({
+    id: R.id, quote: R.quote, quoteConsent: R.quoteConsent, quoteApprovedAt: R.quoteApprovedAt, name: R.name,
+    inviteId: R.inviteId, inviteOrg: I.org, inviteName: I.name,
+  }).from(R)
     .innerJoin(I, eq(R.inviteId, I.id))
-    .where(and(eq(R.quoteConsent, true), isNotNull(R.quote), sql`length(trim(${R.quote})) > 0`))
-    .orderBy(desc(R.updatedAt)).limit(limit);
-  return rows.filter((r): r is typeof r & { quote: string } => !!r.quote).map((r) => ({ id: r.id, quote: r.quote, name: r.name, company: r.company }));
+    .where(and(eq(R.quoteConsent, true), isNotNull(R.quoteApprovedAt), isNotNull(R.quote), sql`length(trim(${R.quote})) > 0`))
+    .orderBy(desc(R.quoteApprovedAt)).limit(limit);
+  return selectPublicQuotes(rows);
 }

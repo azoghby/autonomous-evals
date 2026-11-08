@@ -5,8 +5,8 @@ vi.mock("@ae/core/db/client", () => ({ db: () => { throw new Error("db must not 
 vi.mock("./owner-shared", () => ({ suppressEmail: vi.fn() }));
 vi.mock("./rate-limit", () => ({ rateLimit: vi.fn() }));
 
-import { optOutByToken, recordFeedbackReply, submitFeedback, type FeedbackStore } from "./feedback";
-import { attribution, buildFeedbackEmail, feedbackBodyWords, FEEDBACK_EMAIL_MAX_WORDS, isPostalAddress, parseFeedback } from "./feedback-logic";
+import { optOutByToken, recordFeedbackReply, setQuoteApproval, submitFeedback, type FeedbackStore } from "./feedback";
+import { attribution, buildFeedbackEmail, feedbackBodyWords, FEEDBACK_EMAIL_MAX_WORDS, isPostalAddress, parseFeedback, selectPublicQuotes } from "./feedback-logic";
 
 const invite = { id: "inv-1", email: "a@agentco.dev", org: "AgentCo", name: "Ada Lovelace" };
 
@@ -19,6 +19,7 @@ function fakeStore(over: Partial<FeedbackStore> = {}): FeedbackStore & { saved: 
     saveResponse: async (row) => { saved.push(row); },
     recordReply: async (id, text) => { replies.push({ id, text }); },
     suppress: async (e) => { suppressed.push(e); },
+    setQuoteApproval: async () => true,
     ...over,
   };
 }
@@ -130,6 +131,77 @@ describe("buildFeedbackEmail", () => {
   it("makes no customer, urgency or endorsement claims", () => {
     const e = buildFeedbackEmail(r, { appUrl: "https://x.dev", token: "t" }).text.toLowerCase();
     for (const banned of ["customers like", "limited time", "act now", "trusted by", "partnered with", "endorsed"]) expect(e).not.toContain(banned);
+  });
+});
+
+describe("quote moderation", () => {
+  const base = {
+    id: "r1", quote: "Saved us a week.", quoteConsent: true, quoteApprovedAt: new Date("2026-11-08T12:00:00Z"),
+    name: "Ada", inviteId: "inv-1", inviteOrg: "AgentCo", inviteName: null,
+  };
+
+  it("every submit (including a resubmit) clears approval", async () => {
+    const store = fakeStore();
+    await submitFeedback({ ref: "tok", wouldUse: "yes", quote: "v1", quoteConsent: true }, "ip", deps(store));
+    await submitFeedback({ ref: "tok", wouldUse: "yes", quote: "v2 edited", quoteConsent: true, company: "OpenAI" }, "ip", deps(store));
+    expect(store.saved).toHaveLength(2);
+    for (const row of store.saved) expect(row).toMatchObject({ quoteApprovedAt: null });
+  });
+
+  it("shows only approved, consented, invite-linked quotes", () => {
+    expect(selectPublicQuotes([base])).toEqual([{ id: "r1", quote: "Saved us a week.", name: "Ada", company: "AgentCo" }]);
+    expect(selectPublicQuotes([{ ...base, quoteApprovedAt: null }])).toEqual([]);
+    expect(selectPublicQuotes([{ ...base, quoteConsent: false }])).toEqual([]);
+    expect(selectPublicQuotes([{ ...base, inviteId: null, inviteOrg: null }])).toEqual([]);
+    expect(selectPublicQuotes([{ ...base, quote: "   " }])).toEqual([]);
+  });
+
+  it("attributes the company to the invite's org, never the free-text company", () => {
+    const [q] = selectPublicQuotes([{ ...base, inviteOrg: "AgentCo", inviteName: "Ada Lovelace", name: "Sam Altman" }]);
+    expect(q).toMatchObject({ company: "AgentCo", name: "Ada Lovelace" });
+    expect(Object.values(q!)).not.toContain("OpenAI");
+  });
+
+  it("setQuoteApproval stamps now on approve, null on unapprove, and reports a miss", async () => {
+    const calls: Array<[string, Date | null]> = [];
+    const store = fakeStore({ setQuoteApproval: async (id, at) => { calls.push([id, at]); return id === "r1"; } });
+    const now = new Date("2026-11-08T13:00:00Z");
+    expect(await setQuoteApproval("r1", true, store, now)).toBe(true);
+    expect(await setQuoteApproval("r1", false, store, now)).toBe(true);
+    expect(await setQuoteApproval("nope", true, store, now)).toBe(false);
+    expect(calls).toEqual([["r1", now], ["r1", null], ["nope", now]]);
+  });
+});
+
+describe("POST /api/operator/feedback/[id]/approval", () => {
+  const id = "3f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f";
+  async function load(opts: { operator: boolean; found?: boolean }) {
+    vi.resetModules();
+    const auth = opts.operator ? { viewer: { isOperator: true } } : { res: Response.json({ error: "Operator access required" }, { status: 403 }) };
+    vi.doMock("@/server/http", async (orig) => ({ ...(await orig<typeof import("@/server/http")>()), requireOperator: async () => auth }));
+    const set = vi.fn(async () => opts.found ?? true);
+    vi.doMock("@/server/feedback", () => ({ setQuoteApproval: set }));
+    const { POST } = await import("@/app/api/operator/feedback/[id]/approval/route");
+    return { POST, set };
+  }
+  const req = (body: unknown) => new Request("http://localhost/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const ctx = (v: string) => ({ params: Promise.resolve({ id: v }) });
+
+  it("rejects non-operators without touching the store", async () => {
+    const { POST, set } = await load({ operator: false });
+    expect((await POST(req({ approved: true }), ctx(id))).status).toBe(403);
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("approves / unapproves for an operator and 404s a bad id or missing quote", async () => {
+    const { POST, set } = await load({ operator: true });
+    expect((await POST(req({ approved: true }), ctx(id))).status).toBe(200);
+    expect((await POST(req({ approved: false }), ctx(id))).status).toBe(200);
+    expect(set.mock.calls).toEqual([[id, true], [id, false]]);
+    expect((await POST(req({ approved: true }), ctx("not-a-uuid"))).status).toBe(404);
+    expect((await POST(req({ approved: "yes" }), ctx(id))).status).toBe(400);
+    const missing = await load({ operator: true, found: false });
+    expect((await missing.POST(req({ approved: true }), ctx(id))).status).toBe(404);
   });
 });
 
