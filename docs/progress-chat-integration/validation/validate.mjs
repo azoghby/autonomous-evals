@@ -1,0 +1,28 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, symlinkSync, copyFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const here = dirname(fileURLToPath(import.meta.url));
+const repo = execFileSync('git', ['rev-parse', '--show-toplevel'], {cwd: here, encoding: 'utf8'}).trim();
+const base = '96cb4adcea8c55ae4d8cc353deb059996245aa77';
+const artifacts = resolve(here, '..');
+const stage = mkdtempSync(join(tmpdir(), 'progress-chat-combined-'));
+const archive = execFileSync('git', ['archive', base], {cwd: repo, maxBuffer: 128 * 1024 * 1024});
+execFileSync('tar', ['-x', '-C', stage], {input: archive});
+const patches = ['core-security.patch', 'server.patch', 'client.patch'];
+const combined = patches.map(name => readFileSync(join(artifacts, name), 'utf8')).join('');
+if (combined !== readFileSync(join(artifacts, 'combined.patch'), 'utf8')) throw new Error('combined.patch differs from ordered component patches');
+execFileSync('git', ['apply', '--check', join(artifacts, 'combined.patch')], {cwd: stage});
+execFileSync('git', ['apply', join(artifacts, 'combined.patch')], {cwd: stage});
+console.log(`Exact-base combined patch applies: ${base}\nStaging: ${stage}`);
+// This runner never installs dependencies or contacts a database/provider.
+const deps = resolve(process.env.CHAT_CORE_NODE_MODULES ?? '/tmp/track-b-harness/node_modules');
+symlinkSync(deps, join(stage, 'node_modules'), 'dir');
+writeFileSync(join(stage, 'package.json'), '{"private":true,"type":"module"}');
+mkdirSync(join(stage, 'validation'), {recursive: true});
+for (const name of ['current-policy.test.ts', 'sql.test.ts']) copyFileSync(join(here, name), join(stage, 'validation', name));
+copyFileSync(join(artifacts, 'server/001-private-conversations.sql'), join(stage, 'validation/001-private-conversations.sql'));
+writeFileSync(join(stage, 'vitest.integration.config.mjs'), `export default {test:{include:['packages/core/src/reporting/chat/answers.test.ts','packages/core/src/reporting/chat/service.test.ts','packages/core/src/reporting/chat/file-conversations.test.ts','validation/*.test.ts'],maxWorkers:1}};`);
+execFileSync(process.execPath, [join(deps, 'vitest/vitest.mjs'), 'run', '--config', join(stage, 'vitest.integration.config.mjs')], {cwd: stage, stdio:'inherit', env:{...process.env, CHAT_PERSISTENCE_TEST_DATABASE_URL:''}});
+console.log('Core regression and current-policy tests passed. Staging retained for targeted server/UI verification; not deployed.');

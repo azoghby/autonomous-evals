@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-server-tests-aqqNwj
+
+ ✓ routes.test.ts (7 tests) 12ms
+ ✓ composition.test.ts (4 tests) 8ms
+ ✓ server.test.ts (6 tests) 6ms
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  16:21:13
+   Duration  450ms (transform 56ms, setup 0ms, collect 146ms, tests 26ms, environment 0ms, prepare 75ms)
+
+Retained server test scratch: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-server-tests-aqqNwj
+Retained targeted server typecheck: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-server-ts-kIgo0L

@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-client-J8XqL8
+
+ ✓ chat.test.tsx (9 tests) 110ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  16:21:15
+   Duration  700ms (transform 48ms, setup 0ms, collect 133ms, tests 110ms, environment 302ms, prepare 50ms)
+
+Client fixtures and targeted typecheck passed in /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-client-J8XqL8

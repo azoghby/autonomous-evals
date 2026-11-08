@@ -1,0 +1,12 @@
+import {mkdtemp,cp,symlink} from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import os from 'node:os';
+import {spawnSync} from 'node:child_process';
+const stage=process.argv[2], deps=process.argv[3];
+if(!stage||!deps) throw new Error('Usage: node run.mjs PATCHED_STAGE EXISTING_NODE_MODULES');
+const scratch=await mkdtemp(path.join(os.tmpdir(),'progress-chat-server-tests-'));
+await cp(path.dirname(fileURLToPath(import.meta.url)),scratch,{recursive:true});
+await symlink(path.resolve(deps),path.join(scratch,'node_modules'),'dir');
+const run=spawnSync(path.join(deps,'.bin/vitest'),['run','--config',path.join(scratch,'vitest.config.ts')],{cwd:scratch,env:{...process.env,CHAT_STAGE_DIR:path.resolve(stage)},stdio:'inherit'});
+console.log('Retained server test scratch:',scratch);process.exit(run.status??1);

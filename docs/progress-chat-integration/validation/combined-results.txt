@@ -1,0 +1,18 @@
+Exact-base combined patch applies: 96cb4adcea8c55ae4d8cc353deb059996245aa77
+Staging: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-combined-OQXomq
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/progress-chat-combined-OQXomq
+
+ ✓ validation/sql.test.ts (1 test) 692ms
+   ✓ separate transactional migration and conversation SQL preserve caller+job scope and replay  692ms
+ ✓ packages/core/src/reporting/chat/file-conversations.test.ts (5 tests) 197ms
+ ✓ packages/core/src/reporting/chat/service.test.ts (10 tests) 14ms
+ ✓ validation/current-policy.test.ts (1 test) 5ms
+ ✓ packages/core/src/reporting/chat/answers.test.ts (8 tests) 3ms
+
+ Test Files  5 passed (5)
+      Tests  25 passed (25)
+   Start at  16:19:50
+   Duration  1.57s (transform 47ms, setup 0ms, collect 202ms, tests 912ms, environment 0ms, prepare 110ms)
+
+Core regression and current-policy tests passed. Staging retained for targeted server/UI verification; not deployed.

@@ -1,0 +1,59 @@
+diff --git a/packages/core/src/reporting/chat/service.ts b/packages/core/src/reporting/chat/service.ts
+index 201be12..024c597 100644
+--- a/packages/core/src/reporting/chat/service.ts
++++ b/packages/core/src/reporting/chat/service.ts
+@@ -4,8 +4,9 @@ import {
+   CHAT_LIMITS, AuthenticatedCallerSchema, ChatScopeSchema, ProgressSnapshotSchema,
+   ChatExchangeSchema, ChatError,
+   type TrustedAccessPort, type ProgressPort, type ConversationPort, type ChatScope,
+-} from './types';
+-import { answerProgressQuestion } from './answers';
++} from './types.js';
++import { answerProgressQuestion } from './answers.js';
++import { containsSecret } from '../../agents/redact.js';
+ 
+ const Id = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]*$/);
+ const Send = z.object({ jobId: Id, messageId: Id, question: z.string().trim().min(1).max(CHAT_LIMITS.inputCharacters) }).strict();
+@@ -21,7 +22,14 @@ const parse = <T>(schema: z.ZodType<T>, value: unknown): T => {
+ /** Server-side only. Ports must be bound to the current request, never supplied by clients. */
+ export function createProgressChatService(ports: {
+   access: TrustedAccessPort; progress: ProgressPort; conversations: ConversationPort;
++  /** Current server policy, also applied to immutable stored replay/history. */
++  knownSecrets?: readonly string[] | (() => readonly string[]);
+ }) {
++  function screen(value: unknown) {
++    const secrets = typeof ports.knownSecrets === 'function' ? ports.knownSecrets() : ports.knownSecrets ?? [];
++    if (!Array.isArray(secrets) || secrets.some(s => typeof s !== 'string' || s.length < 4)
++      || containsSecret(JSON.stringify(value), secrets)) throw new ChatError('invalid_snapshot');
++  }
+   async function authorize(jobId: string): Promise<ChatScope> {
+     const identity = await ports.access.authenticate();
+     if (!identity) throw new ChatError('unauthenticated');
+@@ -51,6 +59,7 @@ export function createProgressChatService(ports: {
+   function exchange(value: unknown) {
+     const result = ChatExchangeSchema.safeParse(value);
+     if (!result.success) throw new ChatError('storage_error');
++    screen(result.data);
+     return result.data;
+   }
+   // Never surface raw port exceptions (which can contain database/provider credentials).
+@@ -72,6 +81,7 @@ export function createProgressChatService(ports: {
+           return stored;
+         }
+         const reply = answerProgressQuestion(request.question, await snapshot(scope));
++        screen(reply);
+         // Append must atomically choose the first writer. Always return its result, not our candidate.
+         const stored = exchange(await ports.conversations.append(scope, { messageId: request.messageId, inputDigest, reply }));
+         if (stored.messageId !== request.messageId || stored.inputDigest !== inputDigest) throw new ChatError('conflict');
+@@ -100,8 +110,10 @@ export function createProgressChatService(ports: {
+         const data = await snapshot(scope);
+         // Scope binding prevents a cursor from being used as a cross-tenant change oracle.
+         const cursor = digest(JSON.stringify([scope, data]));
+-        return { cursor, changed: cursor !== request.cursor, asOf: data.observedAt,
++        const result = { cursor, changed: cursor !== request.cursor, asOf: data.observedAt,
+           ...(cursor !== request.cursor ? { reply: answerProgressQuestion('overview', data) } : {}) };
++        screen(result);
++        return result;
+       });
+     },
+   };
