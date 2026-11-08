@@ -1,0 +1,17 @@
+diff --git a/apps/web/next.config.ts b/apps/web/next.config.ts
+index 79d66f4..01d9d80 100644
+--- a/apps/web/next.config.ts
++++ b/apps/web/next.config.ts
+@@ -11,6 +11,12 @@ const securityHeaders = [
+ ];
+ 
+ const nextConfig: NextConfig = {
++  experimental: { extensionAlias: { ".js": [".ts", ".tsx", ".js"] } },
++  webpack(config) {
++    // Preserve the existing CSS loader when selecting webpack for core ESM imports.
++    config.module.rules.push({ oneOf: [{ test: /\.css$/, exclude: /node_modules/, enforce: "pre", use: [{ loader: "@tailwindcss/turbopack", options: {} }] }] });
++    return config;
++  },
+   transpilePackages: ["@ae/core"],
+   serverExternalPackages: ["stripe", "agentmail"],
+   async headers() {

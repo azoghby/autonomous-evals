@@ -1,0 +1,297 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "executed": false,
+  "registryUnchanged": true,
+  "existingCurrentBaseline": "Owner existing Drizzle process including current 0015/0016: inspect ledger, never replay historical baseline SQL copies",
+  "identityAliases": {
+    "app.workflow-finding-reruns.006": "app.workflow-finding-reruns.008",
+    "app.workflow-comparison.006": "app.rich-comparison.006"
+  },
+  "migrations": [
+    {
+      "id": "app.agent",
+      "sourcePath": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.agent.sql",
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.ledger",
+      "sourcePath": "packages/core/src/simulator/ledger-migrations/001_branch_ownership.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.ledger.sql",
+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.data001",
+      "sourcePath": "packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.data001.sql",
+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.data002",
+      "sourcePath": "packages/core/src/evals/data/persistence-migrations/002-data-operations.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.data002.sql",
+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+      "transactionOwner": "runner",
+      "after": [
+        "app.data001"
+      ],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.checkpoint",
+      "sourcePath": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.checkpoint.sql",
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.chat",
+      "sourcePath": "packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.chat.sql",
+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.journal",
+      "sourcePath": "packages/core/src/simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.journal.sql",
+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.inventory",
+      "sourcePath": "docs/structured-progress-integration/backend/001-structured-progress.sql",
+      "sourceOrigin": "artifact",
+      "canonicalPath": "owner-migrations/app.inventory.sql",
+      "sha256": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+      "transactionOwner": "runner",
+      "after": [],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.workflow001",
+      "sourcePath": "apps/web/migrations/001-workflow-integration.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.workflow001.sql",
+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+      "transactionOwner": "artifact",
+      "after": [
+        "app.agent",
+        "app.ledger",
+        "app.data002",
+        "app.checkpoint",
+        "app.chat",
+        "app.journal",
+        "app.inventory"
+      ],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.workflow002",
+      "sourcePath": "docs/workflow-integration/workflow-producers/migrations/002-rich-artifacts.sql",
+      "sourceOrigin": "artifact",
+      "canonicalPath": "owner-migrations/app.workflow002.sql",
+      "sha256": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
+      "transactionOwner": "artifact",
+      "after": [
+        "app.workflow001"
+      ],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.workflow-data.003",
+      "sourcePath": "apps/web/migrations/003-workflow-data.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.workflow-data.003.sql",
+      "sha256": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+      "transactionOwner": "runner",
+      "after": [
+        "app.workflow002",
+        "app.data002"
+      ],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.remediation-accounting.001",
+      "path": "packages/core/src/evals/remediation/accounting/001-remediation-accounting.sql",
+      "after": [
+        "app.agent",
+        "app.checkpoint"
+      ],
+      "sha256": "562d5fb0ce65327ee5a8ba9fd75ce4872c3928b7006de1ac8e7999d1b113894a",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "app.workflow-remediation.004",
+      "sourcePath": "apps/web/migrations/004-workflow-remediation.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.workflow-remediation.004.sql",
+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+      "transactionOwner": "artifact",
+      "after": [
+        "app.workflow-data.003",
+        "app.journal",
+        "app.remediation-accounting.001"
+      ],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.workflow-packs.005",
+      "sourcePath": "apps/web/migrations/005-workflow-packs.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.workflow-packs.005.sql",
+      "sha256": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+      "transactionOwner": "artifact",
+      "after": [
+        "app.workflow-remediation.004"
+      ],
+      "database": "application",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.rich-comparison.006",
+      "sourcePath": "apps/web/migrations/006-rich-comparison.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.rich-comparison.006.sql",
+      "sha256": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+      "transactionOwner": "runner",
+      "after": [
+        "app.workflow-packs.005"
+      ],
+      "database": "application",
+      "historicalSourcePath": "apps/web/migrations/004-rich-comparison.sql",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.workflow-resumption.007",
+      "sourcePath": "apps/web/migrations/007-workflow-resumption.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.workflow-resumption.007.sql",
+      "sha256": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
+      "transactionOwner": "artifact",
+      "after": [
+        "app.rich-comparison.006",
+        "app.workflow-data.003"
+      ],
+      "database": "application",
+      "historicalSourcePath": "apps/web/migrations/004-workflow-resumption.sql",
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "app.workflow-finding-reruns.008",
+      "sourcePath": "apps/web/migrations/008-workflow-finding-reruns.sql",
+      "sourceOrigin": "stage",
+      "canonicalPath": "owner-migrations/app.workflow-finding-reruns.008.sql",
+      "sha256": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+      "transactionOwner": "runner",
+      "database": "application",
+      "after": [
+        "app.workflow002",
+        "app.workflow-remediation.004",
+        "app.workflow-packs.005",
+        "app.workflow-resumption.007"
+      ],
+      "historicalSourcePath": "apps/web/migrations/006-workflow-finding-reruns.sql",
+      "historicalIdentityAliases": [
+        "app.workflow-finding-reruns.006"
+      ],
+      "identityReconciliationRequiredIfAliasApplied": true,
+      "currentBytesConfirmed": true
+    },
+    {
+      "id": "autonomy-release.operations",
+      "path": "owner-migrations/autonomy-release.operations.sql",
+      "after": [
+        "app.agent",
+        "app.data002"
+      ],
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "autonomy-release.communications",
+      "path": "owner-migrations/autonomy-release.communications.sql",
+      "after": [
+        "autonomy-release.operations"
+      ],
+      "sha256": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "autonomy-release.access",
+      "path": "owner-migrations/autonomy-release.access.sql",
+      "after": [
+        "autonomy-release.communications"
+      ],
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "app.autonomy-paid-authority.001",
+      "path": "apps/web/src/server/autonomous-paid-authority.sql",
+      "after": [
+        "autonomy-release.access"
+      ],
+      "sha256": "0b508bde681c43c965f8e04dfad26c3dbeb62581c9b1f428a4603219a9c11755",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    },
+    {
+      "id": "app.autonomy-paid-target.001",
+      "path": "apps/web/src/server/autonomous-paid.sql",
+      "after": [
+        "app.autonomy-paid-authority.001",
+        "app.agent"
+      ],
+      "sha256": "4184a090bc12cad229d6b410671e1aac32e7cab21c7fd64d122c5836d2f2faa3",
+      "transactionOwner": "owner-runner",
+      "executed": false
+    }
+  ],
+  "separateSimulator": {
+    "id": "simulator.calendar-seed",
+    "database": "isolated-calendar-only",
+    "sourcePath": "packages/core/src/simulator/migrations/001_calendar.sql",
+    "sha256": "7153e1bbdec0558a46d0fc6d9cbea4366a1c56ae8e2849240a21472c9af17834",
+    "transactionOwner": "runner"
+  },
+  "warning": "No auto discovery. Reconcile full IDs and hashes against owner registry under exclusive lock before any execution. Grants, backfills, conflicting aliases and baseline rows require owner decision."
+}

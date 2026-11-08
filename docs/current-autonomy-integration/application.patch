@@ -1,0 +1,1213 @@
+diff --git a/apps/web/src/app/api/cron/autonomy/route.ts b/apps/web/src/app/api/cron/autonomy/route.ts
+new file mode 100644
+index 0000000..07f7e68
+--- /dev/null
++++ b/apps/web/src/app/api/cron/autonomy/route.ts
+@@ -0,0 +1,11 @@
++import { start } from 'workflow/api';
++import { currentAutonomy, autonomyUnavailable } from '@/server/current-autonomy-runtime';
++import { currentAutonomyWorkflow } from '@/workflows/current-autonomy';
++import { requireCronAuth } from '../_auth';
++export const dynamic = 'force-dynamic';
++export async function GET(request: Request) {
++  const denied = requireCronAuth(request); if (denied) return denied;
++  if (!currentAutonomy()) return autonomyUnavailable();
++  const run = await start(currentAutonomyWorkflow, []);
++  return Response.json({runId:run.runId}, {status:202});
++}
+diff --git a/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts b/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts
+new file mode 100644
+index 0000000..7f5e1c1
+--- /dev/null
++++ b/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts
+@@ -0,0 +1,7 @@
++import { currentAutonomy, autonomyUnavailable } from '@/server/current-autonomy-runtime';
++export const dynamic = 'force-dynamic';
++export async function GET(request: Request, context: { params: Promise<{ jobId: string }> }) {
++  const app = currentAutonomy();
++  if (!app) return autonomyUnavailable();
++  return app.publication(request, (await context.params).jobId);
++}
+diff --git a/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts b/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts
+new file mode 100644
+index 0000000..31191ed
+--- /dev/null
++++ b/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts
+@@ -0,0 +1,7 @@
++import { currentAutonomy, autonomyUnavailable } from '@/server/current-autonomy-runtime';
++export const dynamic = 'force-dynamic';
++export async function POST(request: Request, context: { params: Promise<{ jobId: string }> }) {
++  const app = currentAutonomy();
++  if (!app) return autonomyUnavailable();
++  return app.bootstrap(request, (await context.params).jobId);
++}
+diff --git a/apps/web/src/server/autonomy-release.ts b/apps/web/src/server/autonomy-release.ts
+new file mode 100644
+index 0000000..fdb5d3e
+--- /dev/null
++++ b/apps/web/src/server/autonomy-release.ts
+@@ -0,0 +1,193 @@
++import { createAutonomousPaidContext, type AutonomousPaidContext, type PaidMonitor, type PaidReceipt } from './autonomous-paid';
++import { deliverRemediationCost } from './rich-remediation';
++import 'server-only';
++import { AgentSessionService } from '@ae/core/agents/session-service';
++import { PostgresAgentTaskStore, PostgresBudgetLedger, type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { createAutonomousBudgetLedger, createAutonomousPaidReservationPolicy } from '@ae/core/agents/autonomy/budget';
++import { PostgresAutonomySupervisor } from '@ae/core/agents/autonomy/supervisor';
++import { createAutonomousRunner } from '@ae/core/agents/autonomy/runner';
++import { AUTONOMY_ROLES, createAutonomousPolicy, autonomyDigest, type AutonomousPolicy } from '@ae/core/agents/autonomy/policy';
++import { advanceAutonomousCompany, type CompanyRequest, type CompanyPorts } from '@ae/core/agents/autonomy/company';
++import type { NaiveSessionsPort } from '@ae/core/evals/types';
++import type { DataOperationLedger } from '@ae/core/evals/data/operation-ledger';
++import type { FixedQuote } from '@ae/core/agents/commercial';
++
++export interface ReleasePrincipal { tenantId: string; subject: string }
++type Binding = { tenant_id: string; job_id: string; owner_id: string; policy_version: string; authority_digest: string | null; request: CompanyRequest; enabled: boolean };
++export interface ReleasePaymentReceipt { receipt_id: string; settled: boolean; amount_micro_usd: string | number | null; currency: string; record: { quoteDigest: string; [key: string]: unknown } }
++export interface ReleaseConfig {
++  db: AgentTransactionalSql;
++  /** Authentication is owner supplied; never compare an optional environment token with undefined. */
++  authenticateScheduler(credential: unknown): Promise<boolean>;
++  authenticateCustomer(credential: unknown): Promise<ReleasePrincipal | null>;
++  /** Canonical owner job/intake read. Never accept a caller-supplied CompanyRequest. */
++  loadRequest(principal: ReleasePrincipal, jobId: string): Promise<CompanyRequest | null>;
++  authorizeJob(principal: ReleasePrincipal, request: CompanyRequest): Promise<boolean>;
++  policyFor(tenantId: string): Promise<AutonomousPolicy | null>;
++  currentSecrets(request: CompanyRequest): Promise<readonly string[]>;
++  /** Genuine durable, idempotent provider transport. No production defaults or fabricated agents. */
++  naive: NaiveSessionsPort;
++  workerId: string;
++  idempotencyNamespace: string;
++  operationsFor(request: CompanyRequest): Promise<DataOperationLedger>;
++  /** Exact independently reviewed source IDs/digests are resolved by this server adapter. */
++  sourcePermissions(request: CompanyRequest): Promise<readonly { sourceId: string; permissionDigest: string }[]>;
++  /** Verify the retained webhook/processor receipt with the configured authoritative payment adapter. */
++  verifyPayment(request: CompanyRequest, quote: FixedQuote, receipt: ReleasePaymentReceipt): Promise<boolean>;
++  /** Read/reconcile a genuine provider receipt, not an agent assertion. No redispatch here. */
++  verifyProviderReceipt(request: CompanyRequest, receipt: { provider_id: string; receipt: unknown }): Promise<boolean>;
++  data(request: CompanyRequest, key: string, paid: AutonomousPaidContext): ReturnType<CompanyPorts['data']>;
++  /** Frozen server configuration, reloaded with current company authority; never an HTTP/body value. */
++  paidPolicy(request: CompanyRequest): Promise<{jobCapMicroUsd:number;targetReservationMicroUsd:number;judgeReservationMicroUsd:number}>;
++  verifyPaidReceipt?(request: CompanyRequest, receipt: Readonly<PaidReceipt>): Promise<boolean>;
++  evaluate(request: CompanyRequest, key: string, digest: string, runner: CompanyPorts['runner'], paid: AutonomousPaidContext): ReturnType<CompanyPorts['evaluate']>;
++  recoverEvaluation(request: CompanyRequest, key: string): ReturnType<CompanyPorts['recoverEvaluation']>;
++  enqueue(request: CompanyRequest, key: string, message: Parameters<CompanyPorts['enqueue']>[1], paid: AutonomousPaidContext): Promise<void>;
++  now(): number;
++}
++const refuse = (): never => { throw new Error('autonomy_release_authority_refused'); };
++const validId = (id: string) => typeof id === 'string' && /^[A-Za-z0-9_.:@/-]{1,200}$/.test(id);
++
++/** Additive owner root. Authentication precedes all reads; every adapter rechecks the persisted
++ * tenant/job/owner/policy binding. Scheduler ticks reuse durable identities, never Workflow starts.
++ * Human review rows are neither read as automated authority nor overwritten by this path. */
++export function createAutonomyReleaseServer(config: ReleaseConfig) {
++  async function principal(credential: unknown) {
++    const p = await config.authenticateCustomer(credential);
++    if (!p || !validId(p.tenantId) || !validId(p.subject)) return refuse();
++    return p;
++  }
++  async function binding(tenantId: string, jobId: string) {
++    return (await config.db.query<Binding>('SELECT tenant_id,job_id,owner_id,policy_version,authority_digest,request,enabled FROM company_autonomy_release.job_bindings WHERE tenant_id=$1 AND job_id=$2',[tenantId,jobId])).rows[0];
++  }
++  async function current(row: Binding, expected?: AutonomousPolicy) {
++    if (!row || !row.enabled || row.tenant_id !== row.request.tenantId || row.job_id !== row.request.job.jobId || row.tenant_id !== row.request.job.customerId) return refuse();
++    const fresh = await binding(row.tenant_id,row.job_id);
++    if (!fresh?.enabled || autonomyDigest(fresh.request) !== autonomyDigest(row.request) || fresh.owner_id !== row.owner_id || fresh.policy_version !== row.policy_version || !row.authority_digest || fresh.authority_digest!==row.authority_digest) return refuse();
++    const policyInput = await config.policyFor(row.tenant_id);
++    if (!policyInput) return refuse();
++    const policy = createAutonomousPolicy(policyInput);
++    if (policy.tenantId !== row.tenant_id || policy.version !== row.policy_version || expected && autonomyDigest(expected) !== autonomyDigest(policy)) return refuse();
++    const paidPolicy=await config.paidPolicy(structuredClone(row.request));
++    if(row.authority_digest!==autonomyDigest({policy,paidPolicy})) return refuse();
++    const p = {tenantId:row.tenant_id,subject:row.owner_id};
++    const canonical = await config.loadRequest(p,row.job_id);
++    if (!canonical || autonomyDigest(canonical) !== autonomyDigest(row.request) || !await config.authorizeJob(p,structuredClone(row.request))) return refuse();
++    return policy;
++  }
++  async function ports(row: Binding): Promise<CompanyPorts> {
++    const request = structuredClone(row.request), policy = await current(row);
++    const paidPolicy=Object.freeze({...await config.paidPolicy(request)});
++    const guard = async () => {
++      await current(row,policy);
++      if(autonomyDigest(await config.paidPolicy(request))!==autonomyDigest(paidPolicy)) return refuse();
++    };
++    const supervisor = new PostgresAutonomySupervisor(config.db,policy,async (tenantId,jobId) => {
++      if (tenantId !== request.tenantId || jobId !== request.job.jobId) return false;
++      await guard(); return true;
++    });
++    const naive: NaiveSessionsPort = {
++      async createSession(body,key){await guard();return config.naive.createSession(body,key);},
++      async getSession(id){await guard();return config.naive.getSession(id);},
++      async listAgentSessions(id,page){await guard();return config.naive.listAgentSessions(id,page);},
++    };
++    const makeService = (monitor?:PaidMonitor) => new AgentSessionService({naive,store:new PostgresAgentTaskStore(config.db),
++      ledger:createAutonomousBudgetLedger(monitor ? {
++        reserve:request=>new PostgresBudgetLedger(config.db).reserve({...request,scopes:[...request.scopes,{key:monitor.key,capMicroUsd:monitor.capMicroUsd}]}),
++        settle:(id,cost)=>new PostgresBudgetLedger(config.db).settle(id,cost),
++      } : new PostgresBudgetLedger(config.db),policy),
++      directory:Object.fromEntries(AUTONOMY_ROLES.map(role=>[role,{agentId:policy.agents[role].id,agentVersion:policy.agents[role].version}])) as ConstructorParameters<typeof AgentSessionService>[0]['directory'],
++      budgetPeriodId:policy.periodId,idempotencyNamespace:config.idempotencyNamespace,workerId:config.workerId,maxWaitMs:0,clock:{now:()=>new Date(config.now())}});
++    const autonomous = createAutonomousRunner({supervisor,runner:makeService(),now:config.now,
++      currentPolicyVersion:async()=>{await guard();return policy.version;},currentSecrets:()=>config.currentSecrets(request)});
++    const runner: CompanyPorts['runner'] = {async run(spec){await guard(); if(autonomyDigest(spec.job)!==autonomyDigest(request.job))return refuse(); return autonomous.run(spec);}};
++    const paid=createAutonomousPaidContext({sql:config.db,policy,job:request.job,runner,guard,...paidPolicy,
++      runnerForMonitor:monitor=>createAutonomousRunner({supervisor,runner:makeService(monitor),now:config.now,
++        currentPolicyVersion:async()=>{await guard();return policy.version;},currentSecrets:()=>config.currentSecrets(request)}),
++      deliverCost:deliverRemediationCost,verifyReceipt:receipt=>config.verifyPaidReceipt?.(request,receipt) ?? Promise.resolve(false)});
++    const ledger = await config.operationsFor(request);
++    const operations: DataOperationLedger = {
++      async claim(key,digest){await guard();return ledger.claim(key,digest);},
++      async get(key){await guard();return ledger.get(key);},
++      async complete(key,digest,result,receipt){await guard();return ledger.complete(key,digest,result,receipt);},
++    };
++    const authorizeSources = async () => {
++      await guard(); const required=await config.sourcePermissions(request);
++      if(!required.length)return false;
++      for(const source of required){
++        if(!/^[a-f0-9]{64}$/.test(source.permissionDigest))return refuse();
++        const rows=await config.db.query<{allowed:boolean;expires_at:string|number;permission_digest:string}>('SELECT allowed,expires_at,permission_digest FROM company_autonomy_release.source_permissions WHERE tenant_id=$1 AND job_id=$2 AND source_id=$3',[row.tenant_id,row.job_id,source.sourceId]);
++        const saved=rows.rows[0];
++        if(!saved?.allowed || Number(saved.expires_at)<=config.now() || saved.permission_digest!==source.permissionDigest)return false;
++      }
++      await guard();return true;
++    };
++    return {now:()=>new Date(config.now()),policy:{schema:'autonomous-company-v1',version:policy.version,enabled:true,maxClarificationRounds:2},operations,runner:paid.runner,
++      authorize:async input=>{if(autonomyDigest(input)!==autonomyDigest(request))return false;await guard();return true;},
++      async payment(quote){
++        await guard();
++        const receipts = await config.db.query<ReleasePaymentReceipt>('SELECT receipt_id,settled,amount_micro_usd,currency,record FROM company_autonomy_release.payment_receipts WHERE tenant_id=$1 AND job_id=$2',[row.tenant_id,row.job_id]);
++        let invalid=false;
++        for(const receipt of receipts.rows) {
++          if(receipt.record.quoteDigest!==autonomyDigest(quote))continue;
++          if(!receipt.settled)continue;
++          if(receipt.settled && receipt.currency==='USD' && Number.isSafeInteger(Number(receipt.amount_micro_usd)) && Number(receipt.amount_micro_usd)>=quote.priceMicroUsd && await config.verifyPayment(request,quote,receipt)){await guard();return 'paid';}
++          invalid=true;
++        }
++        await guard();return invalid?'invalid':'waiting';
++      },
++      async data(key){
++        if(!await authorizeSources())return {status:'not_assessed',digest:'',reasons:['source_permission_missing_expired_or_changed']};
++        await guard();const result=await config.data(request,key,paid);if(!await authorizeSources())return refuse();return result;
++      },
++      async evaluate(key,digest){if(!await authorizeSources())return refuse();const result=await config.evaluate(request,key,digest,paid.runner,paid);if(!await authorizeSources())return refuse();return result;},
++      async recoverEvaluation(key){
++        if(!await authorizeSources())return refuse();
++        const rows=await config.db.query<{provider_id:string;receipt:unknown}>('SELECT provider_id,receipt FROM company_autonomy_release.provider_receipts WHERE tenant_id=$1 AND job_id=$2 AND action_key=$3',[row.tenant_id,row.job_id,key]);
++        if(!rows.rows.length || !await config.verifyProviderReceipt(request,rows.rows[0]))return null;
++        await guard();const result=await config.recoverEvaluation(request,key);if(!await authorizeSources())return refuse();return result;
++      },
++      async enqueue(key,message){await guard();return config.enqueue(request,key,message,paid);},
++    };
++  }
++  return {
++    async bootstrap(credential: unknown, jobId: string) {
++      const p=await principal(credential);if(!validId(jobId))return refuse();
++      const request=await config.loadRequest(p,jobId), input=await config.policyFor(p.tenantId);
++      if(!request || !input || request.tenantId!==p.tenantId || request.job.customerId!==p.tenantId || request.job.jobId!==jobId || !await config.authorizeJob(p,request))return refuse();
++      const policy=createAutonomousPolicy(input);if(policy.tenantId!==p.tenantId)return refuse();
++      const paidPolicy=await config.paidPolicy(request);
++      for(const reservationMicroUsd of [paidPolicy.targetReservationMicroUsd,paidPolicy.judgeReservationMicroUsd]) {
++        createAutonomousPaidReservationPolicy({policy,job:request.job,role:'evaluation_engineer',jobCapMicroUsd:paidPolicy.jobCapMicroUsd,reservationMicroUsd});
++      }
++      const authorityDigest=autonomyDigest({policy,paidPolicy});
++      await config.db.query('INSERT INTO company_autonomy_release.job_bindings(tenant_id,job_id,owner_id,policy_version,request,enabled,next_tick_at,authority_digest) VALUES($1,$2,$3,$4,$5::jsonb,true,$6,$7) ON CONFLICT DO NOTHING',[p.tenantId,jobId,p.subject,policy.version,JSON.stringify(request),config.now(),authorityDigest]);
++      const row=await binding(p.tenantId,jobId);if(!row || row.owner_id!==p.subject || autonomyDigest(row.request)!==autonomyDigest(request))return refuse();
++      await current(row,policy);return {tenantId:p.tenantId,jobId,policyVersion:policy.version,authority:'automated_review' as const};
++    },
++    async scheduledTick(credential: unknown) {
++      if(!await config.authenticateScheduler(credential))return refuse();
++      const rows=await config.db.query<Binding>('SELECT tenant_id,job_id,owner_id,policy_version,authority_digest,request,enabled FROM company_autonomy_release.job_bindings WHERE enabled=true AND next_tick_at<=$1 ORDER BY next_tick_at,tenant_id,job_id LIMIT 25',[config.now()]);
++      if(rows.rows.length>25)return refuse();
++      const outcomes=[];
++      for(const row of rows.rows) {
++        try {const result=await advanceAutonomousCompany(row.request,await ports(row));outcomes.push({jobId:row.job_id,...result});}
++        catch {outcomes.push({jobId:row.job_id,state:'exception',reason:'current_authority_or_adapter_refused'});}
++        // Persist fair bounded rescheduling; concurrent ticks still share all durable operation keys.
++        await config.db.query('UPDATE company_autonomy_release.job_bindings SET next_tick_at=$3 WHERE tenant_id=$1 AND job_id=$2 AND policy_version=$4',[row.tenant_id,row.job_id,config.now()+60_000,row.policy_version]);
++      }
++      return {outcomes};
++    },
++    async publication(credential: unknown, jobId: string) {
++      const p=await principal(credential);if(!validId(jobId))return refuse();
++      const row=await binding(p.tenantId,jobId);if(!row || row.owner_id!==p.subject)return refuse();
++      const port=await ports(row);
++      const key=`autonomous-company:${p.tenantId}:${jobId}:${row.request.round}:published-report`;
++      const publication=await port.operations.get(key);
++      if(!publication || publication.state!=='complete')return null;
++      const result=publication.result as {tenantId?:string;jobId?:string;artifactId?:string;rendered?:unknown};
++      if(result.tenantId!==p.tenantId || result.jobId!==jobId || !result.artifactId || !result.rendered)return refuse();
++      await current(row);return {authority:'automated_review' as const,publication:result};
++    },
++  };
++}
+diff --git a/apps/web/src/server/comparison-production.ts b/apps/web/src/server/comparison-production.ts
+new file mode 100644
+index 0000000..22f6fa4
+--- /dev/null
++++ b/apps/web/src/server/comparison-production.ts
+@@ -0,0 +1,105 @@
++import { assertAutonomousPaidContext, type AutonomousPaidContext } from './autonomous-paid';
++import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { deliverRemediationCost } from './rich-remediation';
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import { containsSecret } from '@ae/core/agents/redact';
++import { Suite, IntakeInput } from '@ae/core/contracts/index';
++import { evalServices } from '@ae/core/integration/eval-services';
++import { buildAgentDeps } from './current-agent-deps';
++import { readJobArtifactText } from '@ae/core/storage/blob';
++import { createTextTarget } from '@ae/core/targets/text';
++import { platformTarget } from '@ae/core/targets/adapters';
++import { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
++import { PostgresBranchLedger } from '@ae/core/simulator/branch-ledger';
++import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
++import { CalendarSimulator } from '@ae/core/simulator/calendar';
++import { PostgresCalendarStore } from '@ae/core/simulator/postgres';
++import { getJobWithDecryptedCredentials } from './job-store';
++import { workflowSql } from './rich-services';
++import { createRichComparisonApp, comparisonDigest, type ComparisonBinding, type ComparisonRuntime } from './rich-comparison';
++const deny=():never=>{throw new Error('rich_comparison_configuration_refused');};
++/** No network performed by construction. Credentials remain in this internal closure. */
++export async function comparisonProduction(jobId:string, judgeRuntime?:TrustedJudgeRuntime, autonomous?:AutonomousPaidContext) {
++ if(autonomous) assertAutonomousPaidContext(autonomous);
++ const sql=autonomous?.sql ?? workflowSql(); const initial=await getJobWithDecryptedCredentials(jobId); if(!initial) return deny();
++ const runner=autonomous ? autonomous.runner : (await buildAgentDeps()).runner; const pools:Pool[]=[];
++ const endpoint=async(v:ComparisonBinding['current'])=>{
++  const latest=await getJobWithDecryptedCredentials(jobId); if(!latest || latest.job.customerId!==initial.job.customerId || latest.job.environment!==initial.job.environment) return deny();
++  const canonicalEndpoint=(IntakeInput.parse(latest.intake) as unknown as Record<string,unknown>)[v.endpointSlot] as {url:string;model:string;apiKey?:string;systemPrompt:string}|undefined;
++  const ep=canonicalEndpoint?{...canonicalEndpoint,...v.endpointOverride}:undefined;
++  const cred=await sql.query<{ciphertext:string}>('SELECT ciphertext FROM job_credentials WHERE job_id=$1',[jobId]);
++  if(!ep || comparisonDigest({endpoint:{...ep,apiKey:undefined},credentialCiphertext:cred.rows[0]?.ciphertext??null})!==v.configurationDigest) return deny();
++  return {latest,ep};
++ };
++ const sharedJudgeRuntime=judgeRuntime ?? workflowJudgeRuntime('comparison');
++ const sharedMonitoringJudgeRuntime=judgeRuntime ?? workflowJudgeRuntime('monitoring');
++ const config:ComparisonRuntime={autonomous,
++  judge: (v,monitor) => createTrustedJudgeResolver({autonomous,monitor,sql,checkpoints:new PostgresTextCheckpointStore(sql),policy:workflowJudgePolicy(),runtime:judgeRuntime ?? (monitor ? sharedMonitoringJudgeRuntime : sharedJudgeRuntime),deliverCost:deliverRemediationCost,canonical:async()=>{
++   const {latest}=await endpoint(v);
++   if(latest.job.state!=='delivered' || latest.job.isMock) return deny();
++   const fixture=await sql.query<{fixture:boolean}>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1',[latest.job.customerId]);
++   return {job:autonomous?.job ?? {jobId,customerId:latest.job.customerId,environment:latest.job.environment,package:'text_eval' as const,isFixture:fixture.rows[0]?.fixture===true,linkedRetestOf:latest.job.retestOfJobId,quoteVersion:null},targetVersion:v.version,knownSecrets:Object.values(latest.credentials).filter((s):s is string=>typeof s==='string')};
++  }}),
++  runner,knownSecrets:Object.values(initial.credentials).filter((s):s is string=>typeof s==='string'),
++  verify:async(id,b,retained)=>{
++   if(id!==jobId || Object.values(initial.credentials).some(s=>typeof s==='string'&&s.length<4) || containsSecret(JSON.stringify({binding:b,retained}),Object.values(initial.credentials))) return deny();
++   const {latest}=await endpoint(b.current); const base=await endpoint(b.baseline);
++   if(b.current.version!==b.current.configurationDigest)return deny();
++   const revision=await sql.query<{target_revision:string}>('SELECT target_revision FROM workflow_integration.bindings WHERE job_id=$1',[jobId]);
++   const ciphertext=await sql.query<{ciphertext:string}>('SELECT ciphertext FROM job_credentials WHERE job_id=$1',[jobId]);
++   const baselineVersion=createHash('sha256').update(JSON.stringify({endpoint:{...base.ep,apiKey:undefined},revision:revision.rows[0]?.target_revision,credentialCiphertext:ciphertext.rows[0]?.ciphertext??null})).digest('hex');
++   if(retained.kind==='text' ? b.baseline.version!==baselineVersion : b.baseline.targetId!==`target:${baselineVersion}`)return deny();
++   const applicationIds=new Set<string>();
++   if(latest.job.suiteBlobPath){
++    const text=await readJobArtifactText(latest.job.suiteBlobPath);if(text===null)return deny();
++    for(const s of Suite.parse(JSON.parse(text)).scenarios)applicationIds.add(s.id);
++   }else{
++    // Original rich producer publishes this complete expected inventory before dispatch; it does not write a legacy Suite blob.
++    const inventory=await sql.query<{plan:{checkpoints:{scenarioIds?:string[]}[]}}>('SELECT plan FROM structured_progress.inventory WHERE job_id=$1 AND tenant_id=$2 AND environment=$3',[jobId,latest.job.customerId,latest.job.environment]);
++    if(!inventory.rows[0])return deny();
++    for(const cp of inventory.rows[0].plan.checkpoints)for(const id of cp.scenarioIds??[])applicationIds.add(id);
++   }
++   const packTable=await sql.query<{present:string|null}>("SELECT to_regclass('workflow_integration.pack_approvals')::text AS present");
++   if(packTable.rows[0]?.present){
++    const packs=await sql.query<{manifest:{inventory:{id:string}[]}}>('SELECT manifest FROM workflow_integration.pack_approvals WHERE job_id=$1',[jobId]);
++    for(const pack of packs.rows)for(const entry of pack.manifest.inventory)applicationIds.add(entry.id);
++   }
++   const original=await sql.query<{body:Record<string,unknown>}>(`SELECT a.body FROM workflow_integration.rich_artifacts a JOIN jobs j ON j.id=a.job_id AND j.customer_id=a.tenant_id AND j.environment=a.environment WHERE j.id=$1`,[jobId]);
++   const body=original.rows[0]?.body;
++   const appended=body?.appendedPack as {manifest?:{inventory?:{id:string}[]}}|undefined;
++   for(const entry of appended?.manifest?.inventory??[])applicationIds.add(entry.id); if(!body || comparisonDigest(body.suite)!==comparisonDigest(retained.suite) || comparisonDigest(body.run)!==comparisonDigest(retained.run) || comparisonDigest(body.investigation)!==comparisonDigest(retained.investigation)) return deny();
++   if(retained.kind==='text') {
++    const identity=await sql.query<{value:{targetVersion?:string}}>("SELECT value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='run_identity' AND id=$2 AND state='completed'",[jobId,retained.run.runId]);
++    if(identity.rows[0]?.value.targetVersion!==b.baseline.version || b.baseline.branchId!==null || b.current.branchId!==null) return deny();
++   } else if(retained.run.branchId!==b.baseline.branchId || retained.run.versionLabel!==b.baseline.version) return deny();
++   return {scenarioIds:[...applicationIds]};
++  },
++  target:async v=>createTextTarget((await endpoint(v)).ep),
++  calendar:async(v,guard,checkpoints)=>{
++   if(autonomous) return deny(); // missing stable target lifecycle identity
++   if(!v.branchId) return deny();
++   const journalPool=new Pool({connectionString:process.env.DATABASE_URL,max:2}); pools.push(journalPool);
++   let sequence=0;
++   return createCalendarEvaluationServices({checkpoints,journalPool,resolve:async()=>{
++    const {latest,ep}=await endpoint(v);
++    const branch=await new PostgresBranchLedger(journalPool).findOwnedBranch(v.branchId!);
++    if(!branch || branch.jobId!==jobId || branch.state!=='ready') return deny();
++    const conn=await evalServices.getJobBranchConnection!(v.branchId!);
++    const pool=new Pool({connectionString:conn,max:2}); pools.push(pool); const db=pooledCalendarDatabase(pool);
++    const saved=await sql.query<{suite:Record<string,unknown>;retained:{run:{systemPrompt?:string}}}>('SELECT suite,retained FROM workflow_comparison.bindings WHERE job_id=$1',[jobId]);
++    const {hash:_,...reviewed}=saved.rows[0]!.suite;
++    return {job:{jobId,customerId:latest.job.customerId,environment:latest.job.environment,package:'workflow_eval' as const,isFixture:false,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,branch:{jobId,branchId:v.branchId!,targetVersion:v.version},systemPrompt:saved.rows[0]!.retained.run.systemPrompt,reviewedSuite:reviewed as unknown as Parameters<typeof import('@ae/core/simulator/workflow/index').freezeCalendarSuite>[0],knownSecrets:Object.values(latest.credentials),
++      dependencies:{db,simulator:new CalendarSimulator(new PostgresCalendarStore(db)),targetForScenario:scope=>({complete:async(messages,tools)=>{
++       await guard(`${scope.id}:${sequence++}`); await endpoint(v);
++       const again=await new PostgresBranchLedger(journalPool).findOwnedBranch(v.branchId!); if(!again || again.jobId!==jobId || again.state!=='ready') return deny();
++       return platformTarget(ep).complete(messages,tools);
++      }})}};
++   }});
++  },
++ };
++ const app=createRichComparisonApp(sql,config);
++ return {app,verify:config.verify,dispose:async()=>{await Promise.all(pools.map(p=>p.end()));}};
++}
+diff --git a/apps/web/src/server/current-agent-deps.ts b/apps/web/src/server/current-agent-deps.ts
+new file mode 100644
+index 0000000..00d07d5
+--- /dev/null
++++ b/apps/web/src/server/current-agent-deps.ts
+@@ -0,0 +1,84 @@
++import "server-only";
++/** Hardened historical agent composition via current public core ports.
++ * Explicit legacy rich use only; autonomous paths use the minted release runner. */
++import { randomUUID } from "node:crypto";
++import { Pool } from "@neondatabase/serverless";
++import { eq } from "drizzle-orm";
++import type { ServiceContext } from "@ae/core/contracts/services";
++import { db, schema } from "@ae/core/db/client";
++import { createNaiveClient, createNaiveSessionsPort } from "@ae/core/agents/naive-adapter";
++import { PostgresAgentTaskStore, PostgresBudgetLedger } from "@ae/core/agents/postgres-ports";
++import { ensureAgents } from "@ae/core/agents/provision";
++import { AgentSessionService } from "@ae/core/agents/session-service";
++import { pooledCalendarDatabase } from "@ae/core/simulator/pool";
++import type { TrackBServiceDeps } from "@ae/core/evals/service-adapter";
++import { AgentRoleSchema, type AgentDirectory } from "@ae/core/evals/types";
++
++
++import { EvalServiceConfigError, NAIVE_AGENT_ENV } from "@ae/core/integration/eval-services";
++
++const AGENT_ENV = ["NAIVE_API_KEY", "DATABASE_URL", "NAIVE_BUDGET_PERIOD_ID", "NAIVE_IDEMPOTENCY_NAMESPACE", ...Object.values(NAIVE_AGENT_ENV)];
++
++const missingFrom = (names: readonly string[], env: NodeJS.ProcessEnv): string[] => names.filter((n) => !env[n]?.trim());
++
++function requireEnv(capability: string, names: readonly string[]): Record<string, string> {
++  const missing = missingFrom(names, process.env);
++  if (missing.length) throw new EvalServiceConfigError(capability, missing);
++  return Object.fromEntries(names.map((n) => [n, process.env[n]!.trim()]));
++}
++
++function agentDirectory(): AgentDirectory {
++  const entries = AgentRoleSchema.options.map((role) => {
++    const raw = process.env[NAIVE_AGENT_ENV[role]]!.trim();
++    const [agentId, version] = raw.split("@");
++    const agentVersion = version ? Number(version) : undefined;
++    if (!agentId || version === undefined || !(Number.isSafeInteger(agentVersion) && agentVersion! > 0)) {
++      throw new EvalServiceConfigError("agents", [`${NAIVE_AGENT_ENV[role]} (expected <agentId>@<version>)`]);
++    }
++    return [role, { agentId, agentVersion }] as const;
++  });
++  return Object.fromEntries(entries) as AgentDirectory;
++}
++
++let pool: Pool | undefined;
++/** One WebSocket pool per process: Track B ports need pinned-connection transactions (not Neon HTTP). */
++function sqlPool(connectionString: string): Pool {
++  pool ??= new Pool({ connectionString, max: 5 });
++  return pool;
++}
++
++async function resolveJob(ctx: ServiceContext) {
++  const [job] = await db().select({
++    customerId: schema.jobs.customerId,
++    package: schema.jobs.package,
++    environment: schema.jobs.environment,
++    retestOfJobId: schema.jobs.retestOfJobId,
++  }).from(schema.jobs).where(eq(schema.jobs.id, ctx.jobId)).limit(1);
++  if (!job) throw new Error("eval_job_not_found");
++  if (job.environment !== ctx.environment) throw new Error("eval_job_environment_mismatch");
++  return { customerId: job.customerId, package: job.package, isFixture: false, linkedRetestOf: job.retestOfJobId ?? null, quoteVersion: null };
++}
++
++export async function buildAgentDeps(): Promise<TrackBServiceDeps> {
++  const env = requireEnv("agents", AGENT_ENV);
++  const sql = pooledCalendarDatabase(sqlPool(env.DATABASE_URL));
++  const client = createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined });
++  const configuredDirectory = agentDirectory();
++  // Read-only attestation of exact configured versions. Never create/update agents from a request.
++  const verified = await ensureAgents(client, { directory: configuredDirectory, dryRun: true });
++  if (verified.missing.length || AgentRoleSchema.options.some(role => !verified.directory[role])) {
++    throw new EvalServiceConfigError("agents", ["verified pinned Naive role versions"]);
++  }
++  const naive = createNaiveSessionsPort(client);
++  const runner = new AgentSessionService({
++    naive,
++    store: new PostgresAgentTaskStore(sql),
++    ledger: new PostgresBudgetLedger(sql),
++    directory: verified.directory as AgentDirectory,
++    budgetPeriodId: env.NAIVE_BUDGET_PERIOD_ID,
++    idempotencyNamespace: env.NAIVE_IDEMPOTENCY_NAMESPACE,
++    workerId: randomUUID(),
++  });
++  return { runner, resolveJob };
++}
++
+diff --git a/apps/web/src/server/current-autonomy-runtime.ts b/apps/web/src/server/current-autonomy-runtime.ts
+new file mode 100644
+index 0000000..40d5c24
+--- /dev/null
++++ b/apps/web/src/server/current-autonomy-runtime.ts
+@@ -0,0 +1,17 @@
++import 'server-only';
++import { getCurrentCustomer } from './session';
++import { getJob } from './job-store';
++import { requireCronAuth } from '../app/api/cron/_auth';
++import { createCurrentAutonomyApplication, type CurrentAutonomyConfig } from './current-autonomy';
++
++let application: ReturnType<typeof createCurrentAutonomyApplication> | undefined;
++/** Owner's server startup imports this once with reviewed production adapters. No env JSON,
++ * request payload, mock service, or legacy runner can fill missing authority/transport seams. */
++export function installCurrentAutonomy(config: CurrentAutonomyConfig) {
++  if (application) throw new Error('current_autonomy_already_installed');
++  application = createCurrentAutonomyApplication(config, { viewer: getCurrentCustomer, job: getJob, cron: requireCronAuth });
++}
++export function currentAutonomy() { return application; }
++export function autonomyUnavailable() {
++  return Response.json({ error: 'Autonomous owner composition is not configured' }, { status:503, headers:{'Cache-Control':'private, no-store'} });
++}
+diff --git a/apps/web/src/server/current-autonomy.ts b/apps/web/src/server/current-autonomy.ts
+new file mode 100644
+index 0000000..6fcfa0a
+--- /dev/null
++++ b/apps/web/src/server/current-autonomy.ts
+@@ -0,0 +1,84 @@
++import 'server-only';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import type { CompanyRequest } from '@ae/core/agents/autonomy/company';
++import { createAutonomyReleaseServer, type ReleaseConfig } from './autonomy-release';
++import { createRichWorkflowServices } from './rich-services';
++import type { Viewer } from './access';
++
++type CurrentJob = { id: string; customerId: string; workflowRunId: string | null; environment: string; isMock: boolean };
++type RichServices = Awaited<ReturnType<typeof createRichWorkflowServices>>;
++export type CurrentAutonomyConfig = Omit<ReleaseConfig, 'authenticateCustomer' | 'authenticateScheduler' | 'authorizeJob' | 'evaluate'> & {
++  /** Existing Workflow's context, with its durable budget/progress adapters. Never parsed from HTTP. */
++  contextFor(request: CompanyRequest): Promise<ServiceContext>;
++  /** Retained evaluation driver; must persist genuine result/receipt before acknowledgement. */
++  evaluateWithServices(request: CompanyRequest, key: string, digest: string, services: RichServices): ReturnType<ReleaseConfig['evaluate']>;
++};
++export interface CurrentAutonomyDependencies {
++  viewer(): Promise<Viewer | null>;
++  cron(request: Request): Response | null;
++  job(id: string): Promise<CurrentJob | null>;
++  rich?: typeof createRichWorkflowServices;
++}
++
++/** Current-app boundary. Cookie viewer and canonical job ownership are resolved afresh on every
++ * request; request bodies, operator privilege, payment assertions and legacy fallback grant nothing. */
++export function createCurrentAutonomyApplication(config: CurrentAutonomyConfig, deps: CurrentAutonomyDependencies) {
++  const scheduler = Symbol('authenticated-current-cron');
++  const customer = Symbol('authenticated-current-customer');
++  async function authorize(principal: { tenantId: string; subject: string }, request: CompanyRequest) {
++    const job = await deps.job(request.job.jobId);
++    return !!job && !job.isMock && !!job.workflowRunId && job.id === request.job.jobId
++      && job.customerId === principal.subject && principal.tenantId === job.customerId
++      && request.tenantId === job.customerId && request.job.customerId === job.customerId
++      && request.job.environment === job.environment;
++  }
++  const release = createAutonomyReleaseServer({ ...config,
++    async authenticateCustomer(credential) {
++      if (credential !== customer) return null;
++      const viewer = await deps.viewer();
++      return viewer ? { tenantId: viewer.id, subject: viewer.id } : null;
++    },
++    async authenticateScheduler(credential) { return credential === scheduler; },
++    authorizeJob: authorize,
++    async evaluate(request, key, digest, _runner, paid) {
++      // targetForScenario lacks a trusted stable run ID. Never invoke Calendar or a legacy fallback.
++      if (request.job.package === 'workflow_eval') throw new Error('autonomous_calendar_durable_run_identity_required');
++      if (request.job.package !== 'text_eval') throw new Error('autonomous_package_adapter_required');
++      const job = await deps.job(request.job.jobId);
++      if (!job?.workflowRunId || !await authorize({ tenantId: request.tenantId, subject: request.job.customerId }, request)) throw new Error('current_autonomy_authority_refused');
++      const ctx = await config.contextFor(request);
++      if (ctx.jobId !== job.id || ctx.environment !== job.environment) throw new Error('current_autonomy_context_refused');
++      await paid.guard(request.job, config.db);
++      const services = await (deps.rich ?? createRichWorkflowServices)(ctx, { workflowRunId: job.workflowRunId, autonomous: paid });
++      return config.evaluateWithServices(request, key, digest, services);
++    },
++  });
++  async function owner(jobId: string) {
++    const viewer = await deps.viewer();
++    if (!viewer) return Response.json({error:'Unauthorized'}, {status:401});
++    const job = await deps.job(jobId);
++    // Autonomous authority is personal ownership; the current operator read bypass does not mint it.
++    if (!job || job.customerId !== viewer.id) return Response.json({error:'Not found'}, {status:404});
++    return null;
++  }
++  async function result(action: () => Promise<unknown>) {
++    try { return Response.json(await action(), {headers:{'Cache-Control':'private, no-store'}}); }
++    catch { return Response.json({error:'Autonomous authority or owner adapter unavailable'}, {status:409}); }
++  }
++  return {
++    /** Server-only durable step entry; no HTTP credential or capability is serialized. */
++    async advanceDueJobs() { return release.scheduledTick(scheduler); },
++    async bootstrap(_request: Request, jobId: string) {
++      const denied = await owner(jobId); if (denied) return denied;
++      return result(() => release.bootstrap(customer, jobId));
++    },
++    async publication(_request: Request, jobId: string) {
++      const denied = await owner(jobId); if (denied) return denied;
++      return result(() => release.publication(customer, jobId));
++    },
++    async tick(request: Request) {
++      const denied = deps.cron(request); if (denied) return denied;
++      return result(() => release.scheduledTick(scheduler));
++    },
++  };
++}
+diff --git a/apps/web/src/server/data-production.ts b/apps/web/src/server/data-production.ts
+new file mode 100644
+index 0000000..35abb9d
+--- /dev/null
++++ b/apps/web/src/server/data-production.ts
+@@ -0,0 +1,170 @@
++import 'server-only';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { enqueueReviewResume } from './workflow-resumption';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
++import { buildAgentDeps } from './current-agent-deps';
++import { decryptJson } from '@ae/core/storage/crypto';
++import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
++import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
++import { createAuthenticatedDataReviewLedger } from '@ae/core/evals/data/review-ledger';
++import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
++import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
++import { createDraftOnlyExpertAdapter } from '@ae/core/evals/data/adapters/expert';
++import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery/index';
++import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence/index';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { inspectDataSafety } from '@ae/core/evals/data/quality';
++import { designTextSuite } from '@ae/core/evals/text/design';
++import { verifyAdmittedFrozenSuite } from '@ae/core/evals/text/freeze';
++import { CostEntrySchema, type CostEntry, type JobRef } from '@ae/core/evals/types';
++import { toContractCost } from '@ae/core/evals/service-adapter';
++import type { DataTaskSpec } from '@ae/core/evals/data/types';
++import type { DataBatch } from '@ae/core/evals/data/acquisition';
++import type { DataDesignContext } from '@ae/core/evals/data/adapters/mapping';
++import { getCurrentCustomer } from './session';
++import { upsertWorkflowCost } from './workflow-costs';
++
++let pool: Pool | undefined;
++function database() {
++  const connectionString = process.env.DATABASE_URL;
++  if (!connectionString) throw new Error('data_storage_unconfigured');
++  pool ??= new Pool({ connectionString, max: 5 });
++  return pooledCalendarDatabase(pool);
++}
++const identity = (value: string) => createHash('sha256').update(value).digest('hex');
++
++/** Private server capability. Never export through a public route/action or accept customerId from a body. */
++async function scoped(jobId: string, sql: AgentTransactionalSql = database()) {
++  if (!/^[0-9a-f-]{36}$/i.test(jobId)) throw new Error('data_job_invalid');
++  const rows = await sql.query<{ customer_id: string; package: string; environment: 'test' | 'live'; is_mock: boolean; retest_of_job_id: string | null }>(
++    'SELECT customer_id, package, environment, is_mock, retest_of_job_id FROM jobs WHERE id=$1', [jobId]);
++  const row = rows.rows[0];
++  if (!row || row.package !== 'text_eval' || row.is_mock) throw new Error('data_job_unavailable');
++  const credentials = await sql.query<{ ciphertext: string }>('SELECT ciphertext FROM job_credentials WHERE job_id=$1', [jobId]);
++  const secretMap = credentials.rows[0] ? decryptJson<Record<string, string>>(credentials.rows[0].ciphertext) : {};
++  if (!secretMap || Object.values(secretMap).some(v => typeof v !== 'string')) throw new Error('data_credentials_invalid');
++  const secrets = [...Object.values(secretMap), ...Object.entries(process.env).filter(([k]) => /(?:KEY|TOKEN|SECRET|DATABASE_URL)$/.test(k)).map(([,v]) => v ?? '')].filter(Boolean);
++  const ownerId = 'data_service_v1';
++  const operations = createPostgresDataOperationLedger(sql, {
++    tenantId: row.customer_id, jobId, ownerId, knownSecrets: secrets,
++    authenticateOwner: async () => {
++      const found = await sql.query('SELECT 1 FROM jobs WHERE id=$1 AND customer_id=$2 AND environment=$3 AND package=$4 AND is_mock=false', [jobId, row.customer_id, row.environment, 'text_eval']);
++      return found.rows.length === 1 ? { ownerId } : null;
++    },
++    // No reconciliation endpoint: a different owner cannot complete or take over an ambiguous effect.
++  });
++  const job: JobRef = { jobId, customerId: row.customer_id, package: 'text_eval', environment: row.environment,
++    quoteVersion: null, linkedRetestOf: row.retest_of_job_id, isFixture: false };
++  async function durable(key: string, value: unknown) {
++    const digest = reviewDigest(value);
++    await operations.claim(key, digest);
++    await operations.complete(key, digest, value);
++  }
++  async function deliverCost(cost: CostEntry) {
++    cost = CostEntrySchema.parse(cost);
++    if (cost.jobId !== jobId || !cost.measured || !cost.externalId || !inspectDataSafety(cost, secrets).safe) throw new Error('data_cost_invalid');
++    const entry = toContractCost(cost);
++    // Single global keyed sink shared with rich sessions; conflicts fail closed.
++    await upsertWorkflowCost(sql, { ...entry, jobId });
++  }
++  const reviews = createAuthenticatedDataReviewLedger({ operations, knownSecrets: secrets, authenticateHuman: async task => {
++    const human = await getCurrentCustomer();
++    // Existing operator allowlist + real session; read-only job share/customer access does not grant review authority.
++    if (!human?.isOperator || task.jobId !== jobId) return null;
++    return { principalId: human.id };
++  } });
++  async function drainDesignCosts() {
++    const keys = await sql.query<{ operation_key: string }>(
++      "SELECT operation_key FROM evaluation_data_persistence.operations WHERE tenant_id=$1 AND job_id=$2 AND operation_key LIKE 'data-design-cost:%' ORDER BY operation_key LIMIT 1001", [row.customer_id, jobId]);
++    if (keys.rows.length > 1000) throw new Error('data_cost_inventory_too_large');
++    for (const { operation_key } of keys.rows) {
++      const record = await operations.get(operation_key); // Includes current-secret and checksum validation.
++      if (record?.state !== 'complete') throw new Error('data_cost_pending');
++      await deliverCost(record.result as CostEntry);
++    }
++  }
++  return { sql, operations, job, secrets, durable, deliverCost, reviews, drainDesignCosts };
++}
++
++export interface ProductionDataInput {
++  task: DataTaskSpec;
++  initial: DataBatch;
++  context: Pick<DataDesignContext, 'versionLabel' | 'systemPrompt'>;
++  /** Trusted operator configuration. Undefined means no discovery, not permission to search arbitrary URLs. */
++  discovery?: { providerOrigin: string; queries: string[] };
++}
++
++/** Exact producer seam for the owning Workflow step. Input comes from its authorized durable job plan, never HTTP. */
++export async function advanceProductionData(jobId: string, input: ProductionDataInput) {
++  input = structuredClone(input);
++  const s = await scoped(jobId);
++  if (input.task.jobId !== jobId) throw new Error('data_scope_mismatch');
++  await s.durable(`data-production-input:${input.task.taskId}`, input);
++  await s.drainDesignCosts(); // Retry a lost cost acknowledgement even when freeze itself stays fenced.
++  const { runner } = await buildAgentDeps();
++  const generate = createNaiveGenerationAdapter({ runner, job: s.job, sessionCapMicroUsd: 250_000, jobCapMicroUsd: 3_000_000,
++    knownSecrets: s.secrets, onMeasuredCost: createDataCostCapture(s.operations, s.secrets) });
++  const discover = input.discovery ? createMediaWikiDiscovery({ ...input.discovery, knownSecrets: s.secrets,
++    operations: createPostgresDiscoveryOperations({ db: s.sql, authenticatedScope: { tenantId: s.job.customerId, jobId }, knownSecrets: s.secrets }) }).discover
++    : async () => ({ status: 'complete' as const, data: { sources: [], cases: [] } });
++  const expert = createDraftOnlyExpertAdapter({ knownSecrets: s.secrets, drafts: { putIfAbsent: (key, draft) => s.durable(`expert-draft:${identity(key)}`, draft) } });
++  return advanceDataOrchestration(input.task, input.initial, { ...input.context, job: s.job, knownSecrets: s.secrets }, {
++    operations: s.operations, knownSecrets: s.secrets,
++    acquisition: { store: createPostgresEvaluationDataStore(s.sql, { tenantId: s.job.customerId, jobId, knownSecrets: s.secrets }), discover, generate, expert },
++    readReview: async request => {
++      // Acquisition may not save merged candidates until review succeeds; publish the exact private immutable snapshot here.
++      await s.durable(`data-review-request:${request.digest}`, { task: request.task, candidates: request.data });
++      return s.reviews.readReview(request);
++    },
++    deliverCost: entry => s.deliverCost(entry.cost),
++    freeze: async ({ mapping }) => {
++      const outcome = await designTextSuite({ ...mapping.designInput, knownSecrets: s.secrets }, {
++        runner: { run: async spec => {
++          const result = await runner.run(spec);
++          if ('cost' in result && result.cost) {
++            await s.durable(`data-design-cost:${identity(result.taskKey)}`, result.cost);
++            await s.deliverCost(result.cost);
++          }
++          return result;
++        } }, budgetMicroUsd: 250_000,
++      });
++      // Existing engineer design + investigator review + deterministic admission + freezeSuite gates all run.
++      if (outcome.status !== 'completed') return { status: 'pending' };
++      return { status: 'complete', suite: verifyAdmittedFrozenSuite(outcome.suite) };
++    },
++  });
++}
++
++/** Authenticated human intake only. No provider/generation/workflow invocation. */
++async function humanDataReviewInTransaction(sql: AgentTransactionalSql, jobId: string, digest: string, submission?: { receiptId: string; decision: 'approved' | 'rejected'; reviewed: DataBatch }) {
++  const human = await getCurrentCustomer();
++  if (!human?.isOperator || !/^[a-f0-9]{64}$/.test(digest)) throw new Error('data_review_unavailable');
++  const s = await scoped(jobId, sql);
++  const request = await s.operations.get(`data-review-request:${digest}`);
++  if (request?.state !== 'complete') throw new Error('data_review_unavailable');
++  const snapshot = structuredClone(request.result) as { task: DataTaskSpec; candidates: DataBatch };
++  if (snapshot.task.jobId !== jobId) throw new Error('data_review_scope');
++  if (!submission) return snapshot;
++  submission = structuredClone(submission);
++  if (!['approved', 'rejected'].includes(submission.decision)) throw new Error('data_review_invalid');
++  // Principal IDs come from the authenticated session; the human still explicitly supplies every permission/evidence determination.
++  const reviewed = submission.reviewed;
++  reviewed.sources = reviewed.sources.map(source => ({ ...source, review: { ...source.review, reviewerId: human.id } }));
++  reviewed.cases = reviewed.cases.map(c => c.verification ? { ...c, verification: { ...c.verification, verifierId: human.id } } : c);
++  await s.reviews.submit({ receiptId: submission.receiptId, decision: submission.decision, task: snapshot.task, candidates: snapshot.candidates, reviewed });
++  const bound = (await sql.query<{workflow_run_id:string}>(`SELECT workflow_run_id FROM jobs WHERE id=$1 AND customer_id=$2 AND environment=$3 AND package='text_eval' AND is_mock=false AND state IN ('planning','running','investigating') FOR UPDATE`, [jobId,s.job.customerId,s.job.environment])).rows[0];
++  if(!bound?.workflow_run_id) throw new Error('data_review_scope');
++  await enqueueReviewResume(sql,{jobId,tenantId:s.job.customerId,environment:s.job.environment,workflowRunId:bound.workflow_run_id},digest);
++  return { status: 'recorded' as const };
++}
++
++/** One READ COMMITTED pinned transaction, no callback retries: receipt + canonical review + wake intent.
++ * Flatten ONLY ledger-local transactions onto this pinned outer transaction; errors propagate and roll back all writes. */
++export async function humanDataReview(jobId: string, digest: string, submission?: { receiptId: string; decision: 'approved'|'rejected'; reviewed: DataBatch }) {
++ return database().transaction(async tx => {
++  const pinned: AgentTransactionalSql = {query: (q,p) => tx.query(q,p),transaction: fn => fn(tx)};
++  return humanDataReviewInTransaction(pinned,jobId,digest,submission);
++ });
++}
+diff --git a/apps/web/src/server/rich-comparison.ts b/apps/web/src/server/rich-comparison.ts
+new file mode 100644
+index 0000000..75fc607
+--- /dev/null
++++ b/apps/web/src/server/rich-comparison.ts
+@@ -0,0 +1,165 @@
++import { upsertWorkflowCost } from './workflow-costs';
++import { assertAutonomousPaidContext, runAutonomousTarget, type AutonomousPaidContext, type PaidMonitor } from './autonomous-paid';
++import type { createTrustedJudgeResolver } from './rich-judge';
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { z } from 'zod';
++import { containsSecret } from '@ae/core/agents/redact';
++import { MONITORING_RUN_BUDGET_MICRO_USD, JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { ROLE_DEFINITIONS } from '@ae/core/agents/roles';
++import { PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
++import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { createTextEvaluationServices } from '@ae/core/evals/integration/services';
++import { createComparisonMonitoringService } from '@ae/core/monitoring/composition';
++import type { ComparisonRequest, ComparisonSuite, RichRunArtifact } from '@ae/core/monitoring/composition';
++import { createTextComparisonAdapter, createCalendarComparisonAdapter, createRetainedComparisonAdapter } from '@ae/core/monitoring/adapters';
++import { canonicalJson } from '@ae/core/evals/text/index';
++import type { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
++import type { TextTargetPort } from '@ae/core/evals/types';
++
++const id = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/);
++const version = z.object({ version: id, targetId: id, branchId: id.nullable(), configurationDigest: z.string().regex(/^[a-f0-9]{64}$/), endpointSlot: z.enum(['endpoint', 'endpointA', 'endpointB']), endpointOverride:z.object({url:z.string().url().max(4096),model:z.string().min(1).max(256)}).strict().optional() }).strict();
++export const comparisonBindingSchema = z.object({
++  suiteId: id, scope: z.enum(['base12', 'augmented']), scenarioIds: z.array(id),
++  baseline: version, current: version,
++  // Reviewed policy: reservation per outbound target call; unmeasured reservations remain held.
++  targetCallMicroUsd: z.number().int().positive().safe(), jobCapMicroUsd: z.number().int().positive().safe(),
++}).strict();
++export type ComparisonBinding = z.infer<typeof comparisonBindingSchema>;
++export const comparisonDigest = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
++const refused = (): never => { throw new Error('rich_comparison_refused'); };
++export interface ComparisonPrincipal { tenantId: string; environment: 'test' | 'live' }
++export interface ComparisonRuntime {
++  autonomous?: AutonomousPaidContext;
++  runner: AgentTaskRunner;
++  judge?(binding: ComparisonBinding['current'], monitor?: PaidMonitor): ReturnType<typeof createTrustedJudgeResolver>;
++  knownSecrets: readonly string[];
++  verify(jobId: string, binding: ComparisonBinding, retained: RichRunArtifact): Promise<{scenarioIds:string[]}>;
++  /** Called again immediately before every target operation; closure loads decrypted canonical intake. */
++  target(binding: ComparisonBinding['current']): Promise<TextTargetPort>;
++  /** Calendar factory must guard every outbound complete() with guard(), and verify branch ownership. */
++  calendar?(binding: ComparisonBinding['current'], guard: (operation: string) => Promise<void>, checkpoints: PostgresTextCheckpointStore): Promise<ReturnType<typeof createCalendarEvaluationServices>>;
++}
++/** Concrete SQL-backed app coordinator. Runtime contains transports, not authorization decisions. */
++export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: ComparisonRuntime) {
++  if(runtime.autonomous) assertAutonomousPaidContext(runtime.autonomous);
++  const checkpoints = new PostgresTextCheckpointStore(sql);
++  async function authority(principal: ComparisonPrincipal, jobId: string, subscriptionId?: string) {
++    const row = (await sql.query<{ customer_id: string; environment: string; state: string; package: keyof typeof JOB_BUDGET_MICRO_USD; is_mock: boolean; is_internal_fixture: boolean; suite: ComparisonSuite; retained: RichRunArtifact; binding: unknown; binding_digest: string }>(`SELECT j.customer_id,j.environment,j.state,j.package,j.is_mock,c.is_internal_fixture,b.suite,b.retained,b.binding,b.binding_digest
++      FROM jobs j JOIN customers c ON c.id=j.customer_id JOIN workflow_comparison.bindings b ON b.job_id=j.id
++      WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3`, [jobId,principal.tenantId,principal.environment])).rows[0];
++    if (!row || row.is_mock || row.state !== 'delivered' || comparisonDigest({suite:row.suite,retained:row.retained,binding:row.binding}) !== row.binding_digest) return refused();
++    if(runtime.knownSecrets.some(s=>s.length<4) || containsSecret(canonicalJson(row),runtime.knownSecrets)) return refused();
++    if(runtime.autonomous) {
++      await runtime.autonomous.guard(undefined,sql);
++      if(runtime.autonomous.job.jobId!==jobId || runtime.autonomous.job.customerId!==principal.tenantId || runtime.autonomous.job.environment!==principal.environment) refused();
++    }
++    const binding = comparisonBindingSchema.parse(row.binding);
++    const canonical = await runtime.verify(jobId,binding,row.retained);
++    if (binding.jobCapMicroUsd > JOB_BUDGET_MICRO_USD[row.package] || !JOB_BUDGET_MICRO_USD[row.package]
++      || canonicalJson([...canonical.scenarioIds].sort()) !== canonicalJson([...binding.scenarioIds].sort())) return refused();
++    // Full inventory stays visible even when execution is refused. Explicit base12 never means pack coverage.
++    if (binding.scope !== 'base12' || binding.scenarioIds.length !== 12 || new Set(binding.scenarioIds).size !== 12
++      || canonicalJson([...binding.scenarioIds].sort()) !== canonicalJson(row.suite.scenarios.map(s=>s.id).sort())) return refused();
++    if (subscriptionId) {
++      const sub = await sql.query(`SELECT id FROM monitoring_subscriptions WHERE id=$1 AND job_id=$2 AND customer_id=$3 AND environment=$4 AND status='active' AND stripe_subscription_id IS NOT NULL`, [subscriptionId,jobId,principal.tenantId,principal.environment]);
++      if (!sub.rows.length) return refused();
++    }
++    const paid = await sql.query(`SELECT id FROM payments WHERE job_id=$1 AND environment=$2 AND status IN ('paid','captured') AND kind='one_time'`,[jobId,principal.environment]);
++    if (!paid.rows.length) return refused();
++    return { ...row, binding };
++  }
++  async function compare(principal: ComparisonPrincipal, ctx: ServiceContext, request: ComparisonRequest, subscriptionId?: string) {
++    if ((request.mode === 'monitoring') !== Boolean(subscriptionId)) return refused();
++    const a = await authority(principal,ctx.jobId,subscriptionId);
++    if (ctx.environment !== principal.environment || request.baselineVersion !== a.binding.baseline.version || request.currentVersion !== a.binding.current.version) return refused();
++    const monitor:PaidMonitor|undefined=subscriptionId?{key:`monitor:${subscriptionId}:${request.operationId}`,capMicroUsd:MONITORING_RUN_BUDGET_MICRO_USD}:undefined;
++    if(runtime.autonomous && a.binding.targetCallMicroUsd!==runtime.autonomous.targetReservationMicroUsd) return refused();
++    const immutable = { tenantId:principal.tenantId, environment:principal.environment, jobId:ctx.jobId, bindingDigest:a.binding_digest, request, subscriptionId:subscriptionId??null };
++    // Stable tick/request identity is committed before factory construction, agent calls, or targets.
++    const tick = {jobId:ctx.jobId,kind:'app_rich_tick',id:request.operationId,inputDigest:comparisonDigest(immutable)};
++    const claim = await checkpoints.claim(tick);
++    if (claim.state === 'completed') return claim.value;
++    if (claim.state !== 'claimed') throw new Error('rich_tick_needs_reconciliation');
++    const reauthorize = async () => { const latest = await authority(principal,ctx.jobId,subscriptionId); if(latest.binding_digest !== a.binding_digest) refused(); };
++    try {
++      const costs = async (operationId: string) => {
++        const rows = await sql.query<{ id:string; source:string; micro_usd:string|number }>('SELECT id,source,micro_usd FROM workflow_comparison.costs WHERE job_id=$1 AND operation_id=$2',[ctx.jobId,operationId]);
++        return {costs:rows.rows.map(r=>({id:r.id,source:r.source,microUsd:Number(r.micro_usd),measured:true as const})),unknownCosts:['target_provider_usage_unmeasured','hosting_unmeasured','investigation_usage_not_in_ledger_is_unknown','retained_baseline_and_suite_design_costs_not_fully_measured']};
++      };
++      const adapter = async (v:ComparisonBinding['current']) => {
++        const guard = async (operation:string) => {
++          await reauthorize();
++          if(runtime.autonomous) return refused(); // autonomous targets use the durable dispatch wrapper below
++          const period=process.env.NAIVE_BUDGET_PERIOD_ID; if(!period || !/^[A-Za-z0-9_-]+$/.test(period))return refused();
++          const reserved = await new PostgresBudgetLedger(sql).reserve({reservationId:`cmp:${comparisonDigest({immutable,v,operation})}`,jobId:ctx.jobId,amountMicroUsd:a.binding.targetCallMicroUsd,scopes:[{key:`agent:evaluation_engineer:${period}`,capMicroUsd:ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd},{key:`job:${ctx.jobId}`,capMicroUsd:a.binding.jobCapMicroUsd}, ...(subscriptionId?[{key:`monitor:${subscriptionId}:${request.operationId}`,capMicroUsd:MONITORING_RUN_BUDGET_MICRO_USD}]:[])]});
++          if (!reserved.ok) refused();
++          // No automatic settlement/release: target transport supplies no measured receipt. Hold for reconciliation.
++        };
++        if ('digest' in a.suite) {
++          const suite = a.suite;
++          const operationId = comparisonDigest([principal.tenantId,ctx.jobId,request.operationId,v===a.binding.baseline?'baseline':'current']);
++          const scopedCtx = {...ctx, recordCost:async (cost:Parameters<ServiceContext['recordCost']>[0])=>{
++            const key=String(cost.meta?.idempotencyKey??''); if(!key || !Number.isSafeInteger(cost.microUsd) || cost.microUsd<0) refused();
++            await sql.transaction(async tx=>{
++              await tx.query('INSERT INTO workflow_comparison.costs(job_id,operation_id,source,id,micro_usd) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',[ctx.jobId,operationId,cost.source,key,cost.microUsd]);
++              const same=await tx.query('SELECT id FROM workflow_comparison.costs WHERE job_id=$1 AND operation_id=$2 AND source=$3 AND id=$4 AND micro_usd=$5',[ctx.jobId,operationId,cost.source,key,cost.microUsd]);
++              if(!same.rows.length) refused();
++            });
++            // Deliver through the app's keyed sink after the local transaction commits.
++            // On failure core retains the cost and the outer tick stays ambiguous.
++            await upsertWorkflowCost(sql, { ...cost, jobId: ctx.jobId });
++          }};
++          const services = createTextEvaluationServices({checkpoints,runner:runtime.autonomous ? (monitor ? runtime.autonomous.runnerForMonitor(monitor) : runtime.autonomous.runner) : runtime.runner,resolveApprovedSuite:async()=>suite,resolve:async()=>{
++            await reauthorize();
++            return {job:runtime.autonomous?.job ?? {jobId:ctx.jobId,customerId:principal.tenantId,environment:ctx.environment,package:'text_eval' as const,isFixture:a.is_internal_fixture,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,knownSecrets:runtime.knownSecrets,judge:runtime.judge?.(v,monitor) ?? null,
++              target:{send:async req=>{
++                if(runtime.autonomous) {
++                  await reauthorize();
++                  return runAutonomousTarget(runtime.autonomous,{job:runtime.autonomous.job,monitor,
++                    operationId:`autonomous-comparison:${ctx.jobId}:${request.operationId}:${v===a.binding.baseline?'baseline':'current'}:${req.runId}:${req.scenarioId}`,
++                    input:{request:req,version:v,bindingDigest:a.binding_digest}},async()=>{await reauthorize();return (await runtime.target(v)).send(req);});
++                }
++                await guard(`${req.runId}:${req.scenarioId}`);return (await runtime.target(v)).send(req);
++              }}};
++          }});
++          return createTextComparisonAdapter({services,ctx:scopedCtx,suiteDigest:suite.digest,readCosts:costs});
++        }
++        if (runtime.autonomous) return refused(); // Calendar lacks stable target run identity
++        if (!runtime.calendar) return refused();
++        const services=await runtime.calendar(v,guard,checkpoints);
++        // Calendar checkpoint identity includes target/branch. Use distinct references to identical frozen content.
++        const suiteId=comparisonDigest({suiteId:a.binding.suiteId,version:v.version,targetId:v.targetId,branchId:v.branchId});
++        await services.freezeSuite(ctx,{suiteId});
++        return createCalendarComparisonAdapter({services,ctx,suiteId,readCosts:costs});
++      };
++      const service = createComparisonMonitoringService({checkpoints,resolve:async()=>{
++        await reauthorize();
++        return {tenantId:principal.tenantId,jobId:ctx.jobId,environment:ctx.environment,isFixture:a.is_internal_fixture,suite:a.suite,scenarioIds:a.binding.scenarioIds,knownSecrets:runtime.knownSecrets,
++          baseline:{...a.binding.baseline,adapter:request.mode==='monitoring'?createRetainedComparisonAdapter(a.retained):await adapter(a.binding.baseline)},
++          current:{...a.binding.current,adapter:await adapter(a.binding.current)}};
++      }});
++      const result = await service.compare(ctx,request);
++      await reauthorize();
++      await checkpoints.complete(tick,claim.token,result); // full rich result + generic alert drafts, never boolean RunResult
++      return result;
++    } catch (error) { await checkpoints.markAmbiguous(tick,claim.token); throw error; }
++  }
++  return {compare,
++    async inventory(principal:ComparisonPrincipal,jobId:string) {
++      const row=await sql.query<{binding:unknown;retained:RichRunArtifact}>(`SELECT b.binding,b.retained FROM workflow_comparison.bindings b JOIN jobs j ON j.id=b.job_id WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3`,[jobId,principal.tenantId,principal.environment]);
++      const saved=row.rows[0];if(!saved)return null;
++      const binding=comparisonBindingSchema.parse(saved.binding);
++      const source=await runtime.verify(jobId,binding,saved.retained);
++      const scenarioIds=[...new Set([...binding.scenarioIds,...source.scenarioIds])];
++      return {...binding,scenarioIds,scope:scenarioIds.length===12?binding.scope:'augmented'};
++    },
++    async read(principal:ComparisonPrincipal,jobId:string,operationId:string) {
++      await authority(principal,jobId); // every read reauthenticates canonical ownership/payment, including replay
++      return checkpoints.get({jobId,kind:'app_rich_tick',id:operationId});
++    },
++  };
++}
+diff --git a/apps/web/src/server/rich-services.ts b/apps/web/src/server/rich-services.ts
+new file mode 100644
+index 0000000..931e73e
+--- /dev/null
++++ b/apps/web/src/server/rich-services.ts
+@@ -0,0 +1,201 @@
++import { assertAutonomousPaidContext, runAutonomousTarget, type AutonomousPaidContext } from './autonomous-paid';
++import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
++import { deliverRemediationCost } from './rich-remediation';
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import { IntakeInput } from '@ae/core/contracts/index';
++import { createTextEvaluationServices, PostgresTextCheckpointStore } from '@ae/core/evals/integration/index';
++import { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
++import { TrackBBlockedError, TrackBPendingError, toContractCost, createTrackBServices } from '@ae/core/evals/service-adapter';
++import { buildAgentDeps } from './current-agent-deps';
++import { withAgentCostDelivery } from '@ae/core/agents/runtime';
++import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
++import { PostgresBranchLedger } from '@ae/core/simulator/branch-ledger';
++import { PostgresCalendarStore } from '@ae/core/simulator/postgres';
++import { CalendarSimulator } from '@ae/core/simulator/calendar';
++import { createTextTarget } from '@ae/core/targets/text';
++import { platformTarget } from '@ae/core/targets/adapters';
++import type { JobRef } from '@ae/core/evals/types';
++import type { CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
++import { getJobWithDecryptedCredentials } from './job-store';
++import { upsertWorkflowCost } from './workflow-costs';
++import { createRichRemediation } from './rich-remediation';
++import { createWorkflowInventory } from './workflow-inventory';
++import { createApprovedSuiteAdmission } from '@ae/core/evals/integration/approved-suite';
++import { advanceWorkflowData, readWorkflowDataPlan, readWorkflowDataReady } from './workflow-data';
++import { evalServices } from '@ae/core/integration/eval-services';
++
++let applicationPool: Pool | undefined;
++export function workflowSql() {
++  if (!process.env.DATABASE_URL) throw new TrackBBlockedError('needs_operator', 'Application database configuration required.');
++  applicationPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 5, connectionTimeoutMillis: 10000,
++    idleTimeoutMillis: 30000, options: '-c statement_timeout=30000 -c lock_timeout=10000' });
++  return pooledCalendarDatabase(applicationPool);
++}
++const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Canonical Workflow binding unavailable or changed; operator reconciliation required.'); };
++
++/** Internal Workflow authority only; no route accepts this value from a customer body. */
++export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string; autonomous?: AutonomousPaidContext; judgeRuntime?: TrustedJudgeRuntime; rerun?: { ownerId: string; targetVersion: string } }) {
++  if (authority.autonomous) assertAutonomousPaidContext(authority.autonomous);
++  const sql = authority.autonomous?.sql ?? workflowSql();
++  async function canonical() {
++    const loaded = await getJobWithDecryptedCredentials(ctx.jobId);
++    if (!loaded || !authority.workflowRunId || loaded.job.workflowRunId !== authority.workflowRunId
++      || loaded.job.environment !== ctx.environment || loaded.job.isMock
++      || !(authority.rerun ? loaded.job.state === 'delivered' && loaded.job.customerId === authority.rerun.ownerId : ['planning', 'running', 'investigating'].includes(loaded.job.state))) return refused();
++    const intake = IntakeInput.parse(loaded.intake);
++    if (intake.package !== 'text_eval' && intake.package !== 'workflow_eval') return refused();
++    const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null; remediation_operation_micro_usd: number | string | null; baseline_suite_digest: string | null; baseline_run_id: string | null }>(
++      'SELECT target_revision, reviewed_calendar, isolation, remediation_operation_micro_usd, baseline_suite_digest, baseline_run_id FROM workflow_integration.bindings WHERE job_id=$1', [ctx.jobId]);
++    const b = binding.rows[0];
++    if (!b || !/^[A-Za-z0-9_.:-]{1,128}$/.test(b.target_revision)) return refused();
++    const fixture = await sql.query<{ fixture: boolean }>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1', [loaded.job.customerId]);
++    // Quote identity comes from the minted release capability; its current guard rechecks
++    // the complete canonical company request. Other identity fields remain DB-derived.
++    const job: JobRef = { jobId: ctx.jobId, customerId: loaded.job.customerId, package: intake.package,
++      environment: ctx.environment, isFixture: fixture.rows[0]?.fixture === true, linkedRetestOf: loaded.job.retestOfJobId, quoteVersion: authority.autonomous?.job.quoteVersion ?? null };
++    await authority.autonomous?.guard(job,sql);
++    const knownSecrets = Object.values(loaded.credentials).filter((x): x is string => typeof x === 'string');
++    if (knownSecrets.some(s => s.length < 4)) return refused();
++    // The ciphertext changes with credential rotation; hash stays server-only and never enters artifacts.
++    const credentials = await sql.query<{ ciphertext: string }>('SELECT ciphertext FROM job_credentials WHERE job_id=$1', [ctx.jobId]);
++    if (authority.rerun && !credentials.rows[0]?.ciphertext) return refused();
++    const targetVersion = createHash('sha256').update(JSON.stringify({ endpoint: { ...intake.endpoint, apiKey: undefined },
++      revision: b.target_revision, credentialCiphertext: credentials.rows[0]?.ciphertext ?? null })).digest('hex');
++    if (authority.rerun && targetVersion !== authority.rerun.targetVersion) return refused();
++    return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: { ...b,
++      // PostgreSQL bigint is a string in the actual driver; validate before narrowing.
++      remediation_operation_micro_usd: b.remediation_operation_micro_usd === null ? null : (() => {
++        const amount = Number(b.remediation_operation_micro_usd);
++        if (!Number.isSafeInteger(amount) || amount <= 0) return refused();
++        return amount;
++      })() } };
++  }
++  const judgeRuntime = authority.judgeRuntime ?? workflowJudgeRuntime(authority.rerun ? 'rerun' : 'baseline');
++  const judge = createTrustedJudgeResolver({ autonomous:authority.autonomous, sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
++    policy: workflowJudgePolicy(), runtime: { ...judgeRuntime, beforeDispatch: async intent => {
++      if (ctx.budgetMicroUsd <= 0) return refused();
++      await judgeRuntime.beforeDispatch(intent);
++    } }, deliverCost: deliverRemediationCost });
++  const remediationRuntime = authority.judgeRuntime ?? workflowJudgeRuntime('remediation');
++  const remediationJudge = createTrustedJudgeResolver({ autonomous:authority.autonomous, sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
++    policy: workflowJudgePolicy(), runtime: { ...remediationRuntime, beforeDispatch: async intent => {
++      if (ctx.budgetMicroUsd <= 0) return refused();
++      await remediationRuntime.beforeDispatch(intent);
++    } }, deliverCost: deliverRemediationCost });
++  const initial = await canonical();
++  const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
++  const checkpoints = inventory.wrap(new PostgresTextCheckpointStore(sql));
++  const selectedRunner = authority.autonomous ? authority.autonomous.runner : (await buildAgentDeps()).runner;
++  const runner = withAgentCostDelivery(selectedRunner, { record: async (_key, cost) => upsertWorkflowCost(sql, { ...toContractCost(cost), jobId: cost.jobId }) });
++  const dataScope = { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment, workflowRunId: authority.workflowRunId };
++  const approved = createApprovedSuiteAdmission({ resolve: async (current, suiteDigest) => {
++    if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    const ready = await readWorkflowDataReady(sql, dataScope, a.knownSecrets);
++    if (!ready) {
++      if (await readWorkflowDataPlan(sql, dataScope, a.knownSecrets)) throw new TrackBPendingError(5000, 'Approved data is incomplete; suite fallback refused.');
++      return null;
++    }
++    if (ready.result.frozen?.suite.digest !== suiteDigest) return refused();
++    return { job: a.job, knownSecrets: a.knownSecrets, context: ready.input.context, result: ready.result };
++  } });
++  async function advanceData() {
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    return advanceWorkflowData(sql, dataScope, a.knownSecrets, inventory, authority.autonomous ? async () => {
++      throw new TrackBBlockedError('needs_operator', 'Autonomous data adapter required; legacy data dispatch refused.');
++    } : undefined);
++  }
++  async function sendText(a: Awaited<ReturnType<typeof canonical>>, input: Parameters<ReturnType<typeof createTextTarget>['send']>[0]) {
++    const dispatch = async () => {
++      const fresh=await canonical(); if(fresh.targetVersion!==a.targetVersion) return refused();
++      return createTextTarget(fresh.intake.endpoint).send(input);
++    };
++    if (!authority.autonomous) return dispatch();
++    return runAutonomousTarget(authority.autonomous,{job:a.job,
++      operationId:`autonomous-text:${a.job.jobId}:${input.runId}:${input.scenarioId}`,
++      input:{request:input,targetVersion:a.targetVersion}},dispatch);
++  }
++  const text = createTextEvaluationServices({ runner, checkpoints, resolveApprovedSuite: approved.resolveApprovedSuite, resolve: async current => {
++    if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++    const a = await canonical();
++    return { job: a.job, target: { send: input => sendText(a,input) }, targetVersion: a.targetVersion,
++      judge, knownSecrets: a.knownSecrets };
++  } });
++  const remediation = createRichRemediation({ autonomous:authority.autonomous, sql, runner, checkpoints, canonical, text, judge: remediationJudge });
++  let branchBinding: { connection: string; pool: Pool } | undefined;
++  const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
++    if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++    const a = await canonical();
++    // targetForScenario has no retained run/attempt identity. Autonomous Calendar is refused
++    // before pool/branch/provider work; a process-local counter or payload hash is not replay authority.
++    if (authority.autonomous) return refused();
++    if (!a.row.neonBranchId || !a.binding.reviewed_calendar) return refused();
++    const ledger = new PostgresBranchLedger(applicationPool!);
++    const owned = await ledger.findOwnedBranch(a.row.neonBranchId);
++    if (!owned || owned.jobId !== ctx.jobId || owned.state !== 'ready') return refused();
++    const connection = await evalServices.getJobBranchConnection!(a.row.neonBranchId);
++    if (branchBinding && branchBinding.connection !== connection) return refused();
++    branchBinding ??= { connection, pool: new Pool({ connectionString: connection, max: 2, connectionTimeoutMillis: 10000,
++      idleTimeoutMillis: 1000, options: '-c statement_timeout=30000 -c lock_timeout=10000' }) };
++    const db = pooledCalendarDatabase(branchBinding.pool);
++    return { job: a.job, targetVersion: a.targetVersion,
++      branch: { jobId: ctx.jobId, branchId: a.row.neonBranchId, targetVersion: a.targetVersion },
++      reviewedSuite: a.binding.reviewed_calendar, systemPrompt: a.intake.endpoint.systemPrompt, knownSecrets: a.knownSecrets,
++      dependencies: { db, simulator: new CalendarSimulator(new PostgresCalendarStore(db)), targetForScenario: () => ({ async complete(messages) { const fresh=await canonical(); const currentBranch=await ledger.findOwnedBranch(a.row.neonBranchId!); if(fresh.targetVersion!==a.targetVersion || fresh.row.neonBranchId!==a.row.neonBranchId || currentBranch?.jobId!==ctx.jobId || currentBranch.state!=='ready') return refused(); return platformTarget(fresh.intake.endpoint).complete(messages); } }) } };
++  } });
++  const reportServices = createTrackBServices({ runner,
++    resolveJob: async current => {
++      if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++      return (await canonical()).job;
++    }, resolveKnownSecrets: async () => (await canonical()).knownSecrets,
++    // Missing non-session billing remains explicitly unknown in the report.
++  });
++  async function bindTextBaseline(suiteDigest: string, runId: string) {
++    const a = await canonical();
++    if (authority.rerun || a.job.package !== 'text_eval') return refused();
++    await text.reportInput(ctx, { suiteDigest, runId }); // completed investigation and exact associations required
++    await sql.query(`UPDATE workflow_integration.bindings SET baseline_suite_digest=$2,baseline_run_id=$3
++      WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
++      RETURNING job_id`, [ctx.jobId,suiteDigest,runId]).then(r => { if (r.rows.length !== 1) return refused(); });
++  }
++  async function resolvePackTarget() {
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    return { configuration: { endpoint: a.intake.endpoint.url, model: a.intake.endpoint.model,
++      configurationVersion: a.targetVersion, systemPrompt: a.intake.endpoint.systemPrompt || null },
++      target: {send: (input:Parameters<ReturnType<typeof createTextTarget>['send']>[0]) => sendText(a,input)}, knownSecrets: a.knownSecrets };
++  }
++  /** Discovery is read-only. Approved admission creates neither design nor suite checkpoints. */
++  async function resolvePackBaseSuite(expectedDigest?: string) {
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    const plan = await readWorkflowDataPlan(sql, dataScope, a.knownSecrets);
++    let digest: string;
++    if (plan) {
++      const ready = await readWorkflowDataReady(sql, dataScope, a.knownSecrets);
++      if (!ready?.result.frozen) throw new TrackBPendingError(5000, 'Approved data is incomplete; finish retained review and admission before pack review.');
++      digest = ready.result.frozen.suite.digest;
++      if (!await approved.get(ctx, digest)) return refused();
++    } else {
++      const tasks = await sql.query('SELECT task_id FROM evaluation_data_persistence.tasks WHERE tenant_id=$1 AND job_id=$2', [a.job.customerId, ctx.jobId]);
++      if (tasks.rows.length) throw new TrackBBlockedError('needs_operator', 'Data tasks require an immutable approved-data plan; design fallback refused.');
++      // Legacy design is used only to discover an identity; supported getSuite
++      // performs target binding, secret checks and current service authorization.
++      const stored = await checkpoints.get({ jobId: ctx.jobId, kind: 'design', id: `suite:${ctx.jobId}:frozen12` });
++      const design = stored?.state === 'completed' ? stored.value as { status: string; suite: { digest: string } } : null;
++      if (design?.status !== 'completed') throw new TrackBBlockedError('needs_operator', 'Retain a completed base12 design before pack review.');
++      digest = design.suite.digest;
++    }
++    if (expectedDigest && digest !== expectedDigest) return refused();
++    const suite = await text.getSuite(ctx, digest);
++    if (suite.jobId !== ctx.jobId || suite.scenarios.length !== 12) return refused();
++    return suite;
++  }
++  return { resolvePackTarget, resolvePackBaseSuite, text, calendar, remediation, inventory, advanceData, approvedData: approved.get, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
++    targetVersion: initial.targetVersion, knownSecrets: initial.knownSecrets };
++}
+diff --git a/apps/web/src/server/workflow-data.ts b/apps/web/src/server/workflow-data.ts
+new file mode 100644
+index 0000000..862b38b
+--- /dev/null
++++ b/apps/web/src/server/workflow-data.ts
+@@ -0,0 +1,75 @@
++import 'server-only';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { inspectDataSafety } from '@ae/core/evals/data/quality';
++import type { DataOrchestrationResult } from '@ae/core/evals/data/orchestration';
++import { TrackBBlockedError } from '@ae/core/evals/service-adapter';
++import { advanceProductionData, type ProductionDataInput } from './data-production';
++
++type Scope = { tenantId: string; jobId: string; environment: 'test' | 'live'; workflowRunId: string };
++const refuse = (): never => { throw new TrackBBlockedError('needs_operator', 'Data plan authority or immutable identity requires reconciliation.'); };
++async function authorize(sql: AgentTransactionalSql, scope: Scope) {
++  const row = await sql.query('SELECT id FROM jobs WHERE id=$1 AND customer_id=$2 AND environment=$3 AND workflow_run_id=$4 AND package=$5 AND is_mock=false AND state IN ($6,$7,$8)',
++    [scope.jobId, scope.tenantId, scope.environment, scope.workflowRunId, 'text_eval', 'planning', 'running', 'investigating']);
++  if (row.rows.length !== 1) refuse();
++}
++/** Private trusted producer capability. Owner must supply a durable authorized plan;
++ * no route, model output or default fixture grants this authority. */
++export async function registerWorkflowDataPlan(sql: AgentTransactionalSql, scope: Scope, input: ProductionDataInput, knownSecrets: readonly string[]) {
++  input = structuredClone(input);
++  if (input.task.jobId !== scope.jobId || !/^[A-Za-z0-9_-]{1,96}$/.test(input.task.taskId) || !inspectDataSafety(input, knownSecrets).safe) refuse();
++  await authorize(sql, scope);
++  const result = await sql.query(`INSERT INTO workflow_integration.data_plans(job_id,tenant_id,environment,input_digest,input)
++    VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id
++    WHERE workflow_integration.data_plans.tenant_id=EXCLUDED.tenant_id AND workflow_integration.data_plans.environment=EXCLUDED.environment
++      AND workflow_integration.data_plans.input_digest=EXCLUDED.input_digest AND workflow_integration.data_plans.input=EXCLUDED.input RETURNING job_id`,
++    [scope.jobId, scope.tenantId, scope.environment, reviewDigest(input), JSON.stringify(input)]);
++  if (result.rows.length !== 1) refuse();
++}
++export async function readWorkflowDataPlan(sql: AgentTransactionalSql, scope: Scope, knownSecrets: readonly string[]) {
++  await authorize(sql, scope);
++  const row = (await sql.query<{ input: ProductionDataInput; input_digest: string }>(
++    'SELECT input,input_digest FROM workflow_integration.data_plans WHERE job_id=$1 AND tenant_id=$2 AND environment=$3', [scope.jobId, scope.tenantId, scope.environment])).rows[0];
++  if (!row) return null;
++  if (reviewDigest(row.input) !== row.input_digest || row.input.task.jobId !== scope.jobId || !inspectDataSafety(row.input, knownSecrets).safe) refuse();
++  return row.input;
++}
++export async function readWorkflowDataReady(sql: AgentTransactionalSql, scope: Scope, knownSecrets: readonly string[]) {
++  const input = await readWorkflowDataPlan(sql, scope, knownSecrets);
++  if (!input) return null;
++  const row = (await sql.query<{ result: DataOrchestrationResult; result_digest: string }>(
++    'SELECT result,result_digest FROM workflow_integration.data_ready WHERE job_id=$1 AND input_digest=$2', [scope.jobId, reviewDigest(input)])).rows[0];
++  if (!row) return null;
++  if (reviewDigest(row.result) !== row.result_digest || row.result.status !== 'ready' || !row.result.frozen
++    || reviewDigest(row.result.task.spec) !== reviewDigest(input.task) || !inspectDataSafety(row.result, knownSecrets).safe) refuse();
++  return { input, result: row.result };
++}
++/** Inventory publication MUST commit before advance can dispatch. Every nonready
++ * status is retained privately and returned verbatim; no state is converted to success. */
++export async function advanceWorkflowData(sql: AgentTransactionalSql, scope: Scope, knownSecrets: readonly string[], inventory: { acquisition(ids: string[]): Promise<void>; touch(): Promise<void> }, dispatch: typeof advanceProductionData = advanceProductionData) {
++  const input = await readWorkflowDataPlan(sql, scope, knownSecrets);
++  const tasks = await sql.query<{ task_id: string }>('SELECT task_id FROM evaluation_data_persistence.tasks WHERE tenant_id=$1 AND job_id=$2 ORDER BY task_id', [scope.tenantId, scope.jobId]);
++  const ids = [...new Set([...tasks.rows.map(row => row.task_id), ...(input ? [input.task.taskId] : [])])];
++  if (ids.length) await inventory.acquisition(ids);
++  if (!input) { if (ids.length) refuse(); return null; }
++  if (ids.some(id => id !== input.task.taskId)) refuse(); // Multiple suites require a separate authorized composition.
++  const ready = await readWorkflowDataReady(sql, scope, knownSecrets);
++  if (ready) { await inventory.touch(); return ready.result; }
++  let result: DataOrchestrationResult;
++  try { result = await dispatch(scope.jobId, input); }
++  finally { await inventory.touch(); } // Includes review/claim/cost writes even on failure.
++  if (reviewDigest(result.task.spec) !== reviewDigest(input.task) || !inspectDataSafety(result, knownSecrets).safe) refuse();
++  const digest = reviewDigest(result);
++  // Keep every distinct pending/review/cost snapshot; ready is a separate immutable binding.
++  await sql.query(`INSERT INTO workflow_integration.data_advances(job_id,result_digest,result) VALUES($1,$2,$3::jsonb) ON CONFLICT(job_id,result_digest) DO NOTHING`, [scope.jobId, digest, JSON.stringify(result)]);
++  if (result.status === 'ready') {
++    if (!result.frozen) refuse();
++    const saved = await sql.query(`INSERT INTO workflow_integration.data_ready(job_id,input_digest,result_digest,result) VALUES($1,$2,$3,$4::jsonb)
++      ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id WHERE workflow_integration.data_ready.input_digest=EXCLUDED.input_digest
++      AND workflow_integration.data_ready.result_digest=EXCLUDED.result_digest AND workflow_integration.data_ready.result=EXCLUDED.result RETURNING job_id`,
++      [scope.jobId, reviewDigest(input), digest, JSON.stringify(result)]);
++    if (saved.rows.length !== 1) refuse();
++  }
++  await inventory.touch();
++  return result;
++}
+diff --git a/apps/web/src/workflows/current-autonomy.ts b/apps/web/src/workflows/current-autonomy.ts
+new file mode 100644
+index 0000000..e8f28f5
+--- /dev/null
++++ b/apps/web/src/workflows/current-autonomy.ts
+@@ -0,0 +1,16 @@
++import { currentAutonomy } from '../server/current-autonomy-runtime';
++
++/** Bounded durable scheduler wrapper. SQL operation keys retain company/run authority;
++ * the scheduler Workflow run ID never impersonates the customer's existing Workflow run. */
++export async function currentAutonomyWorkflow() {
++  'use workflow';
++  return advanceDueJobsStep();
++}
++async function advanceDueJobsStep() {
++  'use step';
++  const app = currentAutonomy();
++  if (!app) throw new Error('current_autonomy_owner_composition_unavailable');
++  return app.advanceDueJobs();
++}
++// Unknown external usage must reconcile through durable company operations on a later tick.
++advanceDueJobsStep.maxRetries = 0;

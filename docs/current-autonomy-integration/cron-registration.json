@@ -1,0 +1,8 @@
+{
+  "ownerMergeOnly": true,
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "preserveAllExistingEntries": true,
+  "activateOnlyAfterReviewedCompositionAndMigration": true,
+  "crons": [{"path":"/api/cron/autonomy","schedule":"* * * * *"}],
+  "review-resumption": "Existing imported review-resumption route remains dormant unless separately scheduled by owner; never replace existing monitoring cron with historical code."
+}

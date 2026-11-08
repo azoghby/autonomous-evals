@@ -1,0 +1,8 @@
+
+> test
+> vitest run --maxWorkers=2 --reporter=json --outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-11c5e6d8/tests/track-b/current-autonomy-integration/evidence/parent-tests.json
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-11c5e6d8/tests/track-b/current-autonomy-integration/evidence/parent-tests.json
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.

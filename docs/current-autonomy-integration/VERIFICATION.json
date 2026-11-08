@@ -1,0 +1,124 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "commands": [
+    {
+      "label": "stage",
+      "command": [
+        "/usr/local/bin/node",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-11c5e6d8/docs/current-autonomy-integration/stage.mjs",
+        "--out",
+        "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-SVXGlN"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "test-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "runtime-tests",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "current-autonomy-vitest.config.mjs",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-11c5e6d8/tests/track-b/current-autonomy-integration/evidence/tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "parent-npm-test",
+      "command": [
+        "npm",
+        "test",
+        "--",
+        "--maxWorkers=2",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-11c5e6d8/tests/track-b/current-autonomy-integration/evidence/parent-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "core-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-typegen",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "app-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "apps/web",
+        "--noEmit"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-workflow-build",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "build",
+        "--webpack"
+      ],
+      "exit": 0
+    }
+  ],
+  "tests": {
+    "passed": 119,
+    "failed": 0,
+    "skipped": 0
+  },
+  "parentTests": {
+    "passed": 2385,
+    "failed": 0,
+    "skipped": 1
+  },
+  "versions": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "workflow": "5.4.0",
+    "@usenaive-sdk/managed-agents": "0.12.3"
+  },
+  "finalAppliedSource": {
+    "preservedFiles": 1944,
+    "preservedBytes": 17726769,
+    "changedFiles": 1,
+    "addedFiles": 88,
+    "compositionSha256": "394ca461e8459c66b19b9a18762a28f765d7c44e4d7dfec859df2c5e7e41f299",
+    "drift": []
+  },
+  "patchHashes": {
+    "config": "920780a81ccbb749a116ba2620d4e5be3c8df9ad515185927a2aedf2f38326af",
+    "dependencies": "9bc26cc26044e8ccda71aa76b9899e831e57d03f5ee61d5f55e4e3993a930dac",
+    "application": "03d25b73bfef32e26652ca571923cdb1d0d5b4d37143ff0ded8f3097069136f4"
+  },
+  "releaseAccepted": false,
+  "liveRunPerformed": false,
+  "remainingPrivacyGate": "Independent sibling reported in-flight artifact-read revocation race at7f492e2; exact-candidate test and patch reconciliation pending."
+}

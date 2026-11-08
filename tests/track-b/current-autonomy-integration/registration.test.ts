@@ -1,0 +1,16 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const h=vi.hoisted(()=>({app:undefined as {bootstrap:ReturnType<typeof vi.fn>;publication:ReturnType<typeof vi.fn>;advanceDueJobs:ReturnType<typeof vi.fn>}|undefined,start:vi.fn(),auth:vi.fn()}));
+vi.mock('workflow/api',()=>({start:h.start}));
+vi.mock('@/server/current-autonomy-runtime',()=>({currentAutonomy:()=>h.app,autonomyUnavailable:()=>new Response('unconfigured',{status:503})}));
+vi.mock('@/app/api/cron/_auth',()=>({requireCronAuth:h.auth}));
+import {GET as tick} from '@/app/api/cron/autonomy/route';
+import {POST as bootstrap} from '@/app/api/jobs/[jobId]/autonomy/route';
+import {GET as report} from '@/app/api/jobs/[jobId]/autonomy/report/route';
+import {currentAutonomyWorkflow} from '@/workflows/current-autonomy';
+beforeEach(()=>{h.app=undefined;h.auth.mockReset().mockReturnValue(null);h.start.mockReset().mockResolvedValue({runId:'scheduler-run'});});
+const request=()=>new Request('https://local.invalid/api/cron/autonomy');
+it('all new routes fail closed without installed owner composition',async()=>{expect((await tick(request())).status).toBe(503);expect((await bootstrap(request(),{params:Promise.resolve({jobId:'job'})})).status).toBe(503);expect((await report(request(),{params:Promise.resolve({jobId:'job'})})).status).toBe(503);expect(h.start).not.toHaveBeenCalled();});
+it('cron authorization precedes Workflow start even when owner composition exists',async()=>{h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn()};h.auth.mockReturnValue(new Response('denied',{status:401}));expect((await tick(request())).status).toBe(401);expect(h.start).not.toHaveBeenCalled();});
+it('registered cron schedules the bounded durable Workflow and returns its genuine run identity',async()=>{h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn()};const response=await tick(request());expect(response.status).toBe(202);expect(await response.json()).toEqual({runId:'scheduler-run'});expect(h.start).toHaveBeenCalledWith(currentAutonomyWorkflow,[]);});
+it('durable scheduler wrapper advances the existing company root, refuses missing installation',async()=>{await expect(currentAutonomyWorkflow()).rejects.toThrow('owner_composition_unavailable');h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn(async()=>({outcomes:[]}))};expect(await currentAutonomyWorkflow()).toEqual({outcomes:[]});expect(h.app.advanceDueJobs).toHaveBeenCalledOnce();});
+it('customer route params and original request reach owner-authenticated methods',async()=>{const denied=new Response('private',{status:404});h.app={bootstrap:vi.fn(async()=>denied),publication:vi.fn(async()=>denied),advanceDueJobs:vi.fn()};const req=request(),params={params:Promise.resolve({jobId:'job_a'})};expect(await bootstrap(req,params)).toBe(denied);expect(await report(req,params)).toBe(denied);expect(h.app.bootstrap).toHaveBeenCalledWith(req,'job_a');expect(h.app.publication).toHaveBeenCalledWith(req,'job_a');});

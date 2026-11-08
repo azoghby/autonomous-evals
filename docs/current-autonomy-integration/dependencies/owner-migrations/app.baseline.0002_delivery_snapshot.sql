@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" ADD COLUMN "delivery_snapshot_id" text;
