@@ -3,12 +3,14 @@
   "support": [
     {
       "path": "packages/core/src/evals/data/orchestration.ts",
-      "sha256": "c17f229e17c752bfb8c5d8a0d25eba767b180ec0bc12ab0dae8f281ca258fd5f"
+      "sha256": "c17f229e17c752bfb8c5d8a0d25eba767b180ec0bc12ab0dae8f281ca258fd5f",
+      "sourceCommit": "796b5cf75cad11abd58e2a8217c210d2363e10e3"
     },
     {
       "path": "packages/core/src/evals/data/adapters/expert-response.ts",
-      "sha256": "62a873349913257fd76dfac1f10ec9328d065c54d698e3d053e1bdeae08cf80c"
+      "sha256": "62a873349913257fd76dfac1f10ec9328d065c54d698e3d053e1bdeae08cf80c",
+      "sourceCommit": "796b5cf75cad11abd58e2a8217c210d2363e10e3"
     }
   ],
-  "note": "orchestration includes explicit resumeGeneration/resumeFreeze support; pin final source commit when parent commits this current support. No Track A adoption implied."
+  "note": "Exact Track B support is committed in 796b5cf; Workflow artifact remains unapplied. Accounting/expert owner source was separately adopted under explicit user approval."
 }

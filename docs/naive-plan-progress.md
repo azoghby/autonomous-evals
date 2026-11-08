@@ -102,3 +102,9 @@ Concrete bounded Ines response extraction, exact response/metadata binding and a
 ## Owner-approved accounting/expert source adoption
 
 The reviewed combined 15-file owner patch is now applied to actual A app/contracts/database source with Alex’s explicit override; all 15 postimage hashes match. Parent independently passed 52 SQL tests + 8 original outreach tests; strict/fullcore types and coherent Drizzle snapshots verified. No live migrations, grants, deployment, sends or spend. Workflow mounting remains a separate unapplied artifact with 12 passed fixtures and 55 compiled Workflow steps. It deliberately holds a ready suite until the rich engine consumer is adopted. Core explicit generation/freeze recovery passed the final combined 959 tests / 66 files with strict types/no skips. Exact dependency hosted CI for this source commit is pending; prior `80fdf4f` passed complete CI.
+
+## Jude ServiceContext integration
+
+`createNaiveProxyServiceJudge` installs the context cost sink using strict measured proxy receipts: exact job/model/request/idempotency binding, operation-derived purpose, no session identity substitution. Measured zero remains valid. Current context budget 0 blocks invocation including replay, consistently with existing service gates; separately retained receipts can still be mapped for reconciliation. Parent strict judges harness passed 44 tests / 3 files against the newly adopted contract at `796b5cf`, no skips. Actual default real-service construction still needs to select this judge; no live request was made.
+
+Hosted adoption verification: `796b5cf` passed full [GitHub CI](https://github.com/azoghby/standard-evals/actions/runs/42462597513), including locked install, web/core types, unit tests and production build. This supersedes the earlier pending status for that commit, not the live migration/deployment gates.

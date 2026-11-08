@@ -43,5 +43,19 @@
       "Current credentials before contribution publication",
       "Async producer assertCurrent callback contract"
     ]
+  },
+  "hostedCI": {
+    "commit": "796b5cf75cad11abd58e2a8217c210d2363e10e3",
+    "url": "https://github.com/azoghby/standard-evals/actions/runs/42462597513",
+    "conclusion": "success",
+    "checks": [
+      "npm ci",
+      "Next typegen",
+      "web typecheck",
+      "core typecheck",
+      "unit tests",
+      "production build"
+    ],
+    "scope": "actual adopted app source, no deployment"
   }
 }

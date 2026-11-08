@@ -41,3 +41,7 @@ The combined owner transform in `harden-owner.py` additionally rejects cancelled
 ## Source adoption in this session
 
 Alex explicitly approved applying this reviewed 15-file patch to Track A app/database source. Parent applied it and verified all 15 actual source hashes against the manifest. This approval and source adoption do not apply migrations, provision policy grants, deploy, enable outreach or authorize spending. Root local commands still lack checkout executables; GitHub CI validates the committed adoption separately.
+
+## Hosted source verification
+
+The actual adopted source in `796b5cf` passed [complete GitHub CI](https://github.com/azoghby/standard-evals/actions/runs/42462597513): clean locked npm install, Next typegen, web/core types, unit tests and default production build. This supplies exact-dependency hosted build evidence beyond the earlier local supplementary webpack check. It does not apply a database migration or deploy the app.
