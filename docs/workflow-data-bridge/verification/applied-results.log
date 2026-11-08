@@ -1,0 +1,59 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-WqbH7B
+
+ ✓ bridge-verification/workflow-data.test.ts (12 tests) 26932ms
+   ✓ actual applied durable Workflow data composition (12)
+     ✓ registers expected task before dispatch even before task storage exists 3411ms
+     ✓ commits actual expected task inventory before production can write its first task 2259ms
+     ✓ preserves exact waiting_for_data snapshot with no ready admission 2004ms
+     ✓ preserves exact waiting_for_review snapshot with no ready admission 1588ms
+     ✓ preserves exact reconciliation_required snapshot with no ready admission 1376ms
+     ✓ preserves exact cost_delivery_pending snapshot with no ready admission 2582ms
+     ✓ preserves exact mapping_blocked snapshot with no ready admission 1931ms
+     ✓ replays exact ready suite/provenance after reconstruction without production redispatch 3265ms
+     ✓ blocks unknown tasks and never dispatches without the exact authorized plan 1989ms
+     ✓ blocks cross-tenant, stale Workflow and rotated secret plans before production 1716ms
+     ✓ refreshes inventory on production failure and retains no fabricated ready state 2409ms
+     ✓ refuses mismatched returned task and detects private ready payload mutation 2399ms
+ ✓ apps/web/src/server/data-production.test.ts (5 tests) 2470ms
+ ✓ packages/core/src/evals/integration/approved-suite.test.ts (10 tests) 119ms
+ ✓ bridge-verification/rich-driver.test.ts (8 tests) 24ms
+ ✓ bridge-verification/service-hook.test.ts (1 test) 3193ms
+   ✓ actual patched service executes retained approved suite through SQL and reports without design/refreeze/checkpoint fabrication 3191ms
+ ✓ bridge-verification/global-costs.test.ts (2 tests) 4519ms
+   ✓ atomically deduplicates exact measured costs across fresh calls and rejects drift 2437ms
+   ✓ rolls back the dedup key when the canonical ledger insert fails 2079ms
+ ✓ apps/web/src/app/api/jobs/[jobId]/data-review/route.test.ts (5 tests) 37ms
+
+ Test Files  7 passed (7)
+      Tests  43 passed (43)
+   Start at  17:15:49
+   Duration  43.30s (tests 89%, import 7%, transform 5%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-WqbH7B/bridge-results.json
+{
+  "tests": 43,
+  "files": 7,
+  "skipped": 0,
+  "strictAppliedSourceTypecheck": "passed",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-WqbH7B",
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "core": "5906961c2a70c0d6d2999cf7086689402ff60f5b",
+  "patches": [
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/progress-chat-integration/combined.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/structured-progress-integration/backend/structured-progress.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/data-production-integration/intake/track-a.patch",
+    "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/workflow-data-bridge/bridge.patch"
+  ],
+  "parentPin": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "dataPin": "66da7a4d408a6171994ce1af414d512733437a52",
+  "dataOverlay": "packages/core/src/evals/data",
+  "intake": "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-60921934/docs/data-production-integration/intake/track-a.patch",
+  "intakeHash": "c2150e8e2fcecff69d19d323d120d8efeaab2e06b71d69ebce16d5614551f96b",
+  "excludedIntakeHunk": "buildAgentDeps export already applied and hardened",
+  "admission": "packages/core/src/evals/integration/approved-suite.ts",
+  "admissionHash": "e4fb51d0fe208e2bc1b4c43aa935514b0b23cd94e80c34e9583920ee187e58d3",
+  "bridgeHash": "6dd40178aa554b32fa22557d290a77b89c053a1170566436261b343b9698edbf"
+}
