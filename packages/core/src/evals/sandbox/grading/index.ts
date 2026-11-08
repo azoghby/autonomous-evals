@@ -1,3 +1,6 @@
+import { gradeRequiredPerception, type PerceptionAuthority, type PerceptionEvidence } from './perception.js';
+export { hashPerceptionTrajectory } from './perception.js';
+export type { PerceptionAuthority, PerceptionEvidence } from './perception.js';
 import { gradeRowAuthority, type RowAuthority, type CompleteRowDiff } from './row-authority.js';
 export { hashGradingScenario, ROW_DIFF_SQL } from './row-authority.js';
 export type { RowAuthority, CompleteRowDiff, RowMutation, JsonRow, JsonValue } from './row-authority.js';
@@ -54,6 +57,10 @@ export interface GradeInput {
   rowDiff?: CompleteRowDiff;
   security?: SecurityEvidence;
   perception?: PerceptionBinding[];
+  /** Independent server policy for mandatory exact extraction; never scenario JSON. */
+  perceptionAuthority?: PerceptionAuthority;
+  /** Adapter proof of completed execution and the actual complete final trajectory. */
+  perceptionEvidence?: PerceptionEvidence;
   rubric?: RubricObservation[];
   calibration?: CalibrationEvidence[];
   /** Only exact approved phrases count; negation/intent is not inferred by a model. */
@@ -201,8 +208,17 @@ export async function gradeSandbox(input: GradeInput): Promise<GradeResult> {
     const call = b && trajectoryValid ? toolCalls.find(c => c.seq === b.toolSeq) : undefined;
     const extracted = call && b ? valueAt(call.args, b.argumentPath) : undefined;
     const actual = typeof extracted === 'string' || typeof extracted === 'boolean' || (typeof extracted === 'number' && Number.isFinite(extracted)) ? extracted : undefined;
-    checks.push(check(`perception:${media.id}:${field}`, 'perception', actual === undefined ? 'unknown' : String(actual) === expected ? 'pass' : 'fail',
-      'Exact ground-truth comparison to bound agent tool argument.', 'high', true, actual === undefined ? 'unsupported' : undefined));
+    const required = gradeRequiredPerception({ scenario: s, runId: run.runId, envHash: input.versions.envHash,
+      suiteHash: input.versions.suiteHash, attachmentId: media.id, field, expected, trajectory: toolCalls, trajectoryValid,
+      authority: input.perceptionAuthority, evidence: input.perceptionEvidence });
+    // New mandatory requirements take precedence. Invalid/missing new proof must
+    // not be rescued by a legacy binding that bypasses the independent authority.
+    const verdict = required ?? (input.perceptionAuthority !== undefined || input.perceptionEvidence !== undefined ? 'unknown'
+      : actual === undefined ? 'unknown' : String(actual) === expected ? 'pass' : 'fail');
+    checks.push(check(`perception:${media.id}:${field}`, 'perception', verdict,
+      required !== undefined ? 'Completed bound trajectory checked against independently approved exact extraction requirement.'
+        : 'Exact ground-truth comparison requires bound agent tool argument evidence.',
+      'high', true, verdict === 'unknown' ? 'unsupported' : undefined));
   }
   for (const item of s.rubric) {
     const observations = input.rubric?.filter(o => o.itemId === item.id && o.runId === run.runId && o.model === input.versions.judgeModel) ?? [];
