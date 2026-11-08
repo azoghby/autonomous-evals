@@ -22,19 +22,21 @@ const RUN_ID = /^(sample|run_[0-9a-f-]{36})$/;
 export default async function SandboxRunPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params;
   const viewer = await getCurrentCustomer();
-  if (!viewer) redirect(`/signin?next=/sandbox/runs/${encodeURIComponent(runId)}`);
+  // The fixture sample report is public; real runs require the owner to be signed in.
+  const isPublicSample = runId === "sample";
+  if (!viewer && !isPublicSample) redirect(`/signin?next=/sandbox/runs/${encodeURIComponent(runId)}`);
   if (!RUN_ID.test(runId)) notFound();
-  const report = await getSandboxService().getRunReport(viewer.id, runId);
+  const report = await getSandboxService().getRunReport(viewer?.id ?? "", runId);
   if (!report) notFound();
 
   const hasResults = report.results.length > 0;
 
   return (
     <SandboxShell active={runId === "sample" ? "/sandbox/runs/sample" : undefined}>
-    <EvalCopilotLayout copilot={<EvalCopilot evalRef={{ kind: "sandbox_run", id: runId }} title={report.name} />}>
+    <EvalCopilotLayout copilot={viewer ? <EvalCopilot evalRef={{ kind: "sandbox_run", id: runId }} title={report.name} /> : null}>
     <div className="min-w-0 pb-24 pt-10">
       <ReportHeader report={report} />
-      {hasResults && (
+      {hasResults && viewer && (
         <p className="mt-4 text-[13px]">
           <Link className="rc-link" href={`/sandbox/compare?other=${encodeURIComponent(runId)}`}>Compare with another run →</Link>
         </p>
