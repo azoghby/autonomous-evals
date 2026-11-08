@@ -4,6 +4,7 @@ import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { SandboxShowcase } from "@/components/marketing/sandbox-showcase/SandboxShowcase";
 import { DemoTeaser } from "@/components/marketing/DemoTeaser";
 import { LeaderboardTeaser } from "@/components/marketing/LeaderboardTeaser";
+import { MeetTheTeam } from "@/components/marketing/team/MeetTheTeam";
 import { McpSection } from "@/components/marketing/McpSection";
 import { Pricing } from "@/components/marketing/Pricing";
 import { ClosingCta, Footer } from "@/components/marketing/Footer";
@@ -21,6 +22,7 @@ export default function Home() {
         <SandboxShowcase />
         <DemoTeaser />
         <LeaderboardTeaser />
+        <MeetTheTeam />
         <McpSection />
         <Pricing />
         <ClosingCta />
