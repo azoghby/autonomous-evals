@@ -82,7 +82,8 @@ export async function tryNaiveStructured<T>(
     const { outputJsonSchema } = await import("@ae/core/agents/session-service");
     const message = [args.system, args.prompt].filter(Boolean).join("\n\n");
     const body: NaiveSessionCreateBody = {
-      agent_id: agentRef,
+      agent_id: agentRef.split("@")[0],
+      ...(agentRef.includes("@") && Number.isFinite(Number(agentRef.split("@")[1])) ? { agent_version: Number(agentRef.split("@")[1]) } : {}),
       message,
       budget_micro_usd: Math.min(budget ?? MAX_SESSION_BUDGET_MICRO_USD, MAX_SESSION_BUDGET_MICRO_USD),
       output_schema: outputJsonSchema(args.schema),
