@@ -2,6 +2,16 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Current source checkpoint (2026-11-08)
+
+This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on an old “not implemented” statement. Current verified main is `781cba90ceeea85297b37c525ddf86cca3957367` (local and origin matched on this check).
+
+- The approved accounting/expert adoption is actual source in `796b5cf`; all 15 files still exactly match `docs/expert-adoption-integration/postimages`. Do not apply that patch again. Its authorization does not extend to later application patches.
+- Current main passed [GitHub CI run 42462953707](https://github.com/azoghby/standard-evals/actions/runs/42462953707), including types, tests and production build. This proves source verification, not deployment or live database changes.
+- Full provisioning CLI/roster planning, five core method adapters, SQL artifact authority, expert acquisition/response adapters and the Jude ServiceContext bridge have since been implemented. Their remaining application/hosted gates are tracked in the progress document.
+- `docs/expert-workflow-integration` remains an unapplied candidate. The rich contract and text runtime artifacts are being reviewed together; their presence on disk does not establish source adoption or successful validation. Keep the existing sandbox/company Workflow path intact.
+- No live migrations, policy activation, outreach, payments or deployment are implied by these source checkpoints.
+
 ## Assignment and governing plan
 
 Continue implementing Track B of Standard Evals / autonomous-evals. **The user explicitly selected `docs/NAIVE_PLAN.md` as the source of truth** after it was pushed in `0c8342a`. Implement its full phase sequence; do not substitute the older autonomy-supervisor artifacts for this migration. Start with unfinished Phase 0, then all eval methods, company roles/coordinator/deployments, simulator/judge/media and approval integration. Deterministic pricing, authorization, payments, budgets, target transport, SQL graders and lifecycle controls stay code-owned.
