@@ -1,0 +1,45 @@
+{
+  "pins": {
+    "judgedTrackA": "aa94505fd535f5c0f586cc6325b49b71a1683761",
+    "ownerTrackA": "875ceef6a743df41736ee55c4145ca794e0854a8",
+    "core": "e4686a84f248bfe8be9bcda4ed534b0807379714"
+  },
+  "patchSha256": "aa9b1fa56d371f74d6dca5054cfed441990e6309f99c360014e22e47f0b4c1e5",
+  "patchFiles": 29,
+  "preservedAPaths": 163,
+  "tests": {
+    "company": 44,
+    "server": 11,
+    "sqlSecurity": 6,
+    "skipped": 0
+  },
+  "commands": [
+    "node docs/autonomy-release-adoption/build-artifact.mjs",
+    "AUTONOMY_NODE_MODULES=/tmp/sandbox-generation-deps.cBCEai/node_modules WORKFLOW_INSTALLED_WORKSPACE=/tmp/workflow-bootstrap.JpxCTM node tests/track-b/autonomy-release-adoption/run.mjs"
+  ],
+  "checks": {
+    "patchRoundtrip": true,
+    "baselineBytesPreserved": true,
+    "strictTestTypeScript": true,
+    "fullCoreTypeScript": true,
+    "fullAppTypeScript": true,
+    "nextWorkflowBuild": true
+  },
+  "offlineDependencies": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "workflow": "5.4.0",
+    "@usenaive-sdk/managed-agents": "0.12.3"
+  },
+  "limitations": [
+    "retained dependencies/fonts, not a clean locked install",
+    "PGlite serial connection, not hosted PostgreSQL contention",
+    "scripted providers, no live authentication/payment/receipt acceptance",
+    "owner registry/grants/startup/routes/cron and genuine transports remain required",
+    "initial incomplete @types merge led Next to attempt a package install; it failed, merged offline dependency scopes fixed final run; no provider calls"
+  ],
+  "liveRunPerformed": false,
+  "releaseAccepted": false
+}

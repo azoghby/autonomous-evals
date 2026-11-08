@@ -1,0 +1,36 @@
+# Separate autonomous company owner adoption
+
+This addition composes the immutable judged-release stager with current autonomous-company core and server adapters. Historical release artifacts, Track A application/platform/spec/manifests and other teams' paths are unchanged. No hosted setup or production acceptance is claimed.
+
+The immutable judged Track A pin remains `aa94505fd535f5c0f586cc6325b49b71a1683761`. The disposable adoption baseline first reproduces that judged composition, then applies Track A's exact `875ceef6a743df41736ee55c4145ca794e0854a8` delta by three-way preimages. Unresolved concurrent additions, deletions or merge conflicts stop staging. New A OAuth, sandbox ingest/runtime/media/UI and newer public-agent protections survive. The baseline retains judged snapshot fix `8e648e6ba53cc9a104511b797c789593fd7d432d` byte-for-byte. No complete historical overlay is applied on top of newer A.
+
+The additive patch then adds only missing core source files from main `e4686a84f248bfe8be9bcda4ed534b0807379714` (including sandbox engine integration and autonomy), the earlier owner adapter, the new `autonomy-release.ts` composition root and SQL migration bundle. Existing core files, runtime/spec and manifests cannot be overwritten. The sandbox engine additions are preservation/composition inputs; this does not wire sandbox application adoption, change sandbox approval authority, or claim media acceptance.
+
+## Reproduce and review
+
+```sh
+node docs/autonomy-release-adoption/build-artifact.mjs
+AUTONOMY_NODE_MODULES=/tmp/sandbox-generation-deps.cBCEai/node_modules WORKFLOW_INSTALLED_WORKSPACE=/tmp/workflow-bootstrap.JpxCTM node tests/track-b/autonomy-release-adoption/run.mjs
+```
+
+The builder uses fresh processes for historical staging, emits `application.patch` and `APPLICATION.json`, checks application against a fresh preserved-A baseline, compares all added bytes and verifies every baseline byte survives. `APPLICATION.json` records exact pins, per-file hashes, A refresh hashes and patch hash. The patch targets **judged + preserved 875ceef**, not bare A, not an arbitrary newer checkout. Review the reproduced baseline before application. Already-present core additions must be reconciled by exact byte identity; do not delete them to force application. Never apply the historical complete patch over current owner files.
+
+The test harness merges existing offline dependency scopes, uses retained Geist fonts and runs local SQL, the existing real four-role company suite, app-boundary tests, full core/app TypeScript and Next/Workflow build. It uses scripted provider fixtures; no paid target/Gateway/Naïve run, provider setup, hosted DDL, deployment or sending is authorized. Cached dependencies differ from a clean locked install. Package-manager offline configuration is explicit. Tests and build run only in disposable directories; no dependency install is part of the workflow.
+
+## Owner integration
+
+`createAutonomyReleaseServer(config)` exposes `bootstrap(credential, jobId)`, `scheduledTick(credential)` and `publication(credential, jobId)`. Configure scheduler and customer authentication from the owner's real services. Bootstrap reads canonical authorized intake and immutable server policy, persists tenant/job/owner/policy identity and rechecks it. It does not ask for routine per-job founder approval. Legacy-human review rows are neither synthesized nor accepted as automated review authority.
+
+Each bounded scheduler scan reads at most 25 due jobs and persists its next due time, preventing the first batch from starving later jobs. Every company operation and Naïve create/get/list rechecks current tenant/job/owner/policy authority. Core `AgentSessionService`, SQL task store and `PostgresBudgetLedger` are constructed concretely with exact configured agent IDs/versions, stable period/worker identities and `createAutonomousBudgetLedger`; policy root, role and job caps participate in the same atomic reservations. The supervisor envelope is not another measured monetary debit. Changed policy/owner/request, missing auth or ambiguous receipts refuse progress. Existing Workflow resumption and physical run identity remain untouched.
+
+Supply all required adapters explicitly: canonical owner job/auth, current secrets scanner, durable data operations ledger, source permission issuer and exact digest list, authoritative payment verification, genuine idempotent Naïve transport, retained target/judge evaluation and recovery receipts, and consented durable communication outbox. No adapter creates fake permissions, payment, provider IDs or receipts. Missing/expired/changed source permissions block evaluation. Pending payment stays waiting, a matching settled receipt must cover the frozen USD quote, and missing provider receipts never authorize replay. Customer payment/clarification remains external input. Paid data acquisition and target/judge adapters must reserve through the existing shared budgets and retain authoritative settlement; this root does not turn unmetered custom adapters into authorized dispatch.
+
+Publication returns the retained rendered artifact only after authenticated current tenant/job ownership and durable completion checks; the owner must map it to its private report route with existing redaction, retention and security headers. It remains distinctly labelled `automated_review`. The earlier generic owner adapter is delivered for source composition; only explicitly registered owner startup/cron/report mapping enables operation. No route or cron is silently registered.
+
+## Migration and acceptance gates
+
+Review `owner-migrations/autonomy-release.json` in the reproduced stage: core autonomy operations, communications, then release access schema. Stable named identities and SHA256 values are separate from historical manifest ordinals. Map the prerequisite agent persistence and data operations identities into the owner's actual migration registry before execution; do not discover SQL by ordinal or execute aliases twice. The owner runner owns each transaction. No constructor runs DDL. Grant only the actual server role; the release schema/tables revoke PUBLIC access. Existing task/budget/data/supervisor/outbox tables also require owner-reviewed server-only grants. Never expose database-owner credentials or SQL access to customers/models.
+
+Remaining gates: owner migration registry/alias reconciliation and grants, authenticated startup/cron/private route registration, real permissions and webhook issuers, provider idempotency/authoritative receipt transport, shared target/judge/data/outbox monetary and cancellation coordination, multi-connection hosted PostgreSQL contention, durable hosted Workflow crash/replay, rotated credentials/revocation races and actual private report privacy. Local PGlite serializes SQL; it does not prove hosted locking or atomic revocation across an external provider dispatch.
+
+The conditional immediate-completion live plan is **77 target / 50 Gateway / 10 paid Naïve HTTP operations**. Approved ceilings remain **32 / 16 / 0**, 180 seconds, no cloud mutations. Extra polling/recovery/revision is outside that envelope; dollar/elapsed feasibility remains unproven. Neither production phase limits nor this artifact authorize larger live caps. Release acceptance remains false.
