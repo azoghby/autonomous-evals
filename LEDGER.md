@@ -310,3 +310,7 @@ Times are PT, as recorded.
   - feedback_invites: 17 rows with status 'sent', each with an AgentMail message_id.
   - The 6 old SDR drafts were not touched.
 - ~07:20 PT: deployed main d23cb38 (autonomous-evals-5mmssygig ● Ready). The proof strip now uses the latest run per agent, the same basis as the leaderboard, so scenarios graded reads 1,088 instead of 1,440. Found by the review-3 pass. Review 3 (diff d1ceaf0..main) had no CRITICAL or HIGH findings.
+- ~07:00 PT: deployed main 0c2e5cc (autonomous-evals-qii0869ue ● Ready).
+  - ⌘K palette: no longer calls /api/evals for signed-out visitors. It reads the non-HttpOnly `ae_in` hint cookie, which carries no credential. Account entries are hidden when signed out.
+  - Hero h1 (the LCP element) no longer fades in from opacity 0.
+  - Lighthouse mobile on prod home varies 0.69–0.93 between runs, with LCP ~3.2–3.7 s and CLS 0. No measurable change from the hero tweak. The remaining LCP cost is homepage hydration, a larger refactor that is deferred.
