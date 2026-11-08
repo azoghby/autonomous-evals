@@ -1,0 +1,626 @@
+{
+  "projectId": "icy-star-64097833",
+  "sourceCommit": "11d7ff2b18c8d6388ffe2d20ac329e8e5095792d",
+  "branch": {
+    "id": "br-polished-star-bdxodsin",
+    "name": "naive-staging-20261108",
+    "init_source": "parent-schema",
+    "parent_id": null,
+    "expires_at": "2026-11-15T09:34:02Z"
+  },
+  "endpoint": {
+    "id": "ep-orange-poetry-bd294x06",
+    "type": "read_write",
+    "autoscaling_limit_min_cu": 0.25,
+    "autoscaling_limit_max_cu": 0.25,
+    "suspend_timeout_seconds": 300
+  },
+  "branchOperations": [
+    {
+      "id": "e30c6bad-9609-4d32-aa03-2036acdcd8e8",
+      "action": "create_branch",
+      "status": "finished"
+    },
+    {
+      "id": "c701bbcb-1e98-4882-8ba0-11a321b7f639",
+      "action": "timeline_update_protected_config",
+      "status": "finished"
+    },
+    {
+      "id": "d9f26c52-6581-416d-a3c9-fa21760f1254",
+      "action": "start_compute",
+      "status": "finished"
+    },
+    {
+      "id": "3f2b868c-b0df-455e-9e4e-68064405fc1c",
+      "action": "start_compute",
+      "status": "finished"
+    },
+    {
+      "id": "85920e43-9a12-4b91-86a0-127d485cad11",
+      "action": "apply_schema_from_branch",
+      "status": "finished"
+    },
+    {
+      "id": "0c79e257-6a97-419d-b6de-8117732e5a63",
+      "action": "sync_dbs_and_roles_from_compute",
+      "status": "finished"
+    },
+    {
+      "id": "1580241a-ae91-4b18-83ef-6b4285c7840e",
+      "action": "epc_sync",
+      "status": "finished"
+    },
+    {
+      "id": "058d9442-1c99-465c-8c8b-94adaac961f8",
+      "action": "epc_sync",
+      "status": "finished"
+    }
+  ],
+  "role": "naive_staging_owner",
+  "database": "naive_staging",
+  "databaseCreateAccepted": true,
+  "sqlConnected": true,
+  "migrationsApplied": true,
+  "deployed": false,
+  "productionModified": false,
+  "credentialValuesIncluded": false,
+  "databaseOperationsFinished": true,
+  "migration": {
+    "commit": "11d7ff2b18c8d6388ffe2d20ac329e8e5095792d",
+    "branchId": "br-polished-star-bdxodsin",
+    "database": "naive_staging",
+    "migrationFiles": [
+      {
+        "file": "packages/core/src/db/migrations/0000_init.sql",
+        "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0001_expert_network.sql",
+        "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0002_delivery_snapshot.sql",
+        "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0003_rate_limits.sql",
+        "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0004_email_threads.sql",
+        "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0005_remediations.sql",
+        "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0006_per_finding_pricing.sql",
+        "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0007_api_keys.sql",
+        "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0008_monitoring_runs.sql",
+        "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0009_call_slots.sql",
+        "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0010_engagement_prev_tokens.sql",
+        "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0011_job_shares.sql",
+        "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0012_github_prs.sql",
+        "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0013_regression_runs.sql",
+        "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0014_public_agents.sql",
+        "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0015_owner_autopilot.sql",
+        "sha256": "d783be2498700ba676146cd0b5429e74707cff9aca2528e98cbec62bef413a69"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0016_mcp_oauth.sql",
+        "sha256": "981754d2d89f862bd3da4bb82dc077ca895f915051731511e965681e081d77ba"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0017_sandbox_evals.sql",
+        "sha256": "b0f0e7f90a5df5f4ecc4ddaaa7e3adaf4661d84724d68aa5864a9a8f0bd8bc61"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0018_plans_and_sales.sql",
+        "sha256": "053f58659df61f7a6c4f19bd6ac9085fc91694e8ce33a33d4324c9654996bffa"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0019_founder_approvals.sql",
+        "sha256": "fc6fb3375570b4f8f113591da7de94f69b7d308f13e6881828099e1a53a22878"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0020_founder_email.sql",
+        "sha256": "57f12877a21cc7f00a8d20ab97d51f2391cd61206a879521876bd339f9aca8e5"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0021_company_agents.sql",
+        "sha256": "ef94bc66397eb1fe1a33c37d7777aa5c76d5f020a2c3c547b7aee94dbd760f47"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0022_uneven_nitro.sql",
+        "sha256": "03493fb6a36cc0d626dba5e6f1bd6e4e3d858903d650b1ccc59faa1874e39526"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0023_cost_receipts.sql",
+        "sha256": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0024_expert_automation.sql",
+        "sha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0025_expert_workflow.sql",
+        "sha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f"
+      },
+      {
+        "file": "packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+        "sha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024"
+      },
+      {
+        "file": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+        "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596"
+      },
+      {
+        "file": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+        "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666"
+      },
+      {
+        "file": "packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql",
+        "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9"
+      },
+      {
+        "file": "packages/core/src/evals/data/persistence-migrations/002-data-operations.sql",
+        "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9"
+      }
+    ],
+    "sqlConnected": true,
+    "appMigrationsApplied": true,
+    "sidecarsApplied": true,
+    "productionModified": false,
+    "initialTableCount": 0,
+    "journal": [
+      {
+        "hash": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+        "created_at": "1794084659676"
+      },
+      {
+        "hash": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+        "created_at": "1794085616142"
+      },
+      {
+        "hash": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+        "created_at": "1794085777771"
+      },
+      {
+        "hash": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+        "created_at": "1794085821334"
+      },
+      {
+        "hash": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+        "created_at": "1794086137760"
+      },
+      {
+        "hash": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+        "created_at": "1794086440093"
+      },
+      {
+        "hash": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+        "created_at": "1794086459455"
+      },
+      {
+        "hash": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+        "created_at": "1794086495987"
+      },
+      {
+        "hash": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+        "created_at": "1794087019720"
+      },
+      {
+        "hash": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+        "created_at": "1794087060164"
+      },
+      {
+        "hash": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+        "created_at": "1794088636007"
+      },
+      {
+        "hash": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+        "created_at": "1794091048302"
+      },
+      {
+        "hash": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+        "created_at": "1794091149315"
+      },
+      {
+        "hash": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+        "created_at": "1794096969671"
+      },
+      {
+        "hash": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+        "created_at": "1794097272207"
+      },
+      {
+        "hash": "d783be2498700ba676146cd0b5429e74707cff9aca2528e98cbec62bef413a69",
+        "created_at": "1794101989078"
+      },
+      {
+        "hash": "981754d2d89f862bd3da4bb82dc077ca895f915051731511e965681e081d77ba",
+        "created_at": "1794103982217"
+      },
+      {
+        "hash": "b0f0e7f90a5df5f4ecc4ddaaa7e3adaf4661d84724d68aa5864a9a8f0bd8bc61",
+        "created_at": "1794106630072"
+      },
+      {
+        "hash": "053f58659df61f7a6c4f19bd6ac9085fc91694e8ce33a33d4324c9654996bffa",
+        "created_at": "1794110148745"
+      },
+      {
+        "hash": "fc6fb3375570b4f8f113591da7de94f69b7d308f13e6881828099e1a53a22878",
+        "created_at": "1794112445416"
+      },
+      {
+        "hash": "57f12877a21cc7f00a8d20ab97d51f2391cd61206a879521876bd339f9aca8e5",
+        "created_at": "1794114271994"
+      },
+      {
+        "hash": "ef94bc66397eb1fe1a33c37d7777aa5c76d5f020a2c3c547b7aee94dbd760f47",
+        "created_at": "1794115397086"
+      },
+      {
+        "hash": "03493fb6a36cc0d626dba5e6f1bd6e4e3d858903d650b1ccc59faa1874e39526",
+        "created_at": "1794117812952"
+      },
+      {
+        "hash": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34",
+        "created_at": "1794117812953"
+      },
+      {
+        "hash": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+        "created_at": "1794117812954"
+      },
+      {
+        "hash": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+        "created_at": "1794127349072"
+      },
+      {
+        "hash": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+        "created_at": "1794127377712"
+      }
+    ],
+    "tables": [
+      {
+        "table_schema": "agent_persistence",
+        "table_name": "reservations"
+      },
+      {
+        "table_schema": "agent_persistence",
+        "table_name": "scopes"
+      },
+      {
+        "table_schema": "agent_persistence",
+        "table_name": "tasks"
+      },
+      {
+        "table_schema": "drizzle",
+        "table_name": "__drizzle_migrations"
+      },
+      {
+        "table_schema": "evaluation_data_persistence",
+        "table_name": "operations"
+      },
+      {
+        "table_schema": "evaluation_data_persistence",
+        "table_name": "tasks"
+      },
+      {
+        "table_schema": "expert_workflow",
+        "table_name": "contribution_reviews"
+      },
+      {
+        "table_schema": "expert_workflow",
+        "table_name": "plans"
+      },
+      {
+        "table_schema": "expert_workflow",
+        "table_name": "text_bindings"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "agent_sessions"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "api_keys"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "budget_reservations"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "call_slots"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_agent_activity"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_agent_settings"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_plans"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "company_tasks"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "contact_suppressions"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "costs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "customers"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "email_threads"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "eval_chat_actions"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "eval_chat_messages"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_automation_invitations"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_automation_operations"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_automation_policies"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_automation_qualifications"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_automation_response_bindings"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_automation_scopes"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_engagements"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_requests"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "expert_responses"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "experts"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "findings"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "follow_ups"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "founder_approvals"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "founder_email_threads"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "founder_notes"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "founder_notify_settings"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "github_prs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "idempotency_keys"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "interventions"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "job_credentials"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "job_github_targets"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "job_shares"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "jobs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "magic_links"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "market_briefs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "messages"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "monitoring_runs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "monitoring_subscriptions"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "oauth_clients"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "oauth_codes"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "oauth_tokens"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "onboarding_conversations"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "outreach_drafts"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "owner_email_log"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "payments"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "plan_purchases"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "progress_events"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "prospect_leads"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "public_agent_runs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "public_agent_tokens"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "public_agents"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "quotes"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "rate_limits"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "regression_runs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "remediations"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "sales_leads"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "sandbox_environments"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "sandbox_runs"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "sandbox_suites"
+      },
+      {
+        "table_schema": "public",
+        "table_name": "sessions"
+      },
+      {
+        "table_schema": "text_integration",
+        "table_name": "checkpoints"
+      }
+    ],
+    "success": true
+  },
+  "verification": {
+    "database": "naive_staging",
+    "branchId": "br-polished-star-bdxodsin",
+    "checks": [
+      "27-migration replay leaves journal unchanged",
+      "completed data operation rejects mutation; transaction rollback removes fixture",
+      "two concurrent connections produce one idempotent task row; fixture cleaned",
+      "expert authority/review and data-operation triggers installed"
+    ],
+    "providerCalls": 0,
+    "success": true
+  }
+}

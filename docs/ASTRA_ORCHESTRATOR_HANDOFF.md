@@ -4,13 +4,13 @@ Prepared for Alex at his explicit request. Read this instead of importing the mu
 
 ## Current source checkpoint (2026-11-08)
 
-This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on an old “not implemented” statement. Current verified main is `781cba90ceeea85297b37c525ddf86cca3957367` (local and origin matched on this check).
+This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on old “not implemented” statements. Main and origin/main were fetched and matched at `11d7ff2b18c8d6388ffe2d20ac329e8e5095792d`. The latest supplied AGENTS instructions require commits on `track-a`; this continuation created that branch from the verified main tip without changing source.
 
-- The approved accounting/expert adoption is actual source in `796b5cf`; all 15 files still exactly match `docs/expert-adoption-integration/postimages`. Do not apply that patch again. Its authorization does not extend to later application patches.
-- Current main passed [GitHub CI run 42462953707](https://github.com/azoghby/standard-evals/actions/runs/42462953707), including types, tests and production build. This proves source verification, not deployment or live database changes.
-- Full provisioning CLI/roster planning, five core method adapters, SQL artifact authority, expert acquisition/response adapters and the Jude ServiceContext bridge have since been implemented. Their remaining application/hosted gates are tracked in the progress document.
-- `docs/expert-workflow-integration` remains an unapplied candidate. The rich contract and text runtime artifacts are being reviewed together; their presence on disk does not establish source adoption or successful validation. Keep the existing sandbox/company Workflow path intact.
-- No live migrations, policy activation, outreach, payments or deployment are implied by these source checkpoints.
+- Approved accounting/expert source is adopted in `796b5cf`; approved 26-file expert text routing/contracts/schema source is adopted in `9eb9e4c`. Do not apply those historical patches again. Adoption receipts distinguish them from their immutable pre-adoption manifests.
+- `9eb9e4c` passed complete locked-install [GitHub CI](https://github.com/azoghby/standard-evals/actions/runs/42466546567). Core independent proxy accounting recovery is actual source in `11d7ff2`, independently checked with 987 tests/68 files and strict types; its full hosted [CI passed](https://github.com/azoghby/standard-evals/actions/runs/42467560403).
+- New operator review and accounting recovery surfaces are separate proposed artifacts in `docs/expert-review-surface-integration` and `docs/naive-proxy-recovery-integration`. They are not actual app source or deployed features.
+- An isolated schema-only Neon staging branch, fresh role and database have been created using privately supplied credentials. See `docs/naive-staging-infrastructure-receipt.json`; all 27 application and four sidecar migrations were applied to the empty fresh staging database. Replay, operation immutability/rollback and two-connection task uniqueness checks passed. Production was not modified. The staging branch expires November 15, 2026.
+- Full roster attestation/provisioning, generic method routing, real hosted acceptance and subsequent plan phases remain open. Source tests do not satisfy these gates.
 
 ## Assignment and governing plan
 

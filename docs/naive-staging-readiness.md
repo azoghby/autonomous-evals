@@ -1,6 +1,6 @@
 # Naïve staging readiness and acceptance
 
-This is a setup and acceptance checklist, not a completed live gate. It reflects the adopted expert text source and `docs/NAIVE_PLAN.md`, with newer source/adoption receipts taking precedence over that plan's historical status tables. Preparation here used source/config metadata reads only: no database connection, provider request, migration, invitation, payment, deployment or credential copy was performed.
+This is a setup and acceptance checklist, not a completed live gate. It reflects the adopted expert text source and `docs/NAIVE_PLAN.md`, with newer source/adoption receipts taking precedence over that plan's historical status tables. Initial preparation used source/config metadata reads only. Subsequent isolated staging infrastructure creation is recorded below; no SQL connection, migration, invitation, payment or app deployment has occurred at that checkpoint.
 
 ## Evidence boundary
 
@@ -125,3 +125,15 @@ Rollback is scoped to the active path: disable expert plans/scopes/policies to s
 The previously supplied private Naïve key file remains available even though no key is present in the current process/app env files. Root used the verified provisioning CLI for a bounded read-only inventory, with no resource/session creation. Four configured role entries were returned; configuration attestation and expanded provisioning remain open. Nonsecret receipt: `naive-phase0-inventory-20261108.json`. The private Neon credential was supplied. Read-only API metadata confirms project `icy-star-64097833` (`autonomous-evals-pg18`, PG18, aws-us-east-2) and its recorded main/sim-seed branches. No SQL connection, branch creation or migration had occurred at this inventory checkpoint.
 
 Actual adopted source `9eb9e4c` passed full [GitHub CI](https://github.com/azoghby/standard-evals/actions/runs/42466546567), including locked install, types, tests and default production build. This supersedes the local retained-dependency build limitation for that source commit, not the hosted activation gates.
+
+## Isolated infrastructure checkpoint (2026-11-08)
+
+Root created schema-only branch `naive-staging-20261108` (`br-polished-star-bdxodsin`) in the recorded project; all eight branch operations finished. Its read-write endpoint is capped at 0.25 CU, suspends after 300 seconds and the branch expires 2026-11-15T09:34:02Z. Fresh role `naive_staging_owner` and fresh database `naive_staging` creation requests were accepted; their response credentials are retained privately outside the repository. No production rows were copied by the schema-only request. Nonsecret receipt: `naive-staging-infrastructure-receipt.json`.
+
+Next: confirm database operations finished, retrieve its private connection URI, verify exact branch endpoint/database identity, then apply the committed migration sequence to this fresh database. The inherited schema-only database is not the migration destination. SQL connectivity, migrations, hosted authorization and real provider acceptance are still unverified.
+
+### Later staging SQL verification
+
+The dedicated role/database creation operations finished. Root verified the API-selected endpoint and SQL database/current role, observed zero initial application tables, and applied exact committed `11d7ff2` SQL: all27 Drizzle migrations and four agent/text/data sidecars. Replaying Drizzle left all27 journal hashes unchanged. Real PostgreSQL checks passed: completed data-operation mutation refused, rollback removed the operation fixture, two concurrent connections retained exactly one idempotent task, and expected authority/review/operation triggers exist. The temporary task fixture was removed. See the expanded nonsecret infrastructure receipt for every migration SHA and check.
+
+This supersedes the earlier “no SQL connection/migration” checkpoint only for this isolated branch. No production schema, hosted app deployment, genuine human review, provider session, outreach or payment is implied. Core source11d7ff2 also passed complete GitHub CI42467560403. Root checkout typecheck/npm tests were attempted again but cannot start because local TypeScript/Vitest executables are absent.
