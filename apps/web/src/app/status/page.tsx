@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/ui";
-import { getStatusSummary, type CountRow, type CronInfo, type StatusSummary } from "@/server/status";
-import type { Probe } from "@/server/status-logic";
+import { getCurrentCustomer } from "@/server/session";
+import { getPublicStatus, getStatusSummary, type CountRow, type CronInfo, type StatusSummary } from "@/server/status";
+import type { OverallStatus, Probe, PublicStatus } from "@/server/status-logic";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Status · Standard Evals", description: "Live health of Standard Evals." };
@@ -121,22 +122,64 @@ function Body({ s }: { s: StatusSummary }) {
   );
 }
 
+const PUBLIC_STATE = { ok: "Operational", degraded: "Degraded", down: "Outage" } as const;
+
+function Hero({ overall, generatedAt, summary }: { overall: Pick<OverallStatus, "level" | "label">; generatedAt: string; summary: string }) {
+  return (
+    <header className="st-hero" data-tone={LEVEL_TONE[overall.level]}>
+      <p className="t-eyebrow text-subtle">System status</p>
+      <h1 className="st-headline t-h1" role="status">
+        <span aria-hidden className="st-pulse" />
+        <span data-testid="status-headline">{overall.label}</span>
+      </h1>
+      <p className="t-data text-subtle">
+        {summary} · Checked <time dateTime={generatedAt}>{generatedAt.replace("T", " ").slice(0, 19)} UTC</time>.
+      </p>
+    </header>
+  );
+}
+
+/** Anonymous view: one level per component, nothing else. */
+function PublicBody({ s }: { s: PublicStatus }) {
+  return (
+    <Section id="st-components" title="Components">
+      <ul className="st-list">
+        {s.components.map((c) => (
+          <li key={c.id} className="st-row" data-public="" data-tone={PROBE_TONE[c.level]}>
+            <span aria-hidden className="st-dot" />
+            <p className="st-row-name">{c.label}</p>
+            <span className="st-state t-eyebrow">{PUBLIC_STATE[c.level]}</span>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+async function isOperatorViewer(): Promise<boolean> {
+  try {
+    return (await getCurrentCustomer())?.isOperator === true;
+  } catch {
+    return false;
+  }
+}
+
 export default async function StatusPage() {
+  if (!(await isOperatorViewer())) {
+    const p = await getPublicStatus();
+    const summary = p.overall.level === "operational" ? "Everything is running normally" : "We are looking into it";
+    return (
+      <PageShell>
+        <Hero overall={p.overall} generatedAt={p.generatedAt} summary={summary} />
+        <PublicBody s={p} />
+      </PageShell>
+    );
+  }
   const s = await getStatusSummary();
-  const tone = LEVEL_TONE[s.overall.level];
+  const summary = s.overall.level === "operational" ? "All probes passed" : s.overall.reasons.join(" · ");
   return (
     <PageShell>
-      <header className="st-hero" data-tone={tone}>
-        <p className="t-eyebrow text-subtle">System status</p>
-        <h1 className="st-headline t-h1" role="status">
-          <span aria-hidden className="st-pulse" />
-          <span data-testid="status-headline">{s.overall.label}</span>
-        </h1>
-        <p className="t-data text-subtle">
-          {s.overall.level === "operational" ? "All probes passed" : s.overall.reasons.join(" · ")}
-          {" "}· Checked <time dateTime={s.generatedAt}>{s.generatedAt.replace("T", " ").slice(0, 19)} UTC</time>.
-        </p>
-      </header>
+      <Hero overall={s.overall} generatedAt={s.generatedAt} summary={`Operator view · ${summary}`} />
       <Body s={s} />
     </PageShell>
   );

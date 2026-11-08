@@ -4,8 +4,8 @@ import { db } from "@ae/core/db/client";
 import journal from "../../../../packages/core/src/db/migrations/meta/_journal.json";
 import vercelConfig from "../../vercel.json";
 import {
-  STALE_RUNNING_MS, classifyActivity, cronIntervalMs, describeCron, formatAge, summarizeStatus,
-  type ActivityState, type OverallStatus, type Probe, type ProbeLevel,
+  STALE_RUNNING_MS, classifyActivity, cronIntervalMs, describeCron, formatAge, summarizeStatus, toPublicStatus, ttlCache,
+  type ActivityState, type OverallStatus, type Probe, type ProbeLevel, type PublicStatus,
 } from "./status-logic";
 
 const PROBE_TIMEOUT_MS = 3000;
@@ -210,3 +210,12 @@ export async function getStatusSummary(): Promise<StatusSummary> {
 
   return { generatedAt: now.toISOString(), overall: summarizeStatus(probes), app: appInfo(now), probes, database, jobs, sandbox, crons };
 }
+
+/** Public cache window: anonymous traffic triggers at most one probe sweep (~10 queries) per instance per window. */
+export const PUBLIC_STATUS_TTL_MS = 20_000;
+
+/** Anonymous view (overall + per-component level only), memoized for PUBLIC_STATUS_TTL_MS. */
+export const getPublicStatus: () => Promise<PublicStatus> = ttlCache(
+  async () => toPublicStatus(await getStatusSummary()),
+  PUBLIC_STATUS_TTL_MS,
+);

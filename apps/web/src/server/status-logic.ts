@@ -105,3 +105,48 @@ export function describeCron(schedule: string): string {
   const pad = (n: string) => n.padStart(2, "0");
   return `daily ${pad(f[1])}:${pad(f[0])} UTC`;
 }
+
+/** What anonymous visitors see: overall level/label plus a level per component. No counts, names or deploy info. */
+export interface PublicComponent { id: string; label: string; level: ProbeLevel }
+export interface PublicStatus {
+  generatedAt: string;
+  overall: { level: StatusLevel; label: string };
+  components: PublicComponent[];
+}
+
+/** Public components, each the worst of the internal probes it covers. */
+const PUBLIC_COMPONENTS: readonly { id: string; label: string; probes: readonly string[] }[] = [
+  { id: "platform", label: "Website & API", probes: ["database", "migrations"] },
+  { id: "evals", label: "Eval jobs", probes: ["jobs"] },
+  { id: "sandbox", label: "Sandbox runs", probes: ["sandbox"] },
+  { id: "scheduled", label: "Scheduled tasks", probes: ["crons"] },
+];
+
+const PROBE_RANK: Record<ProbeLevel, number> = { ok: 0, degraded: 1, down: 2 };
+
+export function toPublicStatus(s: { generatedAt: string; overall: OverallStatus; probes: readonly Probe[] }): PublicStatus {
+  const components = PUBLIC_COMPONENTS.flatMap((c): PublicComponent[] => {
+    const levels = s.probes.filter((p) => c.probes.includes(p.id)).map((p) => p.level);
+    if (levels.length === 0) return [];
+    const level = levels.reduce<ProbeLevel>((a, b) => (PROBE_RANK[b] > PROBE_RANK[a] ? b : a), "ok");
+    return [{ id: c.id, label: c.label, level }];
+  });
+  return { generatedAt: s.generatedAt, overall: { level: s.overall.level, label: s.overall.label }, components };
+}
+
+/**
+ * Memoizes an async loader for ttlMs, sharing one in-flight promise between concurrent callers. A rejected load is not
+ * cached, so the next call retries.
+ */
+export function ttlCache<T>(load: () => Promise<T>, ttlMs: number, now: () => number = Date.now): () => Promise<T> {
+  let entry: { value: Promise<T>; expiresAt: number } | null = null;
+  return () => {
+    const t = now();
+    if (entry && t < entry.expiresAt) return entry.value;
+    const value = load();
+    const current = { value, expiresAt: t + ttlMs };
+    entry = current;
+    value.catch(() => { if (entry === current) entry = null; });
+    return value;
+  };
+}

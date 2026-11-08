@@ -960,6 +960,8 @@ p.ec-dim { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
 .st-state { color: var(--st-c); min-width: 7ch; text-align: right; }
 .st-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg); text-align: right; min-width: 8ch; }
 @media (max-width: 520px) { .st-row { grid-template-columns: 10px minmax(0, 1fr) auto; } .st-state { display: none; } .st-num { min-width: 0; } }
+.st-row[data-public] { grid-template-columns: 10px minmax(0, 1fr) auto; }
+.st-row[data-public] .st-state { display: inline; color: var(--st-c); }
 .st-bar { display: flex; height: 10px; gap: 2px; }
 .st-seg { min-width: 3px; border-radius: 1px; background: var(--muted); transition: filter var(--dur-fast) var(--ease-hover); }
 .st-seg:hover { filter: brightness(1.35); }
