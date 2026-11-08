@@ -49,7 +49,7 @@ export function SandboxDiagram({ className = "" }: { className?: string }) {
     <Frame className={`ss-diagram ${className}`}>
       <InViewGroup className="ss-stage" threshold={0.15}>
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line-2 px-4 py-3 md:px-6">
-          <p className="font-mono text-[11px] uppercase tracking-normal text-fg-2"><span className="text-accent-text">Sample run</span> · acme-support</p>
+          <p className="font-mono text-[11px] uppercase tracking-normal text-fg-2"><span className="text-accent-text">Sample run</span> · illustrative data</p>
           <p className="font-mono text-[11px] uppercase text-subtle">Sample data · not a customer result</p>
         </div>
 
