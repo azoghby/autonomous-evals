@@ -1,0 +1,63 @@
+import {createHash} from 'node:crypto';
+import {dataReviewRequestDigest} from '../../../packages/core/src/evals/data/orchestration';
+import {readFileSync} from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+import {afterEach,beforeEach,describe,it,expect,vi} from 'vitest';
+import {createExpertTextRuntime} from '../../../apps/web/src/server/expert-text-runtime';
+import {PostgresAgentTaskStore,PostgresBudgetLedger,type AgentTransactionalSql} from '../../../packages/core/src/agents/postgres-ports';
+import {harness} from '../../../packages/core/src/agents/__tests__/fakes';
+import {createPostgresEvaluationDataStore} from '../../../packages/core/src/evals/data/postgres-store';
+import {createPostgresDataOperationLedger} from '../../../packages/core/src/evals/data/postgres-operations';
+import {answerReviewContextDigest,reviewDigest} from '../../../packages/core/src/evals/data/binding';
+import {assessDataQuality} from '../../../packages/core/src/evals/data/quality';
+import {mapApprovedDataToTextDesign,frozenDataReference} from '../../../packages/core/src/evals/data/adapters/mapping';
+import {makeSuite,makeScenarios} from '../../../packages/core/src/evals/text/__tests__/fixtures';
+import {bindObjectiveConstraints} from '../../../packages/core/src/evals/text/admission';
+import {encryptJson} from '../../../packages/core/src/storage/crypto';
+import type {ServiceContext} from '../../../packages/core/src/contracts/services';
+import type {DataTaskSpec,EvaluationDataCase} from '../../../packages/core/src/evals/data/types';
+const jobId='123e4567-e89b-42d3-a456-426614174000',customerId='123e4567-e89b-42d3-a456-426614174001',reviewer='123e4567-e89b-42d3-a456-426614174002';
+const opened:PGlite[]=[];
+beforeEach(()=>{vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('CREDENTIALS_ENCRYPTION_KEY',Buffer.alloc(32,1).toString('base64'));vi.stubEnv('OPERATOR_EMAILS','reviewer@example.test');vi.stubEnv('NAIVE_JUDGE_MODEL','fixture');vi.stubEnv('NAIVE_API_KEY','fixture-provider-key-12345');vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','100');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','100');});
+afterEach(async()=>{vi.unstubAllEnvs();for(const pg of opened.splice(0))await pg.close();});
+async function fixture(unknown=false){
+ const pg=new PGlite();opened.push(pg);const sql:AgentTransactionalSql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
+ for(const path of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql','packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql','packages/core/src/evals/data/persistence-migrations/002-data-operations.sql'])await pg.exec(readFileSync(path,'utf8'));
+ await pg.exec(`CREATE TABLE customers(id uuid PRIMARY KEY,email text); CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid,environment text,intake jsonb,retest_of_job_id uuid,package text,is_mock boolean,state text); CREATE TABLE job_credentials(job_id uuid PRIMARY KEY,ciphertext text);CREATE TABLE costs(job_id uuid,micro_usd bigint);CREATE TABLE fixture_cost(receipt_key text PRIMARY KEY,receipt jsonb);`);
+ for(const path of ['packages/core/src/db/migrations/0025_expert_workflow.sql','packages/core/src/db/migrations/0026_expert_text_runtime.sql'])await pg.exec(readFileSync(path,'utf8'));
+ let spec:DataTaskSpec={taskId:'task',jobId,targetId:'target',description:'Fixture scope',factualAnswersRequired:true,requirements:[{id:'grounding',description:'Answer factual question',minimumCases:1}]};
+ spec=(await sql.query<{value:DataTaskSpec}>('SELECT $1::jsonb AS value',[JSON.stringify(spec)])).rows[0]!.value;
+ const item:EvaluationDataCase={id:'case',input:'Which format?',requirementIds:['grounding'],synthetic:true,generatorId:'fixture-generator',sourceIds:[],expectedAnswer:'JSON',verification:{status:'approved',method:'expert',verifierId:reviewer,independentOfTarget:true,independentOfGenerator:true,evidenceSourceIds:[],reviewedAnswer:'JSON',reviewedAt:'2026-11-07T00:00:00Z',rationale:'Reviewed fixture',expertAttestation:{qualified:true,consentToEvaluation:true,contributionId:'contribution',contributionContextDigest:reviewDigest({spec,consent:true})}}};item.verification!.contextDigest=answerReviewContextDigest(spec,item,[]);
+ const task={taskId:spec.taskId,revision:0,spec,requestHash:createHash('sha256').update(JSON.stringify({spec,initial:{sources:[],cases:[]}})).digest('hex'),state:'ready' as const,phase:'complete' as const,sources:[],cases:[item],assessment:assessDataQuality(spec,[item],[]),decisions:[],updatedAt:'2026-11-07T00:00:00Z'};
+ await createPostgresEvaluationDataStore(sql,{tenantId:customerId,jobId}).insertIfAbsent(task);
+ const job={jobId,customerId,environment:'test' as const,package:'text_eval' as const,isFixture:false,quoteVersion:null,linkedRetestOf:null};const context={job,versionLabel:'expert-v1',systemPrompt:null};
+ const mapping=mapApprovedDataToTextDesign(task,context);if(mapping.status!=='ready')throw Error(mapping.reason);
+ const scenarios=makeScenarios();if(unknown)for(const s of scenarios){s.objectiveChecks=[];s.rubricChecks=[{id:`${s.id}.r1`,kind:'rubric',description:'Quality',rubric:'Assess clarity',assessesFactualCorrectness:false}];}
+ const frozen=makeSuite({jobId,versionLabel:context.versionLabel,systemPrompt:null,referenceText:mapping.designInput.referenceText,...bindObjectiveConstraints(null,scenarios)});const provenance=frozenDataReference(task,frozen,context).provenance;
+ const input={task:spec,initial:{sources:[],cases:[]},context:{versionLabel:context.versionLabel,systemPrompt:null}};
+ const result={status:'ready',task,progress:{outcome:'ready',factualCorrectness:'assessed',message:'Ready'},frozen:{suite:frozen,provenance}};
+ await sql.query('INSERT INTO customers VALUES($1,$2)',[reviewer,'reviewer@example.test']);await sql.query('INSERT INTO customers VALUES($1,$2)',[customerId,'customer@example.test']);
+ await sql.query('INSERT INTO jobs VALUES($1,$2,$3,$4::jsonb,NULL,$5,false,$6)',[jobId,customerId,'test',JSON.stringify({package:'text_eval',authorizedToTest:true,endpoint:{url:'https://fixture.example/v1',model:'fixture',systemPrompt:''},_credentialSlots:['endpoint']}),'text_eval','running']);
+ await sql.query('INSERT INTO job_credentials VALUES($1,$2)',[jobId,encryptJson({endpoint:'target-key-fixture-12345'})]);
+ await sql.query("INSERT INTO expert_workflow.plans(job_id,tenant_id,input,input_digest,last_result,enabled,response_deadline,topic) VALUES($1,$2,$3::jsonb,$4,$5::jsonb,true,now()+interval '1 day','Fixtures')",[jobId,customerId,JSON.stringify(input),reviewDigest(input),JSON.stringify(result)]);
+ const operations=createPostgresDataOperationLedger(sql,{tenantId:customerId,jobId,ownerId:'data_service_v1',authenticateOwner:async()=>({ownerId:'data_service_v1'})});
+ async function save(key:string,digest:string,value:unknown){await operations.claim(key,digest);await operations.complete(key,digest,value);}
+ const prefix=`evaluation-data:${task.taskId}:${task.requestHash}`;await save(`${prefix}:freeze`,reviewDigest({context,provenance}),frozen);
+ const review={receiptId:'receipt',requestDigest:dataReviewRequestDigest(spec,{sources:[],cases:[item]}),principalId:reviewer,authority:'authenticated_human',decision:'approved',data:{sources:[],cases:[item]}};
+ await save(`data-review-request:${review.requestDigest}`,reviewDigest({task:spec,candidates:review.data}),{task:spec,candidates:review.data});
+ for(const key of [`${prefix}:review:${review.requestDigest}`,`data-review-receipt:${review.receiptId}`,`authenticated-data-review:${review.requestDigest}`])await save(key,key.startsWith(prefix)?review.requestDigest:reviewDigest(review),review);
+ const provider=harness(()=>({structuredOutput:{reproduceScenarioIds:['S01'],verdicts:[{candidateId:'text:S01:S01.o1',verdict:'confirmed',rationale:'Reproduced exact failure',quote:'WRONG',defectNote:null}]}}),{store:new PostgresAgentTaskStore(sql),ledger:new PostgresBudgetLedger(sql)});
+ const post=vi.fn(async()=>({choices:[{message:{role:'assistant',content:'WRONG'},finish_reason:'stop'}]}));let lose=false;
+ const ctx:ServiceContext={jobId,environment:'test',budgetMicroUsd:1_000_000,recordProgress:async()=>{},recordCost:async cost=>{const key=String(cost.meta?.idempotencyKey);await sql.query('INSERT INTO fixture_cost VALUES($1,$2::jsonb) ON CONFLICT DO NOTHING',[key,JSON.stringify(cost)]);if(lose){lose=false;throw Error('lost_cost_ack');}}};
+ const runtime=()=>createExpertTextRuntime(ctx,{sql,runner:provider.service,targetTransport:{post},proxyFetch:async()=>{throw Error('unexpected rubric provider');}});
+ return{pg,sql,ctx,runtime,post,provider,loseNextCostAck(){lose=true;}};
+}
+describe('canonical owner bound rich runtime with actual SQL authority',()=>{
+ it('runs and investigates the ready frozen expert suite, and replays without dispatch',async()=>{const f=await fixture(),api=await f.runtime();const run=await api.run();expect(run.results).toHaveLength(12);expect(run.results.every(r=>r.passed===false)).toBe(true);const findings=await api.investigate(run);expect(findings.some(f=>f.status==='confirmed')).toBe(true);const assessment=await api.reportContext();expect(assessment.assessed).toBe(12);expect(assessment.summary).toContain('Remediation and rerun verification were not performed');const calls=f.provider.naive.createCalls.length,targetCalls=f.post.mock.calls.length;const restarted=await f.runtime();expect(await restarted.run()).toEqual(run);expect(await restarted.investigate(run)).toEqual(findings);expect(f.post).toHaveBeenCalledTimes(targetCalls);expect(f.provider.naive.createCalls).toHaveLength(calls);});
+ it('retains all-unknown rubric execution without a clean assessment',async()=>{const f=await fixture(true),api=await f.runtime(),run=await api.run();expect(run.results.every(r=>r.assessment?.kind==='inconclusive'&&!('passed' in r))).toBe(true);await api.investigate(run);const assessment=await api.reportContext();expect(assessment.assessed).toBe(0);expect(assessment.summary).toContain('inconclusive');expect(f.provider.naive.createCalls).toHaveLength(0);});
+ it.each(['owner','plan','credentials','target','review','secret'])('refuses current %s revocation before target dispatch',async field=>{const f=await fixture(),api=await f.runtime();if(field==='owner')await f.sql.query('UPDATE jobs SET customer_id=$1',[reviewer]);if(field==='plan')await f.sql.query('UPDATE expert_workflow.plans SET enabled=false');if(field==='credentials')await f.sql.query('DELETE FROM job_credentials');if(field==='target')await f.sql.query("UPDATE jobs SET intake=jsonb_set(intake,'{endpoint,model}','\"changed\"')");if(field==='secret')vi.stubEnv('FRESH_SECRET','Fixture 1');if(field==='review')vi.stubEnv('OPERATOR_EMAILS','replacement@example.test');await expect(api.run()).rejects.toThrow();await expect(f.runtime()).rejects.toThrow();expect(f.post).not.toHaveBeenCalled();});
+ it('rechecks current SQL spend before investigator provider dispatch',async()=>{const f=await fixture(),api=await f.runtime(),run=await api.run();await f.sql.query('INSERT INTO costs VALUES($1,$2)',[jobId,10000000]);await expect(api.investigate(run)).rejects.toThrow();expect(f.provider.naive.createCalls).toHaveLength(0);});
+ it('database retains immutable freeze, review receipt and target bindings',async()=>{const f=await fixture();await f.runtime();await expect(f.sql.query("UPDATE evaluation_data_persistence.operations SET result='{}'::jsonb WHERE operation_key LIKE '%:freeze'")).rejects.toThrow('data_operation_immutable');await expect(f.sql.query("UPDATE evaluation_data_persistence.operations SET result='{}'::jsonb WHERE operation_key LIKE 'data-review-receipt:%'")).rejects.toThrow('data_operation_immutable');await expect(f.sql.query("UPDATE expert_workflow.text_bindings SET target_version=$1",['a'.repeat(64)])).rejects.toThrow('immutable expert text binding');});
+ it('fails closed on malformed durable data',async()=>{const f=await fixture();await f.sql.query("UPDATE expert_workflow.plans SET last_result='{}'::jsonb");await expect(f.runtime()).rejects.toThrow();expect(f.post).not.toHaveBeenCalled();});
+ it('retries lost cost acknowledgement without duplicate investigator dispatch',async()=>{const f=await fixture(),api=await f.runtime(),run=await api.run();f.loseNextCostAck();await expect(api.investigate(run)).rejects.toThrow();const calls=f.provider.naive.createCalls.length;await(await f.runtime()).investigate(run);expect(f.provider.naive.createCalls).toHaveLength(calls);});
+});

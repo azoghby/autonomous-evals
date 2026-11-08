@@ -1,0 +1,83 @@
+{
+  "baseCommit": "06d8a1571637701322306cdc9d0586ca79586a33",
+  "files": [
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "beforeSha256": null,
+      "afterSha256": "d14a289f1e193c7b2b1bb536de2c50579b0e8706ff3a835488abc4713d2ef998",
+      "postimage": "source/apps/web/src/server/expert-text-runtime.ts",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "apps/web/src/server/expert-workflow.ts",
+      "beforeSha256": "8b98ae5d679276b2f2c85f3deb2d433f0b4d6f60308f12969c84f5b0e304be92",
+      "afterSha256": "cfc6b8d25d7c77b0cb73c310a544597edcc111d93c9b20c31187c9b9e50ea566",
+      "postimage": "source/apps/web/src/server/expert-workflow.ts",
+      "preimageSource": "docs/expert-workflow-integration/source/apps/web/src/server/expert-workflow.ts"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "beforeSha256": "4f4e0adbfb4ab529d424a52bf5a06a0c93afdbc0856b545def3485b04647b453",
+      "afterSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b",
+      "postimage": "source/apps/web/src/workflows/job.ts",
+      "preimageSource": "docs/expert-workflow-integration/source/apps/web/src/workflows/job.ts"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/expert-text.ts",
+      "beforeSha256": null,
+      "afterSha256": "0573b47ac8d580c66f730e56ce919055592598f9c18ff001bb881ec9b25a1138",
+      "postimage": "source/apps/web/src/workflows/steps/expert-text.ts",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "beforeSha256": null,
+      "afterSha256": "1407671ad41f3d494b469014280231a111c6f27fd14158b8cdf37d7861981d74",
+      "postimage": "source/packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/evals/naive-contract-mapping.test.ts",
+      "beforeSha256": "414663fd2251885eb1bf1b28440f6625c2b61aad8e3653633061fecd0f752b28",
+      "afterSha256": "4606712f7008caa672d47b8d9e6190d0e5e394c2294230a9db7aee1c0b48da4a",
+      "postimage": "source/packages/core/src/evals/naive-contract-mapping.test.ts",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/evals/naive-contract-mapping.ts",
+      "beforeSha256": "66e9fcf6483fc123ed5076831c107f931d23e2033d552aff32679f5f15046b2a",
+      "afterSha256": "ea5208c5c24953287d59bc31fa4f09092f7323b8cfe3beaa6790da906e57ad3e",
+      "postimage": "source/packages/core/src/evals/naive-contract-mapping.ts",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/evals/naive-run-service.test.ts",
+      "beforeSha256": "2ef4adb3d42414b8d658817fa70cdfbdf2e5e52dc208ca9b936c2e89004d8772",
+      "afterSha256": "68c6bb1af823f7fc6209e8559e04f5ea8ee3826d58f9da54eafa015d8fc1238f",
+      "postimage": "source/packages/core/src/evals/naive-run-service.test.ts",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    }
+  ],
+  "patchSha256": "c3fb5a008fb77743586927a69e72de09b55c827638a868a14f706a3718168b34",
+  "applyAfter": [
+    "docs/expert-workflow-integration/manifest.json",
+    "docs/naive-rich-contract-integration/manifest.json"
+  ],
+  "requires": [
+    "current core retained data orchestration/resume and SQL persistence support",
+    "hardened expert owner + global atomic cost sink adoption",
+    "text integration checkpoint SQL, agent session/budget SQL, expert_workflow 0025 and explicit 0026 owner migration registration",
+    "EVAL_SERVICES=real; actual Naive agent configuration; NAIVE_JUDGE_MODEL, NAIVE_JUDGE_RESERVATION_MICRO_USD, NAIVE_JUDGE_MAX_OUTPUT_TOKENS; proxy:write audit:read permissions"
+  ],
+  "activation": "Owner review artifact only. Text run/investigation consumption; remediation, rerun, workflow and comparison remain separate Phase 1 work.",
+  "dependencyManifestHashes": [
+    {
+      "path": "docs/expert-workflow-integration/manifest.json",
+      "sha256": "7d30eeecbf56ed72ed58c54f711d519dd31ad243452aae1c13e5097f709917e5"
+    },
+    {
+      "path": "docs/naive-rich-contract-integration/manifest.json",
+      "sha256": "f6deb3aa2ea6676762a45ef71ea9107d0870ff45ecd555a64d169f6b9917c82c"
+    }
+  ]
+}

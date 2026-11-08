@@ -1,0 +1,160 @@
+{
+  "baseCommit": "06d8a1571637701322306cdc9d0586ca79586a33",
+  "files": [
+    {
+      "path": "apps/web/src/server/expert-data-production.ts",
+      "beforeSha256": null,
+      "afterSha256": "66c20d0c042c0ded622cb0acd8c080af36f1d491afe41060964ef24bcf1db0ec"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "beforeSha256": null,
+      "afterSha256": "d14a289f1e193c7b2b1bb536de2c50579b0e8706ff3a835488abc4713d2ef998"
+    },
+    {
+      "path": "apps/web/src/server/expert-workflow.ts",
+      "beforeSha256": null,
+      "afterSha256": "cfc6b8d25d7c77b0cb73c310a544597edcc111d93c9b20c31187c9b9e50ea566"
+    },
+    {
+      "path": "apps/web/src/server/leaderboard.ts",
+      "beforeSha256": "90c46aed5a031d3d229fd94a03d76fc19bcd97b8b4b6709ff0bea97e3fa2aa65",
+      "afterSha256": "1c8b14b64b299c4f57d95551677d434bb3002272558dd84c9173f3bf22f43a4a"
+    },
+    {
+      "path": "apps/web/src/server/monitoring.ts",
+      "beforeSha256": "6a9b1a434c492bff065d6a0b8f44d93164e0563c27c421ec9c839948e35576ea",
+      "afterSha256": "f1a3b4e47e0b16360c15a33cffa180a6d1c338a4519714e589f8e653525b2212"
+    },
+    {
+      "path": "apps/web/src/server/public-agent-runner.ts",
+      "beforeSha256": "b2d64f47dca3d4084e7a6b7aedcafb0dc2d08457b86898e13a7aaa06c918c975",
+      "afterSha256": "06545345e947debde26d7c9f34d7a59434f79fa86ebacfb25e113cb7e3a1a130"
+    },
+    {
+      "path": "apps/web/src/server/regression-check.ts",
+      "beforeSha256": "0183d496611024aa7e892df598c893b8f09dd67dfda1e64f4913abae8ec6b333",
+      "afterSha256": "6a1fc2de31deeca46b45a984e09ede01b406bb1fb24e1798004e0049f1e53c18"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "beforeSha256": "43d5faa37dc97ec18165a9552d0f6f62ab56d74efaa9ec9c6286601a39169a42",
+      "afterSha256": "653a5296f154309bf8dd61c5816543bd8517a5e117566e6c910fe4ab53001f01"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "beforeSha256": "67673b073da7e168ebc923dc4d65fda10bd9953e2e3e199a5c58078213bd5284",
+      "afterSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "beforeSha256": "4b6b82e1c52d75b4020d1c2f25b4b13ed129ea363e1f808f28c4f5548cc7a7a9",
+      "afterSha256": "ba10d271051605f5f78035d04dfeb38f985beeee71d2e2f651e5a621e090865c"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/expert-data.ts",
+      "beforeSha256": null,
+      "afterSha256": "c614d7c20c5f066107f69e089bf39c210f0322770c0a58e200d2a68593fb0ef9"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/expert-text.ts",
+      "beforeSha256": null,
+      "afterSha256": "0573b47ac8d580c66f730e56ce919055592598f9c18ff001bb881ec9b25a1138"
+    },
+    {
+      "path": "packages/core/src/contracts/conformance.ts",
+      "beforeSha256": "59e896f53319ad614eada739ca47b9388b15ba6e5a9eda0bc7a82eb72acb1783",
+      "afterSha256": "1b7111d9b4590fbd19072e4aadd46967503fcc6e77c46349177f5047a674473e"
+    },
+    {
+      "path": "packages/core/src/contracts/services.ts",
+      "beforeSha256": "399ada75c89e1a7decec6198d1bafc7a0332212ad67759b65f7abb7859073012",
+      "afterSha256": "6f2f24cbccefce82e95101daa14787b384aa35bab681371afa6185b4cb69f602"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0025_expert_workflow.sql",
+      "beforeSha256": null,
+      "afterSha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "beforeSha256": null,
+      "afterSha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0025_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "163c169f19a4371ec2d8e932a283786f1a384c4fec10f14079fdf7d9dfc714b0"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0026_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "ad902784d13b901175ef095f2b3c5a0cb796e313ab7031ea366553922ce0de57"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/_journal.json",
+      "beforeSha256": "f5d40d4a4cd85baf8cf5805ef03bb0672bd8331884b3ec50634b71bd00192a68",
+      "afterSha256": "146c1d871d4c9e426dd02e2d4cdd91b8a786612f31604909913f05f2e7a05aa0"
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "beforeSha256": "09568aedd91da6d7837f9d7cb56c9e05511b313905d757ada99b48204141376a",
+      "afterSha256": "6e16279eb1c7df0e2f5f3ebb14eea8e30f7f5b220b0147d69aeda0bd0a0f8dfd"
+    },
+    {
+      "path": "packages/core/src/evals/naive-contract-mapping.test.ts",
+      "beforeSha256": "414663fd2251885eb1bf1b28440f6625c2b61aad8e3653633061fecd0f752b28",
+      "afterSha256": "4606712f7008caa672d47b8d9e6190d0e5e394c2294230a9db7aee1c0b48da4a"
+    },
+    {
+      "path": "packages/core/src/evals/naive-contract-mapping.ts",
+      "beforeSha256": "66e9fcf6483fc123ed5076831c107f931d23e2033d552aff32679f5f15046b2a",
+      "afterSha256": "ea5208c5c24953287d59bc31fa4f09092f7323b8cfe3beaa6790da906e57ad3e"
+    },
+    {
+      "path": "packages/core/src/evals/naive-run-service.test.ts",
+      "beforeSha256": "2ef4adb3d42414b8d658817fa70cdfbdf2e5e52dc208ca9b936c2e89004d8772",
+      "afterSha256": "68c6bb1af823f7fc6209e8559e04f5ea8ee3826d58f9da54eafa015d8fc1238f"
+    },
+    {
+      "path": "packages/core/src/integration/eval-services.ts",
+      "beforeSha256": "13b6510065b80295117ee85b5d2313fc6f91d794e7fba34e816fe2c843dcecc5",
+      "afterSha256": "cda660b0495dd0048baa6c5caf3530cb250a105d11ae2e3a60d4b6c156bb8508"
+    },
+    {
+      "path": "packages/core/src/lite/fix.ts",
+      "beforeSha256": "62104e152412d7b74b58b7470c662f0cf0eb174786d88b01172b25db4b6f3ffe",
+      "afterSha256": "26057ec00fdfcf5218698e8dd7d181fd2dfab05f49f68719fb73308eb0071d42"
+    },
+    {
+      "path": "packages/core/src/lite/investigate.ts",
+      "beforeSha256": "8b01fac633baeda025e6f4ba2acd38e9e8b53d5ab7605bff2ec7d5766d6003b5",
+      "afterSha256": "027e63f175d70fa37941d964b854174650c4af77c3d8be72b9ce633891ef3966"
+    }
+  ],
+  "dependencies": [
+    {
+      "artifact": "expert-workflow-integration",
+      "manifestSha256": "7d30eeecbf56ed72ed58c54f711d519dd31ad243452aae1c13e5097f709917e5",
+      "patchSha256": "917bab183567791a68c668c45b3d30661a0b56667adb0e3bd38a8fc6914b6dc0"
+    },
+    {
+      "artifact": "naive-rich-contract-integration",
+      "manifestSha256": "f6deb3aa2ea6676762a45ef71ea9107d0870ff45ecd555a64d169f6b9917c82c",
+      "patchSha256": "d67e3cf40715533b51497c6ff4d7bfca2fee11340138fbc5d02663e9cb408480"
+    },
+    {
+      "artifact": "naive-text-runtime-integration",
+      "manifestSha256": "d201a07e1925201859ac883a2ecc2ed044dd81e4f70cbec053b5f2860ca92f48",
+      "patchSha256": "c3fb5a008fb77743586927a69e72de09b55c827638a868a14f706a3718168b34"
+    },
+    {
+      "artifact": "naive-workflow-schema-integration",
+      "manifestSha256": "5fd8714f90f1de0fcb6b04a87a569fa1840b66768406e339a82f0715bce604da",
+      "patchSha256": "f3c32d7c3f8a4adecd7d2ae1a0ab30859d5b450f8a376158da4a42cfac20fc8d"
+    }
+  ],
+  "patchSha256": "f942289745a1fe43d8196e0473c72c8f284a425f2e6f230bd76648a7a54d0a64",
+  "actualApplicationModified": false,
+  "productionActivated": false
+}

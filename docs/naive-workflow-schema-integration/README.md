@@ -1,0 +1,11 @@
+# Expert Workflow schema coherence (owner review artifact)
+
+This followon artifact replaces the raw 0025/0026 SQL proposed by the expert-workflow and text-runtime artifacts with Drizzle-generated migrations, declarations, two snapshots and journal entries. Apply it **after** those artifacts and the rich contract artifact. `manifest.json` records exact dependency manifest hashes, committed base, per-file pre/post hashes and patch hash. Actual Track A source and the database are unchanged.
+
+The proposed schema adds `expert_workflow.plans`, `contribution_reviews` and `text_bindings`. Required columns, foreign keys, defaults and all prior checks remain; the owner immutability functions/triggers are retained as custom SQL with explicit statement breakpoints. Trusted owner provisioning and mutable enabled/publication fields retain their existing semantics. The binding run ID is the runtime's stable 24-hex digest, short enough for the existing agent task identity limit.
+
+Generated offline with the retained Drizzle kit, first plans/reviews as migration 0025, then text bindings as migration 0026, from the committed 0024 snapshot. A final generate on the complete declarations/snapshots produces no schema changes. Snapshot validation confirms all 64 prior tables remain identical and exactly the three expected tables were added. See `RESULTS.json` and `drizzle-no-drift.log`; rerun with `node docs/naive-workflow-schema-integration/verify.mjs`. This verifier uses an isolated temporary directory and no database credentials or network.
+
+`python3 docs/naive-workflow-schema-integration/build-artifact.py` packages the supplied generated postimages; it does not generate new migration IDs, migrate a database, or deploy. The owning migration process must review/adopt the complete sequence rather than applying both the raw dependency SQL and its replacement. If either raw migration has already been applied externally, reconcile that actual database explicitly before adopting changed migration history.
+
+Actual SQL application, constraints/triggers and runtime authority behavior are additionally exercised by the combined integration runner in `tests/track-b/naive-rich-runtime-integration`. Local/offline verification is distinct from migration or provider/deployment acceptance.

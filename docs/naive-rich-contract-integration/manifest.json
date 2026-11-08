@@ -1,0 +1,65 @@
+{
+  "baseCommit": "781cba90ceeea85297b37c525ddf86cca3957367",
+  "files": [
+    {
+      "path": "packages/core/src/contracts/services.ts",
+      "beforeSha256": "399ada75c89e1a7decec6198d1bafc7a0332212ad67759b65f7abb7859073012",
+      "afterSha256": "6f2f24cbccefce82e95101daa14787b384aa35bab681371afa6185b4cb69f602",
+      "postimage": "source/packages/core/src/contracts/services.ts"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "beforeSha256": "43d5faa37dc97ec18165a9552d0f6f62ab56d74efaa9ec9c6286601a39169a42",
+      "afterSha256": "653a5296f154309bf8dd61c5816543bd8517a5e117566e6c910fe4ab53001f01",
+      "postimage": "source/apps/web/src/server/services.ts"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "beforeSha256": "4b6b82e1c52d75b4020d1c2f25b4b13ed129ea363e1f808f28c4f5548cc7a7a9",
+      "afterSha256": "ba10d271051605f5f78035d04dfeb38f985beeee71d2e2f651e5a621e090865c",
+      "postimage": "source/apps/web/src/workflows/steps/evaluate.ts"
+    },
+    {
+      "path": "apps/web/src/server/public-agent-runner.ts",
+      "beforeSha256": "b2d64f47dca3d4084e7a6b7aedcafb0dc2d08457b86898e13a7aaa06c918c975",
+      "afterSha256": "06545345e947debde26d7c9f34d7a59434f79fa86ebacfb25e113cb7e3a1a130",
+      "postimage": "source/apps/web/src/server/public-agent-runner.ts"
+    },
+    {
+      "path": "apps/web/src/server/leaderboard.ts",
+      "beforeSha256": "90c46aed5a031d3d229fd94a03d76fc19bcd97b8b4b6709ff0bea97e3fa2aa65",
+      "afterSha256": "1c8b14b64b299c4f57d95551677d434bb3002272558dd84c9173f3bf22f43a4a",
+      "postimage": "source/apps/web/src/server/leaderboard.ts"
+    },
+    {
+      "path": "apps/web/src/server/monitoring.ts",
+      "beforeSha256": "6a9b1a434c492bff065d6a0b8f44d93164e0563c27c421ec9c839948e35576ea",
+      "afterSha256": "f1a3b4e47e0b16360c15a33cffa180a6d1c338a4519714e589f8e653525b2212",
+      "postimage": "source/apps/web/src/server/monitoring.ts"
+    },
+    {
+      "path": "apps/web/src/server/regression-check.ts",
+      "beforeSha256": "0183d496611024aa7e892df598c893b8f09dd67dfda1e64f4913abae8ec6b333",
+      "afterSha256": "6a1fc2de31deeca46b45a984e09ede01b406bb1fb24e1798004e0049f1e53c18",
+      "postimage": "source/apps/web/src/server/regression-check.ts"
+    },
+    {
+      "path": "packages/core/src/lite/investigate.ts",
+      "beforeSha256": "8b01fac633baeda025e6f4ba2acd38e9e8b53d5ab7605bff2ec7d5766d6003b5",
+      "afterSha256": "027e63f175d70fa37941d964b854174650c4af77c3d8be72b9ce633891ef3966",
+      "postimage": "source/packages/core/src/lite/investigate.ts"
+    },
+    {
+      "path": "packages/core/src/lite/fix.ts",
+      "beforeSha256": "62104e152412d7b74b58b7470c662f0cf0eb174786d88b01172b25db4b6f3ffe",
+      "afterSha256": "26057ec00fdfcf5218698e8dd7d181fd2dfab05f49f68719fb73308eb0071d42",
+      "postimage": "source/packages/core/src/lite/fix.ts"
+    },
+    {
+      "path": "packages/core/src/contracts/conformance.ts",
+      "beforeSha256": "59e896f53319ad614eada739ca47b9388b15ba6e5a9eda0bc7a82eb72acb1783",
+      "afterSha256": "1b7111d9b4590fbd19072e4aadd46967503fcc6e77c46349177f5047a674473e",
+      "postimage": "source/packages/core/src/contracts/conformance.ts"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/expert-schema-verify-unoCex",
+  "status": "passed",
+  "offline": true,
+  "liveDatabase": false,
+  "addedTables": [
+    "expert_workflow.contribution_reviews",
+    "expert_workflow.plans",
+    "expert_workflow.text_bindings"
+  ],
+  "existingTableCount": 64,
+  "logSha256": "b915d09fc2fadf49b0626d7ec65c89a55ea53aa5d7f4219c6193ba182a00f8b2",
+  "manifestSha256": "5fd8714f90f1de0fcb6b04a87a569fa1840b66768406e339a82f0715bce604da"
+}

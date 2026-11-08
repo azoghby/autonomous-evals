@@ -1,0 +1,537 @@
+diff --git a/apps/web/src/server/expert-text-runtime.ts b/apps/web/src/server/expert-text-runtime.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/expert-text-runtime.ts
+@@ -0,0 +1,200 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { createClient } from '@usenaive-sdk/managed-agents';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
++import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import { buildAgentDeps } from '@ae/core/integration/eval-services';
++import type { ServiceContext, RunResult } from '@ae/core/contracts/services';
++import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
++import { CostEntrySchema, type JobRef } from '@ae/core/evals/types';
++import { toContractCost } from '@ae/core/evals/service-adapter';
++import { createNaiveRunService } from '@ae/core/evals/naive-run-service';
++import { createNaiveInvestigationService } from '@ae/core/evals/naive-investigation-service';
++import { createNaiveArtifactStore } from '@ae/core/evals/naive-artifact-store';
++import { projectFrozenTextSuite, type TextContractScope } from '@ae/core/evals/naive-contract-mapping';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { verifyAdmittedFrozenSuite, canonicalJson } from '@ae/core/evals/text/freeze';
++import { frozenDataReference } from '@ae/core/evals/data/adapters/mapping';
++import { createPostgresEvaluationDataStore } from '@ae/core/evals/data/postgres-store';
++import { createPostgresDataOperationLedger } from '@ae/core/evals/data/postgres-operations';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { dataReviewRequestDigest, type AuthenticatedDataReview, type DataOrchestrationResult } from '@ae/core/evals/data/orchestration';
++import type { DataBatch } from '@ae/core/evals/data/acquisition';
++import { inspectDataSafety } from '@ae/core/evals/data/quality';
++import { createTextTarget } from '@ae/core/targets/text';
++import type { JsonTransport } from '@ae/core/targets/transport';
++import { createNaiveProxyServiceJudge } from '@ae/core/judges/naive-proxy-service';
++import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
++import { decryptJson } from '@ae/core/storage/crypto';
++import { isOperator } from '@ae/core/auth/tokens';
++import { expertOwnerDatabase } from './automated-expert-owner';
++import { credentialSlotsOf, injectCredentials } from './intake';
++import type { ProductionDataInput } from './expert-data-production';
++
++const fail = (): never => { throw new Error('expert_text_authority_unavailable'); };
++const hash = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
++type Tx = Parameters<Parameters<AgentTransactionalSql['transaction']>[0]>[0];
++interface OwnerRow { customer_id: string; environment: 'test'|'live'; intake: Record<string,unknown>; retest_of_job_id: string|null;
++ input: ProductionDataInput; input_digest: string; last_result: DataOrchestrationResult }
++export interface ExpertTextRuntimeDependencies {
++ sql?: AgentTransactionalSql;
++ runner?: AgentTaskRunner;
++ /** Tests replace provider transports only; all owner SQL/checkpoints/admission remain real. */
++ targetTransport?: JsonTransport;
++ proxyFetch?: typeof fetch;
++}
++
++/** Server-only capability invoked by the existing paid job Workflow. Never expose as a route/action. */
++export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertTextRuntimeDependencies = {}) {
++ const sql = deps.sql ?? expertOwnerDatabase();
++ const cap = JOB_BUDGET_MICRO_USD.text_eval;
++ const checkpoints=new PostgresTextCheckpointStore(sql);
++ // Measured session costs are retained before any post-dispatch publication permission check.
++ // Cost replay is separate from target/publication authority; the adopted sink binds job owner/environment.
++ async function deliverSessionCost(cost:unknown,deliver=true) {
++  const parsed=CostEntrySchema.parse(cost);
++  if(parsed.jobId!==ctx.jobId||!parsed.measured||!parsed.externalId) return fail();
++  const k={jobId:ctx.jobId,kind:'expert_runtime_cost',id:hash(parsed.externalId),inputDigest:hash(parsed)};
++  const claim=await checkpoints.claim(k);
++  if(claim.state==='claimed')await checkpoints.complete(k,claim.token,parsed);
++  else if(claim.state!=='completed'||canonicalJson(claim.value)!==canonicalJson(parsed))return fail();
++  if(deliver)await ctx.recordCost(toContractCost(parsed));
++ }
++ const receipts=await sql.query<{value:unknown}>("SELECT value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='expert_runtime_cost' AND state='completed' ORDER BY id LIMIT 1001",[ctx.jobId]);
++ if(receipts.rows.length>1000)return fail();
++ for(const receipt of receipts.rows)await deliverSessionCost(receipt.value);
++ async function basic(tx: Tx = sql) {
++  if (process.env.EVAL_SERVICES !== 'real') return fail();
++  const row = (await tx.query<OwnerRow>(`SELECT j.customer_id::text,j.environment,j.intake,j.retest_of_job_id::text,p.input,p.input_digest,p.last_result
++   FROM jobs j JOIN expert_workflow.plans p ON p.job_id=j.id
++   WHERE j.id=$1 AND j.environment=$2 AND j.customer_id=p.tenant_id AND j.package='text_eval' AND NOT j.is_mock
++   AND j.state IN ('planning','running','investigating') AND p.enabled AND p.response_deadline>now()`,[ctx.jobId,ctx.environment])).rows[0];
++  if (!row || row.input.task.jobId !== ctx.jobId || reviewDigest(row.input)!==row.input_digest) return fail();
++  const stored = (await tx.query<{ciphertext:string}>('SELECT ciphertext FROM job_credentials WHERE job_id=$1',[ctx.jobId])).rows[0];
++  const credentials = stored ? decryptJson<Record<string,string>>(stored.ciphertext) : {};
++  if (!credentials || Object.values(credentials).some(v=>typeof v!=='string') || credentialSlotsOf(row.intake).some(slot=>!credentials[slot])) return fail();
++  const endpoint = injectCredentials(row.intake,credentials).endpoint as {url:string;model:string;apiKey?:string;systemPrompt?:string}|undefined;
++  if (!endpoint || typeof endpoint.url!=='string' || typeof endpoint.model!=='string') return fail();
++  const target = {url:endpoint.url,model:endpoint.model,...(endpoint.apiKey ? {apiKey:endpoint.apiKey}:{}),systemPrompt:endpoint.systemPrompt ?? ''};
++  const secrets = [...Object.values(credentials),...Object.entries(process.env).filter(([k])=>/(?:KEY|TOKEN|SECRET|DATABASE_URL)$/.test(k)).map(([,v])=>v??'')].filter(v=>v.length>=4);
++  if (!inspectDataSafety({input:row.input,last_result:row.last_result},secrets).safe) return fail();
++  const job: JobRef = {jobId:ctx.jobId,customerId:row.customer_id,environment:row.environment,package:'text_eval',isFixture:false,quoteVersion:null,linkedRetestOf:row.retest_of_job_id};
++  return {row,target,secrets,job};
++ }
++ async function authorized(tx: Tx = sql) {
++  const a = await basic(tx);
++  const transactional: AgentTransactionalSql = {query:tx.query.bind(tx),transaction: fn=>fn(tx)};
++  const operations = createPostgresDataOperationLedger(transactional,{tenantId:a.job.customerId,jobId:ctx.jobId,ownerId:'data_service_v1',knownSecrets:a.secrets,
++   authenticateOwner:async()=>{await basic(tx);return {ownerId:'data_service_v1'};}});
++  const task = await createPostgresEvaluationDataStore(transactional,{tenantId:a.job.customerId,jobId:ctx.jobId,knownSecrets:a.secrets}).get(a.row.input.task.taskId);
++  if (!task || canonicalJson(task.spec)!==canonicalJson(a.row.input.task)) return fail();
++  const initial={sources:a.row.input.initial.sources.map(s=>({...s,review:{status:'pending',reviewerId:'',reviewedAt:'',notes:''}})),
++   cases:a.row.input.initial.cases.map(c=>{const {verification:_verification,...candidate}=c;return candidate;})};
++  if(task.requestHash!==createHash('sha256').update(JSON.stringify({spec:a.row.input.task,initial})).digest('hex'))return fail();
++  const prefix = `evaluation-data:${task.taskId}:${task.requestHash}`;
++  const freeze = await operations.get(`${prefix}:freeze`);
++  if (freeze?.state!=='complete') return fail();
++  const frozen = verifyAdmittedFrozenSuite(freeze.result);
++  if((a.row.input.context.systemPrompt??'')!==a.target.systemPrompt)return fail();
++  const context = {...a.row.input.context,job:a.job};
++  const reference = frozenDataReference(task,frozen,{...context,knownSecrets:a.secrets});
++  if (freeze.digest!==reviewDigest({context,provenance:reference.provenance}) || a.row.last_result?.status!=='ready'
++   || canonicalJson(a.row.last_result.frozen)!==canonicalJson({suite:frozen,provenance:reference.provenance})
++   || canonicalJson(a.row.last_result.task)!==canonicalJson(task)) return fail();
++  // A ready flag or a digest alone grants no human authority. Bind exact reviewed records to retained receipts.
++  const reviews = await tx.query<{operation_key:string}>(`SELECT operation_key FROM evaluation_data_persistence.operations
++   WHERE tenant_id=$1 AND job_id=$2 AND operation_key LIKE $3 ORDER BY operation_key LIMIT 101`,[a.job.customerId,ctx.jobId,`${prefix}:review:%`]);
++  if (!reviews.rows.length || reviews.rows.length>100) return fail();
++  const approved: AuthenticatedDataReview[]=[];
++  for (const {operation_key} of reviews.rows) {
++   const operation=await operations.get(operation_key);
++   if(operation?.state!=='complete') return fail();
++   const review=operation.result as AuthenticatedDataReview;
++   if(review.decision!=='approved')continue;
++   const request=await operations.get(`data-review-request:${review.requestDigest}`);
++   if(request?.state!=='complete')return fail();
++   const snapshot=request.result as {task:ProductionDataInput['task'];candidates:DataBatch};
++   if(canonicalJson(snapshot.task)!==canonicalJson(task.spec)||review.requestDigest!==dataReviewRequestDigest(snapshot.task,snapshot.candidates)
++    ||request.digest!==reviewDigest(snapshot))return fail();
++   const receipt=await operations.get(`data-review-receipt:${review.receiptId}`);
++   const authenticated=await operations.get(`authenticated-data-review:${review.requestDigest}`);
++   const principal=(await tx.query<{email:string}>('SELECT email FROM customers WHERE id=$1',[review.principalId])).rows[0];
++   if(review.authority!=='authenticated_human'||review.decision!=='approved'||!principal||!isOperator(principal.email)
++    ||review.principalId===task.spec.targetId||review.data.cases.some(c=>c.generatorId===review.principalId||c.verification&&c.verification.verifierId!==review.principalId)
++    ||review.data.sources.some(s=>s.provenance.producerId===review.principalId||s.review.reviewerId!==review.principalId)
++    ||operation.digest!==review.requestDigest||operation_key!==`${prefix}:review:${review.requestDigest}`||receipt?.state!=='complete'||authenticated?.state!=='complete'
++    ||canonicalJson(receipt.result)!==canonicalJson(review)||canonicalJson(authenticated.result)!==canonicalJson(review)
++    ||receipt.digest!==reviewDigest(review)||authenticated.digest!==reviewDigest(review)) return fail();
++   approved.push(review);
++  }
++  if (task.cases.some(c=>!approved.some(r=>r.data.cases.some(x=>canonicalJson(x)===canonicalJson(c))))
++   ||task.sources.some(s=>!approved.some(r=>r.data.sources.some(x=>canonicalJson(x)===canonicalJson(s))))) return fail();
++  const receiptIds=approved.map(r=>r.receiptId).sort();
++  const approvalArtifactId=`expert:${hash({freeze:freeze.digest,suite:frozen.digest,receiptIds})}`;
++  const scope:TextContractScope={jobId:ctx.jobId,customerId:a.job.customerId,environment:ctx.environment,suiteDigest:frozen.digest,approvalArtifactId};
++  // Credential changes require an explicit new run identity; no secret is retained in the binding.
++  const targetVersion=hash(a.target),runId=`expert-${hash({scope,targetVersion}).slice(0,24)}`;
++  return {...a,frozen,scope,targetVersion,runId};
++ }
++ const first=await authorized();
++ const fixed=hash({scope:first.scope,targetVersion:first.targetVersion,runId:first.runId});
++ async function current(tx:Tx=sql,value?:unknown) {
++  const a=await authorized(tx);
++  if(hash({scope:a.scope,targetVersion:a.targetVersion,runId:a.runId})!==fixed||value!==undefined&&!inspectDataSafety(value,a.secrets).safe) return fail();
++  return a;
++ }
++ // This immutable owner row prevents a restarted worker from silently selecting a changed target/suite.
++ await sql.transaction(async tx=>{
++  const a=await current(tx);
++  await tx.query(`INSERT INTO expert_workflow.text_bindings(job_id,scope,target_version,run_id) VALUES($1,$2::jsonb,$3,$4) ON CONFLICT DO NOTHING`,[ctx.jobId,JSON.stringify(a.scope),a.targetVersion,a.runId]);
++  const binding=(await tx.query<{scope:TextContractScope;target_version:string;run_id:string}>('SELECT scope,target_version,run_id FROM expert_workflow.text_bindings WHERE job_id=$1 FOR UPDATE',[ctx.jobId])).rows[0];
++  if(!binding||canonicalJson(binding.scope)!==canonicalJson(a.scope)||binding.target_version!==a.targetVersion||binding.run_id!==a.runId) return fail();
++  await current(tx);
++ });
++ const artifacts=createNaiveArtifactStore({sql,authorize:async(tx,scope)=>{
++  const a=await current(tx);if(scope.jobId!==a.scope.jobId||scope.customerId!==a.scope.customerId||scope.environment!==a.scope.environment
++   ||scope.suiteDigest!==undefined&&scope.suiteDigest!==a.scope.suiteDigest||scope.approvalArtifactId!==undefined&&scope.approvalArtifactId!==a.scope.approvalArtifactId) return fail();
++  return {knownSecrets:a.secrets};
++ },decide:async(tx,_identity,suite)=>{const a=await current(tx);if(canonicalJson(suite)!==canonicalJson(a.frozen))return fail();return {status:'approved',approvalArtifactId:a.scope.approvalArtifactId};}});
++ const admission=await artifacts.admission.admit({jobId:ctx.jobId,customerId:first.job.customerId,environment:ctx.environment,
++  designId:`expert-${first.frozen.digest}`,versionLabel:first.frozen.versionLabel,inputDigest:hash({scope:first.scope})},first.frozen);
++ if(admission.status!=='approved') return fail();
++ const projection=projectFrozenTextSuite(first.frozen,first.scope,first.secrets);
++ const rawRunner=deps.runner??(await buildAgentDeps()).runner;
++ const runner:AgentTaskRunner={run:async spec=>{await current();const spent=Number((await sql.query<{spent:string}>('SELECT coalesce(sum(micro_usd),0)::text AS spent FROM costs WHERE job_id=$1',[ctx.jobId])).rows[0]?.spent??0);if(!Number.isSafeInteger(spent)||spent<0||spec.budgetMicroUsd>cap-spent)return fail();const result=await rawRunner.run(spec);if('cost' in result&&result.cost)await deliverSessionCost(result.cost,false);await current(sql,result);return result;}};
++ async function resolved() {
++  const a=await current();
++  const model=process.env.NAIVE_JUDGE_MODEL;
++  const reservation=Number(process.env.NAIVE_JUDGE_RESERVATION_MICRO_USD);
++  const output=Number(process.env.NAIVE_JUDGE_MAX_OUTPUT_TOKENS);
++  const proxyKey=process.env.NAIVE_API_KEY;
++  if(!model||!proxyKey||!Number.isSafeInteger(reservation)||reservation<=0||!Number.isSafeInteger(output)||output<1)return fail();
++  const judge=createNaiveProxyServiceJudge(ctx,{jobId:ctx.jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints,
++   budget:createNaiveProxyBudget(new PostgresBudgetLedger(sql),{jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID??new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:cap}),
++   client:idempotencyKey=>createClient({apiKey:process.env.NAIVE_API_KEY!,...(process.env.NAIVE_BASE_URL?{baseUrl:process.env.NAIVE_BASE_URL}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
++   authorize:async()=>{const fresh=await current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey)return fail();return {knownSecrets:fresh.secrets};}});
++  return {...a,retained:projection.retained,canonicalTarget:a.target,target:createTextTarget(a.target,deps.targetTransport),judge,knownSecrets:a.secrets};
++ }
++ const runService=createNaiveRunService({runner,checkpoints,resolve:resolved,persistRun:artifacts.persistRun});
++ const investigationService=createNaiveInvestigationService({runner,checkpoints,resolve:async()=>{
++  const a=await resolved();const retainedRun=await artifacts.loadRun(ctx,a.scope,a.runId,a.targetVersion);if(!retainedRun)return fail();return {...a,retainedSuite:projection.retained,retainedRun};
++ },persistInvestigation:artifacts.persistInvestigation});
++ return {suite:projection.suite,target:first.target,
++  run:()=>runService.runSuite(ctx,projection.suite,first.target),
++  investigate:(run:RunResult)=>investigationService.investigate(ctx,projection.suite,[run]),
++  reportContext:async()=>{
++   const a=await current();
++   const retained=await artifacts.loadRun(ctx,a.scope,a.runId,a.targetVersion);
++   const investigation=await checkpoints.get({jobId:ctx.jobId,kind:'naive_investigation_artifact',id:a.runId});
++   if(!retained||investigation?.state!=='completed')return fail();
++   const rich=(investigation.value as {investigation:{limitations:string[]}}).investigation;
++   await current(sql,{retained,rich});
++   const {projectTextSuiteRun}=await import('@ae/core/evals/naive-contract-mapping');
++   const publicRun=projectTextSuiteRun(retained.run,projection,a.scope,a.secrets).result;
++   const assessed=publicRun.results.filter(r=>r.assessment?.kind==='objective'||r.assessment?.kind==='rubric').length;
++   const summary=publicRun.results.map(r=>`${r.scenarioId}: ${r.assessment?.kind??'objective'}; ${r.assessment?.checks.map(c=>`${c.checkId}=${c.status}${c.reason?` (${c.reason})`:''}`).join('; ')??''}`).join('\n');
++   return {assessed,summary:`Text baseline assessment: ${assessed} of ${publicRun.results.length} scenarios assessed.\n${summary}\nLimitations: ${rich.limitations.join('; ')||'No additional investigator limitations.'}\nRemediation and rerun verification were not performed. Full target responses, check evidence, and reproductions are retained privately.`};
++  },
++  assertCurrent:async(value?:unknown)=>{await current(sql,value);}};
++}
+diff --git a/apps/web/src/server/expert-workflow.ts b/apps/web/src/server/expert-workflow.ts
+--- a/apps/web/src/server/expert-workflow.ts
++++ b/apps/web/src/server/expert-workflow.ts
+@@ -5,10 +5,10 @@
+ import { reviewDigest } from '@ae/core/evals/data/binding';
+ import { inspectDataSafety } from '@ae/core/evals/data/quality';
+ 
+-export type ExpertDataGate = 'legacy' | 'pending' | 'ready_consumer_required' | 'stopped';
++export type ExpertDataGate = 'legacy' | 'pending' | 'ready' | 'stopped';
+ /** Canonical opt-in plan is installed by trusted owner SQL only, never by an endpoint/model.
+  * This is the real application's acquisition entry; it does not substitute a new evaluator.
+- * Ready is deliberately held until rich execution adoption can consume this exact frozen suite.
++ * Ready hands the exact canonical frozen suite to the authorized rich execution consumer.
+  */
+ export async function advanceJobExpertData(jobId: string): Promise<ExpertDataGate> {
+   const sql = expertOwnerDatabase();
+@@ -29,5 +29,5 @@
+     FROM jobs j WHERE p.job_id=$1 AND p.input_digest=$3 AND p.enabled AND p.response_deadline>now()
+     AND j.id=p.job_id AND j.customer_id=p.tenant_id AND j.state IN ('planning','running','investigating') RETURNING p.job_id`, [jobId,JSON.stringify(advanced),row.input_digest]);
+   if (published.rows.length !== 1) return 'pending';
+-  return advanced.status === 'ready' && advanced.frozen ? 'ready_consumer_required' : 'pending';
++  return advanced.status === 'ready' && advanced.frozen ? 'ready' : 'pending';
+ }
+diff --git a/apps/web/src/workflows/job.ts b/apps/web/src/workflows/job.ts
+--- a/apps/web/src/workflows/job.ts
++++ b/apps/web/src/workflows/job.ts
+@@ -1,3 +1,4 @@
++import { expertTextEvaluationStep, expertTextReportStep } from "./steps/expert-text";
+ import { expertDataGateStep, expertDataHoldStep } from "./steps/expert-data";
+ import { createHook, FatalError, sleep } from "workflow";
+ import { jobHookToken, type JobEvent, type Package, type QualifyResult } from "@ae/core/contracts/index";
+@@ -117,6 +118,7 @@
+     if (stage === "execute") {
+       // Owner-provisioned text data plan is checked before discarding any retained evaluation state.
+       // Bounded durable timers retain one Workflow and canonical expert operation identity.
++      let expertHandled = false;
+       if (pkg === 'text_eval') {
+         let gate = await expertDataGateStep(jobId);
+         if (gate === 'pending') await expertDataHoldStep(jobId, false);
+@@ -144,14 +146,48 @@
+           polls++;
+           gate = await expertDataGateStep(jobId);
+         }
+-        if (gate !== 'legacy') {
+-          await expertDataHoldStep(jobId, gate === 'ready_consumer_required');
++        if (gate === 'ready') {
++          let evaluation = await expertTextEvaluationStep(jobId);
++          let executionPolls = 0;
++          while (evaluation.status === 'pending' && executionPolls++ < 336) {
++            incoming ??= nextEvent();
++            timer ??= sleep('30m');
++            const wake = await Promise.race([
++              timer.then(() => ({ type: 'timer' as const })),
++              incoming.then(event => ({ type: 'event' as const, event })),
++            ]);
++            if (wake.type === 'event') {
++              incoming = undefined;
++              if (wake.event.type === 'cancel') {
++                await cancelStep(jobId, wake.event.reason);
++                return { jobId, status: 'cancelled' };
++              }
++              continue;
++            }
++            timer = undefined;
++            evaluation = await expertTextEvaluationStep(jobId);
++          }
++          if (evaluation.status === 'pending') return { jobId, status: 'on_hold' };
++          if (evaluation.status === 'budget_exceeded') {
++            await pauseBudgetStep(jobId, evaluation.message);
++            return { jobId, status: 'paused_budget' };
++          }
++          const reported = await expertTextReportStep(jobId,evaluation.data.findings,evaluation.data.suite);
++          if (reported.status === 'budget_exceeded') {
++            await pauseBudgetStep(jobId,reported.message);
++            return {jobId,status:'paused_budget'};
++          }
++          expertHandled = true;
++        } else if (gate !== 'legacy') {
++          await expertDataHoldStep(jobId, false);
+           return { jobId, status: 'on_hold' };
+         }
+       }
++      if (!expertHandled) {
+       if (plan.phase === "execute" && plan.discardPartialResults) await discardPartialEvaluationStep(jobId);
+       const stopped = pkg === "trace_audit" ? await runTraceAudit() : await runEndpointEval(pkg);
+       if (stopped) return { jobId, status: stopped.stopped };
++      }
+     }
+ 
+     // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.
+diff --git a/apps/web/src/workflows/steps/expert-text.ts b/apps/web/src/workflows/steps/expert-text.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/workflows/steps/expert-text.ts
+@@ -0,0 +1,64 @@
++import { createExpertTextRuntime } from '@/server/expert-text-runtime';
++import { recordProgress, setJobState } from '@/server/job-store';
++import { withBudget, loadIntake } from './common';
++import { evalServices } from '@ae/core/integration/eval-services';
++import { Report } from '@ae/core/contracts/index';
++import { persistReportStep } from './evaluate';
++import { TrackBPendingError } from '@ae/core/evals/service-adapter';
++import type { Suite, Finding } from '@ae/core/contracts/index';
++
++export type ExpertTextOutcome = {status:'pending'} | {status:'budget_exceeded';message:string} | {status:'ok';data:{suite:Suite;findings:Finding[]}};
++/** Existing job owns scheduling/payment/report/delivery. This step only consumes its canonical reviewed suite. */
++export async function expertTextEvaluationStep(jobId:string):Promise<ExpertTextOutcome> {
++ 'use step';
++ try {
++  return await withBudget(jobId,'investigator',async ctx=>{
++   const runtime=await createExpertTextRuntime(ctx);
++   await runtime.assertCurrent();
++   await setJobState(jobId,'running');
++   await runtime.assertCurrent();
++   await recordProgress(jobId,'running_suite','Running the reviewed frozen suite against your endpoint.');
++   const run=await runtime.run();
++   await runtime.assertCurrent(run);
++   await setJobState(jobId,'investigating');
++   await runtime.assertCurrent();
++   const findings=await runtime.investigate(run);
++   await runtime.assertCurrent(findings);
++   await recordProgress(jobId,'investigated',`Investigation produced ${findings.length} finding(s). Rich assessment evidence is retained privately.`);
++   const assessment=await runtime.reportContext();
++   if(assessment.assessed===0)throw new Error('expert_text_no_assessment');
++   return {suite:runtime.suite,findings};
++  });
++ }catch(error){
++  // Durable provider polling and ambiguous transport reconciliation retain the paid Workflow.
++  // Never route this explicit expert plan through the lite or legacy evaluator.
++  if(error instanceof TrackBPendingError)return {status:'pending'};
++  await recordProgress(jobId,'expert_text_pending','Evaluation is awaiting current authorization, runtime configuration, or durable reconciliation.');
++  return {status:'pending'};
++ }
++}
++expertTextEvaluationStep.maxRetries=0;
++
++/** Direct existing Naive operator service; explicit text plans never enter withLiteFallback. */
++export async function expertTextReportStep(jobId:string,findings:Finding[],suite:Suite) {
++ 'use step';
++ return withBudget(jobId,'operator',async ctx=>{
++  const runtime=await createExpertTextRuntime(ctx);
++  const assessment=await runtime.reportContext();
++  if(!assessment.assessed)throw new Error('expert_text_no_assessment');
++  const intake=await loadIntake(jobId,false);
++  await runtime.assertCurrent({findings,suite});
++  const report=Report.parse(await evalServices.renderReport(ctx,{intake,findings,suite,remediations:[]}));
++  await runtime.assertCurrent(report);
++  const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
++  report.markdown+=`\n\n## Assessment coverage and limitations\n\n${assessment.summary}\n`;
++  report.html+=`<section><h2>Assessment coverage and limitations</h2><pre>${escape(assessment.summary)}</pre></section>`;
++  report.summary=`${assessment.summary}\n\n${report.summary}`.slice(0,10000);
++  await runtime.assertCurrent(report);
++  // Existing private Blob/SQL/report flow remains the publication mechanism.
++  await persistReportStep(jobId,report,suite);
++  await runtime.assertCurrent(report);
++  return true;
++ });
++}
++expertTextReportStep.maxRetries=0;
+diff --git a/packages/core/src/db/migrations/0026_expert_text_runtime.sql b/packages/core/src/db/migrations/0026_expert_text_runtime.sql
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/migrations/0026_expert_text_runtime.sql
+@@ -0,0 +1,13 @@
++-- Owner adoption only; register with the owning migration process. No automatic application.
++CREATE TABLE expert_workflow.text_bindings (
++ job_id uuid PRIMARY KEY REFERENCES expert_workflow.plans(job_id),
++ scope jsonb NOT NULL CHECK(jsonb_typeof(scope)='object'),
++ target_version text NOT NULL CHECK(target_version ~ '^[a-f0-9]{64}$'),
++ run_id text NOT NULL CHECK(run_id ~ '^expert-[a-f0-9]{24}$'),
++ CHECK(scope->>'jobId'=job_id::text),
++ CHECK(octet_length(scope::text)<4096)
++);
++CREATE FUNCTION expert_workflow.immutable_text_binding() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN RAISE EXCEPTION 'immutable expert text binding'; END $$;
++CREATE TRIGGER immutable_text_binding BEFORE UPDATE OR DELETE ON expert_workflow.text_bindings
++ FOR EACH ROW EXECUTE FUNCTION expert_workflow.immutable_text_binding();
+diff --git a/packages/core/src/evals/naive-contract-mapping.test.ts b/packages/core/src/evals/naive-contract-mapping.test.ts
+--- a/packages/core/src/evals/naive-contract-mapping.test.ts
++++ b/packages/core/src/evals/naive-contract-mapping.test.ts
+@@ -58,11 +58,20 @@
+     const wrong = structuredClone(f.run); wrong.suiteDigest = "a".repeat(64); expect(() => projectTextSuiteRun(wrong, f.suite, f.scope)).toThrow();
+     const check = structuredClone(f.run); check.executions[0]!.checks[0]!.checkId = "S02.o1"; expect(() => projectTextSuiteRun(check, f.suite, f.scope)).toThrow();
+   });
+-  it.each(["inconclusive", "not_assessed", "error", "concern"] as const)("never silently maps %s to a boolean", status => {
++  it.each(["inconclusive", "not_assessed", "error"] as const)("never silently maps %s to a boolean", status => {
+     const f = fixture(); f.run.executions[0]!.checks[0]!.status = status;
+-    expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("cannot represent");
++    const projection = projectTextSuiteRun(f.run, f.suite, f.scope);
++    expect(projection.result.results[0]!.assessment?.kind).toBe("inconclusive");
++    expect(projection.result.results[0]).not.toHaveProperty("passed");
++    expect(projection.result.results[0]!.assessment?.checks[0]!.status).toBe(status);
++    expect(restoreTextSuiteRun(projection.result, projection.retained, f.suite, f.scope)).toEqual(f.run);
++    expect(() => restoreTextSuiteRun(projection.result, projection.retained, f.suite, { ...f.scope, approvalArtifactId: "substituted" })).toThrow();
+   });
+-  it("preserves rubric definitions but refuses even a passing rubric as an objective boolean", () => {
++  it("rejects an impossible objective concern rather than publishing an objective failure", () => {
++    const f = fixture(); f.run.executions[0]!.checks[0]!.status = "concern";
++    expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("mismatch");
++  });
++  it("preserves passing and concerned rubric assessments without objective booleans", () => {
+     const f = fixture(); const { digest: _, ...body } = structuredClone(f.frozen);
+     body.referenceText = "The reference says the required response is READY.";
+     body.scenarios[0]!.rubricChecks.push({ id: "S01.r1", kind: "rubric", description: "Reference grounding", rubric: "Assess grounding against the supplied reference.", assessesFactualCorrectness: true, requiresReference: true });
+@@ -71,10 +80,28 @@
+     expect(restoreFrozenTextSuite(suite.suite, suite.retained, scope)).toEqual(frozen);
+     f.run.suiteDigest = frozen.digest;
+     f.run.executions[0]!.checks.push({ checkId: "S01.r1", kind: "rubric", status: "pass", detail: "Grounded", evidenceQuotes: ["READY"], reason: null });
+-    expect(() => projectTextSuiteRun(f.run, suite, scope)).toThrow("cannot represent");
++    for (const status of ["pass", "concern"] as const) {
++      f.run.executions[0]!.checks.at(-1)!.status = status;
++      const projection = projectTextSuiteRun(f.run, suite, scope);
++      expect(projection.result.results[0]!.assessment?.kind).toBe("rubric");
++      expect(projection.result.results[0]).not.toHaveProperty("passed");
++      expect(projection.result.results[0]!.assessment?.checks.at(-1)!.status).toBe(status);
++      expect(restoreTextSuiteRun(projection.result, projection.retained, suite, scope)).toEqual(f.run);
++    }
++  });
++  it("preserves actual infrastructure outcomes without objective booleans", () => {
++    const f = fixture(), execution = f.run.executions[0]!;
++    execution.outcome = "infrastructure_error";
++    execution.target = { ok: false, errorCode: "target_error", latencyMs: 1 };
++    execution.responseText = null;
++    execution.checks.forEach(c => { c.status = "not_assessed"; c.reason = "target_error"; });
++    const projection = projectTextSuiteRun(f.run, f.suite, f.scope);
++    expect(projection.result.results[0]!.assessment?.kind).toBe("infrastructure");
++    expect(projection.result.results[0]).not.toHaveProperty("passed");
++    expect(restoreTextSuiteRun(projection.result, projection.retained, f.suite, f.scope)).toEqual(f.run);
+   });
+   it("rejects infrastructure inconsistencies and currently known secrets", () => {
+-    const f = fixture(); f.run.executions[0]!.target.ok = false; expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("cannot represent");
++    const f = fixture(); f.run.executions[0]!.target.ok = false; expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("mismatch");
+     const next = fixture(); expect(() => projectFrozenTextSuite(next.frozen, next.scope, ["Follow the explicit user constraints."])).toThrow();
+     expect(() => projectTextSuiteRun(next.run, next.suite, next.scope, ["READY"])).toThrow();
+   });
+diff --git a/packages/core/src/evals/naive-contract-mapping.ts b/packages/core/src/evals/naive-contract-mapping.ts
+--- a/packages/core/src/evals/naive-contract-mapping.ts
++++ b/packages/core/src/evals/naive-contract-mapping.ts
+@@ -4,14 +4,14 @@
+  */
+ import { z } from "zod";
+ import { Suite as ContractSuiteSchema, type Suite } from "../contracts";
+-import type { RunResult } from "../contracts/services";
++import type { RunResult, RunScenarioResult } from "../contracts/services";
+ import { containsSecret } from "../agents/redact";
+ import { TrackBBlockedError } from "./service-adapter";
+ import { canonicalJson, verifyAdmittedFrozenSuite } from "./text/freeze";
+ import { SuiteRunSchema, type FrozenTextSuite, type SuiteRun } from "./text/schema";
+ import { assertRunMatches } from "./text/investigate";
+ import { assertValidRunId } from "./text/execute";
+-import { toLegacyRunResult } from "./integration/services";
++
+ 
+ const Scope = z.object({ jobId: z.uuid(), customerId: z.string().min(1).max(200), environment: z.enum(["live", "test"]),
+   suiteDigest: z.string().regex(/^[a-f0-9]{64}$/), approvalArtifactId: z.string().min(1).max(200) }).strict();
+@@ -22,7 +22,6 @@
+ export interface RetainedTextRun { schemaVersion: "naive_contract_run.v1"; scope: TextContractScope; run: SuiteRun }
+ export interface TextRunProjection { result: RunResult; retained: RetainedTextRun }
+ const reject = (): never => { throw new TrackBBlockedError("rejected_input", "Text contract artifact, authority or projection mismatch."); };
+-const unsupported = (): never => { throw new TrackBBlockedError("needs_operator", "EvalServices RunResult cannot represent this rich text run without losing assessment states."); };
+ const safe = (input: unknown, secrets: readonly string[]) => { if (containsSecret(JSON.stringify(input), secrets)) reject(); };
+ function scoped(input: unknown, scope: TextContractScope, knownSecrets: readonly string[]): { frozen: FrozenTextSuite; scope: TextContractScope } {
+   try {
+@@ -59,6 +58,10 @@
+ function checkedRun(input: unknown, frozen: FrozenTextSuite, secrets: readonly string[]): SuiteRun {
+   try {
+     const run = SuiteRunSchema.parse(input); assertValidRunId(run.runId); assertRunMatches(frozen, run);
++    // Outcome/target inconsistencies and impossible objective verdicts are malformed evidence.
++    if (run.executions.some(e => e.outcome === "completed" && (!e.target.ok || e.target.errorCode !== null || e.responseText === null)
++      || e.outcome === "infrastructure_error" && e.target.ok
++      || e.checks.some(c => c.kind === "objective" && c.status === "concern"))) return reject();
+     // Contract runSuite means the whole suite. Partial reruns need a separate explicit contract.
+     if (run.executions.length !== frozen.scenarios.length) return reject();
+     if (run.executions.some(e => e.attempt !== "initial" && e.attempt !== "rerun")) return reject();
+@@ -66,13 +69,23 @@
+     return run;
+   } catch { return reject(); }
+ }
+-/** A boolean projection is permitted only for complete, purely objective runs. */
++/** Preserve all assessment states; only complete objective assessments publish booleans. */
+ export function projectTextSuiteRun(input: unknown, suite: TextSuiteProjection, scope: TextContractScope, knownSecrets: readonly string[] = []): TextRunProjection {
+   const frozen = restoreFrozenTextSuite(suite.suite, suite.retained, scope, knownSecrets);
+   const run = checkedRun(input, frozen, knownSecrets);
+-  if (run.executions.some(e => !e.target.ok || e.target.errorCode !== null || e.outcome !== "completed" || e.responseText === null || e.checks.some(c => c.reason !== null))) return unsupported();
+-  let result: RunResult;
+-  try { result = toLegacyRunResult(run); } catch { return unsupported(); }
++  const result: RunResult = { runId: run.runId, versionLabel: run.versionLabel,
++    results: run.executions.map((e): RunScenarioResult => {
++      const base = { scenarioId: e.scenarioId, detail: e.checks.map(c => c.detail).join("\n") };
++      const checks = structuredClone(e.checks);
++      if (e.outcome !== "completed" || !e.target.ok || e.target.errorCode !== null || e.responseText === null)
++        return { ...base, assessment: { kind: "infrastructure", outcome: e.outcome, checks } };
++      if (!checks.length || checks.some(c => c.reason !== null || ["inconclusive", "not_assessed", "error"].includes(c.status)))
++        return { ...base, assessment: { kind: "inconclusive", outcome: e.outcome, checks } };
++      if (checks.some(c => c.kind === "rubric"))
++        return { ...base, assessment: { kind: "rubric", outcome: e.outcome, checks } };
++      if (!checks.every(c => c.kind === "objective" && ["pass", "fail"].includes(c.status))) return reject();
++      return { ...base, passed: checks.every(c => c.status === "pass"), assessment: { kind: "objective", outcome: e.outcome, checks } };
++    }) };
+   return { result, retained: { schemaVersion: "naive_contract_run.v1", scope: Scope.parse(scope), run } };
+ }
+ export function restoreTextSuiteRun(projection: unknown, retained: RetainedTextRun, suite: TextSuiteProjection, scope: TextContractScope, knownSecrets: readonly string[] = []): SuiteRun {
+diff --git a/packages/core/src/evals/naive-run-service.test.ts b/packages/core/src/evals/naive-run-service.test.ts
+--- a/packages/core/src/evals/naive-run-service.test.ts
++++ b/packages/core/src/evals/naive-run-service.test.ts
+@@ -56,8 +56,11 @@
+     await expect(f.service.runSuite({ ...f.ctx, budgetMicroUsd: 0 }, f.projection.suite, f.canonicalTarget)).rejects.toThrow("positive authorized budget");
+     expect(f.send).not.toHaveBeenCalled();
+   });
+-  it("retains nonboolean rubric states then refuses lossy public projection", async () => {
+-    const f = setup(true); await expect(f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget)).rejects.toThrow("cannot represent");
++  it("retains nonboolean rubric states and projects their explicit assessment", async () => {
++    const f = setup(true); const result = await f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget);
++    expect(result.results[0]!.assessment?.kind).toBe("inconclusive");
++    expect(result.results[0]!.assessment?.checks.some(c => c.kind === "rubric" && c.reason === "judge_not_configured")).toBe(true);
++    expect(result.results[0]).not.toHaveProperty("passed");
+     expect(f.saved).toHaveLength(1); expect(f.saved[0]!.run.executions[0]!.checks.some(c => c.kind === "rubric")).toBe(true);
+   });
+   it("current authority revocation during a run prevents further target dispatch", async () => {
+@@ -72,7 +75,11 @@
+   });
+   it("screens the canonical target key even when owner knownSecrets omits it", async () => {
+     const f = setup(); f.send.mockResolvedValue({ ok: true, text: f.canonicalTarget.apiKey, latencyMs: 1 });
+-    await expect(f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget)).rejects.toThrow();
++    const result = await f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget);
++    expect(result.results.every(r => r.assessment?.kind === "infrastructure")).toBe(true);
++    expect(result.results.every(r => !("passed" in r))).toBe(true);
++    expect(f.saved[0]!.run.executions.every(e => e.responseText === null && e.target.errorCode === "credential_in_response")).toBe(true);
++    expect(JSON.stringify(result)).not.toContain(f.canonicalTarget.apiKey);
+     expect(JSON.stringify(f.saved)).not.toContain(f.canonicalTarget.apiKey);
+   });
+   it("rejects malformed or too-short known secret configuration before dispatch", async () => {

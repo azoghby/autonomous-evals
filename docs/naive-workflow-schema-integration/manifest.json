@@ -1,0 +1,74 @@
+{
+  "baseCommit": "06d8a1571637701322306cdc9d0586ca79586a33",
+  "files": [
+    {
+      "path": "packages/core/src/db/migrations/0025_expert_workflow.sql",
+      "beforeSha256": "ca3a0280fadc121cc6dcb5e348cda977ddf3714f398979c2549d6c1d980b30cc",
+      "afterSha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+      "postimage": "source/packages/core/src/db/migrations/0025_expert_workflow.sql",
+      "preimageSource": "docs/expert-workflow-integration/source/packages/core/src/db/migrations/0025_expert_workflow.sql"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "beforeSha256": "1407671ad41f3d494b469014280231a111c6f27fd14158b8cdf37d7861981d74",
+      "afterSha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+      "postimage": "source/packages/core/src/db/migrations/0026_expert_text_runtime.sql",
+      "preimageSource": "docs/naive-text-runtime-integration/source/packages/core/src/db/migrations/0026_expert_text_runtime.sql"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0025_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "163c169f19a4371ec2d8e932a283786f1a384c4fec10f14079fdf7d9dfc714b0",
+      "postimage": "source/packages/core/src/db/migrations/meta/0025_snapshot.json",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0026_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "ad902784d13b901175ef095f2b3c5a0cb796e313ab7031ea366553922ce0de57",
+      "postimage": "source/packages/core/src/db/migrations/meta/0026_snapshot.json",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/_journal.json",
+      "beforeSha256": "f5d40d4a4cd85baf8cf5805ef03bb0672bd8331884b3ec50634b71bd00192a68",
+      "afterSha256": "146c1d871d4c9e426dd02e2d4cdd91b8a786612f31604909913f05f2e7a05aa0",
+      "postimage": "source/packages/core/src/db/migrations/meta/_journal.json",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "beforeSha256": "09568aedd91da6d7837f9d7cb56c9e05511b313905d757ada99b48204141376a",
+      "afterSha256": "6e16279eb1c7df0e2f5f3ebb14eea8e30f7f5b220b0147d69aeda0bd0a0f8dfd",
+      "postimage": "source/packages/core/src/db/schema.ts",
+      "preimageSource": "06d8a1571637701322306cdc9d0586ca79586a33"
+    }
+  ],
+  "patchSha256": "f3c32d7c3f8a4adecd7d2ae1a0ab30859d5b450f8a376158da4a42cfac20fc8d",
+  "applyAfter": [
+    "docs/expert-workflow-integration/manifest.json",
+    "docs/naive-rich-contract-integration/manifest.json",
+    "docs/naive-text-runtime-integration/manifest.json"
+  ],
+  "requires": [
+    "current core retained data orchestration/resume and SQL persistence support",
+    "hardened expert owner + global atomic cost sink adoption",
+    "text integration checkpoint SQL, agent session/budget SQL, expert_workflow 0025 and explicit 0026 owner migration registration",
+    "EVAL_SERVICES=real; actual Naive agent configuration; NAIVE_JUDGE_MODEL, NAIVE_JUDGE_RESERVATION_MICRO_USD, NAIVE_JUDGE_MAX_OUTPUT_TOKENS; proxy:write audit:read permissions"
+  ],
+  "activation": "Owner review artifact only. Coherent Drizzle schema/journal/snapshots for expert workflow migrations; no live migration or deployment.",
+  "dependencyManifestHashes": [
+    {
+      "path": "docs/expert-workflow-integration/manifest.json",
+      "sha256": "7d30eeecbf56ed72ed58c54f711d519dd31ad243452aae1c13e5097f709917e5"
+    },
+    {
+      "path": "docs/naive-rich-contract-integration/manifest.json",
+      "sha256": "f6deb3aa2ea6676762a45ef71ea9107d0870ff45ecd555a64d169f6b9917c82c"
+    },
+    {
+      "path": "docs/naive-text-runtime-integration/manifest.json",
+      "sha256": "d201a07e1925201859ac883a2ecc2ed044dd81e4f70cbec053b5f2860ca92f48"
+    }
+  ]
+}

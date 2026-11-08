@@ -1,0 +1,254 @@
+--- a/packages/core/src/contracts/services.ts
++++ b/packages/core/src/contracts/services.ts
+@@ -62,7 +62,45 @@
+ }
+ 
+ export interface TraceAuditResult { findings: Finding[]; claimsChecked: number }
+-export interface RunResult { runId: string; versionLabel: string; results: Array<{ scenarioId: string; passed: boolean; detail: string }> }
++export interface RunCheckAssessment {
++  checkId: string;
++  kind: "objective" | "rubric";
++  status: "pass" | "fail" | "concern" | "inconclusive" | "not_assessed" | "error";
++  detail: string;
++  evidenceQuotes: string[];
++  reason: "target_error" | "judge_unavailable" | "judge_not_configured" | "no_reference" | "judge_inconclusive" | "check_error" | null;
++}
++export interface RunAssessment {
++  kind: "objective" | "rubric" | "inconclusive" | "infrastructure";
++  outcome: "completed" | "infrastructure_error";
++  checks: RunCheckAssessment[];
++}
++type ScenarioResultBase = { scenarioId: string; detail: string };
++/** Legacy booleans remain readable. Rich subjective and unavailable results never carry a boolean. */
++export type RunScenarioResult = ScenarioResultBase & (
++  | { passed: boolean; assessment?: undefined }
++  | { passed: boolean; assessment: RunAssessment & { kind: "objective" } }
++  | { passed?: never; assessment: RunAssessment & { kind: "rubric" | "inconclusive" | "infrastructure" } }
++);
++export interface RunResult { runId: string; versionLabel: string; results: RunScenarioResult[] }
++/** Only complete objective evidence (or a legacy boolean) participates in binary scoring. */
++export function objectivePassed(result: { passed?: boolean; assessment?: RunAssessment }): boolean | undefined {
++  if (!result.assessment) return result.passed;
++  const a = result.assessment;
++  if (a.kind !== "objective" || a.outcome !== "completed" || !a.checks.length || a.checks.some(c => c.kind !== "objective" || (c.status !== "pass" && c.status !== "fail"))) return undefined;
++  return a.checks.every(c => c.status === "pass");
++}
++export function summarizeRunResults(results: readonly RunScenarioResult[]) {
++  const counts = { passed: 0, failed: 0, rubric: 0, inconclusive: 0, infrastructure: 0 };
++  for (const result of results) {
++    const passed = objectivePassed(result);
++    if (passed !== undefined) counts[passed ? "passed" : "failed"]++;
++    else if (result.assessment?.kind === "rubric") counts.rubric++;
++    else if (result.assessment?.kind === "infrastructure") counts.infrastructure++;
++    else counts.inconclusive++;
++  }
++  return counts;
++}
+ 
+ export interface EvalServices {
+   qualify(ctx: ServiceContext, intake: IntakeInput, clarifications: string[]): Promise<QualifyResult>;
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed } from "@ae/core/contracts/services";
+ import "server-only";
+ import {
+   Finding, QualifyResult, Remediation, Report, Suite, type IntakeInput,
+@@ -134,7 +135,7 @@
+     return { runId: "mock-run", versionLabel: suite.versionLabel, results: [base, ...mockRedTeamResults(suite.scenarios)] };
+   },
+   async investigate(_ctx, suite, runs) {
+-    const failed = new Set(runs.flatMap((r) => r.results.filter((x) => !x.passed).map((x) => x.scenarioId)));
++    const failed = new Set(runs.flatMap((r) => r.results.filter((x) => objectivePassed(x) === false).map((x) => x.scenarioId)));
+     return [mockFinding("mock-f1", "mock-s1"), ...mockRedTeamFindings(suite.scenarios, failed)];
+   },
+   async proposeAndVerifyFix(_ctx, input) { return mockRemediation(input.finding); },
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -1,3 +1,4 @@
++import { summarizeRunResults } from "@ae/core/contracts/services";
+ import { eq } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+ import { FatalError } from "workflow";
+@@ -91,8 +92,8 @@
+     return services.runSuite(ctx, { ...suite, versionLabel }, target, branchConnectionString);
+   });
+   if (result.status === "ok") {
+-    const failed = result.data.results.filter((r) => !r.passed).length;
+-    await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${failed} of ${result.data.results.length} scenario(s) failed.`);
++    const counts = summarizeRunResults(result.data.results);
++    await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${counts.passed} objective passed, ${counts.failed} objective failed, ${counts.rubric} rubric, ${counts.inconclusive} inconclusive, ${counts.infrastructure} infrastructure.`);
+   }
+   return result;
+ }
+--- a/apps/web/src/server/public-agent-runner.ts
++++ b/apps/web/src/server/public-agent-runner.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed, type RunScenarioResult } from "@ae/core/contracts/services";
+ /**
+  * Reusable core of a public-agent leaderboard run. Shared by scripts/public-agents.ts and /api/cron/public-agents.
+  * No "server-only" import so the tsx script can use it. API keys are read from the env var NAMED on the agent row and never logged.
+@@ -28,9 +29,9 @@
+ }
+ 
+ /** Findings from failed scenarios: deterministic, no extra model spend. Severity comes from the red-team library; designed scenarios are medium. */
+-export function derivedFindings(suite: Suite, results: Array<{ scenarioId: string; passed: boolean; detail: string }>): StoredFinding[] {
++export function derivedFindings(suite: Suite, results: RunScenarioResult[]): StoredFinding[] {
+   const byId = new Map(suite.scenarios.map((s) => [s.id, s]));
+-  const failed = results.filter((r) => !r.passed);
++  const failed = results.filter((r) => objectivePassed(r) === false);
+   return toStoredFindings(failed.map((r) => {
+     const sc = byId.get(r.scenarioId);
+     const rt = redTeamById(r.scenarioId);
+@@ -99,6 +100,7 @@
+   try {
+     const target = { url: row.endpointUrl, model: row.model, ...(apiKey ? { apiKey } : {}), systemPrompt: row.systemPrompt ?? "" };
+     const run = await Promise.race([services.runSuite(ctx, suite, target), timeout]);
++    if (run.results.some(r => objectivePassed(r) === undefined)) throw new Error("Public leaderboard requires complete objective results; rich assessments retained by evaluator.");
+     const score = scoreRun(suite.scenarios, run.results);
+     let findings = derivedFindings(suite, run.results);
+     if (opts.investigate) {
+--- a/apps/web/src/server/leaderboard.ts
++++ b/apps/web/src/server/leaderboard.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed, type RunAssessment } from "@ae/core/contracts/services";
+ /**
+  * Public-agent leaderboard: pure scoring + ranking. No I/O, no server-only imports (also used by scripts/public-agents.ts).
+  */
+@@ -28,24 +29,26 @@
+ }
+ 
+ interface ScenarioLike { id: string; category: string }
+-interface ResultLike { scenarioId: string; passed: boolean }
++interface ResultLike { scenarioId: string; passed?: boolean; assessment?: RunAssessment }
+ interface FindingLike {
+   title: string; severity: string; category: string; scenarioId?: string;
+   evidence?: Array<{ excerpt: string }>;
+ }
+ 
+-/** Scores run results against the frozen suite. Scenarios without a result count as failed; unknown results are ignored. */
++/** Scores run results against the frozen suite. Legacy missing results count as failed; rich nonobjective results are excluded from binary scoring. */
+ export function scoreRun(scenarios: readonly ScenarioLike[], results: readonly ResultLike[]): RunScore {
+-  const byId = new Map(results.map((r) => [r.scenarioId, r.passed]));
++  const byId = new Map(results.map((r) => [r.scenarioId, objectivePassed(r)]));
+   const byCategory: ByCategory = {};
+-  let passed = 0;
++  let passed = 0, total = 0;
+   for (const s of scenarios) {
++    if (byId.has(s.id) && byId.get(s.id) === undefined) continue;
++    total++;
+     const ok = byId.get(s.id) === true;
+     const cur = byCategory[s.category] ?? { passed: 0, total: 0 };
+     byCategory[s.category] = { passed: cur.passed + (ok ? 1 : 0), total: cur.total + 1 };
+     if (ok) passed += 1;
+   }
+-  return { passed, total: scenarios.length, byCategory };
++  return { passed, total, byCategory };
+ }
+ 
+ export const rate = (passed: number, total: number): number => (total > 0 ? passed / total : 0);
+--- a/apps/web/src/server/monitoring.ts
++++ b/apps/web/src/server/monitoring.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed } from "@ae/core/contracts/services";
+ import "server-only";
+ import { assertPublicTarget } from "./target-url";
+ import { and, desc, eq, ne } from "drizzle-orm";
+@@ -38,8 +39,8 @@
+ /** Scenarios that passed in `prev` and fail in `curr`. No previous run (baseline) means no regressions. */
+ export function detectRegressions(prev: ScenarioResult[] | null | undefined, curr: ScenarioResult[]): ScenarioResult[] {
+   if (!prev || prev.length === 0) return [];
+-  const passedBefore = new Set(prev.filter((r) => r.passed).map((r) => r.scenarioId));
+-  return curr.filter((r) => !r.passed && passedBefore.has(r.scenarioId));
++  const passedBefore = new Set(prev.filter((r) => objectivePassed(r) === true).map((r) => r.scenarioId));
++  return curr.filter((r) => objectivePassed(r) === false && passedBefore.has(r.scenarioId));
+ }
+ 
+ export const utcDay = (d: Date) => d.toISOString().slice(0, 10);
+--- a/apps/web/src/server/regression-check.ts
++++ b/apps/web/src/server/regression-check.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed } from "@ae/core/contracts/services";
+ import type { RunResult } from "@ae/core/contracts/services";
+ 
+ /** Pure regression-check logic (no I/O): turns a suite run into the CI-facing verdict. */
+@@ -10,6 +11,7 @@
+   passed: number;
+   total: number;
+   failed: RegressionFailure[];
++  unassessed: number;
+   /** Failing scenarios that were tied to a verified remediation: a previously fixed issue came back. */
+   previouslyFixedRegressed: FixedRegression[];
+ }
+@@ -45,13 +47,13 @@
+   const failed: RegressionFailure[] = [];
+   const previouslyFixedRegressed: FixedRegression[] = [];
+   for (const r of input.results) {
+-    if (r.passed) continue;
++    if (objectivePassed(r) !== false) continue;
+     const entry = { scenarioId: r.scenarioId, title: titles.get(r.scenarioId) ?? r.scenarioId, detail: truncate(r.detail ?? "", DETAIL_MAX) };
+     failed.push(entry);
+     const link = fixed.get(r.scenarioId);
+     if (link) previouslyFixedRegressed.push({ ...entry, ...link });
+   }
+-  return { passed: input.results.length - failed.length, total: input.results.length, failed, previouslyFixedRegressed };
++  return { passed: input.results.filter(r => objectivePassed(r) === true).length, unassessed: input.results.filter(r => objectivePassed(r) === undefined).length, total: input.results.length, failed, previouslyFixedRegressed };
+ }
+ 
+ /** Removes the caller's target secret (and its bearer-less form) from any text we might return or log. */
+--- a/packages/core/src/lite/investigate.ts
++++ b/packages/core/src/lite/investigate.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed } from "../contracts/services";
+ import { z } from "zod";
+ import { Finding, type Scenario, type Suite } from "../contracts/index";
+ import type { EvalServices, RunResult } from "../contracts/services";
+@@ -49,7 +50,7 @@
+   const byId = new Map(suite.scenarios.map((s) => [s.id, s]));
+   const seen = new Map<string, Failure>();
+   for (const run of runs) for (const r of run.results) {
+-    if (r.passed) continue;
++    if (objectivePassed(r) !== false) continue;
+     const scenario = byId.get(r.scenarioId);
+     const detail = decodeDetail(r.detail);
+     if (!scenario || detail?.grader === "error") continue;
+@@ -110,7 +111,7 @@
+       const res = await runSuite(ctx, { ...suite, scenarios: pending }, target);
+       const reproduced = new Set<string>();
+       for (const r of res.results) {
+-        if (r.passed || decodeDetail(r.detail)?.grader === "error") continue;
++        if (objectivePassed(r) !== false || decodeDetail(r.detail)?.grader === "error") continue;
+         counts.set(r.scenarioId, (counts.get(r.scenarioId) ?? 0) + 1);
+         reproduced.add(r.scenarioId);
+       }
+--- a/packages/core/src/lite/fix.ts
++++ b/packages/core/src/lite/fix.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed } from "../contracts/services";
+ import { z } from "zod";
+ import { Remediation, type Finding, type IntakeInput, type Scenario, type Suite } from "../contracts/index";
+ import type { EvalServices, ServiceContext } from "../contracts/services";
+@@ -109,6 +110,7 @@
+     try {
+       const before = await runSuite(ctx, subset, target);
+       const after = await runSuite(ctx, subset, patchedTarget);
++      if ([...before.results, ...after.results].some(r => objectivePassed(r) === undefined)) throw new Error("Fix verification requires complete objective results.");
+       const pick = (r: typeof before) => new Map(r.results.map((x) => [x.scenarioId, x]));
+       const b = pick(before), a = pick(after);
+       const ids = subset.scenarios.map((s) => s.id);
+--- a/packages/core/src/contracts/conformance.ts
++++ b/packages/core/src/contracts/conformance.ts
+@@ -1,3 +1,4 @@
++import { objectivePassed } from "./services";
+ /**
+  * Conformance harness for EvalServices implementations (Track B -> Track A handoff gate).
+  * Pure: takes a services object, returns a list of checks. No app tables, no network of its own.
+@@ -191,7 +192,7 @@
+         const run = await services.runSuite(r.ctx, s, opts.runSuiteTarget!);
+         const ids = new Set(s.scenarios.map((x) => x.id));
+         assert(typeof run.runId === "string" && run.runId.length > 0, "runId missing");
+-        assert(run.results.every((x) => ids.has(x.scenarioId) && typeof x.passed === "boolean"), "result references unknown scenario or non-boolean passed");
++        assert(run.results.every((x) => ids.has(x.scenarioId) && (objectivePassed(x) !== undefined || (x.assessment !== undefined && x.assessment.kind !== "objective"))), "result references unknown scenario or invalid assessment");
+         runs = [run];
+         costsValid(r);
+       });

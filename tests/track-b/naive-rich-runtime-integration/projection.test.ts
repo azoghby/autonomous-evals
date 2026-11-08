@@ -1,0 +1,13 @@
+import {describe,it,expect,vi} from 'vitest';
+import {makeSuite,makeScenarios} from '../../../packages/core/src/evals/text/__tests__/fixtures';
+import {bindObjectiveConstraints} from '../../../packages/core/src/evals/text/admission';
+import {executeSuite} from '../../../packages/core/src/evals/text/execute';
+import {evaluateObjectiveCheck} from '../../../packages/core/src/evals/text/objective';
+import {projectFrozenTextSuite,projectTextSuiteRun,restoreTextSuiteRun} from '../../../packages/core/src/evals/naive-contract-mapping';
+const jobId='123e4567-e89b-42d3-a456-426614174000';
+function fixture(){const scenarios=makeScenarios();for(const index of [1,2]){scenarios[index]={...scenarios[index]!,objectiveChecks:[],rubricChecks:[{id:`S0${index+1}.r1`,kind:'rubric',description:'Response quality',rubric:'Is the response clear?',assessesFactualCorrectness:false}]};}const frozen=makeSuite({jobId,systemPrompt:null,...bindObjectiveConstraints(null,scenarios)});const scope={jobId,customerId:'owner',environment:'test' as const,suiteDigest:frozen.digest,approvalArtifactId:'approved'};return{frozen,scope,projection:projectFrozenTextSuite(frozen,scope)};}
+describe('actual rich execution and retained contract projection',()=>{
+ it('keeps objective failure, concern, unknown and infrastructure explicit',async()=>{const f=fixture();const run=await executeSuite(f.frozen,'baseline',{target:{send:async r=>r.scenarioId==='S04'?{ok:false,errorCode:'timeout',message:'not retained',latencyMs:1}:{ok:true,text:'WRONG',latencyMs:1}},judge:async r=>({outcome:r.operationId.includes('S02')?'rubric_concern':'inconclusive',explanation:'Measured judgment',evidenceQuotes:['WRONG']}),evaluateObjective:evaluateObjectiveCheck});const result=projectTextSuiteRun(run,f.projection,f.scope);expect(result.result.results.slice(0,4).map(r=>r.assessment?.kind)).toEqual(['objective','rubric','inconclusive','infrastructure']);expect(result.result.results[0]!.passed).toBe(false);for(const r of result.result.results.slice(1,4))expect(r).not.toHaveProperty('passed');expect(restoreTextSuiteRun(result.result,result.retained,f.projection,f.scope)).toEqual(run);});
+ it('rejects altered freeze before a target call',async()=>{const f=fixture(),send=vi.fn();await expect(executeSuite({...f.frozen,systemPrompt:'tampered'},'baseline',{target:{send},judge:null,evaluateObjective:evaluateObjectiveCheck})).rejects.toThrow();expect(send).not.toHaveBeenCalled();});
+ it('rejects forged projection, mismatched owner and newly secret data',()=>{const f=fixture();expect(()=>projectFrozenTextSuite(f.frozen,{...f.scope,jobId:'123e4567-e89b-42d3-a456-426614174001'})).toThrow();expect(()=>projectFrozenTextSuite(f.frozen,f.scope,['Fixture 1'])).toThrow();});
+});

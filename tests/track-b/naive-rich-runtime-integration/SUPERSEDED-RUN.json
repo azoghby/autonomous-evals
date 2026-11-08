@@ -1,0 +1,8 @@
+{
+  "session": 55030,
+  "archivePid": 4934,
+  "stage": "/tmp/naive-rich-runtime-tLitkh",
+  "status": "explicitly_cancelled_while_live",
+  "reason": "Parent authorized using completed exact source archive cache to avoid cloud hydration stall; cancellation is not failure evidence.",
+  "replacementArchiveSha256": "73ea289d69c8152e92e67bd26cca1285f1796fc124a32a0ce07a54c6030a15fc"
+}
