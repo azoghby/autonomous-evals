@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "trace_acceptance_index.v1",
+  "artifacts": [
+    {
+      "file": "trace-confirmed-2026-11-07.json",
+      "sha256": "e1f765225f9b89065b6b8759267c736ae011947f6d886e1f4a326b628ffaa41f",
+      "gate": "confirmed_false_success",
+      "findingCount": 1,
+      "providerReportedMicroUsd": 16966,
+      "origin": "synthetic_trace_live_investigator",
+      "evidenceType": "retained_local_artifact",
+      "requeriedProvider": false
+    },
+    {
+      "file": "trace-success-2026-11-07.json",
+      "sha256": "1b1f9d50428a0fbece2d1683c89e11fd5350b81260acbc566d0315319075e0c6",
+      "gate": "successful_control",
+      "findingCount": 0,
+      "providerReportedMicroUsd": 11619,
+      "origin": "synthetic_trace_live_investigator",
+      "evidenceType": "retained_local_artifact",
+      "requeriedProvider": false
+    }
+  ],
+  "scope": "Two synthetic traces investigated by live Naive sessions, as recorded in retained evidence. Local digest/cost identity checks only; no new provider call, independent attestation, broad model reliability or deployed app acceptance."
+}

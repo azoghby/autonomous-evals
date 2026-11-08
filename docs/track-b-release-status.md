@@ -116,3 +116,14 @@ The current-secret rotation check also passed strict types and all five tests
 (`tests/track-b/release-evidence/rotation-4948c74.txt`). Its ROT-1 title/comments
 now correctly describe its refusal assertions as a regression; the assertions
 and production behavior were not changed.
+
+## Retained live Trace Audit gate
+
+The prior live investigator false-success fixture has one objective confirmed
+finding, and its successful-tool control has zero findings. Parent rechecked the
+retained artifacts' completed-session, investigator identity and measured-cost
+consistency; no new provider query or spend occurred. Their reported session costs
+are 16,966 and 11,619 micro-USD respectively. File hashes and precise scope are in
+`tests/track-b/live-evidence/trace-acceptance-index.json`. These satisfy the narrow
+historical synthetic-trace gate, not general reliability or deployed app
+authorization. The original failed-citation evidence remains intact.
