@@ -35,7 +35,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from oss_bb_common import GATEWAY, PROVIDER_REFUSAL, Adapter, Turn, gateway_key, load_env, serve  # noqa: E402
+from oss_bb_common import GATEWAY, PROVIDER_REFUSAL, TURN_TIMEOUT_S, Adapter, Turn, gateway_key, load_env, serve  # noqa: E402
 
 ARGS = load_env()
 NOTEBOOK = Path(os.environ["LG_TUTORIAL"])
@@ -79,7 +79,7 @@ class TurnAbandoned(Exception):
 # Per-thread turn deadline. asyncio.wait_for cannot stop the worker thread running graph.invoke, so without this a
 # timed-out turn (e.g. the re-prompt loop above) would keep calling the model, and spending, after the harness left.
 _TURN = threading.local()
-TURN_BUDGET_S = float(os.environ.get("SHIM_TURN_TIMEOUT_S", "580"))
+TURN_BUDGET_S = TURN_TIMEOUT_S
 
 
 class GatewayChat(ChatOpenAI):

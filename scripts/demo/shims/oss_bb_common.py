@@ -40,8 +40,9 @@ GATEWAY = "https://ai-gateway.vercel.sh/v1"
 PROVIDER_REFUSAL = "Sorry, I can't help with that request."
 MAX_CACHED = 300
 # Per-turn wall-clock cap. Generous: multi-agent graphs and CodeAgent loops can take minutes; the TS transport for local
-# agents waits 600s (LOCAL_TARGET_TIMEOUT_MS), so stay under it and return a clean 504 instead of a client-side timeout.
-TURN_TIMEOUT_S = float(os.environ.get("SHIM_TURN_TIMEOUT_S", "580"))
+# agents waits 1200s (LOCAL_TARGET_TIMEOUT_MS x (1 + LOCAL_TIMEOUT_RETRIES)), so stay under it and return a clean 504
+# instead of a client-side timeout. smolagents' 20-step CodeAgent on Gemini needed more than 580s on some turns.
+TURN_TIMEOUT_S = float(os.environ.get("SHIM_TURN_TIMEOUT_S", "1180"))
 
 # USD per token, gateway list prices (GET /v1/models). Estimates only, for /stats.
 PRICES = {

@@ -22,9 +22,10 @@ const LOCAL_TARGET_TIMEOUT_MS = 120_000;
  * Agentic loops (e.g. smolagents' CodeAgent, up to 20 steps) can need minutes per turn, and a target error is scored as
  * a failed scenario. So a request that hits the per-request timeout is re-sent up to this many times; the shims
  * (scripts/demo/shims/oss_bb_common.py) join the identical in-flight turn instead of starting another, and cap a turn
- * at 580s themselves. The harness timeout therefore never fails a slow-but-working agent.
+ * at 1180s themselves (smolagents on Gemini needed >580s for some 20-step turns). The harness timeout therefore never
+ * fails a slow-but-working agent: 10 x 120s = 1200s of patience.
  */
-export const LOCAL_TIMEOUT_RETRIES = 4;
+export const LOCAL_TIMEOUT_RETRIES = 9;
 
 /** Re-sends a loopback request that timed out (only code "timeout"; every other error passes through). */
 export class PatientLoopbackTransport implements JsonTransport {
