@@ -1,21 +1,38 @@
 {
-  "scope": "actual_app_provider",
+  "schema": "app_operation_plan/v2",
+  "evidenceSchema": "app_acceptance/v2",
   "caps": {
     "target": 32,
     "gateway": 16,
     "naive": 0,
     "cloudMutation": 0
   },
+  "proposedMinimumCaps": {
+    "target": 32,
+    "gateway": 48,
+    "naive": 0,
+    "cloudMutation": 0
+  },
+  "proposedCurrentCompositionCaps": {
+    "target": 77,
+    "gateway": 48,
+    "naive": 0,
+    "cloudMutation": 0
+  },
+  "calendarScenarios": 2,
+  "calendarTargetTurnsPerScenario": 2,
+  "textScenarios": 12,
   "targetCompletionTokenCap": 512,
   "gatewayCompletionTokenCap": 2048,
-  "naiveDesignRuns": 0,
   "maxElapsedMs": 180000,
+  "fitsApprovedCaps": false,
+  "elapsedFitEstablished": false,
+  "blockers": [
+    "calendar_subset_api_missing",
+    "same_frozen_calendar_version_binding_missing",
+    "reserved_gateway_judge_missing"
+  ],
   "liveRunPerformed": false,
-  "requiredConfiguration": [
-    "adapterModule",
-    "runId",
-    "evidenceFile",
-    "privateRuntimeRef",
-    "approvedCaps"
-  ]
+  "failure": "operation_plan_exceeds_approved_gateway_cap",
+  "qualifications": "Desired two-scenario minimum32 excludes reproductions. Current factories run all12 Calendar scenarios/version:48 target turns plus4 reproduction turns; Text baseline/trial plus confirmed reproduction25 =>77 target. Calendar subset API, same frozen-suite version transition binding and reserved rubric judge are missing. Gateway48 excludes extra Calendar judging. No elapsed bound has been demonstrated."
 }

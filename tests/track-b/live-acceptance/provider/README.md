@@ -33,56 +33,24 @@ Calls use actual `createTextTarget` -> `HttpsJsonTransport`, default public DNS 
 
 Acceptance: buggy has at least one objective `fail`; both fixed executions are `pass` with no rubric gap; exactly4 target and8 Gateway dispatch intents exist, each unique; every Gateway usage record is persisted, including unknown/malformed usage. An error/inconclusive/unknown amount never becomes a pass or measured cost. Private evidence logs only ids/statuses and Gateway usage, not raw target responses/prompts/endpoints/tokens. This direct runner establishes Text provider behavior only, not application persistence, Calendar, report or chat acceptance.
 
-## AppWorkflow-owned actual adapter interface
+## Application acceptance v2 and concrete driver
 
 ```sh
 node tests/track-b/live-acceptance/provider/app-run.mjs --plan
-node tests/track-b/live-acceptance/provider/app-run.mjs --live --config /private/approved-app-acceptance.json
+node --test tests/track-b/live-acceptance/provider/app-run.test.mjs
 ```
 
-Required private0600 config:
+The concrete adapter artifacts live under [app-acceptance-integration](../../../../docs/app-acceptance-integration/). They exercise real rich factory, SQL, accounting, private reporting and authenticated chat implementations offline. Offline injected transport/session fixtures never establish live acceptance. Existing reports and journals are retained unchanged.
 
-```json
-{
-  "adapterModule": "/absolute/app-workflow-owned/acceptance-adapter.mjs",
-  "runId": "parent_approved_app_run",
-  "evidenceFile": "/private/unique-app-run.jsonl",
-  "privateRuntimeRef": {"file": "/private/app-runtime-reference.json"},
-  "approvedCaps": {"target":32,"gateway":16,"naive":0,"cloudMutation":0}
-}
-```
+`app-run.mjs` now requires `evidenceSchema:"app_acceptance/v2"`. The previous unversioned contract incorrectly bound a Text-only remediation receipt to Calendar runs. It is rejected without migration by relabeling. V2 requires **both** Calendar buggy/fixed SQL evidence for at least two reviewed scenarios from one preserved frozen suite, and separate complete frozen Text12 baseline/trial remediation evidence. Text-only success is never full application acceptance. Calendar model switching is version comparison, not proof of Calendar remediation.
 
-`privateRuntimeRef` is opaque to the runner; the trusted **AppWorkflow patch team** resolves it. The team owns deployment/auth/database composition. The runner never guesses application routes, starts a server, runs migrations or reads the runtime file in plan mode. Adapter must export:
+The exact approved caps remain **target32, Gateway16, Naive0, cloudMutation0**, 512/2048 completion tokens, and180 seconds. Preflight derives full12 rubric calls from the unchanged admitted suite:24 target Text requests +8 Calendar target turns =32 target calls;24 rubric checks per Text run ×2 runs =**48 Gateway calls**, excluding any extra Calendar judgments. The controlled Calendar handoff at commit `687b508` establishes two target turns per scenario/version. Full execution therefore **fails operation planning before config/secret reads, adapter import, journal creation or dispatch**. The desired two-scenario minimum target32/Gateway48/Naive0/cloud0 excludes investigation reproductions and is not executable through the current factories. **Current composition requires proposed target77/Gateway48/Naive0/cloud0:** full12 Calendar scenarios ×2 turns ×2 versions =48 target turns plus4 Calendar reproduction turns; Text12 baseline +12 trial +1 confirmed reproduction =25 target requests. A Calendar subset API and same-job version transition binding preserving one frozen Calendar suite are missing; independently bound jobs have different job-bound suite hashes. `proposedCurrentCompositionCaps` records77/48 and drives cap fit. They are not approved or silently enabled.180-second feasibility is not established. Combined rich source currently supplies `judge:null`, explicitly leaving rubrics unassessed; reserved Gateway composition is another live gate. No cached provider result may substitute for fresh required execution.
 
-```js
-export async function createAcceptanceDriver({
-  runId, privateRuntimeRef, signal,
-  limits, // target32, gateway16, naive0, cloudMutation0,
-          // targetCompletionTokens512, gatewayCompletionTokens2048
-  beforeDispatch, // await BEFORE EVERY provider operation; throws at cap/duplicate/deadline
-}) {
-  return {
-    source: 'actual_app_provider', fallback: false,
-    async run() { /* return the evidence shape below */ }
-  };
-}
-```
+When those gates receive explicit parent-reviewed implementation and operation authorization, the existing live entrypoint expects a private0600 bounded config with `adapterModule`, `runId`, `evidenceFile`, opaque `privateRuntimeRef`, and exact `approvedCaps`. `createAcceptanceDriver` receives run identity, AbortSignal, limits and durable `beforeDispatch`; it returns `source:'actual_app_provider',fallback:false` and `run()`. It must use real secure provider transports and actual application handlers, never lite services. Every provider dispatch awaits its durable intent, and evidence operation IDs must equal that entire metered set. The current cap must not be edited as part of a run to bypass this gate.
 
-This is a trusted integration adapter, not a claim that the app already exports it. It must wire real secure target and Gateway adapters and actual application SQL/artifact/conversation readers. **It may not import fixture services, use lite fallback, create cloud branches, invoke Naive design, send outreach or bypass `beforeDispatch`.** The cap is enforceable on cooperating adapter dispatches; arbitrary code could bypass a callback. Parent reviews this adapter before approving a live run. AbortSignal is mandatory for all work, including local subprocesses; adapter must terminate its subprocesses at the180s deadline and use only precreated disposable local storage. The runner also stops waiting after180s. Actual provider settlement beyond timeout remains unknown and requires reconciliation.
+See [the v2 evidence schema](../../../../docs/app-acceptance-integration/evidence-schema.md) for exact executable fields. Both private persisted reports survive separate-process restart byte-identically, with no replayed provider work and durable cost deduplication. Unknown amount is `costMicroUsd:null,measured:false`; known zero is `0,true`. Owner chat/history, revocation, cross-customer, anonymous and report bearer checks remain mandatory. Real handler outputs must derive these assertions; undeployed auth must remain blocked rather than acquiring success flags.
 
-Expected application sequence: run at least2 reviewed Calendar scenarios against buggy and fixed versions on the same frozen suite; reproduce objective state failure and verified repair; persist stable remediation receipt/operation accounting; stop and restart the worker process; reload receipt and private report without replaying provider calls; read private chat as owner and attempt other-customer/anonymous/report-token reads. Do not submit payment, email notifications, PR creation or cloud mutations. A permitted fixture *job identity* may isolate internal acceptance from customer/revenue accounting, but target/judge traffic must be actual provider traffic.
-
-`run()` returns exactly the following semantic evidence (extra internal fields remain app-owned). `validateEvidence` is executable and rejects unmet criteria:
-
-- `source:'actual_app_provider', fallback:false`.
-- `calendar:{suiteDigest,buggy:{runId,suiteDigest,productFailures:positive,inconclusive:0},fixed:{runId,suiteDigest,productFailures:0,inconclusive:0,passed:atLeast2}}`; digests match.
-- `remediation:{receiptId,operationId,targetVersionBefore,targetVersionAfter,beforeFailed:positive,afterFailed:0,afterPassed:positive,regressions:0,dispatchedPayloadDigest:sha256,suiteDigest,baselineRunId,trialRunId}`; target versions differ; baseline/trial ids match their Calendar runs and frozen suite. Hash the actual dispatched prompt/model/payload, not just the proposed patch.
-- `accounting:{operationIds:[uniqueIdsIncludingRemediation],unknownCostExplicit:true,duplicateDispatches:0,duplicateCostRowsAfterRestart:0,costRows:[{operationId,costMicroUsd:nullOrMeasuredInteger,measured:boolean}]}`. Cost rows cover each operation exactly once, and operation IDs exactly equal the metered dispatch set. Every listed ID has a prior durable `beforeDispatch` intent. Preserve provider usage/unknown accounting in app storage; never invent micro-USD.
-- `restart:{processBefore,processAfter,replayedDispatches:0,persistedReceiptId}`; process identities differ and receipt matches. Reconstructing an object in the same process is not restart evidence.
-- `report:{beforeDigest:sha256,afterDigest:theSameDigest,suiteDigest,receiptId,private:true}`. Digests are computed from persisted private report bytes before/after restart.
-- `privateChat:{ownerRead:true,ownerHistoryPersisted:true,revokedOwnerStatus:404,otherCustomerStatus:404,anonymousStatus:401,reportTokenStatus:401,sharedArtifactContainsChat:false}`. Use real handlers/auth with distinct principals and report bearer. The adapter must retain private raw assertions, not merely set flags.
-
-Runner requires at least one metered target and Gateway dispatch, records private durable intent before dispatch, refuses duplicate IDs/cap excess and writes only counts plus a SHA256 digest of detailed app-owned evidence on success. Failed runs keep intent with `failed_or_ambiguous`; no redispatch. Full acceptance is **not run** until this actual adapter exists and parent authorizes it.
+Provenance explicitly distinguishes externally operated targets from hosted controlled fixtures. Controlled declarations require actual HTTPS origin, deployed revision and patch SHA-256, supplied by the deployment owner. No hosted URL is invented. Declarations are operator supplied and **never remote attestation**; a plausible Calendar tool transcript is not SQL execution proof. Actual SQL state/assertions are authoritative. Controlled Calendar exact prompt compatibility must be reviewed independently; an arbitrary changed remediation prompt is not admitted by its endpoint.
 
 ## Inspected actual deployment/config references
 
@@ -96,7 +64,7 @@ Actual names: `APP_URL` defaults `http://localhost:3000`; `AI_GATEWAY_API_KEY` o
 ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node --test tests/track-b/live-acceptance/provider/*.test.mjs
 ```
 
-Uses installed TypeScript5.9.3, Zod and ipaddr.js. `stage-core.mjs` transpiles actual checked-out source to a disposable temp directory; the source-import test verifies admitted suite digest and loads all direct runtime entry points without network. This is runtime import verification, not a replacement for the repository strict typecheck. **20 tests passed,0 skipped/todo**, including refusal of missing live flag, permissive credential file, fallback/fixture evidence, inconclusive Calendar, different suite, same-process restart, duplicate dispatch, lost receipt, changed report and chat disclosure. No secrets or external providers are exercised by these tests.
+Uses installed TypeScript5.9.3, Zod and ipaddr.js. `stage-core.mjs` transpiles actual checked-out source to a disposable temp directory; the source-import test verifies admitted suite digest and loads all direct runtime entry points without network. This is runtime import verification, not a replacement for the repository strict typecheck. **Historical offline suite results are retained; current v2 contract verification is documented under app-acceptance-integration.**, including refusal of missing live flag, permissive credential file, fallback/fixture evidence, inconclusive Calendar, different suite, same-process restart, duplicate dispatch, lost receipt, changed report and chat disclosure. No secrets or external providers are exercised by these tests.
 
 Target evidence is now mandatory before secret resolution. For controlled fixtures use
 `kind: "controlled_fixture"` with full `deploymentRevision` (40 hex) and

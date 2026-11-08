@@ -1,0 +1,11 @@
+--- a/apps/web/src/server/structured-progress.ts
++++ b/apps/web/src/server/structured-progress.ts
+@@ -53,7 +53,7 @@
+   const acquisition = createPostgresEvaluationDataStore(readOnlyDb, { tenantId: job.customer_id, jobId: job.id, knownSecrets });
+   const reader = createDurableProgressReader({ withRead: async (requested, read) => {
+     const recheck = await load();
+-    if (!recheck || requested !== plan || String(recheck.revision) !== String(inventory.revision)
++    if (!recheck || JSON.stringify(requested) !== JSON.stringify(plan) || String(recheck.revision) !== String(inventory.revision)
+       || JSON.stringify(recheck.plan) !== JSON.stringify(inventory.plan) || iso(recheck.observed_at) !== iso(inventory.observed_at)) invalid();
+     // All dates come from stored material, never request time. Acquisition-only revisions
+     // must touch the inventory watermark in the producer transaction (see prerequisites).

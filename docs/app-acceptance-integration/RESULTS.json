@@ -1,0 +1,19 @@
+{
+  "schema": "app_acceptance_offline_verification/v1",
+  "liveRunPerformed": false,
+  "accepted": false,
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-JmPZ9j",
+  "strictCombinedAppKernelTypecheck": "passed",
+  "contractTests": { "passed": 132, "failed": 0, "fixture": "synthetic_contract_only" },
+  "adapterTests": { "passed": 2, "failed": 0, "fixture": "offline_injected_transports_and_PGlite" },
+  "actualComposedChatRouteTests": { "passed": 7, "failed": 0, "fixture": "offline_session_and_PGlite" },
+  "initialChatRegression": { "passed": 4, "failed": 3, "reason": "cloned_plan_rejected_by_reference_identity", "artifactCorrection": "0001-cloned-progress-plan.patch" },
+  "separateWorkerProcesses": true,
+  "restartTargetDispatches": 0,
+  "calendar": { "buggySqlFailures": 2, "fixedSqlPassed": 12, "targetCallsIncludingReproductions": 52, "sameFrozenSuite": true, "privateReportDigestStable": true },
+  "text": { "suite": "objective_offline_fixture_not_accepted_rubric_suite", "trialPassed": 12, "appliedReceipts": 12, "targetCallsIncludingReproduction": 25, "privateReportDigestStable": true },
+  "accounting": { "durableUnknownOperations": 12, "measuredRowsAfterDuplicateDelivery": 1 },
+  "limitsUnchanged": { "target": 32, "gateway": 16, "naive": 0, "cloudMutation": 0, "maxElapsedMs": 180000 },
+  "currentCompositionProposedCapsNotApproved": { "target": 77, "gateway": 48, "naive": 0, "cloudMutation": 0 },
+  "limitations": ["full_rich_authority_bootstrap_compile_only", "reserved_rubric_judge_missing", "secured_provider_meter_ports_missing", "calendar_subset_and_same_suite_version_switch_missing", "controlled_route_track_a_compatibility_unverified", "deployed_auth_unverified", "native_postgres_concurrency_unverified", "elapsed_fit_unestablished", "no_remote_attestation"]
+}
