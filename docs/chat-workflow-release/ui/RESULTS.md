@@ -85,3 +85,7 @@ Do not bypass app TypeScript or fabricate missing data modules to accept this
 release. Resolve the transport narrowing and data source/export prerequisites
 in their owning integration track, then run the final app checks once against
 that exact composition. This child's output is confined to `ui/` docs/tests.
+
+## Parent integration follow-up
+
+The parent corrected the old-core staging mistake, explicit directory imports and IP parser overloads in owned patches. The failures above remain accurate historical evidence. [Final current-core verification](../FINAL-RESULTS.md) supersedes the open compile/route blockers; deployed acceptance remains false.

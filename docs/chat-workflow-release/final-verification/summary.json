@@ -1,0 +1,63 @@
+{
+  "releaseAccepted": false,
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-UuabYB",
+  "core": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "applied": [
+    "docs/progress-chat-integration/combined.patch",
+    "docs/structured-progress-integration/backend/structured-progress.patch",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
+    "docs/chat-workflow-release/servercompat/0001-current-core-server.patch",
+    "docs/chat-workflow-release/0002-app-source-compatibility.patch"
+  ],
+  "cache": "/tmp/workflow-bootstrap.JpxCTM",
+  "lockSha256": "ba4727ddbc1432f67d29057306f9fec030b92cdcb60cf4cd851882200d70cf8b",
+  "commands": [
+    {
+      "label": "typegen",
+      "command": [
+        "npm",
+        "exec",
+        "-w",
+        "web",
+        "--",
+        "next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck",
+        "-w",
+        "web"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "build",
+      "command": [
+        "npm",
+        "run",
+        "build",
+        "-w",
+        "web"
+      ],
+      "exit": 0
+    }
+  ],
+  "versions": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "@neondatabase/serverless": "1.2.0",
+    "workflow": "5.4.0"
+  },
+  "unavailable": [],
+  "fontBoundary": "Next font fetch replaced with retained Geist CSS/woff2; no Google request; not a clean uncached build"
+}

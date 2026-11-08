@@ -32,11 +32,7 @@ node tests/track-b/chat-workflow-release/ui/render.mjs /tmp/RETAINED_STAGE
 node tests/track-b/chat-workflow-release/ui/final-check.mjs /tmp/RETAINED_STAGE
 ```
 
-The stage runner reads every series patch via `git show 5f513d1:...`, archives
-Track A `f0068733ca49c37f40fd7de279325f21a4b5fbbb`, overlays only the series'
-listed core directories from `5906961c2a70c0d6d2999cf7086689402ff60f5b`, and
-applies chat, structured, rich-service and Workflow producer layers in order, followed by the immutable server compatibility patch.
-It never replaces the workspace manifest or lockfile.
+The current stage runner delegates to the top-level `SERIES.json`, overlaying current core `48519bf` and all server/source corrections. It leaves the two UI patches for the UI runner to apply separately. The older `5906961` composition and its failed final-check evidence are historical; `final-check.mjs` is a diagnostic for that old retained archive, not final acceptance. Use the top-level final results for the corrected current composition.
 
 `CHAT_UI_NODE_MODULES` chooses the original lightweight interaction cache
 (default `/tmp/progress-chat-ui-verification/node_modules`).
@@ -61,3 +57,5 @@ See `RESULTS.md` and `evidence/summary.json`. Release acceptance remains false.
 No authenticated database/session, cross-user storage, deployed Workflow producer,
 provider invocation, migration, or deployment is verified here. No secrets,
 cloud calls, installs, push, PR, or production edits were made.
+
+Final current-core results: [../FINAL-RESULTS.md](../FINAL-RESULTS.md).

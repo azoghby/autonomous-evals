@@ -4,12 +4,15 @@ Owner-applied artifacts only. Production app/platform/contracts/manifests and th
 
 ## Exact composition and reproduction
 
-[SERIES.json](SERIES.json) pins Track A `f0068733ca49c37f40fd7de279325f21a4b5fbbb`, current core `48519bf16e04bce3397ceaeb8abea060d2636263`, Workflow artifact commit `5f513d1` and historical chat correction commit `d7cd083`. Every applied patch has a checked SHA-256. In a clean disposable archive, apply the combined chat patch, overlay those seven current core directories, then apply structured progress, Workflow service bootstrap, Workflow producers, the current-core server correction, restored history correction and restored Next compatibility correction in that order. The manifest is executable application order, not an instruction to replay these patches over an already integrated app.
+[SERIES.json](SERIES.json) pins Track A `f0068733ca49c37f40fd7de279325f21a4b5fbbb`, current core `48519bf16e04bce3397ceaeb8abea060d2636263`, Workflow artifact commit `5f513d1` and historical chat correction commit `d7cd083`. Every applied patch has a checked SHA-256. In a clean disposable archive, apply the combined chat patch, overlay those seven current core directories, then apply structured progress, Workflow service bootstrap, Workflow producers, the current-core server correction, restored history correction and restored Next compatibility correction, app source compatibility correction and explicit benchmark-address refusal in that order. The manifest is executable application order, not an instruction to replay these patches over an already integrated app.
 
 ```sh
 node tests/track-b/chat-workflow-release/stage.mjs
 node tests/track-b/chat-workflow-release/verify-series.mjs
 node tests/track-b/chat-workflow-release/servercompat/run.mjs
+node tests/track-b/chat-workflow-release/ui/run.mjs
+node tests/track-b/chat-workflow-release/ui/compatibility.mjs
+node tests/track-b/chat-workflow-release/transport.mjs
 ```
 
 Staging never installs dependencies or runs a service. It prints a retained temporary archive path. Each application invokes `git apply --check` before applying, without three-way guesses or forced conflict resolution. Integrity verification independently compares all 48 restored files with their actual Git blobs, verifies patch digests, and checks the original root manifest, root lockfile and core manifest remain byte-identical. The app manifest changes only through the explicit webpack script patch. [APPLICATION-RESULTS.json](APPLICATION-RESULTS.json) records the current run.
@@ -35,3 +38,5 @@ The rich driver still refuses data tasks until an authorized ready+frozen suite 
 ## Evidence boundaries
 
 Seven actual applied cost-helper tests and targeted strict server/Workflow/review-route TypeScript passed; the cost sink is mocked, so its real transaction concurrency is not established. [Server results](servercompat/RESULTS.json) record that scope. UI/build evidence is kept separately under `ui/`; historical screenshot/build claims under `restored/` describe their original pins only. No new screenshot is needed for these behavioral/configuration corrections without a visual change.
+
+Final current-core validation supersedes the child's old-core blockers: see [final results](FINAL-RESULTS.md). The missing ledger source is present at the actual current core pin. `0002` resolves directory entry imports through explicit `/index` exports and narrows the IP parser's overloaded IPv6 methods without changing the address ranges. `0003` explicitly refuses IPv4 benchmark range `198.18.0.0/15`, which the pinned installed parser classifies as unicast; its pre-fix failed test is retained. These are owned correction patches only, not edits to the parent's core.

@@ -1,0 +1,16 @@
+▲ Next.js 16.4.5 (webpack)
+- Local:         http://localhost:3217
+- Network:       http://10.45.155.66:3217
+✓ Ready in 178ms
+✓ Compiled workflows in 746ms (47 steps, 1 workflow)
+✓ Running next.config.ts took 1253ms
+- Experiments (use with caution):
+  · extensionAlias
+
+ GET /api/jobs/synthetic-owned-job/chat 401 in 1162ms (next.js: 952ms, application-code: 210ms)
+ GET /api/jobs/synthetic-owned-job/data-review?digest=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 403 in 753ms (next.js: 585ms, application-code: 168ms)
+ POST /api/jobs/synthetic-owned-job/data-review 403 in 5ms (next.js: 1.3ms, application-code: 4ms)
+ POST /api/jobs/synthetic-owned-job/data-review 403 in 1.5ms (next.js: 0.3ms, application-code: 1.2ms)
+ GET /api/jobs/synthetic-owned-job/chat?mode=poll 401 in 12ms (next.js: 8ms, application-code: 5ms)
+ POST /api/jobs/synthetic-owned-job/chat 401 in 4ms (next.js: 0.4ms, application-code: 3ms)
+ POST /api/jobs/synthetic-owned-job/chat 400 in 1.9ms (next.js: 0.4ms, application-code: 1.6ms)

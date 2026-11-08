@@ -1,20 +1,20 @@
 
- RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-DKph8i
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-g48XQx
 
- ❯ reauth.test.tsx (4 tests | 4 failed) 371ms
-   × reloads private history from sequence zero after access restoration 277ms
+ ❯ reauth.test.tsx (4 tests | 4 failed) 81ms
+   × reloads private history from sequence zero after access restoration 53ms
      → expected 1 to be greater than 1
-   × does not restore a stale in-flight progress reply after access denial 19ms
+   × does not restore a stale in-flight progress reply after access denial 7ms
      → expected <p …(1)></p> to be null
-   × drops pre-revocation poll responses even after history access is restored 25ms
+   × drops pre-revocation poll responses even after history access is restored 9ms
      → expected <p …(1)></p> to be null
-   × drops pre-revocation send responses after history access restoration 48ms
+   × drops pre-revocation send responses after history access restoration 12ms
      → expected <p …(1)></p> to be null
 
  Test Files  1 failed (1)
       Tests  4 failed (4)
-   Start at  17:16:26
-   Duration  1.74s (transform 100ms, setup 0ms, collect 324ms, tests 371ms, environment 660ms, prepare 89ms)
+   Start at  17:24:10
+   Duration  880ms (transform 38ms, setup 0ms, collect 123ms, tests 81ms, environment 507ms, prepare 38ms)
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯

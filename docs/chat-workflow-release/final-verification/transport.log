@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-mtU4ka
+
+
+ Test Files  1 passed (1)
+      Tests  49 passed (49)
+   Start at  17:22:37
+   Duration  206ms (import 40%, tests 30%, transform 27%, worker 3%)
+

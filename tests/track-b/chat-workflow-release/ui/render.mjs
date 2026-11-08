@@ -36,6 +36,10 @@ try{
   if(result.status!==expected||(path.includes('/chat')&&(result.cacheControl!=='private, no-store'||!result.vary?.includes('Cookie'))))routeErrors.push(result);
  }
  writeFileSync(join(out,'actual-routes.json'),JSON.stringify(routeChecks,null,2));
+ if(process.argv.includes('--routes-only')){
+  if(routeErrors.length)throw Error('Actual route checks failed: '+JSON.stringify(routeErrors));
+  console.log('Seven actual anonymous route checks passed; no fixture screenshots repeated.');
+ }else{
  const requests=[];let posts=[];let delivered=false;
  const reply=()=>({text:delivered?'Delivered. Confirmed findings remain recorded; evaluation data review is blocked.':'Running. Confirmed finding recorded; waiting for expert review.',asOf:'2026-11-07T12:00:00Z',unknowns:['Final cost is unknown.','Completion time is unknown.']});
  await page.route('**/*',async r=>{
@@ -77,4 +81,5 @@ try{
  if(overflow)throw Error('Mobile horizontal overflow');
  writeFileSync(join(out,'result.json'),JSON.stringify({routeChecks,routeErrors,boundary:'Actual Chromium + Next16.4.5 + React19.3.0, synthetic API fixture; no authenticated session/database/deployment',desktop:[1440,1100],mobile:[390,844],computedStyles:style,stableRetry:posts[0].messageId===posts[1].messageId,mobileOverflow:overflow,requests},null,2));
  if(routeErrors.length)throw Error('Rendered UI checked, but actual routes failed: '+JSON.stringify(routeErrors));
+ }
 }finally{if(browser)await browser.close();try{process.kill(-server.pid,'SIGTERM');}catch{}writeFileSync(join(out,'next-dev.log'),log);}

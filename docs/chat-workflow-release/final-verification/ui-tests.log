@@ -1,0 +1,18 @@
+{"stage":"/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-apoTjj","core":"48519bf16e04bce3397ceaeb8abea060d2636263","trackA":"f0068733ca49c37f40fd7de279325f21a4b5fbbb","applied":["docs/progress-chat-integration/combined.patch","docs/structured-progress-integration/backend/structured-progress.patch","docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch","docs/workflow-integration/workflow-producers/002-workflow-producers.patch","docs/chat-workflow-release/servercompat/0001-current-core-server.patch","docs/chat-workflow-release/0002-app-source-compatibility.patch","docs/chat-workflow-release/0003-explicit-benchmark-refusal.patch"],"releaseAccepted":false}
+
+uncorrected-regression: exit 1
+corrected-typecheck: exit 0
+corrected-tests: exit 0
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-g48XQx
+
+ ✓ reauth.test.tsx (4 tests) 75ms
+ ✓ chat.test.tsx (9 tests) 115ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  17:24:12
+   Duration  467ms (transform 41ms, setup 0ms, collect 133ms, tests 190ms, environment 262ms, prepare 55ms)
+
+
+React 19.2.0 jsdom fixture only. Evidence /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-g48XQx

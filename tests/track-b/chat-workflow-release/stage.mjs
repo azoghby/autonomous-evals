@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 export const root=execFileSync('git',['rev-parse','--show-toplevel'],{cwd:dirname(fileURLToPath(import.meta.url)),encoding:'utf8'}).trim();
-export function stageRelease() {
+export function stageRelease({uiCorrections=true}={}) {
  const series=JSON.parse(readFileSync(join(root,'docs/chat-workflow-release/SERIES.json'),'utf8'));
  for(const ref of [series.trackA,series.core,series.workflow,series.chatCorrections]) {
   if(!/^[a-f0-9]{40}$/.test(ref))throw Error('Full immutable commit required');
@@ -21,7 +21,7 @@ export function stageRelease() {
   execFileSync('git',['apply','-'],{cwd:stage,input:bytes});applied.push(p);
  };
  archive(series.trackA);series.beforeCorePatches.forEach(apply);
- archive(series.core,series.coreOverlay);series.patches.forEach(apply);
+ archive(series.core,series.coreOverlay);series.patches.filter(p=>uiCorrections||!p.includes('/app-ui/')).forEach(apply);
  return {stage,core:series.core,trackA:series.trackA,applied,releaseAccepted:false};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))console.log(JSON.stringify(stageRelease(),null,2));

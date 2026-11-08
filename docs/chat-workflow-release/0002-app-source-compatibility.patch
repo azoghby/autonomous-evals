@@ -1,0 +1,28 @@
+--- a/packages/core/src/targets/transport.ts
++++ b/packages/core/src/targets/transport.ts
+@@ -15,9 +15,9 @@
+   if (!isIP(address) || address.includes('%')) return false;
+   const ip = ipaddr.parse(address);
+   if (ip.range() !== 'unicast') return false;
+-  if (ip.kind() === 'ipv6') {
+-    return ip.match(ipaddr.parse('2000::'), 3) && !ip.match(ipaddr.parse('2001::'), 23)
+-      && !ip.match(ipaddr.parse('3fff::'), 20) && !ip.match(ipaddr.parse('2002::'), 16);
++  if (ip instanceof ipaddr.IPv6) {
++    return ip.match(ipaddr.IPv6.parse('2000::'), 3) && !ip.match(ipaddr.IPv6.parse('2001::'), 23)
++      && !ip.match(ipaddr.IPv6.parse('3fff::'), 20) && !ip.match(ipaddr.IPv6.parse('2002::'), 16);
+   }
+   return true;
+ }
+--- a/apps/web/src/server/data-production.ts
++++ b/apps/web/src/server/data-production.ts
+@@ -10,8 +10,8 @@
+ import { advanceDataOrchestration, createDataCostCapture } from '@ae/core/evals/data/orchestration';
+ import { createNaiveGenerationAdapter } from '@ae/core/evals/data/adapters/generation';
+ import { createDraftOnlyExpertAdapter } from '@ae/core/evals/data/adapters/expert';
+-import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery';
+-import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence';
++import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery/index';
++import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence/index';
+ import { reviewDigest } from '@ae/core/evals/data/binding';
+ import { designTextSuite } from '@ae/core/evals/text/design';
+ import { verifyAdmittedFrozenSuite } from '@ae/core/evals/text/freeze';

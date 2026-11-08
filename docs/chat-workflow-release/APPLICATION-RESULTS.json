@@ -1,5 +1,5 @@
 {
-  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-q05LUb",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-g5Kozn",
   "core": "48519bf16e04bce3397ceaeb8abea060d2636263",
   "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
   "applied": [
@@ -9,7 +9,9 @@
     "docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
     "docs/chat-workflow-release/servercompat/0001-current-core-server.patch",
     "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch",
-    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch"
+    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch",
+    "docs/chat-workflow-release/0002-app-source-compatibility.patch",
+    "docs/chat-workflow-release/0003-explicit-benchmark-refusal.patch"
   ],
   "releaseAccepted": false,
   "restoredFilesVerified": 48,

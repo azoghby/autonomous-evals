@@ -19,7 +19,9 @@
     "docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
     "docs/chat-workflow-release/servercompat/0001-current-core-server.patch",
     "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch",
-    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch"
+    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch",
+    "docs/chat-workflow-release/0002-app-source-compatibility.patch",
+    "docs/chat-workflow-release/0003-explicit-benchmark-refusal.patch"
   ],
   "workflow": "5f513d14f0898029a5cc188d75ff9a489bc47651",
   "chatCorrections": "d7cd083fe9c8ea3e810277ef2fc8fa5887693fa5",
@@ -30,6 +32,8 @@
     "docs/workflow-integration/workflow-producers/002-workflow-producers.patch": "fc6697118ea2e567ef7241132d72efcd1db6504af21d9eb0b1d419e3e0bc0c16",
     "docs/chat-workflow-release/servercompat/0001-current-core-server.patch": "16445f6d72d07f0c1b86d5c558de93a782de920912a9ec8dbdcb5204582d5513",
     "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch": "6d3833101637a232d90049767135a6469e950eaa043805e576e0709b96143455",
-    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch": "111c7cda082a4682a8d9a9e008f02604d9520b037dbb36a28092768f00488072"
+    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch": "111c7cda082a4682a8d9a9e008f02604d9520b037dbb36a28092768f00488072",
+    "docs/chat-workflow-release/0002-app-source-compatibility.patch": "06ee22edda757f7592acc5e15442853273d55d3772d3b2c04a5a2ded9db431f9",
+    "docs/chat-workflow-release/0003-explicit-benchmark-refusal.patch": "35a4de5ffd57ad169ebaf802591a37c722f21fea6bb12fccebf1af95cda5c942"
   }
 }

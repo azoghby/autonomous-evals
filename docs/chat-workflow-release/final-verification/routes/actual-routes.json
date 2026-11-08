@@ -1,0 +1,48 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/jobs/synthetic-owned-job/chat",
+    "status": 401,
+    "cacheControl": "private, no-store",
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Cookie"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs/synthetic-owned-job/data-review?digest=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": 403,
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/data-review",
+    "status": 403,
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/data-review",
+    "status": 403,
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs/synthetic-owned-job/chat?mode=poll",
+    "status": 401,
+    "cacheControl": "private, no-store",
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Cookie"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/chat",
+    "status": 401,
+    "cacheControl": "private, no-store",
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Cookie"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jobs/synthetic-owned-job/chat",
+    "status": 400,
+    "cacheControl": "private, no-store",
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Cookie"
+  }
+]

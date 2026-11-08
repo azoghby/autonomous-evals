@@ -1,0 +1,10 @@
+--- a/packages/core/src/targets/transport.ts
++++ b/packages/core/src/targets/transport.ts
+@@ -15,6 +15,7 @@
+   if (!isIP(address) || address.includes('%')) return false;
+   const ip = ipaddr.parse(address);
+   if (ip.range() !== 'unicast') return false;
++  if (ip instanceof ipaddr.IPv4 && ip.match(ipaddr.IPv4.parse('198.18.0.0'), 15)) return false;
+   if (ip instanceof ipaddr.IPv6) {
+     return ip.match(ipaddr.IPv6.parse('2000::'), 3) && !ip.match(ipaddr.IPv6.parse('2001::'), 23)
+       && !ip.match(ipaddr.IPv6.parse('3fff::'), 20) && !ip.match(ipaddr.IPv6.parse('2002::'), 16);

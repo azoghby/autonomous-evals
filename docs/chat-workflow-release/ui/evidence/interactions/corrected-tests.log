@@ -1,11 +1,11 @@
 
- RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-DKph8i
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-g48XQx
 
- ✓ reauth.test.tsx (4 tests) 221ms
- ✓ chat.test.tsx (9 tests) 335ms
+ ✓ reauth.test.tsx (4 tests) 75ms
+ ✓ chat.test.tsx (9 tests) 115ms
 
  Test Files  2 passed (2)
       Tests  13 passed (13)
-   Start at  17:16:31
-   Duration  1.33s (transform 133ms, setup 0ms, collect 408ms, tests 556ms, environment 748ms, prepare 303ms)
+   Start at  17:24:12
+   Duration  467ms (transform 41ms, setup 0ms, collect 133ms, tests 190ms, environment 262ms, prepare 55ms)
 

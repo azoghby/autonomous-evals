@@ -1,0 +1,51 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-4VRHiS
+
+ ❯ packages/core/src/targets/transport.test.ts (49 tests | 1 failed) 53ms
+   ❯ SSRF policy (40)
+     × blocks 198.18.0.1 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/src/targets/transport.test.ts > SSRF policy > blocks 198.18.0.1
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/core/src/targets/transport.test.ts:27:391
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 48 passed (49)
+   Start at  17:22:05
+   Duration  228ms (import 40%, tests 36%, transform 21%, worker 2%)
+
+node:internal/errors:986
+  const err = new Error(message);
+              ^
+
+Error: Command failed: /usr/local/bin/node /tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs run --config vitest.transport.config.mjs
+    at genericNodeError (node:internal/errors:986:15)
+    at wrappedFn (node:internal/errors:540:14)
+    at checkExecSyncError (node:child_process:942:11)
+    at execFileSync (node:child_process:978:15)
+    at file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-e186356d/tests/track-b/chat-workflow-release/transport.mjs:9:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  status: 1,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 99600,
+  stdout: null,
+  stderr: null
+}
+
+Node.js v24.21.0
