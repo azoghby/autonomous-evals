@@ -46,7 +46,8 @@ export interface InboundStore {
 export type InboundResult =
   | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped"
   | "owner_replied" | "owner_escalated"
-  | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated"; | "onboarding" | "prospect_reply";
+  | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated"
+  | "onboarding" | "prospect_reply";
 
 /** Pulls the bare address out of "Name <a@b.c>" and lowercases it. */
 export const bareAddress = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
