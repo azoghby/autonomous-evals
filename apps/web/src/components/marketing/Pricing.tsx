@@ -29,7 +29,7 @@ export function Pricing() {
                     <h3 className="t-h4 text-fg">{p.name}</h3>
                     {p.highlighted && <span className="font-mono text-[11px] uppercase text-accent-text">Most teams start here</span>}
                   </div>
-                  <p className="font-mono text-[36px] leading-none tracking-[-0.04em] text-fg">
+                  <p className="text-[36px] leading-none tracking-[-0.03em] tabular-nums text-fg">
                     {formatUsd(p.monthlyCents ?? 0)}<span className="ml-1 text-[14px] tracking-normal text-muted">/ mo</span>
                   </p>
                   <ul className="flex list-none flex-col gap-2 border-t border-line-2 p-0 pt-4 text-[14px] text-fg-2">
