@@ -1,0 +1,6 @@
+{
+  "baseCommit": "4d9842b10ae13e7bc721394687aec54b9010dc01",
+  "path": ".github/workflows/ci.yml",
+  "beforeSha256": "5b8b1408f44bba36974aabac7c4b784434c45e0a1353cd07316c1c4c37f688f5",
+  "afterSha256": "fa96224b898670ec1bad86dd6f498db4b365e9452180b19ebeb2914c4d87b7cb"
+}

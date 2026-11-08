@@ -1,0 +1,12 @@
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -24,6 +24,9 @@
+           node-version: 22
+           cache: npm
+       - run: npm ci
++      - name: Generate Next route types
++        working-directory: apps/web
++        run: npx next typegen
+       - name: Typecheck (web)
+         run: npx tsc -p apps/web --noEmit
+       - name: Typecheck (core)
