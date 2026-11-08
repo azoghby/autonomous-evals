@@ -11,6 +11,7 @@ import { cx, ErrorBox } from "./ui";
 import { Reveal } from "./motion";
 import { Panel, SectionLabel } from "./page-parts";
 import { GithubPrPanel } from "./github-pr-panel";
+import { SharePanel } from "./share-panel";
 
 type VerifyStatus = Remediation["verification"]["status"];
 const VERIFY: Record<VerifyStatus, { label: string; tone: ChipTone }> = {
@@ -27,6 +28,15 @@ const DOWNLOADS = [
 ] as const;
 
 const kindLabel = (k: string) => k.replace(/_/g, " ");
+const isRedTeam = (f: FindingView) => f.id.startsWith("rt-f-") || f.key.startsWith("rt-f-") || !!f.scenarioId?.startsWith("rt_");
+
+/** Renders «canary» spans from red-team evidence as a highlighted mark. */
+function Excerpt({ text }: { text: string }) {
+  const parts = text.split(/(«[^»]*»)/g);
+  return <>{parts.map((p, i) => p.startsWith("«") && p.endsWith("»")
+    ? <mark key={i} className="rounded-[2px] bg-accent-soft px-0.5 text-accent-text outline outline-1 outline-accent/40">{p.slice(1, -1)}</mark>
+    : <span key={i}>{p}</span>)}</>;
+}
 
 function PassBar({ label, v }: { label: string; v?: { passed: number; total: number } }) {
   const pct = v && v.total > 0 ? Math.round((v.passed / v.total) * 100) : 0;
@@ -145,6 +155,7 @@ function FindingRow({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingVie
         <span className="min-w-0">
           <span className="t-h4 block text-fg">{f.title}</span>
           <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {isRedTeam(f) && <span className="t-eyebrow rounded-[2px] border border-accent px-1.5 py-0.5 text-accent-text">Red-team</span>}
             <StatusChip status={f.status} />
             <span className="t-eyebrow text-subtle">{f.severity}</span>
             <span className="t-eyebrow text-subtle">{kindLabel(f.category)}</span>
@@ -161,7 +172,7 @@ function FindingRow({ jobId, f, onRerun, fixes }: { jobId: string; f: FindingVie
               {f.evidence.map((ev, i) => (
                 <div key={i}>
                   <div className="t-data mb-1.5 text-subtle">{kindLabel(ev.kind)}{ev.location ? ` · ${ev.location}` : ""}</div>
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-[4px] border border-line-2 bg-bg p-3 t-data leading-relaxed text-fg-2">{ev.excerpt}</pre>
+                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-[4px] border border-line-2 bg-bg p-3 t-data leading-relaxed text-fg-2"><Excerpt text={ev.excerpt} /></pre>
                 </div>
               ))}
             </div>
@@ -204,6 +215,8 @@ export function ReportView({ jobId, report, findings, progress, onReload, remedi
   const [monBusy, setMonBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const originals = findings.filter((f) => !f.rerunOf);
+  const redTeam = originals.filter(isRedTeam);
+  const standard = findings.filter((f) => !(isRedTeam(f) && !f.rerunOf));
   const fixesFor = (f: FindingView) => remediations.filter((r) => r.findingRowId === f.id || r.findingId === f.key);
   const fixTitle = (r: RemediationView) => originals.find((f) => f.id === r.findingRowId || f.key === r.findingId)?.title ?? "Finding";
   const verified = remediations.filter((r) => r.verification.status === "verified").length;
@@ -259,13 +272,25 @@ export function ReportView({ jobId, report, findings, progress, onReload, remedi
       )}
 
       <section aria-labelledby="findings-h">
-        <SectionLabel id="findings-h">Findings · {originals.length}</SectionLabel>
+        <SectionLabel id="findings-h">Findings · {originals.length - redTeam.length}</SectionLabel>
         {findings.length === 0 ? (
           <p className="rounded-[4px] border border-line-2 bg-bg-raised p-5 text-[15px] text-muted">No findings were reported. This does not prove the system is correct; it means nothing we checked was confirmed as a problem.</p>
-        ) : (
-          <ul className="overflow-hidden rounded-[4px] border border-line-2 bg-bg-raised">{findings.map((f, i) => <FindingRow key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} fixes={fixesFor(f)} />)}</ul>
-        )}
+        ) : standard.length > 0 ? (
+          <ul className="overflow-hidden rounded-[4px] border border-line-2 bg-bg-raised">{standard.map((f, i) => <FindingRow key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} fixes={fixesFor(f)} />)}</ul>
+        ) : null}
       </section>
+
+      {redTeam.length > 0 && (
+        <section aria-labelledby="redteam-h">
+          <SectionLabel id="redteam-h">Red-team · {redTeam.length}</SectionLabel>
+          <p className="t-data mb-3 text-muted">{redTeam.length} red-team finding{redTeam.length === 1 ? "" : "s"} · {redTeam.filter((f) => f.status === "confirmed").length} confirmed. Adversarial prompts that made your agent break a rule.</p>
+          <ul className="overflow-hidden rounded-[4px] border border-line-2 bg-bg-raised">
+            {findings.filter(isRedTeam).map((f, i) => <FindingRow key={`${f.id}-${i}`} jobId={jobId} f={f} onRerun={onReload} fixes={fixesFor(f)} />)}
+          </ul>
+        </section>
+      )}
+
+      <SharePanel jobId={jobId} />
 
       <AnimatePresence>{error && <ErrorBox key="e" message={error} />}</AnimatePresence>
 

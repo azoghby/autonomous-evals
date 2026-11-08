@@ -56,7 +56,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ jobId: str
       const created = await createCheckoutForQuote({
         jobId, quoteVersion: quote.version, priceCents: chargeCents, pricingMode, customerEmail: me.email,
         successUrl: `${origin}/jobs/${jobId}?checkout=success`, cancelUrl: `${origin}/jobs/${jobId}?checkout=cancelled`,
-        productName: `Autonomous Evals: ${quote.package.replace(/_/g, " ")}`, retryAfterSessionId,
+        productName: `Standard Evals: ${quote.package.replace(/_/g, " ")}`, retryAfterSessionId,
       });
       await db().update(schema.quotes).set({ stripeCheckoutSessionId: created.sessionId, pricingMode, capCents })
         .where(and(eq(schema.quotes.id, quote.id), quote.stripeCheckoutSessionId ? eq(schema.quotes.stripeCheckoutSessionId, quote.stripeCheckoutSessionId) : isNull(schema.quotes.stripeCheckoutSessionId)));

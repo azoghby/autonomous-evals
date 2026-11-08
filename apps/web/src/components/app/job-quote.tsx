@@ -73,6 +73,9 @@ export function QuoteCard({ jobId, quote, jobEnv, state, paid }: { jobId: string
             ))}
           </div>
           {env === "test" && <p className="mt-4 text-xs text-subtle">Test mode: no real money will be charged.</p>}
+          {env === "test" && mode === "fixed" && (
+            <p className="t-data mt-2 text-subtle">Agents can pay in USDC (x402, testnet). <a href="/settings/keys#connect" className="text-accent-text underline decoration-line-3 underline-offset-4 hover:decoration-accent">API docs</a></p>
+          )}
         </fieldset>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line-2 p-5 sm:p-8">

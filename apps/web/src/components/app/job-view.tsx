@@ -13,6 +13,7 @@ import { MetaDot, PageHead, Panel } from "./page-parts";
 import { Clarification } from "./job-clarification";
 import { QuoteCard } from "./job-quote";
 import { ProgressTimeline } from "./job-progress";
+import { AgentFeed } from "./agent-feed";
 import { ReportView } from "./job-report";
 
 const LEAD: Partial<Record<JobState, string>> = {
@@ -127,7 +128,7 @@ export function JobView({ jobId }: { jobId: string }) {
               : <ErrorBox title="Quote not available yet" message="The quote is still being prepared. Check back in a moment." onRetry={reload} />
           )}
 
-          {(POLLING_STATES.has(current) || (current === "planning")) && <ProgressTimeline progress={progress} state={current} />}
+          {(POLLING_STATES.has(current) || (current === "planning")) && <><ProgressTimeline progress={progress} state={current} /><AgentFeed progress={progress} /></>}
 
           {current === "delivered" && (
             <ReportView jobId={jobId} report={data.report ?? null} findings={findings} progress={progress} onReload={reload} remediations={data.remediations ?? []} charge={charge} pricingMode={pricingMode} quote={quote} />
