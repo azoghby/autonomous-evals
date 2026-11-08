@@ -189,7 +189,9 @@ export type SandboxScenario = z.infer<typeof SandboxScenario>;
 
 /* ---------------- runtime boundary (engine ⇄ runtime) ---------------- */
 
-export interface ToolCallRecord { seq: number; tool: string; args: unknown; result: unknown; error?: string; fault?: string; ms: number }
+/** `executed`: false when a fault (http_500/timeout/rate_limited) short-circuited the tool; true when it ran (result may still be altered by empty_result/stale_data/injected_instruction). */
+export interface ToolCallRecord { seq: number; tool: string; args: unknown; result: unknown; error?: string; fault?: string; ms: number; executed?: boolean }
+/** sample rows: { change: "insert"|"update"|"delete", pk, before, after } */
 export interface StateDiff { table: string; inserted: number; updated: number; deleted: number; sample: Array<Record<string, unknown>> }
 
 /** One isolated world for one trial. Implemented by sandbox/runtime. */
@@ -198,7 +200,7 @@ export interface SandboxRun {
   /** Execute a tool call against this run's world (applies bindings + scheduled faults). Never throws for tool-level errors: returns {error}. */
   callTool(name: string, args: unknown): Promise<ToolCallRecord>;
   /** Read-only query for graders (statement_timeout enforced, SELECT only). */
-  query(sql: string): Promise<Array<Record<string, unknown>>>;
+  query(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
   diff(): Promise<StateDiff[]>;
   outbox(): Promise<Array<Record<string, unknown>>>;
   trajectory(): ToolCallRecord[];
