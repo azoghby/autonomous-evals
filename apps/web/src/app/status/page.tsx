@@ -89,7 +89,7 @@ function Body({ s }: { s: StatusSummary }) {
   const m = s.database?.migrations;
   const rows: { p: Probe | undefined; detail?: string }[] = [
     { p: get("database"), detail: "select 1 round trip" },
-    { p: get("migrations"), detail: m && !m.error ? `${m.applied} recorded in database · ${m.expected} in this build${m.applied > m.expected ? " (database is ahead)" : ""}${m.latestAppliedAt ? ` · latest ${m.latestAppliedAt.slice(0, 10)}` : ""}` : undefined },
+    { p: get("migrations"), detail: m && !m.error ? `${m.pending === 0 ? "Up to date" : `${m.pending} pending`} · ${m.expected} in this build${m.latestAppliedAt ? ` · latest ${m.latestAppliedAt.slice(0, 10)}` : ""}` : undefined },
     { p: get("jobs"), detail: s.jobs ? `${s.jobs.total} jobs · ${s.jobs.staleRunning} stale` : undefined },
     { p: get("sandbox"), detail: s.sandbox ? `${s.sandbox.total} runs in 24h · ${s.sandbox.staleRunning} stale` : undefined },
     { p: get("crons"), detail: s.crons ? `${s.crons.length} crons configured` : undefined },

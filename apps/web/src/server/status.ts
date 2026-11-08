@@ -79,7 +79,11 @@ async function databaseProbe(): Promise<{ data: DatabaseInfo; ms: number }> {
     const [row] = rowsOf<{ n: number | string; latest: number | string | null }>(res);
     const applied = Number(row?.n ?? 0);
     const latest = row?.latest != null ? new Date(Number(row.latest)).toISOString() : null;
-    migrations = { applied, expected, pending: Math.max(0, expected - applied), latestAppliedAt: latest };
+    // Pending = journal entries newer than the latest applied migration. Counting rows misleads:
+    // a DB can hold extra history rows (e.g. Track B sidecars) and still be up to date.
+    const latestMs = row?.latest != null ? Number(row.latest) : 0;
+    const pending = journal.entries.filter((e) => Number(e.when) > latestMs).length;
+    migrations = { applied, expected, pending, latestAppliedAt: latest };
   } catch (e) {
     migrations = { applied: 0, expected, pending: 0, latestAppliedAt: null, error: errorClass(e) };
   }
