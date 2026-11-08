@@ -1,0 +1,34 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/pack-integration-xxDve4
+
+ ✓ packages/core/src/evals/text/__tests__/admission.test.ts (50 tests) 65ms
+ ✓ tests/track-b/pack-integration/execution.test.ts (11 tests) 5776ms
+   ✓ appended packs with real PostgreSQL checkpoint SQL (PGlite) (11)
+     ✓ authenticates external review authority before persisting or dispatching a pack 1024ms
+     ✓ pins caller-owned run identity before asynchronous authorization 441ms
+     ✓ retains complete immutable expected inventory, independent base status and fresh-adapter restart evidence 431ms
+     ✓ fences lost responses as ambiguous and never redispatches them after restart 748ms
+     ✓ never replays a still-pending dispatch from a second worker 548ms
+     ✓ quarantines unsupported runner capability without dispatch, including after restart 493ms
+     ✓ refuses same-run changed expected inventory/version and changed actual target before dispatch 424ms
+     ✓ refuses empty/forged passing runner evidence and preserves infrastructure distinction 444ms
+     ✓ derives result status from complete checks instead of trusting a claimed pass 400ms
+     ✓ keeps successful historical frozen12 separate from appended quarantines 407ms
+     ✓ compares only consistent assessed pairs while retaining all expected cases 416ms
+ ✓ packages/core/src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 49ms
+ ✓ tests/track-b/pack-integration/contract.test.ts (6 tests) 23ms
+ ✓ packages/core/src/evals/integration/checkpoint.test.ts (5 tests) 2518ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) (5)
+     ✓ atomically gives one claimant ownership and rejects changed inputs under the same identity 634ms
+     ✓ persists full detached output, resumes from a fresh adapter and rejects overwrite 480ms
+     ✓ never takes over a lost response, and ambiguity cannot be released or completed 482ms
+     ✓ allows explicit safe agent polling release while rejecting stale owners 486ms
+     ✓ refuses lossy/non-PostgreSQL JSON before completion, preserving pending state 437ms
+ ✓ tests/track-b/pack-integration/secured-ports.test.ts (4 tests) 3ms
+
+ Test Files  6 passed (6)
+      Tests  91 passed (91)
+   Start at  17:25:24
+   Duration  19.92s (import 56%, tests 43%, transform 1%)
+
+Pinned local Track A fixtures: da92bedd68b230188e2499fdd8440ea23b2f1d6b. Strict pack TypeScript and offline tests passed.

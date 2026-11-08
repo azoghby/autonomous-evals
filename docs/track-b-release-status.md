@@ -1,6 +1,6 @@
 # Track B integration status
 
-Checkpoint reviewed: `f8d1f75` (2026-11-07). Track A application, platform,
+Checkpoint reviewed: `c06a526` (2026-11-07). Track A application, platform,
 contracts and deployment remain owner-managed. This is an incomplete-release
 record, not production acceptance.
 
@@ -27,15 +27,21 @@ record, not production acceptance.
 1. Combine the concrete Workflow/chat patch series with approved-data suite
    admission, secured remediation/accounting, and complete pack inventory/report
    propagation. These integration bridges have separate implementation owners.
-2. Finish package declaration/lock and canonical migration preflight artifacts.
+2. Apply the completed package declaration/lock and canonical migration preflight
+   artifacts (`docs/release-packaging-integration`). Parent pin/integrity checks
+   passed; final combined application validation remains required.
    Actual deployment requires the application owner's migration/configuration
    procedure. Offline migration tests are not proof of a deployed schema.
-3. Apply the corrected chat series with Workflow and test real authentication,
+3. Apply the consolidated corrected chat series (`docs/chat-workflow-release`)
+   with Workflow and test real authentication,
    revocation, private storage and evaluation progress. Styled synthetic-API
    desktop/mobile checks do not establish those real service boundaries.
-4. Configure actual target versions and Gateway, then run bounded provider and
+4. Deploy the prepared controlled Text target patch
+   (`docs/controlled-acceptance-targets`) and configure Gateway, then run bounded provider and
    application acceptance: identical criteria on buggy/fixed targets, durable
    restart without duplicate dispatch/cost, persisted reports and isolated chat.
+   The prepared target is a deterministic fixture, not customer-model validation;
+   Calendar requires the separate documented application driver.
 5. Validate the real keyed cost sink, unresolved usage reconciliation, authorized
    review receipts and approved suite freeze. Unknown costs are never zero.
 6. Extend unsupported pack semantics only with reviewed execution/grading
@@ -57,10 +63,12 @@ passing tests. These are local tests with scripted providers and SQL fixtures,
 not live application acceptance. Older review logs intentionally characterize
 pre-fix defects and must not be presented as current acceptance evidence.
 
-The earlier pack combined runs retained SQL setup timeouts (90/91 and 89/91);
-no timeout or assertion was relaxed. A clean combined pack check remains required
-under controlled resource load. Native PostgreSQL checks elsewhere cover specific
-locking/restart cases, not universal hosted failover or authorization.
+The earlier pack combined runs retained SQL setup timeouts (90/91 and 89/91).
+The parent rerun at `c06a526` passed strict TypeScript and all 91 tests across
+six files against Track A `da92bedd`, without changing assertions or timeouts.
+Raw output is in `tests/track-b/release-evidence/pack-c06a526.txt`.
+Native PostgreSQL checks elsewhere cover specific locking/restart cases, not
+universal hosted failover or authorization.
 
 Live evidence already retained: four exact Naïve role configurations were verified
 read-only, and one 12-scenario Text design/review completed for 129,924 micro-USD.
@@ -69,3 +77,23 @@ That establishes neither live target/Gateway execution nor the deployed product.
 Local Track A `da92bedd68b230188e2499fdd8440ea23b2f1d6b` changes lite-engine/runtime
 behavior relative to `f0068733ca49c37f40fd7de279325f21a4b5fbbb`; shared contracts are
 unchanged. Patch artifact validation remains scoped to its recorded exact pins.
+
+## Integration artifacts delivered after the broad core check
+
+- Approved-data suite admission and stable Calendar operation identity are in core
+  at `e61ad97`; strict eval/simulator validation passed 636 tests across 40 files.
+- Data suite bridge and secured remediation/accounting app artifacts are committed;
+  their combined app composition is being verified separately.
+- Pack execution/private report integration is in `docs/workflow-pack-integration`.
+  Its delivery reports 54 tests, full core/app types and Workflow compilation;
+  that is not evidence that it composes with every later patch.
+- Corrected chat/Workflow artifacts report 13 UI, 49 transport, seven server and
+  seven anonymous route checks, plus full app types/build. The final benchmark
+  guard was separately typechecked/tested after that build. Real sessions remain
+  unverified.
+- Controlled Text route artifacts report 15 route and 20 existing runner tests.
+  No hosted URL is available or claimed. Secrets are not part of these artifacts.
+
+Original pinned evidence is retained unchanged. Application-owner patches still
+need one combined source/build check, authorized migrations/configuration and
+real deployed acceptance before release sign-off.
