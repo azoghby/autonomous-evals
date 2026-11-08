@@ -109,7 +109,7 @@ export function seqFromSubject(subject: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
-export const FOUNDER_HELP = "I did not recognise that as a command, so I saved it as a note (no action taken). To decide, reply with YES or NO (or YES 12 / NO 12). YES ALL approves every pending outreach draft.";
+export const FOUNDER_HELP = "I did not recognise that as a command, so I saved it as a note (no action taken). To decide, reply with YES or NO (or YES 12 / NO 12). YES ALL (on a daily report) approves the outreach drafts that report listed.";
 
 export const MAX_NOTE_CHARS = 4000;
 export const boundNote = (text: string) => stripQuoted(text).slice(0, MAX_NOTE_CHARS);

@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { replyInThread } from "@ae/core/email/agentmail";
 import type { InboundMessage } from "@ae/core/email/webhook";
@@ -10,10 +10,10 @@ import { resolveFounderEmail, type FounderNote } from "./founder-email-logic";
 import type { FounderReplyDeps, FounderThreadRef } from "./founder-email-reply";
 
 /** Remembers a thread we started so a later reply on it can be trusted as ours. Best-effort: never fails the send. */
-export async function recordFounderThread(threadId: string | null | undefined, kind: "approval" | "report", approvalId?: string): Promise<void> {
+export async function recordFounderThread(threadId: string | null | undefined, kind: "approval" | "report", approvalId?: string, draftIds?: string[]): Promise<void> {
   if (!threadId) return;
   try {
-    await db().insert(schema.founderEmailThreads).values({ threadId, kind, approvalId: approvalId ?? null }).onConflictDoNothing();
+    await db().insert(schema.founderEmailThreads).values({ threadId, kind, approvalId: approvalId ?? null, draftIds: draftIds ?? null }).onConflictDoNothing();
   } catch (err) {
     console.error("recordFounderThread failed", err instanceof Error ? err.message : err);
   }
@@ -21,8 +21,8 @@ export async function recordFounderThread(threadId: string | null | undefined, k
 
 export async function findFounderThread(threadId: string): Promise<FounderThreadRef | null> {
   const t = schema.founderEmailThreads, a = schema.founderApprovals;
-  const [row] = await db().select({ kind: t.kind, seq: a.seq }).from(t).leftJoin(a, eq(a.id, t.approvalId)).where(eq(t.threadId, threadId)).limit(1);
-  return row ? { kind: row.kind === "report" ? "report" : "approval", approvalSeq: row.seq ?? null } : null;
+  const [row] = await db().select({ kind: t.kind, seq: a.seq, draftIds: t.draftIds }).from(t).leftJoin(a, eq(a.id, t.approvalId)).where(eq(t.threadId, threadId)).limit(1);
+  return row ? { kind: row.kind === "report" ? "report" : "approval", approvalSeq: row.seq ?? null, draftIds: Array.isArray(row.draftIds) ? row.draftIds : null } : null;
 }
 
 export function founderReplyDeps(msg: InboundMessage): FounderReplyDeps {
@@ -32,9 +32,11 @@ export function founderReplyDeps(msg: InboundMessage): FounderReplyDeps {
       const r = await decideApproval({ seq, decision, via: "email_reply", actor });
       return { ok: r.ok, message: r.message };
     },
-    async approveAllDrafts() {
+    async approveAllDrafts(listed) {
       const d = schema.outreachDrafts;
-      const ids = (await db().select({ id: d.id }).from(d).where(eq(d.status, "pending")).limit(DIGEST_MAX_DRAFTS)).map((r) => r.id);
+      const scoped = listed.slice(0, DIGEST_MAX_DRAFTS);
+      const ids = scoped.length === 0 ? [] : (await db().select({ id: d.id }).from(d)
+        .where(and(eq(d.status, "pending"), inArray(d.id, scoped)))).map((r) => r.id);
       let sent = 0, approved = 0, skipped = 0;
       for (const id of ids) {
         const r = await approveAndSendDraft(id, actor);

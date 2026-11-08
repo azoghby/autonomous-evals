@@ -665,6 +665,8 @@ export const founderEmailThreads = pgTable("founder_email_threads", {
   approvalId: uuid("approval_id").references(() => founderApprovals.id, { onDelete: "set null" }),
   /** approval | report */
   kind: text("kind").notNull(),
+  /** Outreach drafts this email listed (pending when it was sent). "YES ALL" on the thread approves only these. */
+  draftIds: jsonb("draft_ids").$type<string[]>(),
   createdAt,
 });
 

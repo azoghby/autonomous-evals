@@ -37,11 +37,19 @@ describe("processFounderReply", () => {
     expect(r).toBe("no_target");
     expect(d.decide).not.toHaveBeenCalled();
   });
-  it("YES ALL runs approve-all", async () => {
+  it("YES ALL approves only the drafts the replied-to email listed", async () => {
     const d = deps();
-    expect(await processFounderReply(input("YES ALL", { thread: { kind: "report", approvalSeq: null } }), d)).toBe("approved_all");
-    expect(d.approveAllDrafts).toHaveBeenCalledTimes(1);
+    expect(await processFounderReply(input("YES ALL", { thread: { kind: "report", approvalSeq: null, draftIds: ["d1", "d2", "d3"] } }), d)).toBe("approved_all");
+    expect(d.approveAllDrafts).toHaveBeenCalledWith(["d1", "d2", "d3"]);
     expect(d.reply).toHaveBeenCalledWith(expect.stringContaining("Approved 3 draft(s): 2 sent"));
+  });
+  it("YES ALL on an email that listed no drafts approves nothing (never unseen drafts)", async () => {
+    for (const thread of [{ kind: "report" as const, approvalSeq: null }, { kind: "approval" as const, approvalSeq: 12, draftIds: [] }]) {
+      const d = deps();
+      expect(await processFounderReply(input("YES ALL", { thread }), d)).toBe("no_target");
+      expect(d.approveAllDrafts).not.toHaveBeenCalled();
+      expect(d.reply).toHaveBeenCalledWith(expect.stringContaining("nothing was approved"));
+    }
   });
   it("free text is stored as a note, never acted on, and gets the help reply", async () => {
     const d = deps();
