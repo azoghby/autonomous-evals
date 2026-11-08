@@ -10,12 +10,13 @@ const intake: IntakeSummary = { requestedPackage: "trace_audit", notes: "Please 
 
 describe("pricing", () => {
   it("only menu prices pass", () => {
-    expect(findInventedPrices("Trace Audit is $5, comparison $10, monitoring $49/month")).toEqual([]);
+    expect(findInventedPrices("Trace Audit is $49, Text Eval $99, Workflow Eval $199, comparison $299, monitoring $49/month")).toEqual([]);
+    expect(findInventedPrices("Old pilot quotes $5 and $10")).toEqual(["$5", "$10"]);
     expect(findInventedPrices("special price $3.50 or 20 dollars")).toEqual(["$3.50", "20dollars"]);
   });
   it("quotes come from the table and test mode never counts as revenue", () => {
     const q = buildQuote(fixtureJob({ environment: "test" }), "version_comparison", 1, "Compare two prompts; $1 discount");
-    expect(q).toMatchObject({ priceMicroUsd: 10_000_000, priceCents: 1000, priceLabel: "$10 (pilot pricing)", countsAsRevenue: false });
+    expect(q).toMatchObject({ priceMicroUsd: 299_000_000, priceCents: 29900, priceLabel: "$299", countsAsRevenue: false });
     expect(q.scopeSummary).not.toContain("$1");
     expect(buildQuote(fixtureJob({ environment: "live", isFixture: false }), "trace_audit", 1, "x").countsAsRevenue).toBe(true);
     expect(buildQuote(fixtureJob({ environment: "live", isFixture: true }), "trace_audit", 1, "x").countsAsRevenue).toBe(false);
@@ -58,7 +59,7 @@ describe("qualifyRequest", () => {
 
 describe("draftOutreach", () => {
   it("is always pending founder approval and rejects off-menu prices", async () => {
-    const ok = harness(() => ({ structuredOutput: { subject: "Free first audit", body: "We audit agent logs. First one free, then $5." } }));
+    const ok = harness(() => ({ structuredOutput: { subject: "Free first audit", body: "We audit agent logs. First one free, then $49." } }));
     const a = await draftOutreach({ prospectId: "team-1", teamName: "T", context: "c", environment: "test" }, ok.service);
     expect(a).toMatchObject({ status: "completed", value: { status: "pending_founder_approval" } });
     const bad = harness(() => ({ structuredOutput: { subject: "Deal", body: "Only $1 today" } }));

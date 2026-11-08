@@ -89,8 +89,8 @@ describe("renderReport", () => {
 
   it("labels fixture jobs, uses fixed prices, and produces valid JSON", () => {
     expect(r.markdown).toContain("Internal fixture job");
-    expect(r.json.package.price).toBe("$5 (pilot pricing)");
-    expect(r.monitoringPitch).toContain("$49/month (pilot pricing)");
+    expect(r.json.package.price).toBe("$49");
+    expect(r.monitoringPitch).toContain("$49/month");
     expect(JSON.parse(JSON.stringify(r.json)).schemaVersion).toBe("report.v1");
     expect(r.json.summary.authorship).toBe("generated_from_findings");
   });
