@@ -55,6 +55,30 @@ export default async function CompanyPage() {
           </div>
         </Section>
 
+        <Section labelledBy="workflow-h" className="!pt-0">
+          <div className="flex flex-col gap-4">
+            <Eyebrow>How it works</Eyebrow>
+            <h2 id="workflow-h" className="t-h2 max-w-[24ch] text-balance">14 agents. <span className="text-muted">One human.</span></h2>
+            <p className="t-lead max-w-[60ch]">The revenue loop finds and onboards customers; the eval loop tests their agents and reports back. Every outbound email waits for a founder tap.</p>
+          </div>
+          <figure className="mt-10 overflow-hidden rounded-xl border border-line bg-black">
+            <video
+              className="block aspect-video w-full"
+              src="/videos/agent-workflow.mp4"
+              poster="/videos/agent-workflow-poster.jpg"
+              width={1280}
+              height={720}
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+              preload="metadata"
+              aria-label="Animated diagram: how the 14 Standard Evals agents and the founder work together"
+            />
+          </figure>
+        </Section>
+
         <Section band labelledBy="org-h">
           <div className="flex flex-col gap-4">
             <Eyebrow>Org chart</Eyebrow>
