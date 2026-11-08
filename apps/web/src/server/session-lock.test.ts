@@ -43,4 +43,13 @@ describe("session advisory lock", () => {
     expect(f.released[0]).toBeInstanceOf(Error);
     err.mockRestore();
   });
+
+  it("ends the pool and rethrows when connect fails", async () => {
+    const end = vi.fn(async () => {});
+    const pool: LockPool = { connect: async () => { throw new Error("ECONNREFUSED"); }, end };
+    const fn = vi.fn();
+    await expect(withSessionAdvisoryLock(1n, fn, async () => pool)).rejects.toThrow("ECONNREFUSED");
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(fn).not.toHaveBeenCalled();
+  });
 });

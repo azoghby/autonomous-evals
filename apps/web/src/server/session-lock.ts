@@ -29,7 +29,14 @@ export async function withSessionAdvisoryLock<T>(
   key: bigint, fn: () => Promise<T>, makePool: () => Promise<LockPool> = defaultPool,
 ): Promise<LockOutcome<T>> {
   const pool = await makePool();
-  const client = await pool.connect();
+  let client: LockClient;
+  try {
+    client = await pool.connect();
+  } catch (err) {
+    // No client to release, but the pool still owns sockets/timers: end it so a failed connect does not leak.
+    await pool.end().catch(() => {});
+    throw err;
+  }
   let destroy = false;
   try {
     const { rows } = await client.query("select pg_try_advisory_lock($1::bigint) as ok", [key.toString()]);
