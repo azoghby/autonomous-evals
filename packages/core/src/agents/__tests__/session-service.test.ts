@@ -253,3 +253,52 @@ describe("AgentSessionService: ambiguous creation and recovery", () => {
     expect(h.ledger.reservations.size).toBe(1);
   });
 });
+
+
+describe("AgentSessionService: dispatch screening and cached version evidence", () => {
+  it("screens the actual stored create message after intent persistence", async () => {
+    const h = harness(good);
+    const insert = h.store.insertIfAbsent.bind(h.store);
+    h.store.insertIfAbsent = async record => insert({
+      ...record,
+      requestBody: { ...record.requestBody, message: "stored opaque dispatch marker" },
+    });
+    const out = await h.service.run(spec({ knownSecrets: ["opaque dispatch marker"] }));
+    expect(out).toMatchObject({ status: "needs_operator", code: "credential_in_prompt" });
+    expect(h.naive.createCalls).toHaveLength(0);
+    expect([...h.ledger.reservations.values()]).toMatchObject([{ settledMicroUsd: null }]);
+    expect(h.ledger.committed("job:job-fixture-1")).toBe(usd(0.5));
+  });
+
+  it("applies a current secret learned while intent persistence awaited", async () => {
+    const h = harness(good);
+    const knownSecrets: string[] = [];
+    const insert = h.store.insertIfAbsent.bind(h.store);
+    h.store.insertIfAbsent = async record => {
+      const saved = await insert(record);
+      knownSecrets.push("newly sensitive marker");
+      return saved;
+    };
+    expect(await h.service.run(spec({ message: "Evidence newly sensitive marker", knownSecrets })))
+      .toMatchObject({ status: "needs_operator", code: "credential_in_prompt" });
+    expect(h.naive.createCalls).toHaveLength(0);
+    expect([...h.ledger.reservations.values()]).toMatchObject([{ settledMicroUsd: null }]);
+  });
+
+  it("refuses a cached historical output with a mismatched observed pin and retains cost", async () => {
+    const h = harness(good);
+    const directory = structuredClone(h.deps.directory);
+    directory.quality_investigator.agentVersion = 1;
+    const service = new AgentSessionService({ ...h.deps, directory });
+    const first = await service.run(spec());
+    expect(first.status).toBe("completed");
+    const row = (await h.store.get(first.taskKey))!;
+    await h.store.compareAndSet(row.taskKey, row.revision, { agentVersion: 2 });
+    const calls = h.naive.getCalls;
+    const out = await service.run(spec());
+    expect(out).toMatchObject({ status: "needs_operator", code: "agent_version_mismatch", cost: { microUsd: 12_345, measured: true } });
+    expect(h.naive.getCalls).toBe(calls);
+    expect(h.naive.createCalls).toHaveLength(1);
+    expect(h.ledger.committed("job:job-fixture-1")).toBe(12_345);
+  });
+});

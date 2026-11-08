@@ -112,7 +112,10 @@ describe('DEFECT CHARACTERIZATION: observed unsafe behavior, not acceptance', ()
       .rejects.toMatchObject({ code: 'rejected_input', message: 'Credential content refused' });
   });
 
-  it.each(['ambiguous', 'rate_limited'] as const)('ROT-2: file-backed %s recovery redispatches a now-secret prompt', async kind => {
+});
+
+describe('REGRESSION: current policy before durable request redispatch', () => {
+  it.each(['ambiguous', 'rate_limited'] as const)('ROT-2: file-backed %s recovery refuses a now-secret prompt and retains unknown spend', async kind => {
     const dir = await mkdtemp(join(tmpdir(), `rotation-resume-${kind}-`));
     try {
       const file = join(dir, 'tasks.json');
@@ -122,13 +125,21 @@ describe('DEFECT CHARACTERIZATION: observed unsafe behavior, not acceptance', ()
       h.naive.createFailures.set(0, { error: new NaiveCallError(kind, 'synthetic failure'), createdAnyway: false });
       expect((await h.service.run(spec)).status).toBe('pending');
       const restarted = new AgentSessionService({ ...h.deps, ...new FileBackedPorts(file), workerId: 'restarted' });
-      expect((await restarted.run({ ...spec, knownSecrets: [opaque] })).status).toBe('completed');
-      expect(h.naive.createCalls).toHaveLength(2);
-      expect(h.naive.createCalls[1]!.body.message).toBe(spec.message);
-      expect(h.naive.createCalls[1]!.key).toBe(h.naive.createCalls[0]!.key);
+      const before = JSON.parse(await readFile(file, 'utf8'));
+      expect(await restarted.run({ ...spec, knownSecrets: [opaque] })).toMatchObject({ status: 'needs_operator', code: 'credential_in_prompt' });
+      expect(h.naive.createCalls).toHaveLength(1);
+      const after = JSON.parse(await readFile(file, 'utf8'));
+      expect(Object.values(before.reservations)).toMatchObject([{ settledMicroUsd: null }]);
+      expect(after.reservations).toEqual(before.reservations);
+      const taskKey = Object.keys(before.tasks)[0]!;
+      expect(after.tasks[taskKey].requestBody).toEqual(before.tasks[taskKey].requestBody);
+      expect(after.tasks[taskKey].idempotencyKey).toBe(before.tasks[taskKey].idempotencyKey);
+      const saved = await restarted.run({ ...spec, knownSecrets: [opaque] });
+      expect(saved).toMatchObject({ status: 'needs_operator', code: 'credential_in_prompt' });
+      expect(JSON.stringify(after)).toContain(JSON.stringify(spec.message).slice(1, -1));
       // New-attempt control proves the same policy rejects this prompt on the fresh path.
       expect(await restarted.run({ ...spec, attempt: 2, knownSecrets: [opaque] })).toMatchObject({ status: 'failed', code: 'credential_in_prompt' });
-      expect(h.naive.createCalls).toHaveLength(2);
+      expect(h.naive.createCalls).toHaveLength(1);
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
 });
