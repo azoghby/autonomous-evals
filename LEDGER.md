@@ -386,3 +386,19 @@ Times are PT, as recorded.
 - 2026-11-08 Cancellation continuation: preserved main `6793f48` at merge `c4fcf0f` (feedback approvals, home stats and public sample access), then three Sol workers split cancellation authority, pending/lifecycle and outbox/MCP review. New docs/naive-cancellation-integration retains 28 incremental postimages/SQL plus 19 upstream preservation overrides (75 composed paths). Transactional REST/MCP cancellation commits terminal state and idempotent audit/progress; fair cron retry and strict Checkout verification retain failures. Parent fenced stage/standalone publication, quotes/commercial messages and partial-result cleanup. Pending remediation/control errors no longer complete null. Review fixed connection discard, retry starvation, swallowed expiry failures and lifecycle lost-ack edges. Required actual-source web types and 3,954 tests pass; final composed verification follows. No actual app/core adoption, credentials, provider calls, live migration, outreach, spending or deployment.
 
 - Final cancellation checkpoint: **132 focused and 4,199 full staged tests / zero failures / two documented skips**, web types and offline-font build (57 steps/four workflows) pass. Verified all 28 incremental/75 composed postimages, 2,234 original pins with 19 explicit upstream overrides (2,294 expected files), independent patch and reproducible assembly. Required merged actual-source web types and **3,954 tests / zero failures / two skips** pass. All three workers finished; main `6793f48` is preserved at `c4fcf0f`. Candidate remains unapplied, with no native PostgreSQL/hosted acceptance or live operations claimed.
+
+- 06:40 PT: deployed main 5ade364 (autonomous-evals-boictveh5 ● Ready). The homepage gets a proof-stats strip, read live from the DB: 10 open-source agents, 34 agent×model pairings, 1,440 graded scenarios and the median cost per scenario. It also gets a "Built on Naïve" section with honest status: production runs the lite engine today; on staging, Naïve runs qualify, trace audit and report; the judge proxy is built.
+- ~07:00 PT: applied 0032_feedback_quote_approval to prod (additive: feedback_responses.quote_approved_at). Deployed main 6793f48 (autonomous-evals-6d0qrljej ● Ready). Changes:
+  - Feedback invite sends are at-most-once: rows are claimed as 'sending', and 'sending'/'failed' rows are never auto-retried.
+  - Builder quotes need operator approval, which is cleared on resubmit. The org shown comes from the invite.
+  - /sandbox/runs/sample is now public. Before this, signed-out visitors were redirected to /signin; the browser QA pass found it.
+- ~07:05 PT: feedback outreach sent, as the founder authorized ("just send them without my issue"):
+  - 17 recipients, all publicly listed contacts of open-source agent projects, with source URLs in the outreach recipients file.
+  - Each email is at most 120 words, with reply-to the founder, a one-click opt-out and no localhost links.
+  - feedback_invites: 17 rows with status 'sent', each with an AgentMail message_id.
+  - The 6 old SDR drafts were not touched.
+- ~07:20 PT: deployed main d23cb38 (autonomous-evals-5mmssygig ● Ready). The proof strip now uses the latest run per agent, the same basis as the leaderboard, so scenarios graded reads 1,088 instead of 1,440. Found by the review-3 pass. Review 3 (diff d1ceaf0..main) had no CRITICAL or HIGH findings.
+- ~07:00 PT: deployed main 0c2e5cc (autonomous-evals-qii0869ue ● Ready).
+  - ⌘K palette: no longer calls /api/evals for signed-out visitors. It reads the non-HttpOnly `ae_in` hint cookie, which carries no credential. Account entries are hidden when signed out.
+  - Hero h1 (the LCP element) no longer fades in from opacity 0.
+  - Lighthouse mobile on prod home varies 0.69–0.93 between runs, with LCP ~3.2–3.7 s and CLS 0. No measurable change from the hero tweak. The remaining LCP cost is homepage hydration, a larger refactor that is deferred.

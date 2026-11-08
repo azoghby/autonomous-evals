@@ -23,7 +23,7 @@ export function Hero() {
             <div style={enter(0, 800)} className="pre pre-lift pre-lift-xs">
               <Eyebrow>Sandbox evals for AI agents</Eyebrow>
             </div>
-            <h1 id="hero-heading" style={enter(120, 1100)} className="pre pre-lift t-display text-white text-balance">
+            <h1 id="hero-heading" style={enter(120, 1100)} className="pre pre-lcp pre-lift t-display text-white text-balance">
               Staging for <span className="grad-text">AI agents</span>.
             </h1>
             <p style={enter(380)} className="pre pre-lift t-lead max-w-[34rem]">
