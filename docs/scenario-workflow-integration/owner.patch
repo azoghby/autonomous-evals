@@ -1,0 +1,277 @@
+diff --git a/apps/web/src/server/sandbox/pipeline.ts b/apps/web/src/server/sandbox/pipeline.ts
+--- a/apps/web/src/server/sandbox/pipeline.ts
++++ b/apps/web/src/server/sandbox/pipeline.ts
+@@ -13,12 +13,20 @@
+ import { countedTrials } from "@ae/core/sandbox/engine/runner";
+ import { createNeonSandboxRuntime } from "@ae/core/sandbox/runtime/runtime";
+ import { createGatewaySimulator } from "@ae/core/sandbox/runtime/simulate";
+-import type { EnvironmentSpec, SandboxRuntime, SandboxScenario } from "@ae/core/sandbox/spec";
++import type { EnvironmentSpec, EvalVersions, SandboxRuntime, SandboxScenario, ScenarioResult } from "@ae/core/sandbox/spec";
+ import type { JsonTransport } from "@ae/core/targets/transport";
+ import type { GatewayContext } from "@ae/core/ai/gateway";
+ import type { DraftScenario } from "@/components/sandbox/contract";
+ import { envSpec, runResults, runScenarios, stepBudgetContext, suiteScenarios, type SandboxStore } from "./store";
+ import { meteredTransport, resolveSandboxTarget } from "./target";
++import { createScenarioDispatch, type ScenarioDispatchDeps, type ScenarioDispatchInput } from "@ae/core/evals/sandbox/scenario-dispatch/index";
++import { loadScenarioDispatchOwner } from "./scenario-dispatch-owner";
++
++export interface ScenarioExecutionRecord { result: ScenarioResult | null; budgetExhausted: boolean }
++export type ScenarioDispatchOwner = Omit<ScenarioDispatchDeps<ScenarioExecutionRecord>, "execute">;
++export type ScenarioStepResult =
++  | { status: "ok" | "budget_exhausted"; passed: number; trials: number }
++  | { status: "unresolved"; reason: string };
+ 
+ export class SandboxFatalError extends Error {
+   constructor(message: string, readonly kind: "fatal" | "budget" = "fatal") { super(message); this.name = "SandboxFatalError"; }
+@@ -42,11 +50,14 @@
+   transport?(ctx: GatewayContext, price?: { input: number; output: number }): JsonTransport | undefined;
+   /** Trials in flight per scenario. Default 2. */
+   concurrency?: number;
++  /** Trusted durable SQL/current authority/secret/result-validation ports. No implicit legacy fallback. */
++  scenarioDispatch?: ScenarioDispatchOwner;
+ }
+ 
+ export function defaultPipelineDeps(store: SandboxStore): PipelineDeps {
+   return {
+     store,
++    scenarioDispatch: loadScenarioDispatchOwner(store),
+     gateway: { generateStructured, generateText },
+     runtime: (ctx, env) => createNeonSandboxRuntime({ branchTtlHours: 6, simulate: createGatewaySimulator({ ctx, model: SIMULATOR_MODEL, frozenNow: env.state.frozenNow }) }),
+     gatewayKey: process.env.AI_GATEWAY_API_KEY,
+@@ -122,6 +133,7 @@
+ export async function prepareRunWorld(deps: PipelineDeps, runId: string): Promise<{ worldId: string }> {
+   const { run, env } = await loadRun(deps, runId);
+   if (run.worldId) return { worldId: run.worldId };
++  if (!deps.scenarioDispatch) throw new SandboxFatalError("scenario_dispatch_not_configured");
+   try { resolveSandboxTarget(env, deps.gatewayKey); } catch (e) { throw new SandboxFatalError(`Target not runnable: ${errText(e)}`); }
+   await deps.store.updateRun(runId, { status: "running", startedAt: run.startedAt ?? new Date(), versions: runVersions(env, runScenarios(run)) });
+   const ctx = stepBudgetContext(deps.store, { kind: "run", id: runId }, run.budgetMicroUsd, run.costMicroUsd);
+@@ -130,31 +142,69 @@
+   return { worldId };
+ }
+ 
+-/** Runs k trials of one scenario on the prepared world and persists the ScenarioResult. */
+-export async function runScenarioTrials(deps: PipelineDeps, runId: string, scenarioId: string, worldId: string): Promise<{ status: "ok" | "budget_exhausted"; passed: number; trials: number }> {
+-  const { run, env } = await loadRun(deps, runId);
+-  const scenarios = runScenarios(run);
+-  const scenario = scenarios.find((s) => s.id === scenarioId);
+-  if (!scenario) throw new SandboxFatalError(`Scenario ${scenarioId} is not part of run ${runId}`);
+-  const ctx = stepBudgetContext(deps.store, { kind: "run", id: runId }, run.budgetMicroUsd, run.costMicroUsd);
+-  if (ctx.budgetMicroUsd <= 0) return { status: "budget_exhausted", passed: 0, trials: 0 };
+-  const { target, price } = resolveSandboxTarget(env, deps.gatewayKey);
+-  const transport = deps.transport ? deps.transport(ctx, price) : price ? meteredTransport(ctx, price) : undefined;
+-  const engine: EngineDeps = { gateway: deps.gateway, ctx, ...(transport ? { transport } : {}) };
+-  const runtime = deps.runtime(ctx, env);
+-  // The world is owned by the run (prepareRunWorld / teardownRunWorld): never prepare or tear down per scenario.
+-  const shared: SandboxRuntime = { prepare: async () => ({ worldId }), startRun: (w, e, s, t) => runtime.startRun(w, e, s, t), teardown: async () => undefined };
+-  const versions = runVersions(env, scenarios);
+-  const [result] = await runSuite(env, [scenario], shared, target, {
+-    deps: engine, k: run.k, concurrency: deps.concurrency ?? 2, budgetMicroUsd: ctx.budgetMicroUsd,
+-    simulatorModel: SIMULATOR_MODEL, judgeModel: JUDGE_MODEL, jobId: jobIdFor(runId), runtimeName: RUNTIME_NAME,
+-    onTrial: async () => { await deps.store.incrementTrials(runId); },
+-  });
+-  if (!result) throw new Error("runner returned no result");
+-  const pinned = { ...result, trials: result.trials.map((t) => ({ ...t, versions })) };
+-  await deps.store.putRunResult(runId, pinned);
+-  const exhausted = result.trials.some((t) => t.error === "budget_exhausted" || t.error?.includes("budget_exhausted"));
+-  return { status: exhausted || ctx.budgetMicroUsd <= 0 ? "budget_exhausted" : "ok", passed: result.trials.filter((t) => t.passed).length, trials: result.trials.length };
++/** Runs k trials once, then restores the complete checkpoint on retries before considering mutable spend.
++ * Every unresolved outcome retains the world: another worker may still own the same dispatch. */
++export async function runScenarioTrials(deps: PipelineDeps, runId: string, scenarioId: string, worldId: string): Promise<ScenarioStepResult> {
++  if (!deps.scenarioDispatch) return { status: "unresolved", reason: "scenario_dispatch_not_configured" };
++  try {
++    const { run, env } = await loadRun(deps, runId);
++    const envRow = await deps.store.getEnvironmentById(run.environmentId);
++    if (!envRow || envRow.ownerId !== run.ownerId || run.worldId !== worldId) return { status: "unresolved", reason: "scenario_dispatch_identity" };
++    if (run.suiteId !== null) {
++      const suite = await deps.store.getSuiteById(run.suiteId);
++      if (!suite || suite.ownerId !== run.ownerId || suite.environmentId !== run.environmentId) return { status: "unresolved", reason: "scenario_dispatch_identity" };
++    }
++    const scenarios = runScenarios(run);
++    const scenario = scenarios.find(s => s.id === scenarioId);
++    if (!scenario) return { status: "unresolved", reason: "scenario_dispatch_identity" };
++    const input: ScenarioDispatchInput = {
++      ownerId: run.ownerId, runId: run.id, environmentId: run.environmentId, suiteId: run.suiteId,
++      scenarioId, worldId, k: run.k, budgetMicroUsd: run.budgetMicroUsd,
++      environment: env, inventory: scenarios, scenario, versions: runVersions(env, scenarios),
++      engineVersion: "application-sandbox-scenario.v1",
++    };
++    const dispatch = createScenarioDispatch<ScenarioExecutionRecord>({
++      ...deps.scenarioDispatch,
++      async execute(bound) {
++        // Only immutable bound objects drive execution; current spend is consulted after claim/replay.
++        const current = await deps.store.getRunById(bound.runId);
++        if (!current) throw new Error("scenario_dispatch_run_missing");
++        const ctx = stepBudgetContext(deps.store, { kind: "run", id: bound.runId }, bound.budgetMicroUsd, current.costMicroUsd);
++        if (ctx.budgetMicroUsd <= 0) return { result: null, budgetExhausted: true };
++        const boundEnv = bound.environment as EnvironmentSpec;
++        const boundScenario = bound.scenario as SandboxScenario;
++        const { target, price } = resolveSandboxTarget(boundEnv, deps.gatewayKey);
++        const transport = deps.transport ? deps.transport(ctx, price) : price ? meteredTransport(ctx, price) : undefined;
++        const engine: EngineDeps = { gateway: deps.gateway, ctx, ...(transport ? { transport } : {}) };
++        const runtime = deps.runtime(ctx, boundEnv);
++        const shared: SandboxRuntime = {
++          prepare: async () => ({ worldId: bound.worldId }),
++          startRun: (w, e, s, t) => runtime.startRun(w, e, s, t), teardown: async () => undefined,
++        };
++        const [result] = await runSuite(boundEnv, [boundScenario], shared, target, {
++          deps: engine, k: bound.k, concurrency: deps.concurrency ?? 2, budgetMicroUsd: ctx.budgetMicroUsd,
++          simulatorModel: SIMULATOR_MODEL, judgeModel: JUDGE_MODEL, jobId: jobIdFor(bound.runId), runtimeName: RUNTIME_NAME,
++          onTrial: async () => { await deps.store.incrementTrials(bound.runId); },
++        });
++        if (!result) throw new Error("scenario_dispatch_missing_result");
++        const pinned = { ...result, trials: result.trials.map(t => ({ ...t, versions: bound.versions as EvalVersions })) };
++        const exhausted = result.trials.some(t => t.error === "budget_exhausted" || t.error?.includes("budget_exhausted"));
++        return { result: pinned, budgetExhausted: exhausted || ctx.budgetMicroUsd <= 0 };
++      },
++    });
++    const outcome = await dispatch(input);
++    if (outcome.status === "unresolved") return outcome;
++    // Full result is already durable. Publication retry cannot repeat execution or incrementTrials.
++    const { result, budgetExhausted } = outcome.value;
++    if (result) await deps.store.putRunResult(runId, result);
++    return {
++      status: budgetExhausted ? "budget_exhausted" : "ok",
++      passed: result?.trials.filter(t => t.passed).length ?? 0, trials: result?.trials.length ?? 0,
++    };
++  } catch {
++    // Includes result-publication failures after durable completion. Never expose private raw errors.
++    return { status: "unresolved", reason: "scenario_dispatch_unresolved" };
++  }
+ }
+ 
+ /** Computes pass@1, pass^k and the Wilson CI from persisted results and completes the run. */
+@@ -197,20 +247,27 @@
+   }
+ }
+ 
+-export async function runRunInline(deps: PipelineDeps, runId: string): Promise<void> {
++export async function runRunInline(deps: PipelineDeps, runId: string): Promise<{ runId: string; status: "complete" | "failed" | "unresolved" }> {
+   let worldId: string | undefined;
++  let retainWorld = false;
+   try {
+     ({ worldId } = await prepareRunWorld(deps, runId));
+     const run = await deps.store.getRunById(runId);
+     let exhausted = false;
+     for (const s of runScenarios(run!)) {
++      retainWorld = true;
+       const r = await runScenarioTrials(deps, runId, s.id, worldId);
++      if (r.status === "unresolved") return { runId, status: "unresolved" };
++      retainWorld = false;
+       if (r.status === "budget_exhausted") { exhausted = true; break; }
+     }
+     await finalizeRun(deps, runId, { budgetExhausted: exhausted });
++    return { runId, status: "complete" };
+   } catch (e) {
++    if (retainWorld) return { runId, status: "unresolved" };
+     await failRun(deps, runId, errText(e), e instanceof SandboxFatalError ? e.kind : "retryable");
++    return { runId, status: "failed" };
+   } finally {
+-    if (worldId) await teardownRunWorld(deps, runId, worldId).catch(() => undefined);
++    if (worldId && !retainWorld) await teardownRunWorld(deps, runId, worldId).catch(() => undefined);
+   }
+ }
+diff --git a/apps/web/src/server/sandbox/scenario-dispatch-owner.ts b/apps/web/src/server/sandbox/scenario-dispatch-owner.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/sandbox/scenario-dispatch-owner.ts
+@@ -0,0 +1,15 @@
++import "server-only";
++import type { ScenarioDispatchOwner } from "./pipeline";
++import type { SandboxStore } from "./store";
++
++/** Owner activation seam, deliberately unavailable until real adapters are reviewed and supplied.
++ * Construct PostgresTextCheckpointStore with a trusted transactional SQL adapter; authorize fresh
++ * owner/plan/run/environment/suite/world/inventory identity; return current/retired known secrets;
++ * validate the entire ScenarioExecutionRecord and every trial's scenario/version binding without
++ * dropping any evidence. Never use request JSON, an always-true authorization callback, or in-memory
++ * checkpoints here. This factory must not perform provider I/O or return a legacy unfenced executor.
++ * Replace this function as part of owner adoption; environment variables alone do not activate it.
++ */
++export function loadScenarioDispatchOwner(_store: SandboxStore): ScenarioDispatchOwner | undefined {
++  return undefined;
++}
+diff --git a/apps/web/src/workflows/sandbox.ts b/apps/web/src/workflows/sandbox.ts
+--- a/apps/web/src/workflows/sandbox.ts
++++ b/apps/web/src/workflows/sandbox.ts
+@@ -25,26 +25,32 @@
+ 
+ /**
+  * Run: provision one Neon world, run k trials per scenario (one durable step per scenario, so a crash re-runs at
+- * most one scenario), finalize pass^k + Wilson CI, and always tear the world down (the branch also has a TTL).
++ * most one scenario), restore fenced results, then finalize pass^k + Wilson CI. Unresolved work retains its world.
+  */
+-export async function sandboxRunWorkflow(runId: string): Promise<{ runId: string; status: "complete" | "failed" }> {
++export async function sandboxRunWorkflow(runId: string): Promise<{ runId: string; status: "complete" | "failed" | "unresolved" }> {
+   "use workflow";
+   let worldId: string | undefined;
++  let retainWorld = false;
+   try {
+     const prepared = await prepareSandboxRunStep(runId);
+     worldId = prepared.worldId;
+     let exhausted = false;
+     for (const scenarioId of prepared.scenarioIds) {
++      // A rejected durable-step await may hide an original worker still executing.
++      retainWorld = true;
+       const r = await runSandboxScenarioStep(runId, scenarioId, worldId);
++      if (r.status === "unresolved") return { runId, status: "unresolved" };
++      retainWorld = false;
+       if (r.status === "budget_exhausted") { exhausted = true; break; }
+     }
+     await finalizeSandboxRunStep(runId, exhausted);
+     return { runId, status: "complete" };
+   } catch (e) {
++    if (retainWorld) return { runId, status: "unresolved" };
+     await failSandboxRunStep(runId, reason(e), kindOf(e));
+     return { runId, status: "failed" };
+   } finally {
+-    if (worldId) {
++    if (worldId && !retainWorld) {
+       try { await teardownSandboxRunStep(runId, worldId); } catch { /* best effort: the branch expires on its TTL */ }
+     }
+   }
+diff --git a/apps/web/src/workflows/steps/sandbox.ts b/apps/web/src/workflows/steps/sandbox.ts
+--- a/apps/web/src/workflows/steps/sandbox.ts
++++ b/apps/web/src/workflows/steps/sandbox.ts
+@@ -5,7 +5,7 @@
+ import { FatalError } from "workflow";
+ import {
+   defaultPipelineDeps, failRun, failSuite, finalizeRun, gateSuiteScenarios, generateSuiteScenarios, prepareRunWorld,
+-  runScenarioTrials, SandboxFatalError, teardownRunWorld,
++  runScenarioTrials, SandboxFatalError, teardownRunWorld, type ScenarioStepResult,
+ } from "@/server/sandbox/pipeline";
+ import { createDbSandboxStore, runScenarios } from "@/server/sandbox/store";
+ 
+@@ -50,7 +50,7 @@
+ 
+ export async function runSandboxScenarioStep(
+   runId: string, scenarioId: string, worldId: string,
+-): Promise<{ status: "ok" | "budget_exhausted"; passed: number; trials: number }> {
++): Promise<ScenarioStepResult> {
+   "use step";
+   return fatalAware(() => runScenarioTrials(deps(), runId, scenarioId, worldId));
+ }
+diff --git a/scripts/company-onboarding-e2e.ts b/scripts/company-onboarding-e2e.ts
+--- a/scripts/company-onboarding-e2e.ts
++++ b/scripts/company-onboarding-e2e.ts
+@@ -64,7 +64,7 @@
+     store,
+     executor: {
+       async startSuite(id) { pending.push(runSuiteInline(pipeline, id)); return null; },
+-      async startRun(id) { pending.push(runRunInline(pipeline, id)); return null; },
++      async startRun(id) { pending.push(runRunInline(pipeline, id).then(() => undefined)); return null; },
+     },
+     sampleReport: async () => null,
+     checkTarget: (i) => checkIntegrationTargets(i),
+diff --git a/scripts/sandbox-live-e2e.ts b/scripts/sandbox-live-e2e.ts
+--- a/scripts/sandbox-live-e2e.ts
++++ b/scripts/sandbox-live-e2e.ts
+@@ -44,7 +44,7 @@
+     store,
+     executor: {
+       async startSuite(id) { pending.push(runSuiteInline(pipeline, id)); return null; },
+-      async startRun(id) { pending.push(runRunInline(pipeline, id)); return null; },
++      async startRun(id) { pending.push(runRunInline(pipeline, id).then(() => undefined)); return null; },
+     },
+     sampleReport: async () => null,
+     checkTarget: (i) => checkIntegrationTargets(i),

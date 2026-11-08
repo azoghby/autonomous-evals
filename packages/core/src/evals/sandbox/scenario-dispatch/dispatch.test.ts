@@ -57,6 +57,14 @@ describe('whole-scenario durable dispatch (actual SQL, no providers)', () => {
     const changed = { ...scope, [field]: typeof scope[field] === 'number' ? 2 : typeof scope[field] === 'string' ? 'changed' : { changed: true } };
     expect(await run(changed)).toEqual({ status: 'unresolved', reason: 'storage' }); expect(execute).toHaveBeenCalledTimes(1);
   });
+  it('binds a genuinely standalone run without inventing a suite ID', async () => {
+    const scope = { ...input(), suiteId: null }; const execute = vi.fn(deps().execute);
+    const run = createScenarioDispatch(deps({ execute }));
+    expect(await run(scope)).toMatchObject({ status: 'completed' });
+    expect(await run(scope)).toMatchObject({ status: 'completed', replayed: true });
+    expect(await run({ ...scope, suiteId: 'later-suite' })).toEqual({ status: 'unresolved', reason: 'storage' });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
   it('detaches and freezes caller input before awaiting authorization', async () => {
     const scope = input(); let unblock!: () => void; const gate = new Promise<void>(r => { unblock = r; });
     const execute = vi.fn(async (actual: Readonly<ScenarioDispatchInput>) => {

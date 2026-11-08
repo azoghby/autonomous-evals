@@ -4,7 +4,7 @@ import type { CheckpointKey, TextCheckpointStore } from '../../integration/check
 
 /** Supplied from trusted, fresh application rows, never an HTTP request body. */
 export interface ScenarioDispatchInput {
-  ownerId: string; runId: string; environmentId: string; suiteId: string;
+  ownerId: string; runId: string; environmentId: string; suiteId: string | null;
   scenarioId: string; worldId: string; k: number; budgetMicroUsd: number;
   environment: unknown; inventory: unknown; scenario: unknown; versions: unknown;
   /** Changes whenever the execution/validation contract changes. */
@@ -67,9 +67,10 @@ function inputCopy(raw: ScenarioDispatchInput): ScenarioDispatchInput {
   const input = detached(raw).value;
   const keys = ['ownerId', 'runId', 'environmentId', 'suiteId', 'scenarioId', 'worldId', 'k', 'budgetMicroUsd', 'environment', 'inventory', 'scenario', 'versions', 'engineVersion'];
   if (!input || Object.keys(input).length !== keys.length || keys.some(k => !Object.hasOwn(input, k))) throw new Error('invalid_input');
-  for (const key of ['ownerId', 'runId', 'environmentId', 'suiteId', 'scenarioId', 'worldId', 'engineVersion'] as const) {
+  for (const key of ['ownerId', 'runId', 'environmentId', 'scenarioId', 'worldId', 'engineVersion'] as const) {
     if (typeof input[key] !== 'string' || !input[key].trim() || input[key].length > 4096) throw new Error('invalid_input');
   }
+  if (input.suiteId !== null && (typeof input.suiteId !== 'string' || !input.suiteId.trim() || input.suiteId.length > 4096)) throw new Error('invalid_input');
   if (!Number.isSafeInteger(input.k) || input.k < 1 || !Number.isSafeInteger(input.budgetMicroUsd) || input.budgetMicroUsd < 1) throw new Error('invalid_input');
   return freeze(input);
 }

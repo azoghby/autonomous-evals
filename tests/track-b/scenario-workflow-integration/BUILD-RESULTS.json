@@ -1,0 +1,28 @@
+{
+  "base": "5cf5e67501bab8d8d5bd66852acf92ca24ebb083",
+  "stage": "/tmp/scenario-workflow-zZ5pZO",
+  "commands": [
+    {
+      "name": "next-typegen",
+      "exit": 0,
+      "logSha256": "eaf24ede0a9f11cb33f9af73cf08381852428cbf92f6d679d0325896fcca499e"
+    },
+    {
+      "name": "application-types",
+      "exit": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "core-types",
+      "exit": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "production-build",
+      "exit": 0,
+      "logSha256": "efc65fd200bda3a70d2184096d14c32be23e0b447218c8fcc511ef3749153db3"
+    }
+  ],
+  "offline": true,
+  "live": false
+}

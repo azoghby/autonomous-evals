@@ -1,0 +1,154 @@
+▲ Next.js 16.4.5 (webpack)
+✓ Compiled workflows in 687ms (52 steps, 3 workflows)
+✓ Running next.config.ts took 775ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.6s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 0.5ms
+  Running TypeScript ...
+  Finished TypeScript in 6.7s ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/47) ...
+  Generating static pages using 9 workers (11/47) 
+  Generating static pages using 9 workers (23/47) 
+  Generating static pages using 9 workers (35/47) 
+✓ Generating static pages using 9 workers (47/47) in 873ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)                                               Revalidate  Expire
+┌ ○ /                                                             5m      1y
+├ ○ /_not-found
+├ ƒ /.well-known/oauth-authorization-server/[[...path]]
+├ ƒ /.well-known/oauth-protected-resource/[[...path]]
+├ ƒ /.well-known/workflow/v1/flow
+├ ƒ /.well-known/workflow/v1/webhook/[token]
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/request-link
+├ ƒ /api/auth/verify
+├ ƒ /api/billing/checkout
+├ ƒ /api/contact-sales
+├ ƒ /api/cron/cleanup
+├ ƒ /api/cron/company/market-research
+├ ƒ /api/cron/company/onboarding
+├ ƒ /api/cron/company/outreach
+├ ƒ /api/cron/company/planner
+├ ƒ /api/cron/company/prospecting
+├ ƒ /api/cron/follow-ups
+├ ƒ /api/cron/founder-report
+├ ƒ /api/cron/monitoring
+├ ƒ /api/cron/public-agents
+├ ƒ /api/cron/reconcile-payments
+├ ƒ /api/cron/stale-jobs
+├ ƒ /api/dev/simulate-payment
+├ ƒ /api/expert/opt-out/[token]
+├ ƒ /api/expert/r/[token]
+├ ƒ /api/expert/r/[token]/book
+├ ƒ /api/expert/r/[token]/cancel-booking
+├ ƒ /api/expert/r/[token]/ics
+├ ƒ /api/expert/r/[token]/slots
+├ ƒ /api/experts/signup
+├ ƒ /api/jobs
+├ ƒ /api/jobs/[jobId]
+├ ƒ /api/jobs/[jobId]/accept-quote
+├ ƒ /api/jobs/[jobId]/artifacts/[kind]
+├ ƒ /api/jobs/[jobId]/cancel
+├ ƒ /api/jobs/[jobId]/findings/[findingId]/rerun
+├ ƒ /api/jobs/[jobId]/github
+├ ƒ /api/jobs/[jobId]/live
+├ ƒ /api/jobs/[jobId]/messages
+├ ƒ /api/jobs/[jobId]/monitoring
+├ ƒ /api/jobs/[jobId]/progress
+├ ƒ /api/jobs/[jobId]/remediations/[remediationId]/pr
+├ ƒ /api/jobs/[jobId]/retest
+├ ƒ /api/jobs/[jobId]/share
+├ ƒ /api/keys
+├ ƒ /api/keys/[id]
+├ ƒ /api/leaderboard
+├ ƒ /api/leaderboard/submit
+├ ƒ /api/leaderboard/unsubscribe
+├ ƒ /api/leaderboard/verify
+├ ƒ /api/mcp/[transport]
+├ ƒ /api/notify/decide
+├ ƒ /api/notify/telegram
+├ ƒ /api/notify/whatsapp
+├ ƒ /api/operator/company
+├ ƒ /api/operator/company/run
+├ ƒ /api/operator/company/toggle
+├ ƒ /api/operator/experts
+├ ƒ /api/operator/experts/engagements/[id]/mark-paid
+├ ƒ /api/operator/experts/engagements/[id]/notes
+├ ƒ /api/operator/experts/invite
+├ ƒ /api/operator/experts/requests
+├ ƒ /api/operator/experts/slots
+├ ƒ /api/operator/experts/slots/[id]
+├ ƒ /api/operator/infra
+├ ƒ /api/operator/interventions
+├ ƒ /api/operator/leads
+├ ƒ /api/operator/live
+├ ƒ /api/operator/notify
+├ ƒ /api/operator/outreach/[id]/approve
+├ ƒ /api/operator/outreach/[id]/reject
+├ ƒ /api/operator/outreach/approve-all
+├ ƒ /api/operator/overview
+├ ƒ /api/sandbox/assistant
+├ ƒ /api/sandbox/drafts
+├ ƒ /api/sandbox/drafts/[draftId]
+├ ƒ /api/sandbox/drafts/[draftId]/runs
+├ ƒ /api/sandbox/drafts/[draftId]/scenarios/[scenarioId]
+├ ƒ /api/sandbox/runs/[runId]
+├ ƒ /api/stats/revenue
+├ ƒ /api/stripe/webhook
+├ ƒ /api/v1/regression-runs
+├ ƒ /api/v1/regression-runs/[runId]
+├ ƒ /api/webhooks/agentmail
+├ ƒ /api/x402/jobs/[jobId]/pay
+├ ○ /company                                                      1m      1y
+├ ○ /contact-sales
+├ ○ /demo
+├ ƒ /expert/book/[token]
+├ ƒ /expert/opt-out/[token]
+├ ƒ /expert/r/[token]
+├ ○ /experts
+├ ƒ /jobs
+├ ƒ /jobs/[jobId]
+├ ○ /leaderboard                                                  5m      1y
+├ ƒ /leaderboard/[slug]
+├ ƒ /leaderboard/[slug]/badge.svg
+├ ƒ /leaderboard/owner/[token]
+├ ○ /leaderboard/submit
+├ ○ /leaderboard/unsubscribed
+├ ƒ /leaderboard/verify/[token]
+├ ƒ /notify/decide
+├ ƒ /oauth/authorize
+├ ƒ /oauth/authorize/decision
+├ ƒ /oauth/register
+├ ƒ /oauth/revoke
+├ ƒ /oauth/token
+├ ○ /opengraph-image
+├ ƒ /operator
+├ ƒ /operator/outreach/approve-all
+├ ƒ /pricing
+├ ƒ /r/[token]
+├ ƒ /r/[token]/badge.svg
+├ ○ /robots.txt
+├ ○ /sample
+├ ○ /sample/suite.json
+├ ○ /sandbox
+├ ƒ /sandbox/new
+├ ƒ /sandbox/runs/[runId]
+├ ƒ /settings/keys
+├ ƒ /signin
+├ ƒ /signin/confirm
+├ ○ /sitemap.xml
+└ ƒ /start
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+getPublicOrgChart failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set

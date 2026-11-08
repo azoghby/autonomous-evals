@@ -1,0 +1,17 @@
+{
+  "path": "apps/web/src/server/sandbox/pipeline.test.ts",
+  "beforeSha256": "593ded6cae34fe9b5c5ebed7d48b1c191a7bdacae4b9632a8c567f26b670cb07",
+  "afterSha256": "0f69c04f09f34adcc72c01ed06ca405e98bf43a762713af0f2385175b5b04b27",
+  "changes": [
+    "SQL checkpoint fixture imports",
+    "Provide explicit test-only trusted ports",
+    "Reset SQL fences per independent original fixture",
+    "Budget fixture binds its existing world",
+    "Missing scenario is unresolved, not safe to tear down",
+    "Lost result publication retains world for fenced replay",
+    "Compare complete version values independent of JSON object key order",
+    "Supply required empty cost metadata in original fixture",
+    "Narrow three known-present mock request arguments",
+    "Narrow the recorded mock request argument"
+  ]
+}

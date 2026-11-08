@@ -1,0 +1,10 @@
+{
+  "base": "5cf5e67501bab8d8d5bd66852acf92ca24ebb083",
+  "postBuildPostimages": 6,
+  "drift": [],
+  "coreRequirement": {
+    "packages/core/src/evals/sandbox/scenario-dispatch/dispatch.test.ts": "d2754efe4d285b1dd5a7265226b9b9de2f84806796d328d33e5d01c49ee8fe27",
+    "packages/core/src/evals/sandbox/scenario-dispatch/index.ts": "dfcec26bfa4da7433ddf10d5f59b6830b4c5e62300f8a39d315f3614d6faeea2"
+  },
+  "dataDemoSha256": "6a0501589374d93b9f3f5f12372d750ee42dd1e9d804a8e0542faa4b74be8590"
+}

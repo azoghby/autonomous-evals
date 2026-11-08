@@ -1,0 +1,39 @@
+{
+  "base": "5cf5e67501bab8d8d5bd66852acf92ca24ebb083",
+  "coreRequirement": "createScenarioDispatch suiteId:string|null support (parent-owned addition)",
+  "files": {
+    "apps/web/src/server/sandbox/pipeline.ts": {
+      "beforeSha256": "7af3fa8e0e035a5a51ec5d7438976d401591d4829729c71bdc5f47569e4f54df",
+      "afterSha256": "301d8da7d71785672732e0978e9d5875c9fbd55aa0142562c08a8ed2002b8b6f",
+      "bytes": 17054
+    },
+    "apps/web/src/server/sandbox/scenario-dispatch-owner.ts": {
+      "beforeSha256": null,
+      "afterSha256": "9942fbae271e7d15e72112ddea6d80134b024bc5fac01751d7976b96432d3f4d",
+      "bytes": 952
+    },
+    "apps/web/src/workflows/sandbox.ts": {
+      "beforeSha256": "a56b9acf757b0d9739a0de43357197ce3260f41788ed66e202a181813559ad41",
+      "afterSha256": "90b53ca3c3b2a0a06cc17119c76b37dd3ead4861650ac610c39bab5999ab7383",
+      "bytes": 2514
+    },
+    "apps/web/src/workflows/steps/sandbox.ts": {
+      "beforeSha256": "0fa0925119a8e9572e6b1591e0142c8e82429f878d027ed6f732fc3bf3788757",
+      "afterSha256": "f6dc7b1c18516c9edd05fa43a78d40968a4c9c1071fbc85705c951014fe6b90a",
+      "bytes": 2857
+    },
+    "scripts/company-onboarding-e2e.ts": {
+      "beforeSha256": "45b290c49684b4ead92ba35c2d88c1ad3ba8a2fac0bcef668545573871f2f34c",
+      "afterSha256": "9a937b213f12240d3647039c7a279ad2b2f78c102685673c3cfd7fddd3a23799",
+      "bytes": 8096
+    },
+    "scripts/sandbox-live-e2e.ts": {
+      "beforeSha256": "b8a1bf6e930f2f13097fd91e5215c02c6614b610156674cf8fd3a67e14b8f8b2",
+      "afterSha256": "1728345bbb8d10ae3f8a42e6d495b735dd4582a7fbd54acd1094d941d1b154b1",
+      "bytes": 6388
+    }
+  },
+  "patchSha256": "f320f7d56d40393fa50cc2b6c5e98fe8f29e41b674370e823c3db725a935617f",
+  "actualApplicationModified": false,
+  "productionActivated": false
+}
