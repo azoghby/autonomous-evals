@@ -2,7 +2,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { STATIC_ITEMS, recentItems, searchPalette, wrapIndex, type PaletteItem, type RecentEval } from "@/lib/palette";
+import { hasSessionHint, writeSessionHint } from "@/lib/session-hint";
+import { staticItemsFor, recentItems, searchPalette, wrapIndex, type PaletteItem, type RecentEval } from "@/lib/palette";
 
 type Recent = { phase: "idle" | "loading" | "signed_out" | "error" } | { phase: "ready"; items: PaletteItem[] };
 
@@ -11,17 +12,18 @@ const OPEN_EVENT = "se:open-palette";
 /** Opens the palette from anywhere (e.g. a button) without prop drilling. */
 export const openCommandPalette = () => window.dispatchEvent(new Event(OPEN_EVENT));
 
-function useRecentEvals(open: boolean): Recent {
+function useRecentEvals(open: boolean, signedIn: boolean): Recent {
   const [state, setState] = useState<Recent>({ phase: "idle" });
   // Fetch once per page load; retry only when reopened after an error or an aborted (closed mid-flight) request.
   const settled = useRef(false);
   useEffect(() => {
-    if (!open || settled.current) return;
+    // Signed-out visitors never hit /api/evals (it would only 401 into the console).
+    if (!open || !signedIn || settled.current) return;
     const ctl = new AbortController();
     setState({ phase: "loading" });
     fetch("/api/evals", { signal: ctl.signal, cache: "no-store" })
       .then(async (res) => {
-        if (res.status === 401) { settled.current = true; setState({ phase: "signed_out" }); return; }
+        if (res.status === 401) { settled.current = true; writeSessionHint(false); setState({ phase: "signed_out" }); return; }
         if (!res.ok) throw new Error(String(res.status));
         const body = (await res.json()) as { evals?: RecentEval[] };
         settled.current = true;
@@ -29,7 +31,7 @@ function useRecentEvals(open: boolean): Recent {
       })
       .catch(() => setState({ phase: ctl.signal.aborted ? "idle" : "error" }));
     return () => ctl.abort();
-  }, [open]);
+  }, [open, signedIn]);
   return state;
 }
 
@@ -43,12 +45,16 @@ export function CommandPalette() {
   const listRef = useRef<HTMLUListElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const listId = useId();
-  const recent = useRecentEvals(open);
+  const [signedIn, setSignedIn] = useState(false);
+  const recent = useRecentEvals(open, signedIn);
+  // A 401 despite the hint (expired session) downgrades to signed out.
+  const viewerSignedIn = signedIn && recent.phase !== "signed_out";
 
   useEffect(() => setMounted(true), []);
 
   const show = useCallback(() => {
     returnFocus.current = document.activeElement as HTMLElement | null;
+    setSignedIn(hasSessionHint(document.cookie));
     setQuery("");
     setActive(0);
     setOpen(true);
@@ -79,9 +85,10 @@ export function CommandPalette() {
   }, [open]);
 
   const results = useMemo(() => {
-    const items = recent.phase === "ready" ? [...recent.items, ...STATIC_ITEMS] : STATIC_ITEMS;
+    const base = staticItemsFor(viewerSignedIn);
+    const items = recent.phase === "ready" ? [...recent.items, ...base] : base;
     return searchPalette(items, query);
-  }, [recent, query]);
+  }, [recent, query, viewerSignedIn]);
   const current = Math.min(active, Math.max(results.length - 1, 0));
 
   useEffect(() => {
@@ -108,7 +115,7 @@ export function CommandPalette() {
 
   let lastGroup = "";
   const status = recent.phase === "loading" ? "Loading your recent evals…"
-    : recent.phase === "signed_out" ? "Sign in to jump to your recent evals."
+    : !viewerSignedIn ? "Sign in to jump to your recent evals."
     : recent.phase === "error" ? "Recent evals are unavailable right now." : null;
 
   return createPortal(

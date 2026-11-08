@@ -3,6 +3,7 @@ import { z } from "zod";
 import { verifyMagicLink } from "@ae/core/auth/magic-link";
 import { safeNextPath } from "@ae/core/auth/tokens";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/server/session";
+import { SESSION_HINT_COOKIE } from "@/lib/session-hint";
 import { isSameOrigin } from "@/server/oauth/consent";
 import { originOf } from "@/server/oauth/service";
 import { readBoundedJson } from "@/server/body-limit";
@@ -42,5 +43,7 @@ export async function POST(req: Request) {
   if (!result.ok) return NextResponse.json({ error: result.reason }, { status: 400 });
   const res = NextResponse.json({ redirect: next }, { headers: { "Cache-Control": "no-store" } });
   res.cookies.set(SESSION_COOKIE, result.sessionToken, sessionCookieOptions(result.expiresAt));
+  // Readable hint (no credential) so client UI can skip authenticated fetches for signed-out visitors.
+  res.cookies.set(SESSION_HINT_COOKIE, "1", { path: "/", sameSite: "lax", secure: process.env.NODE_ENV === "production", expires: result.expiresAt });
   return res;
 }

@@ -173,6 +173,9 @@ textarea.input { height: auto; min-height: 112px; padding: 10px 12px; resize: ve
 .pre-lift-xs { --from: translate3d(0, 10px, 0); }
 .pre-scale { --from: scaleX(0); }
 @keyframes hero-in { from { opacity: 0; transform: var(--from); } to { opacity: 1; transform: none; } }
+/* LCP element: lift only, never fade from opacity 0, so the headline text paints on the first frame. */
+.pre.pre-lcp { opacity: 1; animation-name: hero-lift; animation-delay: 0ms; }
+@keyframes hero-lift { from { transform: var(--from); } to { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .pre { opacity: 1; animation: none; } }
 
 /* Reduced motion: scroll/route reveals become opacity-only fades. */

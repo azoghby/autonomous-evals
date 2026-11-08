@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STATIC_ITEMS, matchScore, recentItems, searchPalette, wrapIndex, type RecentEval } from "./palette";
+import { STATIC_ITEMS, matchScore, staticItemsFor, recentItems, searchPalette, wrapIndex, type RecentEval } from "./palette";
 
 describe("matchScore", () => {
   it("ranks prefix > word-start substring > mid substring > subsequence > none", () => {
@@ -56,5 +56,16 @@ describe("wrapIndex", () => {
     expect(wrapIndex(-1, 3)).toBe(2);
     expect(wrapIndex(3, 3)).toBe(0);
     expect(wrapIndex(5, 0)).toBe(0);
+  });
+});
+
+describe("signed-out palette", () => {
+  it("hides account-only entries for signed-out visitors and keeps public ones", () => {
+    const titles = staticItemsFor(false).map((i) => i.title);
+    expect(titles).not.toContain("My evals");
+    expect(titles).not.toContain("My jobs");
+    expect(titles).not.toContain("Manage API keys");
+    expect(titles).toEqual(expect.arrayContaining(["Sandbox", "Pricing", "New sandbox eval"]));
+    expect(staticItemsFor(true)).toEqual(STATIC_ITEMS);
   });
 });

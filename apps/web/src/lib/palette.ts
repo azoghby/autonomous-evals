@@ -11,15 +11,17 @@ export interface PaletteItem {
   keywords?: string;
   /** Short right-aligned tag, e.g. a status or score. */
   meta?: string;
+  /** Needs a signed-in viewer (hidden from signed-out visitors). */
+  requiresAuth?: boolean;
 }
 
 export const STATIC_ITEMS: readonly PaletteItem[] = [
   { id: "act:new-sandbox", group: "Actions", title: "New sandbox eval", hint: "Generate scenarios and run k trials", href: "/sandbox/new", keywords: "create start run" },
   { id: "act:compare", group: "Actions", title: "Compare two runs", hint: "Regressions, fixes and new failures", href: "/sandbox/compare", keywords: "diff delta regression versus vs" },
   { id: "act:new-request", group: "Actions", title: "Request an audit", hint: "Trace audit or full evaluation", href: "/start", keywords: "start job hire order" },
-  { id: "act:keys", group: "Actions", title: "Manage API keys", href: "/settings/keys", keywords: "token mcp ci settings" },
-  { id: "nav:evals", group: "Go to", title: "My evals", href: "/evals", keywords: "dashboard runs audits" },
-  { id: "nav:jobs", group: "Go to", title: "My jobs", href: "/jobs", keywords: "dashboard audits orders" },
+  { id: "act:keys", group: "Actions", title: "Manage API keys", href: "/settings/keys", keywords: "token mcp ci settings", requiresAuth: true },
+  { id: "nav:evals", group: "Go to", title: "My evals", href: "/evals", keywords: "dashboard runs audits", requiresAuth: true },
+  { id: "nav:jobs", group: "Go to", title: "My jobs", href: "/jobs", keywords: "dashboard audits orders", requiresAuth: true },
   { id: "nav:sandbox", group: "Go to", title: "Sandbox", href: "/sandbox", keywords: "simulator environment" },
   { id: "nav:sample", group: "Go to", title: "Sample report", href: "/sandbox/runs/sample", keywords: "example demo" },
   { id: "nav:leaderboard", group: "Go to", title: "Leaderboard", href: "/leaderboard", keywords: "rank public agents" },
@@ -28,6 +30,10 @@ export const STATIC_ITEMS: readonly PaletteItem[] = [
   { id: "nav:pricing", group: "Go to", title: "Pricing", href: "/pricing", keywords: "plans cost billing" },
   { id: "nav:home", group: "Go to", title: "Home", href: "/", keywords: "landing" },
 ];
+
+/** Static entries visible to this viewer: signed-out visitors don't see account-only destinations. */
+export const staticItemsFor = (signedIn: boolean): readonly PaletteItem[] =>
+  signedIn ? STATIC_ITEMS : STATIC_ITEMS.filter((i) => !i.requiresAuth);
 
 export interface RecentEval { kind: string; id: string; name: string; status: string; createdAt: string; href: string; passHatK: number | null; detail: string }
 
