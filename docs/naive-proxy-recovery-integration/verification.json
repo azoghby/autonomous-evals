@@ -1,0 +1,186 @@
+{
+  "baseCommit": "11d7ff2b18c8d6388ffe2d20ac329e8e5095792d",
+  "stage": "/tmp/proxy-app-recovery-JnYYMg",
+  "tests": "7 tests passed",
+  "strictTypecheck": true,
+  "supportPins": [
+    {
+      "path": "packages/core/src/agents/company-roles.ts",
+      "sha256": "97c5c14ba4dfb03b0ac4a686780dd3bddd67de2edb3d26d5fcf365a79b98687a"
+    },
+    {
+      "path": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596"
+    },
+    {
+      "path": "packages/core/src/agents/postgres-ports.ts",
+      "sha256": "ded124ff7087b1feb9e66e8354088e05ed14f57e664d855f51a0216a871b034f"
+    },
+    {
+      "path": "packages/core/src/agents/provision.ts",
+      "sha256": "b3838a747c3333d736e99675d0d18fe248090dfbaaa4b61b39e7d0af64f47138"
+    },
+    {
+      "path": "packages/core/src/agents/redact.ts",
+      "sha256": "2e986d676076967e2574b91e96a14b58e119e0f460ee301a756f09a49c59a9a4"
+    },
+    {
+      "path": "packages/core/src/agents/roles.ts",
+      "sha256": "de174ad018e0cdfa9b56b1ebc00844bd1d0f4fd52130af661f1b10548959fc0c"
+    },
+    {
+      "path": "packages/core/src/auth/email.ts",
+      "sha256": "8a5c52ea4cff485433e6ee40ba37b37ec914b06428bb3b3daab53eef223c3441"
+    },
+    {
+      "path": "packages/core/src/auth/magic-link.ts",
+      "sha256": "24e17706fdda3adceb31720b8fdd9b451f81c64508abf123e8b697f154cd281d"
+    },
+    {
+      "path": "packages/core/src/auth/tokens.ts",
+      "sha256": "852f7ef2375cece318b774ed24aee6b84ba8e6363909eef209d3194fc69f9789"
+    },
+    {
+      "path": "packages/core/src/contracts/experts.ts",
+      "sha256": "d80838064a796bbc5ab491e637fdbeda6f8b2973ceee89b2d7278d6cc462959d"
+    },
+    {
+      "path": "packages/core/src/contracts/index.ts",
+      "sha256": "03c9ba4a7bac844094cfb5d3b54406002b111e025ff09a17899240843bb72f9f"
+    },
+    {
+      "path": "packages/core/src/contracts/services.ts",
+      "sha256": "6f2f24cbccefce82e95101daa14787b384aa35bab681371afa6185b4cb69f602"
+    },
+    {
+      "path": "packages/core/src/db/client.ts",
+      "sha256": "a94275527dae84d792dbb2307076dc61161a2c15b0a6d330b31a5838370d31ef"
+    },
+    {
+      "path": "packages/core/src/db/cost-settlement.ts",
+      "sha256": "6601e712b210294f6a6e9ba30c1928ec3e753f81341f43eb8b4a5fb51ea91dca"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0023_cost_receipts.sql",
+      "sha256": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34"
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "sha256": "6e16279eb1c7df0e2f5f3ebb14eea8e30f7f5b220b0147d69aeda0bd0a0f8dfd"
+    },
+    {
+      "path": "packages/core/src/email/agentmail.ts",
+      "sha256": "15e6d23e7f93b53a0d0f3d4ea89bd7d85f751e5299dfe82709e26106d5df22c3"
+    },
+    {
+      "path": "packages/core/src/evals/data/acquisition.ts",
+      "sha256": "3fdda9ae3bc5d118e12647dfe17e7847c392b685d0d991e26b5d90a5b8fe1905"
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/automated-expert.ts",
+      "sha256": "46fafe0c0ca943d4a63336f22df853beb9b6ad979f52f2b1a8f900597950706c"
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/postgres-expert-loop.ts",
+      "sha256": "606f7e682e423e36083c5c1f77699181722bf1f8a1a45dc1847ee86c78f0498d"
+    },
+    {
+      "path": "packages/core/src/evals/data/binding.ts",
+      "sha256": "973f76482f41d41e0e188e4fdc467db2b9d61ef16aa0d58cb2482ef6bb622ed2"
+    },
+    {
+      "path": "packages/core/src/evals/data/expert.ts",
+      "sha256": "6a81270fdd19d6f3b2cd1df230204daa490b74fb718d945fdfc54aa5b0d97f93"
+    },
+    {
+      "path": "packages/core/src/evals/data/quality.ts",
+      "sha256": "f5e0029bc7d206e502b44153d9ef91c06a042d7e1d4cb37960b86ebb24a1224a"
+    },
+    {
+      "path": "packages/core/src/evals/data/types.ts",
+      "sha256": "4bcc9e5b7d07b21dc8b7d10665bc93dc92038729fc17989a1625eedc59b80cea"
+    },
+    {
+      "path": "packages/core/src/evals/integration/checkpoints.ts",
+      "sha256": "e4cde84fb3e2b6dfcafd977d2c3710a72491ebade04adeea30d62aa14e6c1cc2"
+    },
+    {
+      "path": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666"
+    },
+    {
+      "path": "packages/core/src/evals/text/admission.ts",
+      "sha256": "fbd5dc3fa0c64b2dd38d7b923ae932401fe1095ca166fb62f9cf6fd2550bec3c"
+    },
+    {
+      "path": "packages/core/src/evals/text/freeze.ts",
+      "sha256": "0d627cf35c9d81b7ad4ada3f54a087b470d0a7b1d512267886d16a8fa4392caf"
+    },
+    {
+      "path": "packages/core/src/evals/text/rubric-admission.ts",
+      "sha256": "76f41478f9638c75e13290a18e244fbdc4251a61c75eb4424cc10ecc5121cc6e"
+    },
+    {
+      "path": "packages/core/src/evals/text/schema.ts",
+      "sha256": "37046de0806dea6bf52d1e993ee7d0ddae14b8516317867e6ac1772a735ca412"
+    },
+    {
+      "path": "packages/core/src/evals/types.ts",
+      "sha256": "677e441b6c594e7db7a8f3ef85fc203bdc0cbb6cc7d6a751ec9021b02e84e6bd"
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy-budget.ts",
+      "sha256": "3959e18477fb4e0da387af18c2f39932595dbf388c14ad378bfe52cce1c04970"
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy-reconcile.ts",
+      "sha256": "091d59f6396b2c5e5559c04ebe50f574b384b5a6548c02535091c6dae5b0e6cc"
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy-service.ts",
+      "sha256": "a03f9f06ae169da0b60f14f421205f9aff5a6437d65e4e3c482d9869084779e3"
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy.ts",
+      "sha256": "9f9bc60ae2cf653ef6e7d63655c2da7ce2caba21f721459ee66bad1fa77ce166"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/jobs/[id]/proxy-billing/reconcile/route.ts",
+      "sha256": "02eb8dc1ec4e40ef3752a6920fc8f40bdaa263c77f711e93ea1bd722e54b231f"
+    },
+    {
+      "path": "apps/web/src/server/access.ts",
+      "sha256": "ffa8839f847fa55a33f043e3fff6d05fff372f1e39d99d0e110da97c5fc384fe"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-owner.ts",
+      "sha256": "788c8b2ac7a4644ace0cf4733888fd46a9f46c5851ed1e362b07d5b11ede199d"
+    },
+    {
+      "path": "apps/web/src/server/cost-settlement.ts",
+      "sha256": "1c6097d8c7a9ee0b109491294c7c569894fb05d42f724d49d9dee76780ec361b"
+    },
+    {
+      "path": "apps/web/src/server/experts-logic.ts",
+      "sha256": "ae86d005761582f0e519462d1a19733af90b0616f8eff5d46b8e5b6166486098"
+    },
+    {
+      "path": "apps/web/src/server/http.ts",
+      "sha256": "6302bc267fda2d7a2513e41bc6beecfc89c3bb971478fdab8e8ab4acfe88a872"
+    },
+    {
+      "path": "apps/web/src/server/naive-proxy-recovery.ts",
+      "sha256": "85a9ec2db62ca0a8ed367f9222d73fa42d48d69097ab889adae27e4c2d58ca10"
+    },
+    {
+      "path": "apps/web/src/server/session.ts",
+      "sha256": "906ea55729a4a309a7248e1ceadb2482c49a9da7085e16f82794d418fc5cae21"
+    },
+    {
+      "path": "tests/recovery.test.ts",
+      "sha256": "fa3dfb631beab974ad8ce7712c88d06204b4b23daca010fc78af25472d3704aa"
+    }
+  ],
+  "runnerSha256": "7d04d916d167dcb1b2b63e6fcff6eee512db1b37420899159c2424388e1d8b92",
+  "compatibilityCheckedCommit": "683b0ff1ef49b196e217f52685370ad14fed6ff6"
+}

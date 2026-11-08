@@ -1,0 +1,32 @@
+{
+  "baseCommit": "11d7ff2b18c8d6388ffe2d20ac329e8e5095792d",
+  "patch_sha256": "dcb0b4b5e0f3a87748962c985ff64dfa3ac6b22b389a1e53bc47b3ca1cf190b7",
+  "files": [
+    {
+      "path": "apps/web/src/app/api/operator/jobs/[id]/proxy-billing/reconcile/route.ts",
+      "preimage_sha256": null,
+      "postimage_sha256": "02eb8dc1ec4e40ef3752a6920fc8f40bdaa263c77f711e93ea1bd722e54b231f",
+      "postimage": "source/apps/web/src/app/api/operator/jobs/[id]/proxy-billing/reconcile/route.ts"
+    },
+    {
+      "path": "apps/web/src/server/naive-proxy-recovery.ts",
+      "preimage_sha256": null,
+      "postimage_sha256": "85a9ec2db62ca0a8ed367f9222d73fa42d48d69097ab889adae27e4c2d58ca10",
+      "postimage": "source/apps/web/src/server/naive-proxy-recovery.ts"
+    }
+  ],
+  "verification": {
+    "path": "verification.json",
+    "sha256": "9bac7548d5f21279960aacce382e54295d76e7c7614ebe48823e64f29af9da4d"
+  },
+  "testFiles": [
+    {
+      "path": "tests/recovery.test.ts",
+      "sha256": "fa3dfb631beab974ad8ce7712c88d06204b4b23daca010fc78af25472d3704aa"
+    }
+  ],
+  "runner": {
+    "path": "run.mjs",
+    "sha256": "7d04d916d167dcb1b2b63e6fcff6eee512db1b37420899159c2424388e1d8b92"
+  }
+}

@@ -1,0 +1,13 @@
+# Operator proxy accounting recovery adoption artifact
+
+Base: `11d7ff2b18c8d6388ffe2d20ac329e8e5095792d`. The new app source is proposed in `owner.patch` and exact source postimages, with before/after hashes in `manifest.json`. It is not applied, deployed, or exercised against a provider.
+
+`POST /api/operator/jobs/[id]/proxy-billing/reconcile` requires the existing current operator session. It reads canonical job ownership/environment and selects at most 25 completed billing intents in SQL. Bodies are streamed with a 256-byte limit before UTF-8/JSON parsing and require `application/json` when present. Empty input or `{ "cursor": "<64 lowercase hex characters>" }` is accepted; arbitrary receipts, models, amounts and operation IDs are rejected. The server passes only an audit-read port to independent core reconciliation, the existing SQL budget ledger, and the adopted cost sink with expected canonical ownership/environment.
+
+Cancelled jobs, disabled/revoked expert plans and exhausted inference budgets can reconcile costs already incurred. This capability does not invoke an evaluator, provider dispatch, email or payment collection. It does not reserve more budget. No customer prompts or verdicts are returned. Every response is private and uncached. The same current operator is checked before each next audit item and again before the sanitized response is published; losing operator authority does not erase costs already incurred.
+
+The response contains scanned/reconciled/pending counts, a status, remaining flag and an opaque next cursor. Follow `nextCursor` to cover later intents even if earlier ones remain pending. Periodically restart a full sweep without a cursor to retry delayed billing and unresolved earlier receipts. A cost/ledger conflict remains pending; an existing cost row is never sufficient reason to skip validation.
+
+Run `node docs/naive-proxy-recovery-integration/run.mjs` offline with the retained dependencies named in that script. Tests use PGlite with actual checkpoint, budget and receipt migrations, actual SQL stores and the adopted core settlement sink. Provider audit transport and session identity are simulated. This is single-connection SQL verification, not production authorization/session, provider, deployment or concurrency verification. The operator route is tested for denied access; the handler is tested for canonical owner/environment changes and authority changes during reconciliation.
+
+Owner adoption requires the already documented database migrations. This artifact does not run migrations, alter flags, send messages, push commits or deploy.
