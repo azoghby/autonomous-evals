@@ -16,7 +16,7 @@ The explicit user-approved 147-file cumulative patch from `0e759c4` is adopted o
 | --- | --- |
 | Shared budgets, stage recovery/cancellation, expert sourcing, initial copilot/MCP, remediation, design/run recovery and judge accounting | Actual source adopted; not deployed |
 | Actual-source verification | 4,609 passing tests, zero failures, two documented skips; web/core types and clean production build pass; 2,286 build input hashes match |
-| Activation and full Naïve plan | Still open; sidecar schema and hosted checks required, including existing lite/chat paths |
+| Activation and full Naïve plan | Offline schema rehearsal passes (54/59/1 migrations); live runner constraint support, schema/data review and hosted checks remain open |
 
 See `docs/naive-current-runtime-adoption/adoption-receipt.json`. No migration, configuration change, deployment, provider call, outreach or spending occurred. Unrelated customer recruitment files remain untouched.
 
@@ -203,6 +203,8 @@ Security and compliance
 - CAN-SPAM: no postal address. `COMPANY_ADDRESS` is identity only. Required before any cold outreach at volume.
 
 ## Next steps (hackathon)
+
+- Prioritize one verified hosted trace-audit demo. Schema rehearsal is ready in `docs/naive-runtime-rollout/`; finish reviewed constraint-replacement migration support and target-specific schema review before deployment. Full conformance still needs real method/fixture wiring; do not claim full-plan acceptance.
 
 - Cumulative source is adopted: do not reapply historical owner patches. Next prepare the sidecar migration dependency/order and hosted acceptance work separately; target monetary reconciliation, remaining recovery, conversation/idle and full Phase 0 gates remain open. Source adoption does not authorize deployment or live activity.
 
@@ -479,3 +481,5 @@ Times are PT, as recorded.
 - Approved cumulative adoption main reconciliation: preserved main `029f45c`, including Track A company diagram/video files and leaderboard receipts. Resolved only the append-only ledger conflict, retaining both tracks. The new company source is outside the approved cumulative patch. No Track A deployment is performed by this adoption.
 
 - 2026-11-08: Adopted the explicitly approved cumulative 147-file source patch from `0e759c4`, preserving main `029f45c` at `ce59be9`. Exact postimages and outside-path preservation verified. Actual suite: 4,609 passed / zero failed / two documented skips; web/core types and clean production build pass (63 steps/four workflows, 2,286 matching input pins). Reversibly quarantined 35 identical filesystem conflict copies; no unique content deleted. Three Sol review/build/documentation workers completed. Receipt: `docs/naive-current-runtime-adoption/adoption-receipt.json`. No migration, deployment, outreach or spend. Full Naïve goal remains unfinished.
+
+- 2026-11-08: Three Sol workers prepared and reviewed offline rollout plan, schema verifier and hosted acceptance matrix after `5d600a8`. 69 inventory paths deduplicated into 60 canonical SQL nodes; fresh application/optional/simulator PGlite sequences pass 54/59/1 migrations. Parent added omitted-inventory and cross-database rejection; 12 focused tests pass. Required web types and 4,609 root tests pass, zero failed/two documented skips; all 2,286 prior build inputs unchanged. No live actions. User requested immediate commit/push/merge; main `029f45c` is already an ancestor of track-a. Preserve unrelated customer recruitment work.

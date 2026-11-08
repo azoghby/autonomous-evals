@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Runtime schema rehearsal and release gates (2026-11-08)
+
+After source adoption `5d600a8`, `docs/naive-runtime-rollout/` now binds all 69 SQL inventory paths to 60 canonical migrations and aliases, with separate application/optional/simulator profiles. Fresh in-memory PGlite applies 54/59/1 migrations respectively without SQL rewrites or synthetic prerequisites. Twelve focused verifier tests and standalone types pass; current root web types and 4,609 tests pass (zero failed, two documented skips). All 2,286 production-build input hashes remain unchanged. This is offline schema evidence, not a live migration or deployed feature.
+
+The live SQL runner rejects required constraint replacements. Strict direct-core conformance still hardcodes five unavailable methods; adopted app rerun remains unwired and app text authority cannot be replaced by draft trace fixtures. Hosted acceptance is specified, not executed. Prioritize a verified trace-audit demo for the hackathon; preserve all remaining Naïve plan gates. No migration, deployment, credentials, outreach or spending occurred. See the rollout validation receipt and hosted checklist.
+
 ## Approved cumulative runtime source adoption (2026-11-08)
 
 The user explicitly approved the exact **147-file cumulative source/test patch** (43 modified, 104 added, no deletions). After merging main `029f45c` at `ce59be9`, the integrator applied all 147 reviewed postimages exactly. Source adoption is complete and recorded with this commit. Actual-source verification passes: **4,609 tests, zero failures, two documented skips**, web/core types and a clean production build (63 steps/four workflows; 2,286 matching input hashes). Main's company diagram changes are preserved.

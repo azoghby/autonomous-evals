@@ -1,0 +1,36 @@
+{
+  "status": "offline-schema-rehearsal-passed-not-deployed",
+  "adoptedCommit": "5d600a82c9470c6dad56b51998ce1bd4864ca3c0",
+  "schemaPlanSha256": "989eb4fd602151e80b9b5667100945ad4ee5c0b8a65a629c7d8d38c21475fe83",
+  "focusedTests": {
+    "passed": 12,
+    "failed": 0,
+    "command": "npx vitest run --config docs/naive-runtime-rollout/vitest.config.ts"
+  },
+  "profiles": {
+    "application": 54,
+    "optionalApplication": 59,
+    "simulator": 1
+  },
+  "engine": "fresh in-memory PGlite; no SQL rewriting or synthetic prerequisite DDL",
+  "rootTests": {
+    "passed": 4609,
+    "failed": 0,
+    "skipped": 2
+  },
+  "webTypes": "passed",
+  "standaloneHarnessTypes": "passed (ESNext/bundler mode)",
+  "build": {
+    "status": "retained previously passing build; all input hashes reverified unchanged",
+    "inputHashesChecked": 2286,
+    "mismatches": [],
+    "receipt": "../naive-current-runtime-adoption/adoption-receipt.json"
+  },
+  "liveActions": false,
+  "remainingBlockers": [
+    "Live catalog/data compatibility and native PostgreSQL/hosted acceptance unverified",
+    "Existing live SQL runner rejects required DROP CONSTRAINT statements",
+    "Direct-core conformance hardcodes five unavailable methods; app rerun remains unwired",
+    "Target monetary reconciliation and wider full-plan gates remain open"
+  ]
+}
