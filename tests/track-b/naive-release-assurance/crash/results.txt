@@ -1,0 +1,29 @@
+Base: 6ff8a0642fc14dfd23842456d124a4b84f5e040a
+Local execution: Node v24.21.0; installed tsx 4.23.15; PGlite 0.5.15.
+
+Exact wrapper command:
+node tests/track-b/naive-release-assurance/crash/run-local.mjs '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/node_modules' '/Users/alexzoghby/.t3/worktrees/simulization/t3-52d1553b/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/cli.mjs'
+
+Command executed inside isolated stage (glob has one test file):
+tests/track-b/node_modules/.bin/tsx --test tests/track-b/naive-release-assurance/crash/transitions.test.ts
+
+Final run: exit 0
+PASS ACCEPTANCE: adoption rollback resumes one provider session and one measured charge
+PASS ACCEPTANCE: adoption lost_ack resumes one provider session and one measured charge
+PASS ACCEPTANCE: settlement rollback resumes one provider session and one measured charge
+PASS ACCEPTANCE: settlement lost_ack resumes one provider session and one measured charge
+PASS ACCEPTANCE: terminal rollback resumes one provider session and one measured charge
+PASS ACCEPTANCE: terminal lost_ack resumes one provider session and one measured charge
+PASS ACCEPTANCE: cost delivery before_commit retries durable outcome with identical payload
+PASS ACCEPTANCE: cost delivery lost_ack retries durable outcome with identical payload
+PASS ACCEPTANCE: provider create acknowledgement loss recovers by lookup before any replay
+PASS ACCEPTANCE: two finalizers race the actual SQL CAS and deliver one idempotent charge
+PASS CHARACTERIZATION D1: changed usage after settlement/task-CAS crash diverges ledger and delivered cost
+
+tests 11; pass 11; fail 0; cancelled 0; skipped 0; todo 0
+duration_ms 66179.349291
+
+Interpretation: 10 local acceptance scenarios pass; one passing characterization
+reproduces a production accounting-consistency defect. This is not 11 acceptance
+passes and does not establish live provider / cloud / external PostgreSQL behavior.
+See README.md for the acceptance map, minimal repro, dependency setup, and limits.

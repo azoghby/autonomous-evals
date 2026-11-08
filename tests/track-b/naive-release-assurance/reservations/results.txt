@@ -1,0 +1,24 @@
+SQL proof: PostgreSQL 18.6 on aarch64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.5), 64-bit; four independent sessions, Unix sockets, READ COMMITTED
+▶ native PostgreSQL reservations (production ledger/runtime; fake provider only)
+  ✔ ACCEPTANCE: simultaneous role scope reservations admit exactly one; loser spends nothing (32.938666ms)
+  ✔ ACCEPTANCE: simultaneous job scope reservations admit exactly one; loser spends nothing (64.445708ms)
+  ✔ ACCEPTANCE: simultaneous role+job scope reservations admit exactly one; loser spends nothing (39.09325ms)
+  ✔ ACCEPTANCE: simultaneous same-ID requests create one commitment and replay across sessions (47.019208ms)
+  ✔ ACCEPTANCE: role and job caps are independently enforced, immutable after settlement, and conflicts roll back (59.986333ms)
+  ✔ ACCEPTANCE: identity cannot change job, amount or scope under an accepted reservation ID (56.534625ms)
+  ✔ ACCEPTANCE: refusal remains immutable after capacity is released; fresh identity can use the release (30.178958ms)
+  ✔ ACCEPTANCE: concurrent first settlement is immutable; full overage blocks both scopes without clamping (44.300042ms)
+  ✔ ACCEPTANCE: invalid settlement cannot release capacity; measured zero releases both role and job (20.758ms)
+  ✔ ACCEPTANCE: exact cap is admitted; zero cap and a single micro-USD beyond cap are denied (84.952459ms)
+  ✔ ACCEPTANCE: independent runtimes reserve before dispatch; unsettled session prevents second job dispatch (32.692959ms)
+  ✔ CHARACTERIZATION: runtime completes clean output even over cap; accounts full overage and blocks next dispatch (49.575875ms)
+  ✔ CHARACTERIZATION: invalid usage retains reservation; terminal operator state needs explicit manual reconciliation (103.436584ms)
+✔ native PostgreSQL reservations (production ledger/runtime; fake provider only) (8217.593375ms)
+ℹ tests 13
+ℹ suites 1
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9605.096667

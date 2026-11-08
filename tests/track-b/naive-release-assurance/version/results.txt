@@ -1,0 +1,24 @@
+Staged exact command: tests/track-b/node_modules/.bin/tsx --test tests/track-b/naive-release-assurance/version/version.test.ts
+▶ exact provisioned version: real runtime + real local SQL + established fake provider
+  ✔ ACCEPTANCE: verifies list-time exact version despite latest advancing before identity inspection (1075.003334ms)
+  ✔ ACCEPTANCE: an explicitly configured older pin never advances to current (12.344542ms)
+  ✔ ACCEPTANCE: rejects returned version substitution and unsafe exact configuration before dispatch (11.578125ms)
+  ✔ ACCEPTANCE: fresh runtime reuses completed SQL result only under the same exact pin (246.429291ms)
+  ✔ ACCEPTANCE: changed exact pin blocks completed task reuse with zero SQL/provider/cost mutation (393.456125ms)
+  ✔ ACCEPTANCE: changed exact pin blocks created task reuse with zero SQL/provider/cost mutation (51.102ms)
+  ✔ ACCEPTANCE: changed exact pin blocks ambiguous task reuse with zero SQL/provider/cost mutation (177.202166ms)
+  ✔ ACCEPTANCE: deliberately bumped attempt creates a new exact-version intent and reservation (371.187209ms)
+  ✔ CHARACTERIZATION V1: mutating a verified directory before first dispatch silently selects an unverified version (135.370166ms)
+  ✔ CHARACTERIZATION V2: runtime accepts a directory with omitted version and durably reuses an unpinned result (65.886541ms)
+  ✔ CHARACTERIZATION V3-poll: a version change first observed during polling overwrites the adopted exact version (274.619625ms)
+  ✔ CHARACTERIZATION V3-recovery: lookup adopts a wrong-version session under the unchanged task pin (285.44675ms)
+  ✔ CHARACTERIZATION V3: mismatched returned version is completed, settled, delivered and reused against the verified pin (199.233167ms)
+✔ exact provisioned version: real runtime + real local SQL + established fake provider (16181.225708ms)
+ℹ tests 13
+ℹ suites 1
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19449.09175

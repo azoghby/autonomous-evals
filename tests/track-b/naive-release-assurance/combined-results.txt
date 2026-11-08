@@ -1,0 +1,68 @@
+Strict scoped check: 4 files; dependency roots ["/tmp/autonomous-evals-checks.m10du4/node_modules","/tmp/trackb-harness/node_modules"]
+{"command":"/usr/local/bin/node","args":["/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/naive-release-assurance-k4HgUS/node_modules/typescript/bin/tsc","-p","tsconfig.json"]}
+{"command":"/usr/local/bin/node","args":["--import","/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/naive-release-assurance-k4HgUS/node_modules/tsx/dist/loader.mjs","--test","--test-concurrency=1","tests/track-b/naive-release-assurance/cost/delivery.test.ts","tests/track-b/naive-release-assurance/crash/transitions.test.ts","tests/track-b/naive-release-assurance/reservations/reservations.test.ts","tests/track-b/naive-release-assurance/version/version.test.ts"]}
+▶ acceptance: measured cost delivery to a contract-conforming local app boundary
+  ✔ replays the identical measured entry/key after reconstruction without adding app spend or reservations (1333.02225ms)
+  ✔ blocks success on before_commit sink failure and replays the persisted cost without provider work (816.873666ms)
+  ✔ blocks success on after_commit sink failure and replays the persisted cost without provider work (863.56425ms)
+  ✔ propagates same-key changed-amount rejection from the app boundary, preserving the original charge (1362.093292ms)
+  ✔ rejects changed task input before stale measured cost redelivery (2387.972208ms)
+  ✔ delivers and deduplicates measured cost even for schema_failed (1545.383292ms)
+  ✔ delivers and deduplicates measured cost even for budget_paused (1106.148583ms)
+  ✔ delivers and deduplicates measured cost even for failed (1018.997875ms)
+  ✔ delivers and deduplicates measured cost even for needs_operator (986.816166ms)
+  ✔ delivers measured zero as a real row, rather than treating it as unknown usage (1221.160416ms)
+  ✔ holds unknown terminal usage without manufacturing or delivering a zero charge (1654.203792ms)
+  ✔ CHARACTERIZATION: runtime forwards changed same-key amounts if the app sink accepts them (578.830416ms)
+✔ acceptance: measured cost delivery to a contract-conforming local app boundary (14880.564417ms)
+✔ ACCEPTANCE: adoption rollback resumes one provider session and one measured charge (828.064ms)
+✔ ACCEPTANCE: adoption lost_ack resumes one provider session and one measured charge (781.118208ms)
+✔ ACCEPTANCE: settlement rollback resumes one provider session and one measured charge (520.865583ms)
+✔ ACCEPTANCE: settlement lost_ack resumes one provider session and one measured charge (827.442291ms)
+✔ ACCEPTANCE: terminal rollback resumes one provider session and one measured charge (1222.206042ms)
+✔ ACCEPTANCE: terminal lost_ack resumes one provider session and one measured charge (1163.43275ms)
+✔ ACCEPTANCE: cost delivery before_commit retries durable outcome with identical payload (1096.784583ms)
+✔ ACCEPTANCE: cost delivery lost_ack retries durable outcome with identical payload (1332.10625ms)
+✔ ACCEPTANCE: provider create acknowledgement loss recovers by lookup before any replay (901.191167ms)
+✔ ACCEPTANCE: two finalizers race the actual SQL CAS and deliver one idempotent charge (809.072834ms)
+✔ CHARACTERIZATION D1: changed usage after settlement/task-CAS crash diverges ledger and delivered cost (687.48925ms)
+SQL proof: PostgreSQL 18.6 on aarch64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.5), 64-bit; four independent sessions, Unix sockets, READ COMMITTED
+▶ native PostgreSQL reservations (production ledger/runtime; fake provider only)
+  ✔ ACCEPTANCE: simultaneous role scope reservations admit exactly one; loser spends nothing (54.56825ms)
+  ✔ ACCEPTANCE: simultaneous job scope reservations admit exactly one; loser spends nothing (27.123083ms)
+  ✔ ACCEPTANCE: simultaneous role+job scope reservations admit exactly one; loser spends nothing (29.765125ms)
+  ✔ ACCEPTANCE: simultaneous same-ID requests create one commitment and replay across sessions (24.168666ms)
+  ✔ ACCEPTANCE: role and job caps are independently enforced, immutable after settlement, and conflicts roll back (25.918708ms)
+  ✔ ACCEPTANCE: identity cannot change job, amount or scope under an accepted reservation ID (19.402834ms)
+  ✔ ACCEPTANCE: refusal remains immutable after capacity is released; fresh identity can use the release (39.434959ms)
+  ✔ ACCEPTANCE: concurrent first settlement is immutable; full overage blocks both scopes without clamping (48.975834ms)
+  ✔ ACCEPTANCE: invalid settlement cannot release capacity; measured zero releases both role and job (59.364666ms)
+  ✔ ACCEPTANCE: exact cap is admitted; zero cap and a single micro-USD beyond cap are denied (18.315709ms)
+  ✔ ACCEPTANCE: independent runtimes reserve before dispatch; unsettled session prevents second job dispatch (23.483625ms)
+  ✔ CHARACTERIZATION: runtime completes clean output even over cap; accounts full overage and blocks next dispatch (29.505041ms)
+  ✔ CHARACTERIZATION: invalid usage retains reservation; terminal operator state needs explicit manual reconciliation (34.003292ms)
+✔ native PostgreSQL reservations (production ledger/runtime; fake provider only) (2259.161875ms)
+▶ exact provisioned version: real runtime + real local SQL + established fake provider
+  ✔ ACCEPTANCE: verifies list-time exact version despite latest advancing before identity inspection (56.395ms)
+  ✔ ACCEPTANCE: an explicitly configured older pin never advances to current (3.863375ms)
+  ✔ ACCEPTANCE: rejects returned version substitution and unsafe exact configuration before dispatch (4.59775ms)
+  ✔ ACCEPTANCE: fresh runtime reuses completed SQL result only under the same exact pin (15.865834ms)
+  ✔ ACCEPTANCE: changed exact pin blocks completed task reuse with zero SQL/provider/cost mutation (26.078833ms)
+  ✔ ACCEPTANCE: changed exact pin blocks created task reuse with zero SQL/provider/cost mutation (12.827625ms)
+  ✔ ACCEPTANCE: changed exact pin blocks ambiguous task reuse with zero SQL/provider/cost mutation (9.946375ms)
+  ✔ ACCEPTANCE: deliberately bumped attempt creates a new exact-version intent and reservation (17.519125ms)
+  ✔ CHARACTERIZATION V1: mutating a verified directory before first dispatch silently selects an unverified version (12.833917ms)
+  ✔ CHARACTERIZATION V2: runtime accepts a directory with omitted version and durably reuses an unpinned result (17.609791ms)
+  ✔ CHARACTERIZATION V3-poll: a version change first observed during polling overwrites the adopted exact version (11.020042ms)
+  ✔ CHARACTERIZATION V3-recovery: lookup adopts a wrong-version session under the unchanged task pin (14.921125ms)
+  ✔ CHARACTERIZATION V3: mismatched returned version is completed, settled, delivered and reused against the verified pin (10.567875ms)
+✔ exact provisioned version: real runtime + real local SQL + established fake provider (1992.422167ms)
+ℹ tests 49
+ℹ suites 3
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32645.297792
+PASS: strict TypeScript and all four scoped evidence groups. Characterizations do not confer production acceptance.
