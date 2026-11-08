@@ -10,6 +10,8 @@ export interface EmailMessage {
   attachments?: EmailAttachment[];
   /** Extra headers (AgentMail only), e.g. List-Unsubscribe. */
   headers?: Record<string, string>;
+  /** Reply-To address (AgentMail only). */
+  replyTo?: string;
 }
 export interface SentEmail { id: string | null; threadId?: string | null }
 
@@ -24,7 +26,7 @@ export const isEmailConfigured = () =>
 export async function sendEmail(msg: EmailMessage): Promise<SentEmail> {
   if (isAgentMailConfigured()) {
     const sent = await sendFromInbox(inboxIdFor(msg.purpose ?? "commercial"), {
-      to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, labels: msg.labels, attachments: msg.attachments, headers: msg.headers,
+      to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, labels: msg.labels, attachments: msg.attachments, headers: msg.headers, replyTo: msg.replyTo,
     });
     return { id: sent.messageId, threadId: sent.threadId };
   }
