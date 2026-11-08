@@ -1,0 +1,28 @@
+✔ offline fixture validates only contract, not live acceptance (0.903667ms)
+✔ refuses unbound receipt (0.188166ms)
+✔ refuses missing payload digest (0.08925ms)
+✔ refuses duplicate cost row (1.205542ms)
+✔ refuses revoked owner access (0.185709ms)
+✔ refuses mock fallback (0.12025ms)
+✔ refuses fixture source (0.230292ms)
+✔ refuses calendar inconclusive (0.1125ms)
+✔ refuses different suite (0.11175ms)
+✔ refuses same process (0.194542ms)
+✔ refuses duplicate cost dispatch (0.101375ms)
+✔ refuses lost receipt (0.085917ms)
+✔ refuses report changed (0.077209ms)
+✔ refuses chat leak (0.073083ms)
+✔ refuses report token chat access (0.06375ms)
+✔ cannot run app adapter without explicit live flag (0.5755ms)
+✔ reuses immutable accepted design and computes operation caps (1.770625ms)
+✔ explicit live gate refuses implicit invocation and does not load private config (55.688541ms)
+✔ private file refs work; permissive, multiline and missing refs are refused (4.314959ms)
+✔ staged executable imports actual core paths and validates accepted digest without network (1035.632833ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1192.34175

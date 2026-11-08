@@ -1,0 +1,30 @@
+import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const args = process.argv.slice(2);
+if (args.length !== 1 || args[0].startsWith('-')) throw new Error('Usage: node tests/track-b/live-acceptance/offline/run.mjs <local-track-a-ref>');
+const json = async p => JSON.parse(await readFile(resolve(repo, p), 'utf8'));
+const artifact = await json('packages/core/src/evals/text/__tests__/evidence/text-design-v3-2026-11-07.json');
+assert.equal(artifact.outcome.status, 'completed');
+assert.equal(artifact.outcome.suite.scenarios.length, 12);
+assert.equal(artifact.validationScope.measuredSessionMicroUsd, 129924);
+assert.equal(artifact.sessions.length, 2);
+assert.ok(artifact.sessions.every(s => s.state === 'completed'));
+const verification = await json('tests/track-b/live-evidence/naive-configuration-verification-2026-11-07.json');
+assert.equal(verification.status, 'verified');
+assert.deepEqual(verification.result.created, []);
+assert.deepEqual(verification.result.missing, []);
+assert.deepEqual(verification.calls, ['list', 'get', 'getVersion', 'get', 'getVersion', 'get', 'getVersion', 'get', 'getVersion']);
+const previous = await json('tests/track-b/live-evidence/naive-four-roles-2026-11-07.json');
+assert.deepEqual(verification.result.directory, previous.directory);
+assert.equal(Object.keys(verification.result.directory).length, 4);
+for (const role of Object.values(verification.result.directory)) assert.equal(role.agentVersion, 1);
+console.log('Historical evidence assertions passed: accepted twelve/129924 micro-USD and exact four roles. No provider inspection or design performed.');
+const child = spawnSync(process.execPath, [resolve(repo, 'tests/track-b/integration-acceptance/run.mjs'), args[0]], {
+  cwd: repo, stdio: 'inherit', timeout: 180000,
+});
+if (child.error || child.status !== 0) throw new Error('Offline integration acceptance failed (see test output).');
+console.log('OFFLINE ONLY: historical evidence plus existing fixture integration; not provider or deployed-app acceptance.');

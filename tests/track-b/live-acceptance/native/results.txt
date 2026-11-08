@@ -1,0 +1,140 @@
+{
+  "runtime": "embedded-postgres@18.6.0-beta.19",
+  "platformPackage": "@embedded-postgres/darwin-arm64",
+  "platformIntegrity": "sha512-FHuiAR1sQUw8J6M+UVFlzd1D8oP4rlL+16Zgd1STqCCzWmO6dFjXBCEQ2I1JaGVQKOE85NlCjNNKuy8RiIrsqw==",
+  "node": "v24.21.0",
+  "typescript": "5.9.3",
+  "scope": "LOCAL_NATIVE_SQL_AND_LOOPBACK_TLS_ONLY; no external providers",
+  "sourceHashes": {
+    "packages/core/src/contracts/conformance.ts@f0068733ca49c37f40fd7de279325f21a4b5fbbb": "b8365fdbec6c0d66ffe934372e4e13b271636827a8919453fca602bc6219e61e",
+    "packages/core/src/contracts/experts.ts@f0068733ca49c37f40fd7de279325f21a4b5fbbb": "d80838064a796bbc5ab491e637fdbeda6f8b2973ceee89b2d7278d6cc462959d",
+    "packages/core/src/contracts/fixtures/index.ts@f0068733ca49c37f40fd7de279325f21a4b5fbbb": "9a3aca1ec9eb3c0c5a3635479e1f0afde015a7b03decc7fd39b2ddbbb22add1a",
+    "packages/core/src/contracts/index.ts@f0068733ca49c37f40fd7de279325f21a4b5fbbb": "0184c1b8c0bf1a29f1484c7a5d664b22143a8e861ad1c0a0d64a8233226123be",
+    "packages/core/src/contracts/services.ts@f0068733ca49c37f40fd7de279325f21a4b5fbbb": "399ada75c89e1a7decec6198d1bafc7a0332212ad67759b65f7abb7859073012",
+    "packages/core/src/agents/__tests__/fakes.ts": "104c18cd24d343a89cba9b74d75256397a59cf1e2ba3173ea53736d801ad1f56",
+    "packages/core/src/agents/commercial.ts": "4b2af241de80589e858fd4c840dd785284b8e646898f1e8145ed102e916b672c",
+    "packages/core/src/agents/file-ports.ts": "d238a141842f75ecbecb6106bad594f66705011b354540aab8d67fe010d6cf39",
+    "packages/core/src/agents/live-diagnostic.ts": "1c5538fae3937b913b225f2ad559d6ec576b9d8262616e305b6e54517f5a6969",
+    "packages/core/src/agents/memory-ports.ts": "c58c10bd06d22c9469a9302f81b93d7d42fe5c74ab256fa15b85b674c9a089d1",
+    "packages/core/src/agents/naive-adapter.ts": "3f1167a9477293d587f023d8be74b6d8e5069368df6956609b5352ca7a97937a",
+    "packages/core/src/agents/operator.ts": "aebf8a875affb95c64d4eb4cde6454b0348387d4647c2a46efd83b9476653dfa",
+    "packages/core/src/agents/postgres-ports.ts": "03de2a33fc9b6ac639d2901cddd46250f1442a5bdd091562818d94ed6fdcd46e",
+    "packages/core/src/agents/provision.ts": "b0105becf67e589aa6ad825e58404042bcc6b391f30a4acf211607264b3fc27f",
+    "packages/core/src/agents/redact.ts": "2e986d676076967e2574b91e96a14b58e119e0f460ee301a756f09a49c59a9a4",
+    "packages/core/src/agents/roles.ts": "0d6e47eff041eb5ed7adbb82d1d6281ca589b85c8f195a54dc61cdca6f4bad02",
+    "packages/core/src/agents/runtime.ts": "2b50d36b8d8d329ef79dbc0007cf9ee88c338c26ef1c6f081a5d83c590c00b93",
+    "packages/core/src/agents/session-service.ts": "8e26a45c8d93d7ff344e0cbdac9b9a995d97108a21f39a473f58056c32c64e8e",
+    "packages/core/src/evals/calendar-integration/index.ts": "38cd284d2145dabeecdf427011a8e5fde899496dcee358a4f329310686eeb0f9",
+    "packages/core/src/evals/data/acquisition.ts": "3fdda9ae3bc5d118e12647dfe17e7847c392b685d0d991e26b5d90a5b8fe1905",
+    "packages/core/src/evals/data/adapters/expert.ts": "3bd97e67fa440c2b118a08a22c217d685a931e55f9cf1ff337a7eb5cc81b8e87",
+    "packages/core/src/evals/data/adapters/fixtures.ts": "ba3117d1fe08645f2ab558f28cf27a3bd7feb5072a16e917343f44fa8ffcb684",
+    "packages/core/src/evals/data/adapters/generation.ts": "387ff008cc2b5ecc017eb737d0772509a2b34ab827baf053839270da1df98877",
+    "packages/core/src/evals/data/adapters/index.ts": "57b04f9083aa82a3e84043ee94c2540e35f2a7d7e795866def88d09369c41223",
+    "packages/core/src/evals/data/adapters/mapping.ts": "1387141f78434a6159e0f5477012af7c22e6a8462cb3e3da1382462036556837",
+    "packages/core/src/evals/data/adapters/sources.ts": "3654efab5d2762242a8498b0cc4e0b93b0858fba88f41410fc1333b2407e479a",
+    "packages/core/src/evals/data/binding.ts": "973f76482f41d41e0e188e4fdc467db2b9d61ef16aa0d58cb2482ef6bb622ed2",
+    "packages/core/src/evals/data/discovery/index.ts": "1d632879548b00c7c08aeb465c94d6a57824b006e3f1ea3b66b11fd4ac0037ce",
+    "packages/core/src/evals/data/discovery/persistence/index.ts": "bb6cdb092d9dbad2c871d58fc23b55153e16cadaa8bd6f04faac078cd17769b3",
+    "packages/core/src/evals/data/discovery/persistence/validation.ts": "d023fd52a926026a8f22de534a9ab07695db2c065b4dfc8697950b5c41dc6943",
+    "packages/core/src/evals/data/discovery/rejection.ts": "0a9ecf9006ff7900553804cdda796642ffe3a3d66dcd3aca93837e19ea444575",
+    "packages/core/src/evals/data/expert.ts": "6a81270fdd19d6f3b2cd1df230204daa490b74fb718d945fdfc54aa5b0d97f93",
+    "packages/core/src/evals/data/index.ts": "af3ff261b413f2a1f5663cd7e8a6a802cee1e4c835b485cef7a5831d5ef5f896",
+    "packages/core/src/evals/data/operation-ledger.ts": "72e35de56b8c0b42943ef8bf9729f969798c07062aff2ce0e1dd76486648ee1e",
+    "packages/core/src/evals/data/orchestration.ts": "cce77b48e620602f6bcd4a3a67128c248b43000f1922b2e9767c4a1d52a10d29",
+    "packages/core/src/evals/data/persistence.ts": "fee971e3910bbe41a09fb2bd392ab6ab6d3ae923f19f8906c240250dcaef5480",
+    "packages/core/src/evals/data/postgres-store.ts": "e35f3b0c79a77730fed7af25eb7e192ffee857921d0a76a177ec230093644a5c",
+    "packages/core/src/evals/data/quality.ts": "f5e0029bc7d206e502b44153d9ef91c06a042d7e1d4cb37960b86ebb24a1224a",
+    "packages/core/src/evals/data/review-ledger.ts": "e8e726d614d12e29e63ad9b0b5b568ab76f0e587365c7e71bffc64d9c1e0693d",
+    "packages/core/src/evals/data/types.ts": "4bcc9e5b7d07b21dc8b7d10665bc93dc92038729fc17989a1625eedc59b80cea",
+    "packages/core/src/evals/index.ts": "b61b7665b185f664514d7a9c854d1fb8b1a1493376e54acfab73ac406cdfbefa",
+    "packages/core/src/evals/integration/checkpoints.ts": "4183a1d4e2ea0c0ab7c3e5d16439c21e255c3951f98836420e6f03b0ecc897ac",
+    "packages/core/src/evals/integration/index.ts": "53d93ebad2b64c906664e7e03409df5c39229a661b1145407067e1bd4672f6a3",
+    "packages/core/src/evals/integration/services.ts": "3968b632fd4941ff7a2bc5cf146bf730a6cd6401d9c5af47a066de538f4f176b",
+    "packages/core/src/evals/pricing.ts": "4d0c4b4313c2d7bc34e00c91c2507cc3e9f16671e619ef6245860da7ffa92729",
+    "packages/core/src/evals/remediation/index.ts": "9dcde14599258491e0a51e940fc6cd44a1fa2709cf391f0080993822e16899fa",
+    "packages/core/src/evals/service-adapter.ts": "88dc4fcd813b88f939ec75e6e695df401a63f56acdd2f49bd1d4ebc66d8c42cd",
+    "packages/core/src/evals/text/__tests__/fixtures.ts": "4c0ba90dfe2ff2e56e3e8003b3c2ff51945636cc58b4528a78ec1ad909dc25f8",
+    "packages/core/src/evals/text/admission.ts": "fbd5dc3fa0c64b2dd38d7b923ae932401fe1095ca166fb62f9cf6fd2550bec3c",
+    "packages/core/src/evals/text/design.ts": "ff6dbea149c94df35a6095e95621debbbbeaf0393e40141f80997275d8ea2039",
+    "packages/core/src/evals/text/execute.ts": "ca1423965177be93c1e923d1aca0e0babff08b3b95c3ffc7f190c11b8ccfd54b",
+    "packages/core/src/evals/text/freeze.ts": "0d627cf35c9d81b7ad4ada3f54a087b470d0a7b1d512267886d16a8fa4392caf",
+    "packages/core/src/evals/text/index.ts": "6ad405d6fa259ced3b0ad8d456fda27e4d6e54ef51ef130df56046b661ccbaca",
+    "packages/core/src/evals/text/investigate.ts": "22ea27d0999c6a0281d67f1f762a3cdfb758a3d9d32887dfc3ae1030d67a94b1",
+    "packages/core/src/evals/text/monitoring.ts": "0f8326f071d5d1744638368fe41d03dbb047c6f82ca84d2da0623bb81df1a3c7",
+    "packages/core/src/evals/text/objective.ts": "9a86e4973476989fcacfbc66f313ba07ff6b9e4ae28be2f377f861aa9c8fefa7",
+    "packages/core/src/evals/text/rubric-admission.ts": "76f41478f9638c75e13290a18e244fbdc4251a61c75eb4424cc10ecc5121cc6e",
+    "packages/core/src/evals/text/schema.ts": "37046de0806dea6bf52d1e993ee7d0ddae14b8516317867e6ac1772a735ca412",
+    "packages/core/src/evals/trace/audit.ts": "03f258a149ba01a9c286e5a5f36d5e7c291a1bbb15e1d0aefd1553341c4d7210",
+    "packages/core/src/evals/trace/detect.ts": "66b89a107231e949fc23f82c67a95822e4a584e580a28e27f92065f375e31074",
+    "packages/core/src/evals/trace/normalize.ts": "01425ceb5abb21bb6348c695a6577b65593a4b60e878ff28f9103e2a287ec240",
+    "packages/core/src/evals/types.ts": "f1a25662908877cc9c55835c6c3ec5307a6960902d96eccea8abe8c879f187e6",
+    "packages/core/src/judges/gateway.ts": "ecc09a4ca7c832bc94774b74c23308d7cec331849d9bc2bbde53dd0898dea727",
+    "packages/core/src/monitoring/adapters.ts": "1f005461296a9647e12d239189b0658bc29d85fd60da9ce3e458804274657973",
+    "packages/core/src/monitoring/composition.ts": "523e2e3dea278c46a0120d44259b3414cb894faed41592e5f61efe848cc23b77",
+    "packages/core/src/monitoring/index.ts": "7fa29e33d996d1d23a702c1289f790b7bda05a75e7a4cedf3f2c16f716563158",
+    "packages/core/src/reporting/calendar.ts": "177e6e72f823af432ec7ce390d3affc326ba6649ee1809f9946cf0d019221496",
+    "packages/core/src/reporting/chat/answers.ts": "0fcc60d54324f5889428e05803a0240b091435c679d9f57e0bac4be3040b4d5a",
+    "packages/core/src/reporting/chat/file-conversations.ts": "3469c3f72f7f0e6874993bdb865776ff83c4ec54d9d717861bdf0bee0de0ba1d",
+    "packages/core/src/reporting/chat/index.ts": "31ba9f9973969ceff46db45cd03fda237bd547e03cfa15684be29bea8441617b",
+    "packages/core/src/reporting/chat/postgres-conversations.ts": "ae5bb532aff6488d4a696bb47abc325982768e2d9c8c91d891926417764e8ac1",
+    "packages/core/src/reporting/chat/projection/index.ts": "bc66a011c68de46e82fe062bec0ae289872a433adf74735db921fb92faf5de97",
+    "packages/core/src/reporting/chat/projection/reader.ts": "1d49c02accdf25167435fa72f6ecb5057f8fbd9f489ef48f5e43f81f40421fae",
+    "packages/core/src/reporting/chat/projection/types.ts": "d952623456c67b95e444cadbf98aea42de5cd21e5cf25881af082d3a581aa0ec",
+    "packages/core/src/reporting/chat/service.ts": "0908582241c271ddea6b82c45c8b8f2911e71382050117bf31fd4233c529cd56",
+    "packages/core/src/reporting/chat/types.ts": "3956885913b6295e90518982683d3bfe166b4e3271f1ef8dec4d29fd1e9b5ac4",
+    "packages/core/src/reporting/render.ts": "052ebd6b49d14cb5572b1fd6e02f994d369bdb862b10b339b8707e7ea726db5b",
+    "packages/core/src/simulator/acceptance-scenarios.ts": "64de62d18eb1b6f18f9df1eb0d409e01abc2eacc215ff88bb5d4e063981cae5e",
+    "packages/core/src/simulator/adapters.ts": "c561a2359a6216e2a135545c167fa5ecedf0d2e24fff40a13144abe10f052983",
+    "packages/core/src/simulator/branch-ledger.ts": "a9371168e14f5be0f4213ad38b18380e9a3b3cdcc9960a5ec6e6c1f359c3edaa",
+    "packages/core/src/simulator/calendar.ts": "0d386c755e29159919fcd07e8109ba70962791eca87a671ab60ce91764e850d5",
+    "packages/core/src/simulator/connection.ts": "0f922858c3404cf235609b640fcbfc0df1d2ba753de13b1403363ed96258bda3",
+    "packages/core/src/simulator/fixtures.ts": "ae004d0c601fd9a5177aeb459c7c0f414fa8bc3cb18bd1105401c819d5a3876c",
+    "packages/core/src/simulator/graders.ts": "58644f2b85968cb3f10425eb4a5e075a6e6d30e905247e938c1da3d0a15b60e7",
+    "packages/core/src/simulator/index.ts": "75552ed2ad62cb3819533b0b9d33429c2e99901b79bc195d491c5d375d8cf5e0",
+    "packages/core/src/simulator/neon.ts": "4a4435cfd5d8c8f330adf14bf11346e6edff8bb3c535549ba202c61f9afdfea1",
+    "packages/core/src/simulator/pool.ts": "3bf26a86f23b0d1a890580ac9d0b51ab2093158104fd2d5a4c0cfef50276aad8",
+    "packages/core/src/simulator/postgres.ts": "af17532c50643d5c1ebc9c5e0c69bd9fdb2bc434d31efd233ebeb0240e43f13e",
+    "packages/core/src/simulator/runner.ts": "3905b38670f7c963701ada26fc8b79d55a4db8f83eaf504f461bd31647397e43",
+    "packages/core/src/simulator/workflow/index.ts": "8fc82fb4ba259337051ea9d4749d800c4ab035b183743d98857be7cadf43f18b",
+    "packages/core/src/simulator/workflow/postgres-journal.ts": "6c6277cce3b8c558fdf1e623b8b22771aae4c356b0cb53b07a9cf2dd5e430e6c",
+    "packages/core/src/targets/adapters.ts": "50b7c7235dd18c7470016695dba00e25d1195ef25017de9a0fb6325aca5a729a",
+    "packages/core/src/targets/chat.ts": "989c1b9f7a44ace0dab18972077962cd8be80ba0d8ec758a053e53890e204b93",
+    "packages/core/src/targets/index.ts": "35865f4197ef675769e9253ccf88cece5e5a89db389ce5761ffa95ed6f51ba83",
+    "packages/core/src/targets/public-source.ts": "7e90452c10f47eb43e61cf626f64a45f02e0df5f895f889e604194c5a6351a30",
+    "packages/core/src/targets/remediation.ts": "d1e8db64747234a123c5d62378cf2d72363c589b97b849efed1b9f7ced4810f4",
+    "packages/core/src/targets/text.ts": "b16a56aa11e4d723dc74f24fde2f15aa86744bf0aed8a1bf8675a648cc89fe00",
+    "packages/core/src/targets/transport.ts": "66dfd52a794d23b971b0b7e2a310a5e5153951d59b8b08b2a6abf98ac93e23b3"
+  }
+}
+SERVER {"version":"PostgreSQL 18.6 on aarch64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.5), 64-bit","listen":"127.0.0.1","fsync":"on","synchronous_commit":"on","full_page_writes":"on"}
+EVIDENCE advisory: {"pid":27595,"wait_event":"advisory","blockers":[27594]}
+PASS 1: same job serializes real sessions; other job proceeds; waiter sees committed ready
+PASS 2: creating is externally visible before callback failure and retained by fresh ledger
+EVIDENCE advisory: {"pid":27595,"wait_event":"advisory","blockers":[27594]}
+PASS 3: backend termination releases session lock while original callback remains active
+PASS 4: calendar transaction pins PID, hides uncommitted writes, commits, and closes executor
+PASS 5: calendar callback failure rolls back and reuses a clean connection without retry
+EVIDENCE row update: {"pid":27599,"wait_event":"transactionid","blockers":[27598]}
+PASS 6: concurrent calendar row updates block on the actual holder and preserve both increments
+PASS 7: terminated calendar backend rolls back, fails commit once, discards and replaces connection
+PASS 8: creating intent survives clean PostgreSQL process restart and new pool
+RESULT 8/8 live PostgreSQL checks passed; zero skipped
+CHECKPOINT independent backends: 27631, 27632
+CHECKPOINT PASS 1: concurrent claims yield one durable owner and one pending observer
+CHECKPOINT PASS 2: completion is immutable, replayable and isolated across jobs
+CHECKPOINT PASS 3: released claims rotate ownership; ambiguous calls cannot be reacquired
+CHECKPOINT PASS 4: pending dispatch intent and completed result survive clean server restart
+CHECKPOINT RESULT 4/4 live PostgreSQL checks passed; zero skipped
+RECOVERY PASS 1: native sessions serialize same-key journals while durable pending intent is visible before dispatch
+RECOVERY PASS 2: terminated backend releases native journal lock, retains intent, and never retries callback
+RECOVERY PASS 3: private chat persists one immutable exchange across independent sessions and isolates subject/job
+RECOVERY PASS 4: native server restart preserves pending journal intent and immutable private chat
+RECOVERY PASS 5: native recovered intent cannot erase, complete without durable intent, or exceed three candidates
+RECOVERY RESULT 5/5 actual native PostgreSQL checks passed; zero skipped
+LOCAL VITEST PASS src/targets/tls.test.ts: 7/7; zero skipped
+LOCAL VITEST PASS src/reporting/chat/postgres-conversations.test.ts: 15/15; zero skipped
+LOCAL VITEST PASS src/evals/text/__tests__/live-v3.test.ts: 16/16; zero skipped
+LOCAL VITEST PASS src/targets/remediation.test.ts: 31/31; zero skipped
+LOCAL VITEST PASS src/evals/remediation/remediation.test.ts: 23/23; zero skipped
+NATIVE ACCEPTANCE PASS: existing SQL concurrency/checkpoints, native journal/chat restart, real local TLS; external-provider acceptance NOT RUN.
+LOCAL CLEANUP stopped=true; disposable directory removed=true

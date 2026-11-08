@@ -1,0 +1,56 @@
+Historical evidence assertions passed: accepted twelve/129924 micro-USD and exact four roles. No provider inspection or design performed.
+Track B HEAD eb285be3e13bbc34abf483e4819773b19f8448d2; Track A f0068733ca49c37f40fd7de279325f21a4b5fbbb; providers disabled; one worker
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-o5OSz4
+
+ ❯ acceptance.test.ts (9 tests | 1 failed) 1010ms
+   ❯ ACCEPTANCE — locally composed durable seams (5)
+     ✓ A1 Trace Audit uses Track A composition, preserves failed-tool evidence in report and deduplicates measured replay costs 31ms
+     ✓ A2 Text SQL checkpoints feed real reporting and authorized private persisted chat without replay target calls 95ms
+     ✓ A3 Calendar unresolved infrastructure evidence survives SQL replay, report and progress without a false pass or reproduction 65ms
+     × A5 Calendar fixed reference passes SQL checks while a no-op fixture yields reproduced failures in the exported report 81ms
+     ✓ A4 Missing data and expert verification stay durable blockers and cannot become factual Text design input 10ms
+   ✓ REGRESSION — report and chat finding preservation (2)
+     ✓ G4 persisted confirmed Text findings appear as private opaque chat findings 65ms
+     ✓ G2 shared finding round trip preserves the original artifact without inferring provenance from prose 0ms
+   ✓ CHARACTERIZATION — open integration gaps, not acceptance (2)
+     ✓ G3 Track A accepts 32 shared scenarios but this establishes no appended red-team execution 1ms
+     ✓ G1 actual Track A composition refuses Text/Calendar legacy phases, rerun and verified remediation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  acceptance.test.ts > ACCEPTANCE — locally composed durable seams > A5 Calendar fixed reference passes SQL checks while a no-op fixture yields reproduced failures in the exported report
+AssertionError: expected [] to include 'passed'
+ ❯ acceptance.test.ts:228:44
+    226|       const c = chat(await runPlan(job, 'calendar_run', run, suite.has…
+    227|       const progress = await c.projection.project({ subjectId: 'owner'…
+    228|       expect(progress.phases[0]?.outcomes).toContain(fixed ? 'passed' …
+       |                                            ^
+    229|       expect(progress.snapshot.status).toBe('running');
+    230|       const dispatched = calls;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  16:51:36
+   Duration  1.31s (tests 81%, transform 14%, import 5%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-o5OSz4/results.json
+file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-8bcd3083/tests/track-b/integration-acceptance/run.mjs:39
+    if (r.error || r.status !== 0) throw r.error ?? new Error(`${tool} exited ${r.status}`);
+                                                    ^
+
+Error: vitest/vitest.mjs exited 1
+    at file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-8bcd3083/tests/track-b/integration-acceptance/run.mjs:39:53
+
+Node.js v24.21.0
+file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-8bcd3083/tests/track-b/live-acceptance/offline/run.mjs:29
+if (child.error || child.status !== 0) throw new Error('Offline integration acceptance failed (see test output).');
+                                             ^
+
+Error: Offline integration acceptance failed (see test output).
+    at file:///Users/alexzoghby/.t3/worktrees/YC%20Hackathon%202/t3-8bcd3083/tests/track-b/live-acceptance/offline/run.mjs:29:46
+
+Node.js v24.21.0

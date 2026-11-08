@@ -1,0 +1,21 @@
+{
+  "scope": "actual_app_provider",
+  "caps": {
+    "target": 32,
+    "gateway": 16,
+    "naive": 0,
+    "cloudMutation": 0
+  },
+  "targetCompletionTokenCap": 512,
+  "gatewayCompletionTokenCap": 2048,
+  "naiveDesignRuns": 0,
+  "maxElapsedMs": 180000,
+  "liveRunPerformed": false,
+  "requiredConfiguration": [
+    "adapterModule",
+    "runId",
+    "evidenceFile",
+    "privateRuntimeRef",
+    "approvedCaps"
+  ]
+}

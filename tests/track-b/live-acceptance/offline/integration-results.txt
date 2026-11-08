@@ -1,0 +1,13 @@
+Track B HEAD eb285be3e13bbc34abf483e4819773b19f8448d2; Track A f0068733ca49c37f40fd7de279325f21a4b5fbbb; providers disabled; one worker
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-xT3iSy
+
+ ✓ acceptance.test.ts (9 tests) 1001ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  16:50:53
+   Duration  1.30s (tests 81%, transform 12%, import 7%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/track-b-integration-acceptance-xT3iSy/results.json
+Strict TypeScript passed. 9 tests executed, none skipped. Characterizations are explicitly labeled and are not acceptance.

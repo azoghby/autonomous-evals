@@ -1,0 +1,30 @@
+{
+  "scope": "provider_text_only",
+  "acceptedDesignReused": true,
+  "scenarioIds": [
+    "S01",
+    "S09"
+  ],
+  "targetCalls": 4,
+  "gatewayCalls": 8,
+  "maxTargetCompletionTokensPerCall": 512,
+  "maxGatewayCompletionTokensPerCall": 2048,
+  "retries": 0,
+  "naiveSessions": 0,
+  "cloudMutations": 0,
+  "costMicroUsd": null,
+  "monetaryCap": "Provider billing remains unknown; parent must authorize the operation/token caps separately.",
+  "requiredConfiguration": [
+    "buggy.url",
+    "buggy.model",
+    "buggy.tokenRef",
+    "fixed.url",
+    "fixed.model",
+    "fixed.tokenRef",
+    "gateway.model",
+    "gateway.tokenRef",
+    "runId",
+    "evidenceFile"
+  ],
+  "liveRunPerformed": false
+}
