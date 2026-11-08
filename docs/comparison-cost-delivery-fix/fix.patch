@@ -1,0 +1,12 @@
+--- a/apps/web/src/server/rich-comparison.ts
++++ b/apps/web/src/server/rich-comparison.ts
+@@ -96,6 +96,9 @@
+               const same=await tx.query('SELECT id FROM workflow_comparison.costs WHERE job_id=$1 AND operation_id=$2 AND source=$3 AND id=$4 AND micro_usd=$5',[ctx.jobId,operationId,cost.source,key,cost.microUsd]);
+               if(!same.rows.length) refused();
+             });
++            // Deliver through the app's keyed sink after the local transaction commits.
++            // On failure core retains the cost and the outer tick stays ambiguous.
++            await ctx.recordCost(cost);
+           }};
+           const services = createTextEvaluationServices({checkpoints,runner:runtime.runner,resolveApprovedSuite:async()=>suite,resolve:async()=>{
+             await reauthorize();
