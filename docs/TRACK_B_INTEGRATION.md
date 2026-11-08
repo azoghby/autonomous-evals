@@ -6,7 +6,7 @@ Status: implementation in progress. This document specifies integration requirem
 
 Track B exports TypeScript services for Track A's Workflow steps. It does not start a second job orchestrator, call public customer routes, send outreach, collect payments, or manage Vercel configuration.
 
-The current app-loader/bootstrap mismatch and concrete wiring sequence are recorded in
+The latest Track A composition status and remaining wiring sequence are recorded in
 [track-b-bootstrap.md](track-b-bootstrap.md). The unified `@ae/core/evals/index`
 entry exports factories, not an implicitly authorized global service instance.
 
