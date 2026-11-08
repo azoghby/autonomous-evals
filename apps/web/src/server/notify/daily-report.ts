@@ -12,6 +12,7 @@ import { getTodaysPlan } from "./daily-plan";
 import { formatNotesSection, resolveFounderEmail } from "./founder-email-logic";
 import { markNotesReported, unreportedFounderNotes } from "./founder-email";
 import { formatDailyReport, meanRate, type DailyMetrics } from "./daily-report-logic";
+import { withSessionAdvisoryLock } from "../session-lock";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** "fndrrpt" as an int8 key for pg_try_advisory_lock (distinct from the public-agent cron key). */
@@ -95,34 +96,23 @@ export type ReportOutcome = { status: "sent"; results: ChannelResults; expired: 
 
 /** Once per UTC day (follow_ups claim) and never concurrently (session advisory lock on a dedicated connection). */
 export async function runFounderDailyReport(now = new Date()): Promise<ReportOutcome> {
-  const { Pool } = await import("@neondatabase/serverless");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
-  const client = await pool.connect();
-  try {
-    const { rows } = await client.query("select pg_try_advisory_lock($1::bigint) as ok", [REPORT_LOCK_KEY.toString()]);
-    if (!rows[0]?.ok) return { status: "skipped", reason: "locked" };
-    try {
-      const expired = await expireStaleApprovals(now);
-      const f = schema.followUps;
-      const subjectId = reportClaimId(now);
-      const claim = await db().insert(f).values({ subjectType: "founder_report", subjectId, kind: "founder_report" }).onConflictDoNothing().returning({ id: f.id });
-      if (claim.length === 0) return { status: "skipped", reason: "already_sent" };
-      const notes = await unreportedFounderNotes().catch(() => []);
-      const hint = "\n\nReply to respond: YES ALL approves every pending outreach draft; any other text is saved as a note and never acted on.";
-      const text = (await buildDailyReportText(now)) + formatNotesSection(notes) + hint;
-      const results = await sendFounderText(text, { subject: `Standard Evals daily report — ${now.toISOString().slice(0, 10)}`, threadKind: "report" });
-      if (!Object.values(results).some((r) => r === "sent")) {
-        // Nothing delivered (no channels or all failed): release the claim so a manual re-run can retry.
-        await db().delete(f).where(and(eq(f.subjectType, "founder_report"), eq(f.subjectId, subjectId), eq(f.kind, "founder_report")));
-        return { status: "skipped", reason: `not_delivered: ${JSON.stringify(results)}` };
-      }
-      await markNotesReported(notes.map((n) => n.id), now).catch((err) => console.error("mark notes reported failed", err instanceof Error ? err.message : err));
-      return { status: "sent", results, expired };
-    } finally {
-      await client.query("select pg_advisory_unlock($1::bigint)", [REPORT_LOCK_KEY.toString()]).catch(() => {});
+  const r = await withSessionAdvisoryLock(REPORT_LOCK_KEY, async (): Promise<ReportOutcome> => {
+    const expired = await expireStaleApprovals(now);
+    const f = schema.followUps;
+    const subjectId = reportClaimId(now);
+    const claim = await db().insert(f).values({ subjectType: "founder_report", subjectId, kind: "founder_report" }).onConflictDoNothing().returning({ id: f.id });
+    if (claim.length === 0) return { status: "skipped", reason: "already_sent" };
+    const notes = await unreportedFounderNotes().catch(() => []);
+    const hint = "\n\nReply to respond: YES ALL approves every pending outreach draft; any other text is saved as a note and never acted on.";
+    const text = (await buildDailyReportText(now)) + formatNotesSection(notes) + hint;
+    const results = await sendFounderText(text, { subject: `Standard Evals daily report — ${now.toISOString().slice(0, 10)}`, threadKind: "report" });
+    if (!Object.values(results).some((r) => r === "sent")) {
+      // Nothing delivered (no channels or all failed): release the claim so a manual re-run can retry.
+      await db().delete(f).where(and(eq(f.subjectType, "founder_report"), eq(f.subjectId, subjectId), eq(f.kind, "founder_report")));
+      return { status: "skipped", reason: `not_delivered: ${JSON.stringify(results)}` };
     }
-  } finally {
-    client.release();
-    await pool.end().catch(() => {});
-  }
+    await markNotesReported(notes.map((n) => n.id), now).catch((err) => console.error("mark notes reported failed", err instanceof Error ? err.message : err));
+    return { status: "sent", results, expired };
+  });
+  return r.locked ? { status: "skipped", reason: "locked" } : r.value;
 }

@@ -8,6 +8,7 @@ import { db, schema } from "@ae/core/db/client";
 import { PublicAgentInput, assertAuthorizedToTest, isLocalKind } from "./leaderboard-agents";
 import { SUITE_VERSION } from "./leaderboard";
 import { loadStandardSuite, runPublicAgent, type RunOutcome } from "./public-agent-runner";
+import { withSessionAdvisoryLock } from "./session-lock";
 
 export const DEFAULT_RERUN_HOURS = 24;
 export const DEFAULT_DAILY_BUDGET_USD = 3;
@@ -125,36 +126,25 @@ async function recordFailure(slug: string, microUsd: number, error: string): Pro
 
 /** One cron tick. Holds a session advisory lock on a dedicated connection for the whole run, so overlapping ticks skip. */
 export async function runNextPublicAgent(now = new Date(), log: (l: string) => void = () => {}): Promise<TickResult> {
-  const { Pool } = await import("@neondatabase/serverless");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
-  const client = await pool.connect();
-  try {
-    const { rows } = await client.query("select pg_try_advisory_lock($1::bigint) as ok", [ADVISORY_LOCK_KEY.toString()]);
-    if (!rows[0]?.ok) return { status: "skipped", reason: "locked" };
+  const r = await withSessionAdvisoryLock(ADVISORY_LOCK_KEY, async (): Promise<TickResult> => {
+    const cfg = readConfig();
+    const { agents, schedule } = await loadSchedule(now);
+    if (!agents.length) return { status: "skipped", reason: "no_agents" };
+    if (!budgetAllows(await spentTodayMicroUsd(now), cfg.dailyBudgetMicroUsd)) return { status: "skipped", reason: "budget" };
+    const next = pickNextAgent(agents, schedule, now, cfg.minIntervalMs);
+    if (!next) return { status: "skipped", reason: "nothing_due" };
     try {
-      const cfg = readConfig();
-      const { agents, schedule } = await loadSchedule(now);
-      if (!agents.length) return { status: "skipped", reason: "no_agents" };
-      if (!budgetAllows(await spentTodayMicroUsd(now), cfg.dailyBudgetMicroUsd)) return { status: "skipped", reason: "budget" };
-      const next = pickNextAgent(agents, schedule, now, cfg.minIntervalMs);
-      if (!next) return { status: "skipped", reason: "nothing_due" };
-      try {
-        const outcome = await runPublicAgent(PublicAgentInput.parse(next), {
-          suite: loadStandardSuite(), agentId: next.id, budgetMicroUsd: PER_RUN_BUDGET_MICRO_USD, timeoutMin: RUN_TIMEOUT_MIN, log,
-          apiKeyCiphertext: "apiKeyCiphertext" in next ? (next.apiKeyCiphertext as string | null) : null,
-        });
-        return { status: "ran", outcome };
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        const spent = (e as { spentMicroUsd?: number }).spentMicroUsd ?? 0;
-        await recordFailure(next.slug, spent, msg).catch(() => {});
-        return { status: "failed", slug: next.slug, error: msg };
-      }
-    } finally {
-      await client.query("select pg_advisory_unlock($1::bigint)", [ADVISORY_LOCK_KEY.toString()]).catch(() => {});
+      const outcome = await runPublicAgent(PublicAgentInput.parse(next), {
+        suite: loadStandardSuite(), agentId: next.id, budgetMicroUsd: PER_RUN_BUDGET_MICRO_USD, timeoutMin: RUN_TIMEOUT_MIN, log,
+        apiKeyCiphertext: "apiKeyCiphertext" in next ? (next.apiKeyCiphertext as string | null) : null,
+      });
+      return { status: "ran", outcome };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const spent = (e as { spentMicroUsd?: number }).spentMicroUsd ?? 0;
+      await recordFailure(next.slug, spent, msg).catch(() => {});
+      return { status: "failed", slug: next.slug, error: msg };
     }
-  } finally {
-    client.release();
-    await pool.end().catch(() => {});
-  }
+  });
+  return r.locked ? { status: "skipped", reason: "locked" } : r.value;
 }
