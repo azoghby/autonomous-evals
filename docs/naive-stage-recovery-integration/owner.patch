@@ -1,0 +1,744 @@
+diff --git a/apps/web/src/server/expert-text-runtime.ts b/apps/web/src/server/expert-text-runtime.ts
+--- a/apps/web/src/server/expert-text-runtime.ts
++++ b/apps/web/src/server/expert-text-runtime.ts
+@@ -45,6 +45,7 @@
+  * checks use their own short transaction and do not claim atomic publication. */
+ export async function assertExpertTextStage(jobId:string,tx?:Tx):Promise<void>{
+  const scope=currentWorkflowStageScope();if(!scope)return;
++ scope.assertActive?.();
+  if(scope.owner.jobId!==jobId)return fail();
+  if(tx)await assertWorkflowStageOwner(tx,scope.owner);
+  else await assertWorkflowStageCurrent();
+diff --git a/apps/web/src/server/job-store-stage-sql.test.ts b/apps/web/src/server/job-store-stage-sql.test.ts
+--- a/apps/web/src/server/job-store-stage-sql.test.ts
++++ b/apps/web/src/server/job-store-stage-sql.test.ts
+@@ -31,6 +31,8 @@
+  CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
+  await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
+  await pg.exec(readFileSync(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql','utf8'));
++ await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql','utf8'));
++ await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/002-stage-progress.sql','utf8'));
+  await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4),($5,$2,$3,$4)',[job,'trace_audit',customer,'test',other]);
+  const decision=await tx(t=>claimWorkflowStage(t,claim));if(decision.kind!=='owned')throw Error('owner');state.scope={owner:decision.owner,transaction:tx};
+ });
+@@ -81,3 +83,11 @@
+  await recordCost({jobId:job,source:'ai_gateway',requestId:'late-measured',microUsd:7,meta:{measured:true}});
+  expect(state.settle).toHaveBeenCalledOnce();
+ });
++
++it('deduplicates identical progress across recovered generations while retaining changed messages',async()=>{
++ await recordProgress(job,'audit','Working');await recordProgress(job,'audit','Working');
++ await tx(t=>registerWorkflowStageChild(t,state.scope!.owner,{kind:'retained-test',operationKey:'task',requestDigest:'body'}));await tx(t=>markWorkflowStagePending(t,state.scope!.owner));
++ const next=await tx(t=>recoverWorkflowStage(t,claim,{read:async()=>({state:'resumable',evidenceKey:'task'})}));if(next.kind!=='owned')throw Error('owner');state.scope={owner:next.owner,transaction:tx};
++ await recordProgress(job,'audit','Working');await recordProgress(job,'audit','Finished');
++ expect((await pg.query('SELECT message FROM progress_events ORDER BY created_at')).rows).toEqual([{message:'Working'},{message:'Finished'}]);
++});
+diff --git a/apps/web/src/server/job-store.ts b/apps/web/src/server/job-store.ts
+--- a/apps/web/src/server/job-store.ts
++++ b/apps/web/src/server/job-store.ts
+@@ -1,5 +1,5 @@
+ import "server-only";
+-import { currentWorkflowStageScope } from './workflow-stage-runtime';
++import { workflowStageDigest, currentWorkflowStageScope } from './workflow-stage-runtime';
+ import { publishWorkflowStage } from './workflow-stage-children';
+ 
+ /** A scoped publication must stay on the pinned owner-check transaction. */
+@@ -61,7 +61,11 @@
+ export async function recordProgress(jobId: string, milestone: string, message: string): Promise<void> {
+   const scope=stageScopeFor(jobId);
+   if(scope) {
+-    await publishWorkflowStage(tx=>tx.query('INSERT INTO progress_events(job_id,milestone,message) VALUES($1,$2,$3)',[jobId,milestone.slice(0,100),message.slice(0,1000)]),scope);
++    await publishWorkflowStage(tx=>tx.query(`WITH claim AS (
++      INSERT INTO workflow_stage.progress(job_id,stage_key,milestone,message_digest) VALUES($1,$4,$2,$5)
++      ON CONFLICT DO NOTHING RETURNING job_id)
++      INSERT INTO progress_events(job_id,milestone,message) SELECT job_id,$2,$3 FROM claim`,
++      [jobId,milestone.slice(0,100),message.slice(0,1000),scope.owner.stageKey,workflowStageDigest(message.slice(0,1000))]),scope);
+     return;
+   }
+   await db().insert(schema.progressEvents).values({ jobId, milestone: milestone.slice(0, 100), message: message.slice(0, 1000) });
+diff --git a/apps/web/src/server/services-recovery.test.ts b/apps/web/src/server/services-recovery.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/services-recovery.test.ts
+@@ -0,0 +1,60 @@
++import {afterEach,expect,it,vi} from 'vitest';
++const mocks=vi.hoisted(()=>({create:vi.fn(()=>({qualify:vi.fn(),auditTrace:vi.fn(),renderReport:vi.fn()})),sessions:vi.fn(),runner:vi.fn()}));
++vi.mock('./workflow-stage-children',()=>({fenceWorkflowStageSessions:mocks.sessions,fenceWorkflowStageRunner:mocks.runner}));
++vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),createRealEvalServices:mocks.create}));
++afterEach(()=>vi.unstubAllEnvs());
++it('binds every supported real callback to its raw primary and single retained child profile',async()=>{
++ const {recoverableEvalStage,stageRealEvalServices}=await import('./services');
++ for(const method of ['qualify','auditTrace','renderReport'] as const){
++  vi.stubEnv('EVAL_SERVICES','real');
++  const key=method==='qualify'?'qualification:0':method==='auditTrace'?'trace-audit':'report';
++  const expectedChildKey=method==='qualify'?'job:commercial:qualify_r0:1':method==='auditTrace'?'job:quality_investigator:trace_recheck:1':'job:company_operator:report_summary:1';
++  const selected=await recoverableEvalStage(method,'job',key,{value:1});
++  expect(selected.services).toBe(stageRealEvalServices);
++  expect(selected.stage).toMatchObject({key,input:{serviceMode:'real',method,input:{value:1}},recovery:'naive-single-child-v1',expectedChildKey});
++  const {TrackBPendingError}=await import('@ae/core/integration/eval-services');
++  expect(selected.stage.isPendingError?.(new TrackBPendingError(5000,'running'))).toBe(true);
++  expect(selected.stage.isPendingError?.(new Error('unknown'))).toBe(false);
++ }
++});
++it('keeps lite and mock callbacks outside the recovery profile and binds mode into input',async()=>{
++ const {recoverableEvalStage,stageRealEvalServices}=await import('./services');
++ for(const mode of ['lite','mock']){
++  vi.stubEnv('EVAL_SERVICES',mode);
++  const selected=await recoverableEvalStage('qualify','job','qualification:0',{});
++  expect(selected.services).not.toBe(stageRealEvalServices);
++  expect(selected.stage.input).toEqual({serviceMode:mode,method:'qualify',input:{}});
++  expect(selected.stage.recovery).toBeUndefined();
++  expect(selected.stage.isPendingError).toBeUndefined();
++ }
++});
++it('exposes raw pending until the complete stage promise rejects, then converts to Workflow retry',async()=>{
++ const {recoverableEvalStage,workflowServiceCall}=await import('./services');
++ const {TrackBPendingError}=await import('@ae/core/integration/eval-services');
++ const {RetryableError}=await import('workflow');
++ vi.stubEnv('EVAL_SERVICES','real');
++ const selected=await recoverableEvalStage('qualify','job','qualification:0',{});
++ let pendingRecorded=false;
++ await expect(workflowServiceCall(async()=>{
++  const raw=new TrackBPendingError(5000,'running');
++  pendingRecorded=selected.stage.isPendingError?.(raw)===true;
++  throw raw;
++ })).rejects.toBeInstanceOf(RetryableError);
++ expect(pendingRecorded).toBe(true);
++});
++it('never routes a real profile primary failure through lite fallback',async()=>{
++ const {recoverableEvalStage,stageRealEvalServices}=await import('./services');
++ const {EvalServiceUnavailableError}=await import('@ae/core/integration/eval-services');
++ vi.stubEnv('EVAL_SERVICES','real');
++ const selected=await recoverableEvalStage('qualify','job','qualification:0',{});
++ const error=new EvalServiceUnavailableError('qualify','unexpected primary gap');
++ vi.mocked(stageRealEvalServices.qualify).mockRejectedValueOnce(error);
++ await expect(selected.services.qualify({} as never,{} as never,[])).rejects.toBe(error);
++});
++
++it('rejects mismatched methods, malformed rounds and unsafe round identities',async()=>{
++ const {recoverableEvalStage}=await import('./services');
++ for(const [method,key] of [['qualify','report'],['qualify','qualification:01'],['qualify','qualification:-1'],['qualify','qualification:9007199254740992'],['auditTrace','qualification:0'],['renderReport','trace-audit']] as const){
++  await expect(recoverableEvalStage(method,'job',key,{})).rejects.toThrow('workflow_stage_recovery_profile_invalid');
++ }
++});
+diff --git a/apps/web/src/server/services.ts b/apps/web/src/server/services.ts
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -250,3 +250,32 @@
+   real ??= withWorkflowErrors(withLiteFallback(stageRealEvalServices, liteServices()));
+   return real;
+ }
++
++/** Complete recovery profile for the three single-session real methods only.
++ * Selection is captured before admission and bound into the immutable stage digest.
++ * Raw TrackBPendingError must reach executeWorkflowStage before Workflow conversion.
++ */
++export async function recoverableEvalStage(
++ method: 'qualify' | 'auditTrace' | 'renderReport', jobId: string, key: string, input: unknown,
++): Promise<{services: EvalServices; stage: import('./workflow-stage-runtime').LogicalWorkflowStage}> {
++ const round = /^qualification:(0|[1-9][0-9]*)$/.exec(key)?.[1];
++ const purpose = method === 'qualify' && round !== undefined && Number.isSafeInteger(Number(round))
++  ? `commercial:qualify_r${round}:1`
++  : method === 'auditTrace' && key === 'trace-audit' ? 'quality_investigator:trace_recheck:1'
++  : method === 'renderReport' && key === 'report' ? 'company_operator:report_summary:1' : null;
++ if (!jobId || !purpose) throw new Error('workflow_stage_recovery_profile_invalid');
++ const expectedChildKey = `${jobId}:${purpose}`;
++ const mode = evalServicesMode();
++ return {
++  services: mode === 'real' ? stageRealEvalServices : await getEvalServices(),
++  stage: {key, input: {serviceMode: mode, method, input}, ...(mode === 'real' ? {
++   recovery: 'naive-single-child-v1' as const, expectedChildKey,
++   isPendingError: (error: unknown) => error instanceof TrackBPendingError,
++  } : {})},
++ };
++}
++
++/** Translate only after the stage runtime has retained its pending parent hold. */
++export async function workflowServiceCall<T>(run: () => Promise<T>): Promise<T> {
++ try { return await run(); } catch (error) { throw toWorkflowError(error); }
++}
+diff --git a/apps/web/src/server/workflow-stage-children.test.ts b/apps/web/src/server/workflow-stage-children.test.ts
+--- a/apps/web/src/server/workflow-stage-children.test.ts
++++ b/apps/web/src/server/workflow-stage-children.test.ts
+@@ -18,6 +18,8 @@
+  pg=new PGlite();await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,state text NOT NULL DEFAULT 'running',budget_reserved_micro_usd bigint DEFAULT 0);CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.tasks(task_key text PRIMARY KEY,record jsonb);CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
+  await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
+  await pg.exec(readFileSync(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql','utf8'));
++ await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql','utf8'));
++ await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/002-stage-progress.sql','utf8'));
+  await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);
+  const owned=await tx(t=>claimWorkflowStage(t,claim));if(owned.kind!=='owned')throw Error('owner');scope={owner:owned.owner,transaction:tx};
+  record={taskKey:`${job}:quality_investigator:audit:1`,jobId:job,idempotencyKey:'immutable-key',revision:0,state:'creating',requestBody:{agent_id:'agent',message:'hello',budget_micro_usd:100,structured_output_required:true,output_schema:{type:'object'},metadata:{ae_job_id:job,ae_task_key:`${job}:quality_investigator:audit:1`}},sessionId:null,result:null,consumedMicroUsd:null} as AgentTaskRecord;await save();
+@@ -55,3 +57,36 @@
+  await tx(t=>markWorkflowStagePending(t,scope.owner));
+  expect(await tx(t=>recoverWorkflowStage(t,{...claim,invocation:{...claim.invocation,stepId:'next-poll'}},workflowStageRecoveryReader))).toMatchObject({kind:'owned',recovery:'resume',owner:{generation:2}});
+ });
++
++it('strict recovery permits only the declared first child after an interruption before dispatch',async()=>{
++ const strict={...claim,stageKey:'strict',recoveryProfile:'naive-single-child-v1' as const,expectedChildKey:record.taskKey};
++ const first=await tx(t=>claimWorkflowStage(t,strict));if(first.kind!=='owned')throw Error('owner');
++ await tx(t=>markWorkflowStagePending(t,first.owner));
++ const next=await tx(t=>recoverWorkflowStage(t,strict,workflowStageRecoveryReader));if(next.kind!=='owned')throw Error('owner');
++ scope={owner:next.owner,transaction:tx};
++ const port=provider();await fenceWorkflowStageSessions(port,()=>scope).createSession(record.requestBody,record.idempotencyKey);
++ expect(port.createSession).toHaveBeenCalledOnce();
++ const run=vi.fn();await expect(fenceWorkflowStageRunner({run} as never,()=>scope).run({job:{jobId:job},role:'commercial',purpose:'different'} as never)).rejects.toThrow('reconciliation_required');expect(run).not.toHaveBeenCalled();
++});
++it('local renewal failure revokes dispatch even after intent committed',async()=>{
++ const port=provider();scope={...scope,assertActive:()=>{throw Error('lease_revoked');}};
++ await expect(fenceWorkflowStageSessions(port,()=>scope).createSession(record.requestBody,record.idempotencyKey)).rejects.toThrow('lease_revoked');expect(port.createSession).not.toHaveBeenCalled();
++});
++it.each(['schema_failed','budget_paused','failed','needs_operator'] as const)('replays measured terminal %s evidence but keeps unknown usage held',async state=>{
++ record={...record,state,sessionId:'session',consumedMicroUsd:9,error:{code:'terminal',message:'retained'},leaseOwner:null,leaseExpiresAt:null};await save();
++ await fenceWorkflowStageRunner({run:vi.fn(async()=>({status:state}))} as never,()=>scope).run({job:{jobId:job},role:'quality_investigator',purpose:'audit'} as never);
++ await tx(t=>markWorkflowStagePending(t,scope.owner));
++ expect(await tx(t=>recoverWorkflowStage(t,claim,workflowStageRecoveryReader))).toMatchObject({kind:'owned'});
++});
++it('unmeasured operator escalation retains the stage for reconciliation',async()=>{
++ record={...record,state:'needs_operator',sessionId:null,consumedMicroUsd:null,error:{code:'ambiguous_create_unresolved',message:'unknown'},leaseOwner:null,leaseExpiresAt:null};await save();
++ await fenceWorkflowStageRunner({run:vi.fn(async()=>({status:'needs_operator'}))} as never,()=>scope).run({job:{jobId:job},role:'quality_investigator',purpose:'audit'} as never);
++ await tx(t=>markWorkflowStagePending(t,scope.owner));expect(await tx(t=>recoverWorkflowStage(t,claim,workflowStageRecoveryReader))).toMatchObject({kind:'recovery_required'});
++});
++it('no-session rejection requires exact settled-zero reservation evidence',async()=>{
++ record={...record,state:'failed',reservationId:record.taskKey,sessionId:null,consumedMicroUsd:null,error:{code:'rejected',message:'no session'},leaseOwner:null,leaseExpiresAt:null};await save();
++ await fenceWorkflowStageRunner({run:vi.fn(async()=>({status:'failed'}))} as never,()=>scope).run({job:{jobId:job},role:'quality_investigator',purpose:'audit'} as never);
++ await tx(t=>markWorkflowStagePending(t,scope.owner));expect(await tx(t=>recoverWorkflowStage(t,claim,workflowStageRecoveryReader))).toMatchObject({kind:'recovery_required'});
++ await pg.query('INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd) VALUES($1,$2,100,0)',[record.reservationId,job]);
++ expect(await tx(t=>recoverWorkflowStage(t,claim,workflowStageRecoveryReader))).toMatchObject({kind:'owned'});
++});
+diff --git a/apps/web/src/server/workflow-stage-children.ts b/apps/web/src/server/workflow-stage-children.ts
+--- a/apps/web/src/server/workflow-stage-children.ts
++++ b/apps/web/src/server/workflow-stage-children.ts
+@@ -1,3 +1,4 @@
++import { taskKeyFor } from '@ae/core/agents/session-service';
+ import type { NaiveSessionsPort, NaiveSessionCreateBody, AgentTaskRecord } from '@ae/core/evals/types';
+ import { NaiveCallError } from '@ae/core/evals/types';
+ import { assertWorkflowStageOwner, registerWorkflowStageChild, markWorkflowStageChildDispatch, type WorkflowStageRecoveryReader } from '@ae/core/db/workflow-stage-authority';
+@@ -35,6 +36,7 @@
+      if(!prior?.dispatch_intent_at)await markWorkflowStageChildDispatch(tx,scope.owner,child);
+     });
+    }catch{ return refuse(); }
++   scope.assertActive?.();
+    return port.createSession(body,idempotencyKey);
+   },
+  };
+@@ -55,6 +57,11 @@
+  const evidenceKey=`agent_persistence.tasks:${record.taskKey}:revision:${record.revision}`;
+  if(['creating','ambiguous'].includes(record.state))return {state:'resumable',evidenceKey};
+  if(record.state==='created'&&record.sessionId)return {state:'resumable',evidenceKey};
++ if(['schema_failed','budget_paused','failed','needs_operator'].includes(record.state)&&record.sessionId&&Number.isSafeInteger(record.consumedMicroUsd)&&record.consumedMicroUsd!>=0&&record.error&&record.leaseOwner===null&&record.leaseExpiresAt===null)return {state:'terminal',evidenceKey};
++ if(record.state==='failed'&&!record.sessionId&&record.error&&record.leaseOwner===null&&record.leaseExpiresAt===null){
++  const settlement=(await tx.query<{settled_micro_usd:string|number|null}>('SELECT settled_micro_usd FROM agent_persistence.reservations WHERE id=$1 AND job_id=$2',[record.reservationId,record.jobId])).rows[0];
++  if(settlement?.settled_micro_usd!==null&&settlement?.settled_micro_usd!==undefined&&Number(settlement.settled_micro_usd)===0)return {state:'terminal',evidenceKey};
++ }
+  if(record.state==='completed'&&record.sessionId&&record.result!==null&&Number.isSafeInteger(record.consumedMicroUsd)&&record.consumedMicroUsd!>=0)return {state:'terminal',evidenceKey};
+  return {...unknown,evidenceKey};
+ }};
+@@ -65,18 +72,19 @@
+  return {run:async spec=>{
+   const scope=getScope();if(!scope)return runner.run(spec);
+   if(spec.job.jobId!==scope.owner.jobId)return refuse();
+-  const taskKey=`${spec.job.jobId}:${spec.role}:${spec.purpose}:${spec.attempt??1}`;
++  const taskKey=taskKeyFor(spec.job.jobId,spec.role,spec.purpose,spec.attempt??1);
+   async function associate(){await scope!.transaction(async tx=>{
+    await assertWorkflowStageOwner(tx,scope!.owner);
++   const stage=(await tx.query<{recovery:boolean;recovery_profile:string;expected_child_key:string|null}>('SELECT recovery,recovery_profile,expected_child_key FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[scope!.owner.jobId,scope!.owner.stageKey])).rows[0];
++   if(stage?.recovery_profile==='naive-single-child-v1'&&stage.expected_child_key!==taskKey)return refuse();
+    const record=await retained(tx,taskKey);
+    if(!record){
+-    const stage=(await tx.query<{recovery:boolean}>('SELECT recovery FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[scope!.owner.jobId,scope!.owner.stageKey])).rows[0];
+-    if(stage?.recovery)return refuse();
++    if(stage?.recovery&&stage.recovery_profile!=='naive-single-child-v1')return refuse();
+     return;
+    }
+    if(record.taskKey!==taskKey||record.jobId!==scope!.owner.jobId||record.requestBody?.metadata?.ae_task_key!==taskKey||record.requestBody?.metadata?.ae_job_id!==scope!.owner.jobId)return refuse();
+    await registerWorkflowStageChild(tx,scope!.owner,childIdentity(record));
+   });}
+-  await associate();const result=await runner.run(spec);await associate();return result;
++  await associate();scope.assertActive?.();const result=await runner.run(spec);await associate();return result;
+  }};
+ }
+diff --git a/apps/web/src/server/workflow-stage-recovery-integration.test.ts b/apps/web/src/server/workflow-stage-recovery-integration.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-stage-recovery-integration.test.ts
+@@ -0,0 +1,87 @@
++/** Offline composition fixture: real stage SQL, runner, task store and ledgers; fake provider only. */
++import { PGlite } from '@electric-sql/pglite';
++import { beforeEach,afterEach,expect,it,vi } from 'vitest';
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { z } from 'zod';
++import { AgentSessionService } from '@ae/core/agents/session-service';
++import { PostgresAgentTaskStore,type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
++import { FakeNaive,directory,fixtureJob } from '@ae/core/agents/__tests__/fakes';
++import { executeWorkflowStage,currentWorkflowStageScope } from './workflow-stage-runtime';
++import { fenceWorkflowStageSessions,fenceWorkflowStageRunner } from './workflow-stage-children';
++const state=vi.hoisted(()=>({pg:undefined as PGlite|undefined,stepId:'first',attempt:0}));
++vi.mock('workflow',()=>({getStepMetadata:()=>({stepId:state.stepId,attempt:state.attempt}),getWorkflowMetadata:()=>({workflowRunId:'fixture-run'}),RetryableError:class extends Error{}}));
++vi.mock('@neondatabase/serverless',()=>({Pool:class{async connect(){return {query:(sql:string,params?:unknown[])=>state.pg!.query(sql,params),release(){}};}}}));
++let pg:PGlite;let sql:AgentTransactionalSql;
++const job='11111111-1111-4111-8111-111111111111',customer='22222222-2222-4222-8222-222222222222';
++const taskKey=`${job}:quality_investigator:resume_fixture:1`;
++const input={jobId:job,ownerId:customer,environment:'test' as const,role:'investigator',share:.1,stage:{key:'strict-single-fixture',input:{revision:1},recovery:'naive-single-child-v1' as const,expectedChildKey:taskKey,isPending:(value:unknown)=>(value as {status:string}).status==='pending'}};
++const migrations=[
++ 'packages/core/src/agents/persistence-migrations/001-agent-persistence.sql',
++ 'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql',
++ 'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql',
++ 'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql',
++];
++beforeEach(async()=>{
++ process.env.DATABASE_URL='postgres://offline-fixture';process.env.CREDENTIALS_ENCRYPTION_KEY=Buffer.alloc(32,7).toString('base64');
++ pg=new PGlite();state.pg=pg;state.stepId='first';state.attempt=0;
++ await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,state text NOT NULL DEFAULT 'running',budget_reserved_micro_usd bigint DEFAULT 0);
++ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++ CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);`);
++ for(const path of migrations)await pg.exec(readFileSync(resolve(path),'utf8'));
++ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);
++ sql={query:(text,args)=>pg.query(text,args),transaction:fn=>pg.transaction(tx=>fn({query:(text,args)=>tx.query(text,args)}))};
++});
++afterEach(async()=>{await pg.close();});
++function fixture(){
++ const naive=new FakeNaive(()=>({structuredOutput:{answer:'retained'},pollsUntilDone:1}));
++ const store=new PostgresAgentTaskStore(sql);
++ const runner=fenceWorkflowStageRunner(new AgentSessionService({naive:fenceWorkflowStageSessions(naive),store,ledger:new SharedJobBudgetLedger(sql),directory,budgetPeriodId:'fixture',idempotencyNamespace:'offline-test',workerId:'worker',maxWaitMs:0}));
++ const spec={job:fixtureJob({jobId:job,customerId:customer}),role:'quality_investigator' as const,purpose:'resume_fixture',message:'Return a JSON answer.',output:{name:'fixture.v1',schema:z.object({answer:z.string()})},budgetMicroUsd:100_000};
++ return {naive,store,run:()=>runner.run(spec)};
++}
++it('resumes pending stage in a later SDK step through the same durable task and provider session, then replays completion',async()=>{
++ const f=fixture();const generations:number[]=[];
++ const callback=vi.fn(async()=>{generations.push(currentWorkflowStageScope()!.owner.generation);return f.run();});
++ const first=await executeWorkflowStage(input,callback);expect(first).toMatchObject({ok:true,data:{status:'pending'}});
++ const retained=await f.store.get(taskKey);expect(retained).toMatchObject({state:'created',sessionId:'ses_fake_1'});
++ expect((await pg.query('SELECT state,recovery_profile,expected_child_key FROM workflow_stage.stages')).rows[0]).toEqual({state:'pending',recovery_profile:'naive-single-child-v1',expected_child_key:taskKey});
++ state.stepId='later-poll';const second=await executeWorkflowStage(input,callback);
++ expect(second).toMatchObject({ok:true,data:{status:'completed',output:{answer:'retained'},session:{sessionId:'ses_fake_1'}}});
++ expect(generations).toEqual([1,2]);expect(f.naive.createCalls).toHaveLength(1);
++ expect((await pg.query('SELECT * FROM agent_persistence.tasks')).rows).toHaveLength(1);
++ expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);
++ expect((await pg.query('SELECT state FROM workflow_stage.stages')).rows[0]).toEqual({state:'completed'});
++ state.stepId='acknowledgement-retry';expect(await executeWorkflowStage(input,callback)).toEqual(second);expect(callback).toHaveBeenCalledTimes(2);expect(f.naive.createCalls).toHaveLength(1);
++});
++it('recovers an interrupted strict stage with no child and authorizes exactly its bound first task',async()=>{
++ const interrupted=new Error('interrupted before runner');await expect(executeWorkflowStage(input,async()=>{throw interrupted;})).rejects.toBe(interrupted);
++ expect((await pg.query('SELECT * FROM workflow_stage.children')).rows).toHaveLength(0);
++ await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second'");
++ state.stepId='restart';const f=fixture();
++ expect(await executeWorkflowStage(input,async()=>{expect(currentWorkflowStageScope()!.owner.generation).toBe(2);return f.run();})).toMatchObject({ok:true,data:{status:'pending'}});
++ expect(f.naive.createCalls).toHaveLength(1);
++ expect((await pg.query('SELECT operation_key FROM workflow_stage.children')).rows).toEqual([{operation_key:taskKey}]);
++ expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);
++});
++it('retains the parent hold when an unknown-usage child is hidden behind a normal fallback result',async()=>{
++ const f=fixture();f.naive.setScript(()=>({pollsUntilDone:0,consumedMicroUsd:-1,structuredOutput:{answer:'ignored'}}));
++ const fallback=vi.fn(async()=>{expect(await f.run()).toMatchObject({status:'needs_operator',code:'invalid_session_usage'});return {answer:'application fallback'};});
++ await expect(executeWorkflowStage(input,fallback)).rejects.toThrow('Workflow stage recovery_required');
++ expect((await pg.query('SELECT state,result_ciphertext FROM workflow_stage.stages')).rows[0]).toEqual({state:'pending',result_ciphertext:null});
++ expect((await pg.query('SELECT released_at FROM budget_reservations')).rows).toEqual([{released_at:null}]);
++ expect(await f.store.get(taskKey)).toMatchObject({state:'needs_operator',consumedMicroUsd:null});
++ state.stepId='reconcile-later';await expect(executeWorkflowStage(input,fallback)).rejects.toThrow('Workflow stage recovery_required');
++ expect(fallback).toHaveBeenCalledOnce();expect(f.naive.createCalls).toHaveLength(1);
++ expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);
++});
++it('allows application fallback after a measured terminal failure without a replacement provider session',async()=>{
++ const f=fixture();f.naive.setScript(()=>({pollsUntilDone:0,status:'failed',stopReason:'error',stopCode:'fixture_failure',structuredOutput:null}));
++ const fallback=vi.fn(async()=>{expect(await f.run()).toMatchObject({status:'failed',code:'fixture_failure'});return {answer:'measured failure fallback'};});
++ expect(await executeWorkflowStage(input,fallback)).toEqual({ok:true,data:{answer:'measured failure fallback'}});
++ expect(await f.store.get(taskKey)).toMatchObject({state:'failed',consumedMicroUsd:12_345});
++ expect((await pg.query('SELECT state FROM workflow_stage.stages')).rows[0]).toEqual({state:'completed'});
++ expect((await pg.query('SELECT released_at IS NOT NULL AS released FROM budget_reservations')).rows).toEqual([{released:true}]);
++ state.stepId='replay-fallback';await executeWorkflowStage(input,fallback);expect(fallback).toHaveBeenCalledOnce();expect(f.naive.createCalls).toHaveLength(1);
++});
+diff --git a/apps/web/src/server/workflow-stage-runtime.test.ts b/apps/web/src/server/workflow-stage-runtime.test.ts
+--- a/apps/web/src/server/workflow-stage-runtime.test.ts
++++ b/apps/web/src/server/workflow-stage-runtime.test.ts
+@@ -1,14 +1,15 @@
+-import { beforeEach, expect, it, vi } from 'vitest';
+-const state=vi.hoisted(()=>({claim:vi.fn(),recover:vi.fn(),complete:vi.fn(),pending:vi.fn(),assert:vi.fn(),metadata:{stepId:'step-a',attempt:0},payload:undefined as unknown}));
++import { afterEach, beforeEach, expect, it, vi } from 'vitest';
++const state=vi.hoisted(()=>({claim:vi.fn(),recover:vi.fn(),complete:vi.fn(),pending:vi.fn(),settled:vi.fn(),renew:vi.fn(),assert:vi.fn(),metadata:{stepId:'step-a',attempt:0},payload:undefined as unknown}));
+ vi.mock('workflow',()=>({getStepMetadata:()=>state.metadata,getWorkflowMetadata:()=>({workflowRunId:'run'}),RetryableError:class extends Error{}}));
+ vi.mock('@neondatabase/serverless',()=>({Pool:class{async connect(){return {query:async()=>({rows:[]}),release(){}};}}}));
+ vi.mock('@ae/core/db/job-budget-authority',()=>({jobBudgetExposure:async()=>({capMicroUsd:100})}));
+ vi.mock('./workflow-stage-children',()=>({workflowStageRecoveryReader:{read:vi.fn()}}));
+-vi.mock('@ae/core/db/workflow-stage-authority',()=>({claimWorkflowStage:state.claim,recoverWorkflowStage:state.recover,assertWorkflowStageOwner:state.assert,completeWorkflowStage:state.complete,markWorkflowStagePending:state.pending}));
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({claimWorkflowStage:state.claim,recoverWorkflowStage:state.recover,assertWorkflowStageOwner:state.assert,completeWorkflowStage:state.complete,markWorkflowStagePending:state.pending,renewWorkflowStageLease:state.renew,workflowStageChildrenSettled:state.settled}));
+ vi.mock('@ae/core/storage/crypto',()=>({encryptJson:(v:unknown)=>JSON.stringify(v),decryptJson:(v:string)=>JSON.parse(v)}));
+ import { executeWorkflowStage, currentWorkflowStageScope, workflowStageDigest, WorkflowStageContentionError } from './workflow-stage-runtime';
+ const input={jobId:'job',ownerId:'owner',environment:'test' as const,role:'judge',share:.5,stage:{key:'suite-run:A:v1',input:{suite:'frozen',target:'digest'}}};
+-beforeEach(()=>{process.env.DATABASE_URL='postgres://local/test';vi.clearAllMocks();state.claim.mockResolvedValue({kind:'owned',owner:{jobId:'job',stageKey:input.stage.key,token:'private',generation:1},amountMicroUsd:50});});
++afterEach(()=>{vi.useRealTimers();});
++beforeEach(()=>{state.settled.mockResolvedValue(true);state.renew.mockReset();state.renew.mockResolvedValue(undefined);process.env.DATABASE_URL='postgres://local/test';vi.clearAllMocks();state.claim.mockResolvedValue({kind:'owned',owner:{jobId:'job',stageKey:input.stage.key,token:'private',generation:1},amountMicroUsd:50});});
+ it('records SDK retry evidence without changing logical identity or passing it to child callback',async()=>{
+  state.metadata.attempt=3;const run=vi.fn(async amount=>{expect(currentWorkflowStageScope()?.owner.generation).toBe(1);return amount;});
+  expect(await executeWorkflowStage(input,run)).toEqual({ok:true,data:50});
+@@ -59,3 +60,56 @@
+  expect(state.claim.mock.calls[0][1].inputDigest).toBe(expected);
+  expect(JSON.parse(state.complete.mock.calls[0][2]).inputDigest).toBe(expected);
+ });
++
++function deferred<T>(){let resolve!:(value:T)=>void;let reject!:(error:unknown)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
++it('renews long callbacks serially and drains renewal before completion',async()=>{
++ vi.useFakeTimers();const work=deferred<string>();const renew=deferred<void>();state.renew.mockReturnValueOnce(renew.promise);
++ const running=executeWorkflowStage(input,()=>work.promise);
++ await vi.advanceTimersByTimeAsync(60_000);expect(state.renew).toHaveBeenCalledOnce();
++ await vi.advanceTimersByTimeAsync(600_000);expect(state.renew).toHaveBeenCalledOnce();
++ work.resolve('done');await vi.advanceTimersByTimeAsync(0);expect(state.complete).not.toHaveBeenCalled();
++ renew.resolve();expect(await running).toEqual({ok:true,data:'done'});
++ await vi.advanceTimersByTimeAsync(600_000);expect(state.renew).toHaveBeenCalledOnce();expect(state.complete).toHaveBeenCalledOnce();
++});
++it('revokes child capabilities immediately after uncertain renewal and rejects later success',async()=>{
++ vi.useFakeTimers();const work=deferred<string>();const failure=new Error('commit uncertain');let scope:ReturnType<typeof currentWorkflowStageScope>;
++ state.renew.mockRejectedValueOnce(failure);
++ const running=executeWorkflowStage(input,()=>{scope=currentWorkflowStageScope();return work.promise;});
++ const observed=running.catch(error=>error);
++ await vi.advanceTimersByTimeAsync(60_000);
++ expect(scope!.signal!.aborted).toBe(true);expect(()=>scope!.assertActive!()).toThrow(failure);
++ await expect(scope!.transaction(async()=>true)).rejects.toBe(failure);
++ work.resolve('late result');expect(await observed).toBe(failure);expect(state.complete).not.toHaveBeenCalled();
++ await vi.advanceTimersByTimeAsync(600_000);expect(state.renew).toHaveBeenCalledOnce();
++});
++it('revokes captured descendants after success and callback errors',async()=>{
++ let scope:ReturnType<typeof currentWorkflowStageScope>;
++ await executeWorkflowStage(input,async()=>{scope=currentWorkflowStageScope();return true;});
++ await expect(scope!.transaction(async()=>true)).rejects.toThrow('workflow_stage_scope_revoked');
++ const error=new Error('callback failure');await expect(executeWorkflowStage(input,async()=>{scope=currentWorkflowStageScope();throw error;})).rejects.toBe(error);
++ expect(scope!.signal!.aborted).toBe(true);await expect(scope!.transaction(async()=>true)).rejects.toThrow('workflow_stage_scope_revoked');
++});
++it('stops heartbeat if pending classification or finalization throws',async()=>{
++ vi.useFakeTimers();const error=new Error('predicate failure');
++ await expect(executeWorkflowStage({...input,stage:{...input.stage,isPending:()=>{throw error;}}},async()=>true)).rejects.toBe(error);
++ state.complete.mockRejectedValueOnce(error);
++ await expect(executeWorkflowStage(input,async()=>true)).rejects.toBe(error);
++ await vi.advanceTimersByTimeAsync(600_000);expect(state.renew).not.toHaveBeenCalled();
++});
++it('binds explicit narrow recovery profile and expected child to admission',async()=>{
++ await executeWorkflowStage({...input,stage:{...input.stage,recovery:'naive-single-child-v1',expectedChildKey:'exact-child'}},async()=>true);
++ expect(state.claim.mock.calls[0][1]).toMatchObject({recoveryProfile:'naive-single-child-v1',expectedChildKey:'exact-child'});
++});
++
++it('fails closed even when renewal rejects without an error value',async()=>{
++ vi.useFakeTimers();const work=deferred<string>();state.renew.mockRejectedValueOnce(undefined);
++ const running=executeWorkflowStage(input,()=>work.promise);const observed=running.then(()=>({succeeded:true}),error=>({succeeded:false,error}));
++ await vi.advanceTimersByTimeAsync(60_000);work.resolve('late');
++ expect(await observed).toEqual({succeeded:false,error:undefined});expect(state.complete).not.toHaveBeenCalled();
++});
++
++it('holds callback fallback output when strict child completion proof is unresolved',async()=>{
++ state.settled.mockResolvedValue(false);
++ await expect(executeWorkflowStage(input,async()=>({report:'fallback'}))).rejects.toBeInstanceOf(WorkflowStageContentionError);
++ expect(state.pending).toHaveBeenCalledOnce();expect(state.complete).not.toHaveBeenCalled();
++});
+diff --git a/apps/web/src/server/workflow-stage-runtime.ts b/apps/web/src/server/workflow-stage-runtime.ts
+--- a/apps/web/src/server/workflow-stage-runtime.ts
++++ b/apps/web/src/server/workflow-stage-runtime.ts
+@@ -4,12 +4,12 @@
+ import { getWorkflowMetadata, getStepMetadata, RetryableError } from 'workflow';
+ import { encryptJson, decryptJson } from '@ae/core/storage/crypto';
+ import { jobBudgetExposure, type JobBudgetTx } from '@ae/core/db/job-budget-authority';
+-import { claimWorkflowStage, recoverWorkflowStage, assertWorkflowStageOwner, completeWorkflowStage, markWorkflowStagePending } from '@ae/core/db/workflow-stage-authority';
++import { claimWorkflowStage, recoverWorkflowStage, assertWorkflowStageOwner, completeWorkflowStage, markWorkflowStagePending, renewWorkflowStageLease, workflowStageChildrenSettled } from '@ae/core/db/workflow-stage-authority';
+ 
+ import { workflowStageRecoveryReader } from './workflow-stage-children';
+ 
+ type Owner = Parameters<typeof assertWorkflowStageOwner>[1];
+-export interface WorkflowStageScope { owner: Owner; transaction: typeof workflowStageTransaction }
++export interface WorkflowStageScope { owner: Owner; transaction: typeof workflowStageTransaction; assertActive?:()=>void; signal?:AbortSignal }
+ let scopes: AsyncLocalStorage<WorkflowStageScope> | undefined;
+ function stageScopes() { return scopes ??= new AsyncLocalStorage<WorkflowStageScope>(); }
+ /** Trusted server capability only. Never serialize into Workflow I/O or model prompts. */
+@@ -45,16 +45,16 @@
+ }
+ /** Recovery is opt-in only after ALL callback side effects have retained child authority.
+  * Current mixed Naive/lite/target callbacks intentionally stay held after interruption. */
+-export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children';isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
++export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children'|'naive-single-child-v1';expectedChildKey?:string;isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
+ export async function executeWorkflowStage<T>(input:{jobId:string;ownerId:string;environment:'test'|'live';role:string;share:number;stage:LogicalWorkflowStage},run:(amountMicroUsd:number)=>Promise<T>):Promise<{ok:true;data:T}|{ok:false;remainingMicroUsd:number}> {
+  const inputDigest=workflowStageDigest(input.stage.input);
+  const step=getStepMetadata();
+  const invocation={workflowRunId:getWorkflowMetadata().workflowRunId,stepId:step.stepId,attempt:step.attempt};
+  const admission=await workflowStageTransaction(async tx=>{
+   const exposure=await jobBudgetExposure(tx,input.jobId);
+-  const claim={jobId:input.jobId,ownerId:input.ownerId,environment:input.environment,stageKey:input.stage.key,inputDigest,role:input.role,amountMicroUsd:Math.floor(exposure.capMicroUsd*input.share),invocation,leaseMs:300_000};
++  const claim:Parameters<typeof claimWorkflowStage>[1]={jobId:input.jobId,ownerId:input.ownerId,environment:input.environment,stageKey:input.stage.key,inputDigest,role:input.role,amountMicroUsd:Math.floor(exposure.capMicroUsd*input.share),invocation,leaseMs:300_000,recoveryProfile:input.stage.recovery??'none',expectedChildKey:input.stage.expectedChildKey??null};
+   const decision=await claimWorkflowStage(tx,claim);
+-  return decision.kind==='recovery_required' && input.stage.recovery==='retained-children'
++  return decision.kind==='recovery_required' && input.stage.recovery!==undefined
+    ? recoverWorkflowStage(tx,claim,workflowStageRecoveryReader) : decision;
+  });
+  if(admission.kind==='budget_exceeded')return {ok:false,remainingMicroUsd:admission.remainingMicroUsd};
+@@ -65,14 +65,46 @@
+   return {ok:true,data:retained.data};
+  }
+  if(admission.kind!=='owned')throw new Error('workflow_stage_invalid_admission');
+- return stageScopes().run({owner:admission.owner,transaction:workflowStageTransaction},async()=>{
+-  let data:T;
+-  try {data=await run(admission.amountMicroUsd);} catch(error) {
+-   if(input.stage.isPendingError?.(error))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
+-   throw error;
+-  }
+-  if(input.stage.isPending?.(data))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
+-  else await workflowStageTransaction(tx=>completeWorkflowStage(tx,admission.owner,encryptJson({schema:1,jobId:input.jobId,stageKey:input.stage.key,inputDigest,data})));
+-  return {ok:true as const,data};
++ // Native timers are created only in the executing step, never at module load.
++ const controller=new AbortController();
++ let lifecycle:'active'|'closing'|'revoked'='active';
++ let failure:unknown;let failed=false;
++ let timer:ReturnType<typeof setTimeout>|undefined;
++ let renewal:Promise<void>|undefined;
++ const stopTimer=()=>{if(timer!==undefined){clearTimeout(timer);timer=undefined;}};
++ const revoke=()=>{lifecycle='revoked';stopTimer();controller.abort();};
++ const assertActive=()=>{if(lifecycle!=='active')throw failed?failure:new Error('workflow_stage_scope_revoked');};
++ const scope:WorkflowStageScope={owner:admission.owner,signal:controller.signal,assertActive,transaction:async fn=>{
++  assertActive();
++  return workflowStageTransaction(async tx=>{assertActive();const value=await fn(tx);assertActive();return value;});
++ }};
++ const schedule=()=>{if(lifecycle!=='active')return;timer=setTimeout(()=>{
++  timer=undefined;
++  if(lifecycle!=='active')return;
++  renewal=workflowStageTransaction(tx=>renewWorkflowStageLease(tx,admission.owner,300_000)).then(()=>{},error=>{if(!failed){failed=true;failure=error;}revoke();}).finally(()=>{renewal=undefined;schedule();});
++ },60_000);};
++ const close=async()=>{if(lifecycle==='active')lifecycle='closing';stopTimer();await renewal;if(failed)throw failure;};
++ return stageScopes().run(scope,async()=>{
++  schedule();
++  try {
++   let data:T;
++   try {data=await run(admission.amountMicroUsd);} catch(error) {
++    await close();
++    if(input.stage.isPendingError?.(error))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
++    throw error;
++   }
++   await close();
++   if(input.stage.isPending?.(data))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
++   else {
++    const completed=await workflowStageTransaction(async tx=>{
++     if(!await workflowStageChildrenSettled(tx,admission.owner,workflowStageRecoveryReader)){
++      await markWorkflowStagePending(tx,admission.owner);return false;
++     }
++     await completeWorkflowStage(tx,admission.owner,encryptJson({schema:1,jobId:input.jobId,stageKey:input.stage.key,inputDigest,data}));return true;
++    });
++    if(!completed)throw new WorkflowStageContentionError('recovery_required');
++   }
++   return {ok:true as const,data};
++  }finally{revoke();}
+  });
+ }
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -9,7 +9,7 @@
+ import { putJobArtifact } from "@ae/core/storage/blob";
+ import { findingRowIdByKey, recordProgress, saveFindings, saveRemediation, setJobState } from "@/server/job-store";
+ import { resolveBranchConnection } from "@/server/branch-connection";
+-import { getEvalServices } from "@/server/services";
++import { getEvalServices, recoverableEvalStage, workflowServiceCall } from "@/server/services";
+ import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+ 
+ /** Feature flag: on by default; REDTEAM_PACK=0|false|off|no disables. */
+@@ -23,16 +23,17 @@
+   "use step";
+   const intake = await loadIntake(jobId, false);
+   if (intake.package !== "trace_audit") throw new FatalError("auditTrace requires a trace_audit job");
+-  const services = await getEvalServices();
+-  const result = await withBudget(jobId, "investigator", {key: "trace-audit", input: intake}, async (ctx) => {
++  const {services, stage} = await recoverableEvalStage("auditTrace", jobId, "trace-audit", intake);
++  const result = await workflowServiceCall(() => withBudget(jobId, "investigator", stage, async (ctx) => {
+     await ctx.recordProgress("auditing_trace", "Checking the trace for unsupported claims, ignored errors, and instruction violations.");
+     const audit = await services.auditTrace(ctx, intake.trace, intake.systemPrompt);
+     return audit.findings;
+-  });
++  }));
+   if (result.status === "ok") await recordProgress(jobId, "trace_audited", `Trace audit found ${result.data.length} finding(s).`);
+   return result;
+ }
+-auditTraceStep.maxRetries = 1;
++// Allow retained-session polling and expired-owner recovery; stage admission prevents fresh callback replay.
++auditTraceStep.maxRetries = 120;
+ 
+ /** Creates the per-job Neon branch. Returns only the branch id: step I/O is persisted in plaintext, so the connection string is never returned. */
+ export async function createBranchStep(jobId: string): Promise<{ branchId: string }> {
+@@ -144,10 +145,11 @@
+ export async function renderReportStep(jobId: string, findings: Finding[], suite?: Suite, remediations?: Remediation[]): Promise<BudgetResult<Report>> {
+   "use step";
+   const intake = await loadIntake(jobId, false);
+-  const services = await getEvalServices();
+-  return withBudget(jobId, "operator", {key: "report", input: {intake, findings, suite, remediations}}, (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations }));
++  const {services, stage} = await recoverableEvalStage("renderReport", jobId, "report", {intake, findings, suite, remediations});
++  return workflowServiceCall(() => withBudget(jobId, "operator", stage, (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations })));
+ }
+-renderReportStep.maxRetries = 1;
++// Allow retained-session polling and expired-owner recovery; stage admission prevents fresh callback replay.
++renderReportStep.maxRetries = 120;
+ 
+ /** Writes report, evidence, and findings to Blob + Neon. Safe to retry: findings are keyed, blobs get random suffixes. */
+ export async function persistReportStep(jobId: string, report: Report, suite?: Suite): Promise<void> {
+diff --git a/apps/web/src/workflows/steps/quote.ts b/apps/web/src/workflows/steps/quote.ts
+--- a/apps/web/src/workflows/steps/quote.ts
++++ b/apps/web/src/workflows/steps/quote.ts
+@@ -4,13 +4,13 @@
+ import { createQuote, makeServiceContext, recordProgress, setJobState } from "@/server/job-store";
+ import { sanitizeCheckDetail, type EndpointCheckFailure } from "../decisions";
+ import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+-import { getEvalServices } from "@/server/services";
++import { getEvalServices, recoverableEvalStage, workflowServiceCall } from "@/server/services";
+ 
+ export async function qualifyStep(jobId: string, clarifications: string[]): Promise<BudgetResult<QualifyResult>> {
+   "use step";
+   const intake = await loadIntake(jobId, false);
+-  const services = await getEvalServices();
+-  const result = await withBudget(jobId, "commercial", {key: `qualification:${clarifications.length}`, input: {intake, clarifications}}, (ctx) => services.qualify(ctx, intake, clarifications));
++  const {services, stage} = await recoverableEvalStage("qualify", jobId, `qualification:${clarifications.length}`, {intake, clarifications});
++  const result = await workflowServiceCall(() => withBudget(jobId, "commercial", stage, (ctx) => services.qualify(ctx, intake, clarifications)));
+   if (result.status === "ok") {
+     await recordProgress(jobId, "qualified", `Request reviewed (${result.data.decision}).`);
+     // The job's package was fixed at intake; the quote must match what the pipeline will run.
+@@ -19,7 +19,8 @@
+   }
+   return result;
+ }
+-qualifyStep.maxRetries = 1;
++// Allow retained-session polling and expired-owner recovery; stage admission prevents fresh callback replay.
++qualifyStep.maxRetries = 120;
+ 
+ /** Creates the quote (price from the fixed table), idempotently: a retry reuses an identical unaccepted latest quote. */
+ export async function createQuoteStep(jobId: string, qualify: QualifyResult): Promise<{ version: number; priceCents: number }> {
+diff --git a/apps/web/src/workflows/steps/recovery-profile.test.ts b/apps/web/src/workflows/steps/recovery-profile.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/workflows/steps/recovery-profile.test.ts
+@@ -0,0 +1,31 @@
++import {beforeEach,expect,it,vi} from 'vitest';
++const h=vi.hoisted(()=>({select:vi.fn(),qualify:vi.fn(async()=>({decision:'quote'})),audit:vi.fn(async()=>({findings:[]})),report:vi.fn(async()=>({summary:'ok'})),budget:vi.fn(),progress:vi.fn(),intake:{package:'trace_audit',trace:'supplied trace'}}));
++vi.mock('workflow',()=>({FatalError:class extends Error{}}));
++vi.mock('@/server/workflow-stage-runtime',()=>({assertWorkflowStageCurrent:vi.fn()}));
++vi.mock('@ae/core/db/client',()=>({db:()=>({}),schema:{}}));
++vi.mock('@ae/core/storage/blob',()=>({putJobArtifact:vi.fn()}));
++vi.mock('@/server/job-store',()=>({createQuote:vi.fn(),makeServiceContext:vi.fn(),recordProgress:h.progress,setJobState:vi.fn(),findingRowIdByKey:vi.fn(),saveFindings:vi.fn(),saveRemediation:vi.fn()}));
++vi.mock('./common',()=>({loadIntake:async()=>h.intake,requireJob:async()=>({package:'trace_audit'}),withBudget:h.budget}));
++vi.mock('@/server/services',()=>({getEvalServices:vi.fn(),recoverableEvalStage:h.select,workflowServiceCall:async(fn:()=>Promise<unknown>)=>fn()}));
++import {qualifyStep} from './quote';
++import {auditTraceStep,renderReportStep} from './evaluate';
++beforeEach(()=>{
++ vi.clearAllMocks();
++ h.select.mockImplementation(async(method,jobId,key,input)=>({services:{qualify:h.qualify,auditTrace:h.audit,renderReport:h.report},stage:{key,input}}));
++ h.budget.mockImplementation(async(_job,_role,_stage,run)=>({status:'ok',data:await run({recordProgress:h.progress})}));
++});
++it('routes every covered callback through its exact immutable child identity',async()=>{
++ await qualifyStep('job',[]);
++ await auditTraceStep('job');
++ await renderReportStep('job',[]);
++ expect(h.select.mock.calls.map(c=>[c[0],c[1],c[2]])).toEqual([
++  ['qualify','job','qualification:0'],
++  ['auditTrace','job','trace-audit'],
++  ['renderReport','job','report'],
++ ]);
++ expect(h.qualify).toHaveBeenCalledTimes(1);expect(h.audit).toHaveBeenCalledTimes(1);expect(h.report).toHaveBeenCalledTimes(1);
++});
++it('a clarification answer selects a deliberate different qualification child',async()=>{
++ await qualifyStep('job',['answer']);
++ expect(h.select).toHaveBeenCalledWith('qualify','job','qualification:1',{intake:h.intake,clarifications:['answer']});
++});
+diff --git a/packages/core/src/db/workflow-stage-authority.test.ts b/packages/core/src/db/workflow-stage-authority.test.ts
+--- a/packages/core/src/db/workflow-stage-authority.test.ts
++++ b/packages/core/src/db/workflow-stage-authority.test.ts
+@@ -2,7 +2,7 @@
+ import { beforeEach,afterEach,expect,it } from 'vitest';
+ import { readFileSync } from 'node:fs';
+ import { resolve } from 'node:path';
+-import { claimWorkflowStage,assertWorkflowStageOwner,registerWorkflowStageChild,markWorkflowStageChildDispatch,markWorkflowStagePending,completeWorkflowStage,recoverWorkflowStage,type WorkflowStageClaim,type WorkflowStageOwner,type WorkflowStageRecoveryReader } from './workflow-stage-authority';
++import { claimWorkflowStage,workflowStageChildrenSettled,renewWorkflowStageLease,assertWorkflowStageOwner,registerWorkflowStageChild,markWorkflowStageChildDispatch,markWorkflowStagePending,completeWorkflowStage,recoverWorkflowStage,type WorkflowStageClaim,type WorkflowStageOwner,type WorkflowStageRecoveryReader } from './workflow-stage-authority';
+ import { jobBudgetExposure,type JobBudgetTx } from './job-budget-authority';
+ let pg:PGlite;
+ const job='11111111-1111-4111-8111-111111111111',customer='22222222-2222-4222-8222-222222222222';
+@@ -18,6 +18,7 @@
+ CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
+ await pg.exec(readFileSync(resolve(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));
+ await pg.exec(readFileSync(resolve(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql'),'utf8'));
++await pg.exec(readFileSync(resolve(process.env.WORKFLOW_STAGE_RECOVERY_SQL??'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql'),'utf8'));
+ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);});
+ afterEach(async()=>{await pg.close();});
+ it('exclusive claim rejects duplicate delivery, even same invocation and overlapping SDK retry',async()=>{await claim();expect(await run(tx=>claimWorkflowStage(tx,input))).toMatchObject({kind:'busy'});expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{...input.invocation,attempt:1}}))).toMatchObject({kind:'busy'});expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
+@@ -30,3 +31,15 @@
+ it('completed callback lost acknowledgement replays retained ciphertext without new callback or hold',async()=>{const a=await claim();await run(tx=>completeWorkflowStage(tx,a,'encrypted-result-reference'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(0);expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{workflowRunId:'run2',stepId:'step2',attempt:9}}))).toMatchObject({kind:'completed',resultCiphertext:'encrypted-result-reference',amountMicroUsd:100});await expect(run(tx=>completeWorkflowStage(tx,a,'replacement'))).rejects.toThrow();await expect(pg.query("UPDATE workflow_stage.stages SET result_ciphertext='replacement'")).rejects.toThrow('workflow_stage_evidence_immutable');});
+ it('rolls result and release back together and retains hold for retry',async()=>{const a=await claim();await expect(run(async tx=>{await completeWorkflowStage(tx,a,'encrypted-result-reference');throw Error('transaction crash');})).rejects.toThrow('transaction crash');expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);await run(tx=>assertWorkflowStageOwner(tx,a));expect((await pg.query('SELECT result_ciphertext FROM workflow_stage.stages')).rows[0]).toMatchObject({result_ciphertext:null});});
+ it('retains immutable child body and dispatch identity for provider recovery',async()=>{const a:WorkflowStageOwner=await claim();await run(tx=>markWorkflowStageChildDispatch(tx,a,child));await expect(run(tx=>registerWorkflowStageChild(tx,a,{...child,requestDigest:'changed'}))).rejects.toThrow();await expect(run(tx=>markWorkflowStageChildDispatch(tx,a,child))).rejects.toThrow();await expect(pg.query('DELETE FROM workflow_stage.children')).rejects.toThrow('workflow_stage_evidence_immutable');});
++
++const strictInput:WorkflowStageClaim={...input,recoveryProfile:'naive-single-child-v1',expectedChildKey:'naive:one'};
++const naiveChild={kind:'naive_session',operationKey:'naive:one',requestDigest:'body'};
++it('recovers strict zero-child stage and permits only its prebound child after takeover',async()=>{const old=await claim(strictInput);await expire();const r=await run(tx=>recoverWorkflowStage(tx,strictInput,proof));if(r.kind!=='owned')throw Error('owner');expect(r).toMatchObject({recovery:'undispatched',owner:{generation:2}});await expect(run(tx=>registerWorkflowStageChild(tx,old,naiveChild))).rejects.toThrow();for(const c of [{...naiveChild,kind:'other'},{...naiveChild,operationKey:'naive:two'}])await expect(run(tx=>registerWorkflowStageChild(tx,r.owner,c))).rejects.toThrow();await run(tx=>registerWorkflowStageChild(tx,r.owner,naiveChild));expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
++it('binds profile and expected child identity immutably',async()=>{await claim(strictInput);for(const change of [{recoveryProfile:'none' as const,expectedChildKey:null},{expectedChildKey:'naive:other'}])await expect(run(tx=>claimWorkflowStage(tx,{...strictInput,...change}))).rejects.toThrow();await expect(pg.query("UPDATE workflow_stage.stages SET expected_child_key='changed'")).rejects.toThrow('workflow_stage_evidence_immutable');await expect(pg.query("UPDATE workflow_stage.stages SET recovery_profile='retained-children',expected_child_key=NULL")).rejects.toThrow('workflow_stage_evidence_immutable');});
++it('requires exact strict key before registration and holds unexpected retained children',async()=>{const owner=await claim(strictInput);await expect(run(tx=>registerWorkflowStageChild(tx,owner,child))).rejects.toThrow();await pg.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,1)',[job,input.stageKey,'other','unexpected','body']);await expire();expect(await run(tx=>recoverWorkflowStage(tx,strictInput,proof))).toMatchObject({kind:'recovery_required'});});
++it('retained-children profile holds zero children but recovers retained evidence',async()=>{const i:WorkflowStageClaim={...input,recoveryProfile:'retained-children'};const owner=await claim(i);await expire();expect(await run(tx=>recoverWorkflowStage(tx,i,proof))).toMatchObject({kind:'recovery_required'});await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()+interval '1 minute',state='running'");await run(tx=>registerWorkflowStageChild(tx,owner,child));await expire();expect(await run(tx=>recoverWorkflowStage(tx,i,proof))).toMatchObject({kind:'owned',recovery:'resume'});});
++it('renews current leases without reviving expiry or accepting invalid duration',async()=>{const owner=await claim();for(const ms of [0,300001,1.5,NaN])await expect(run(tx=>renewWorkflowStageLease(tx,owner,ms))).rejects.toThrow();await run(tx=>renewWorkflowStageLease(tx,owner,300000));await run(tx=>assertWorkflowStageOwner(tx,owner));await expire();await expect(run(tx=>renewWorkflowStageLease(tx,owner,300000))).rejects.toThrow();});
++it('renewal and recovery obey canonical cancellation and completed lifecycle fences',async()=>{const owner=await claim(strictInput);await pg.query("UPDATE jobs SET state='cancelled'");await expect(run(tx=>renewWorkflowStageLease(tx,owner,300000))).rejects.toThrow();await expire();await expect(run(tx=>recoverWorkflowStage(tx,strictInput,proof))).rejects.toThrow();await pg.query("UPDATE jobs SET state='running'");const r=await run(tx=>recoverWorkflowStage(tx,strictInput,proof));if(r.kind!=='owned')throw Error('owner');await expect(run(tx=>renewWorkflowStageLease(tx,owner,300000))).rejects.toThrow();await run(tx=>completeWorkflowStage(tx,r.owner,'ciphertext'));await expect(run(tx=>renewWorkflowStageLease(tx,r.owner,300000))).rejects.toThrow();});
++
++it('strict completion requires terminal retained children while zero-child and generic stages remain compatible',async()=>{const owner=await claim(strictInput);expect(await run(tx=>workflowStageChildrenSettled(tx,owner,proof))).toBe(true);await run(tx=>registerWorkflowStageChild(tx,owner,naiveChild));for(const state of ['unknown','resumable','undispatched'] as const)expect(await run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>({state,evidenceKey:'retained'})}))).toBe(false);expect(await run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>({state:'terminal',evidenceKey:'settled'})}))).toBe(true);const generic=await claim({...input,stageKey:'generic'});await run(tx=>registerWorkflowStageChild(tx,generic,child));expect(await run(tx=>workflowStageChildrenSettled(tx,generic,{read:async()=>{throw Error('must not read generic');}}))).toBe(true);});
++it('completion settlement check rejects unexpected children, reader failure and expired owners',async()=>{const owner=await claim(strictInput);await run(tx=>registerWorkflowStageChild(tx,owner,naiveChild));await expect(run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>{throw Error('reader unavailable');}}))).rejects.toThrow('reader unavailable');await pg.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,1)',[job,input.stageKey,'other','unexpected','body']);expect(await run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>({state:'terminal',evidenceKey:'settled'})}))).toBe(false);await expire();await expect(run(tx=>workflowStageChildrenSettled(tx,owner,proof))).rejects.toThrow('workflow_stage_conflict');});
+diff --git a/packages/core/src/db/workflow-stage-authority.ts b/packages/core/src/db/workflow-stage-authority.ts
+--- a/packages/core/src/db/workflow-stage-authority.ts
++++ b/packages/core/src/db/workflow-stage-authority.ts
+@@ -1,18 +1,19 @@
+ import { randomUUID } from 'node:crypto';
+ import { lockJobBudget, reserveJobBudget, releaseWorkflowJobBudget, type JobBudgetTx } from './job-budget-authority';
+ export interface WorkflowStageInvocation {workflowRunId:string;stepId:string;attempt:number}
+-export interface WorkflowStageClaim {jobId:string;ownerId:string;environment:string;stageKey:string;inputDigest:string;role:string;amountMicroUsd:number;invocation:WorkflowStageInvocation;leaseMs:number}
++export type WorkflowStageRecoveryProfile = 'none'|'retained-children'|'naive-single-child-v1';
++export interface WorkflowStageClaim {recoveryProfile?:WorkflowStageRecoveryProfile;expectedChildKey?:string|null;jobId:string;ownerId:string;environment:string;stageKey:string;inputDigest:string;role:string;amountMicroUsd:number;invocation:WorkflowStageInvocation;leaseMs:number}
+ export interface WorkflowStageOwner {jobId:string;stageKey:string;token:string;generation:number}
+ export interface WorkflowStageChild {kind:string;operationKey:string;requestDigest:string}
+-interface Stage {job_id:string;stage_key:string;customer_id:string;environment:string;input_digest:string;role:string;operation_id:string;reservation_id:string;amount_micro_usd:string|number;owner_token:string;generation:string|number;state:string;result_ciphertext:string|null;expired:boolean;recovery:boolean}
++interface Stage {recovery_profile:WorkflowStageRecoveryProfile;expected_child_key:string|null;job_id:string;stage_key:string;customer_id:string;environment:string;input_digest:string;role:string;operation_id:string;reservation_id:string;amount_micro_usd:string|number;owner_token:string;generation:string|number;state:string;result_ciphertext:string|null;expired:boolean;recovery:boolean}
+ type Details={reservationId:string;amountMicroUsd:number};
+ export type WorkflowStageDecision=({kind:'owned';owner:WorkflowStageOwner;recovery?:'undispatched'|'resume'} & Details)|({kind:'completed';resultCiphertext:string} & Details)|({kind:'busy'} & Details)|({kind:'recovery_required'} & Details)|{kind:'budget_exceeded';remainingMicroUsd:number};
+ const fail=():never=>{throw Error('workflow_stage_conflict');};
+ function key(v:string){if(typeof v!=='string'||!v.length||v.length>4096||/[\u0000\uD800-\uDFFF]/u.test(v))fail();}
+-function validate(i:WorkflowStageClaim){[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
++function validate(i:WorkflowStageClaim){const profile=i.recoveryProfile??'none';if(!['none','retained-children','naive-single-child-v1'].includes(profile))fail();if(profile==='naive-single-child-v1'){key(i.expectedChildKey!);}else if(i.expectedChildKey!=null)fail();[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
+ async function row(tx:JobBudgetTx,jobId:string,stageKey:string){return (await tx.query<Stage>('SELECT *,lease_until<=clock_timestamp() AS expired FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2 FOR UPDATE',[jobId,stageKey])).rows[0];}
+ async function canonical(tx:JobBudgetTx,jobId:string,customerId:string,environment:string){await lockJobBudget(tx,jobId);const j=(await tx.query<{customer_id:string;environment:string;state:string}>('SELECT customer_id,environment::text,state::text FROM jobs WHERE id=$1',[jobId])).rows[0];if(!j||j.customer_id!==customerId||j.environment!==environment||!['draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'].includes(j.state))fail();}
+-function identity(s:Stage,i:WorkflowStageClaim){if(s.customer_id!==i.ownerId||s.environment!==i.environment||s.input_digest!==i.inputDigest||s.role!==i.role||Number(s.amount_micro_usd)!==i.amountMicroUsd)fail();}
++function identity(s:Stage,i:WorkflowStageClaim){if(s.recovery_profile!==(i.recoveryProfile??'none')||s.expected_child_key!==(i.expectedChildKey??null)||s.customer_id!==i.ownerId||s.environment!==i.environment||s.input_digest!==i.inputDigest||s.role!==i.role||Number(s.amount_micro_usd)!==i.amountMicroUsd)fail();}
+ function details(s:Stage):Details{return {reservationId:s.reservation_id,amountMicroUsd:Number(s.amount_micro_usd)};}
+ function owned(s:Stage,recovery?:'undispatched'|'resume'):WorkflowStageDecision{return {kind:'owned',owner:{jobId:s.job_id,stageKey:s.stage_key,token:s.owner_token,generation:Number(s.generation)},...details(s),...(recovery?{recovery}:{})};}
+ /** Must run in one pinned transaction, without automatic callback retry. Claims NEVER
+@@ -24,10 +25,10 @@
+  const operationId=`workflow-stage:${randomUUID()}`;
+  // Deliberately does not call legacy reserveWorkflowJobBudget(job,agent) reuse.
+  const r=await reserveJobBudget(tx,{jobId:i.jobId,operationId,amountMicroUsd:i.amountMicroUsd,workflowAgent:i.role});if(!r.ok)return {kind:'budget_exceeded',remainingMicroUsd:r.remainingMicroUsd};
+- const token=randomUUID();await tx.query(`INSERT INTO workflow_stage.stages(job_id,stage_key,customer_id,environment,input_digest,role,operation_id,reservation_id,amount_micro_usd,owner_token,generation,workflow_run_id,step_id,attempt,state,lease_until) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$13,'running',clock_timestamp()+$14*interval '1 millisecond')`,[i.jobId,i.stageKey,i.ownerId,i.environment,i.inputDigest,i.role,operationId,r.reservationId,i.amountMicroUsd,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs]);return owned((await row(tx,i.jobId,i.stageKey))!);
++ const token=randomUUID();await tx.query(`INSERT INTO workflow_stage.stages(job_id,stage_key,customer_id,environment,input_digest,role,operation_id,reservation_id,amount_micro_usd,owner_token,generation,workflow_run_id,step_id,attempt,state,lease_until,recovery_profile,expected_child_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$13,'running',clock_timestamp()+$14*interval '1 millisecond',$15,$16)`,[i.jobId,i.stageKey,i.ownerId,i.environment,i.inputDigest,i.role,operationId,r.reservationId,i.amountMicroUsd,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs,i.recoveryProfile??'none',i.expectedChildKey??null]);return owned((await row(tx,i.jobId,i.stageKey))!);
+ }
+ export async function assertWorkflowStageOwner(tx:JobBudgetTx,o:WorkflowStageOwner){await lockJobBudget(tx,o.jobId);const s=await row(tx,o.jobId,o.stageKey);if(!s)fail();await canonical(tx,o.jobId,s.customer_id,s.environment);if(s.owner_token!==o.token||Number(s.generation)!==o.generation||s.state!=='running'||s.expired)fail();return details(s);}
+-export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;if(stage.recovery&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
++export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;const exactNaive=stage.recovery_profile==='naive-single-child-v1'&&c.kind==='naive_session'&&c.operationKey===stage.expected_child_key;if(stage.recovery_profile==='naive-single-child-v1'&&!exactNaive)fail();if(stage.recovery&&!exactNaive&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
+ /** Called under the same transaction as the child's retained dispatch intent. The
+  * transaction commits before network I/O; it is not permission for a new child key. */
+ export async function markWorkflowStageChildDispatch(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await registerWorkflowStageChild(tx,o,c);const r=(await tx.query<{dispatch_intent_at:unknown}>('SELECT dispatch_intent_at FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4 FOR UPDATE',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows[0];if(r?.dispatch_intent_at)fail();await tx.query('UPDATE workflow_stage.children SET dispatch_generation=$5,dispatch_intent_at=clock_timestamp() WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey,o.generation]);}
+@@ -41,7 +42,24 @@
+ export interface WorkflowStageRecoveryReader {read(tx:JobBudgetTx,child:WorkflowStageChild & {jobId:string;stageKey:string;dispatchIntent:boolean}):Promise<{state:'undispatched'|'resumable'|'terminal'|'unknown';evidenceKey:string}>}
+ export async function recoverWorkflowStage(tx:JobBudgetTx,i:WorkflowStageClaim,reader:WorkflowStageRecoveryReader):Promise<WorkflowStageDecision>{validate(i);await canonical(tx,i.jobId,i.ownerId,i.environment);const s=await row(tx,i.jobId,i.stageKey);if(!s)fail();identity(s,i);if(s.state==='completed')return {kind:'completed',resultCiphertext:s.result_ciphertext!,...details(s)};if(s.state==='running'&&!s.expired)return {kind:'busy',...details(s)};
+  const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[i.jobId,i.stageKey])).rows;
+- // Zero children is ambiguous: an uninstrumented callback may already have spent.
+- let resume=false,unknown=children.length===0;for(const c of children){const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
++ // Only the immutable strict single-child composition may recover before registration.
++ let resume=false,unknown=children.length===0&&s.recovery_profile!=='naive-single-child-v1';if(s.recovery_profile==='naive-single-child-v1'&&children.some(c=>c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))unknown=true;for(const c of children){const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
+  if(unknown){await tx.query("UPDATE workflow_stage.stages SET state='recovery_required' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey]);return {kind:'recovery_required',...details(s)};}
+  const token=randomUUID();await tx.query("UPDATE workflow_stage.stages SET owner_token=$3,generation=generation+1,recovery=true,workflow_run_id=$4,step_id=$5,attempt=$6,state='running',lease_until=clock_timestamp()+$7*interval '1 millisecond' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs]);return owned((await row(tx,i.jobId,i.stageKey))!,resume?'resume':'undispatched');}
++
++/** Renews only a current, unexpired owner under the canonical lifecycle fence. */
++export async function renewWorkflowStageLease(tx:JobBudgetTx,o:WorkflowStageOwner,leaseMs:number){if(!Number.isSafeInteger(leaseMs)||leaseMs<1||leaseMs>300000)fail();await assertWorkflowStageOwner(tx,o);const renewed=await tx.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()+$3*interval '1 millisecond' WHERE job_id=$1 AND stage_key=$2 AND lease_until>clock_timestamp() RETURNING job_id",[o.jobId,o.stageKey,leaseMs]);if(!renewed.rows.length)fail();}
++/** Strict compositions cannot release their parent hold while a retained child has
++ * unresolved accounting. Must be called in the completion transaction. */
++export async function workflowStageChildrenSettled(tx:JobBudgetTx,o:WorkflowStageOwner,reader:WorkflowStageRecoveryReader):Promise<boolean>{
++ await assertWorkflowStageOwner(tx,o);const s=(await row(tx,o.jobId,o.stageKey))!;
++ if(s.recovery_profile!=='naive-single-child-v1')return true;
++ const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[o.jobId,o.stageKey])).rows;
++ for(const c of children){
++  if(c.kind!=='naive_session'||c.operation_key!==s.expected_child_key)return false;
++  const proof=await reader.read(tx,{jobId:o.jobId,stageKey:o.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});
++  key(proof.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(proof.state))fail();
++  if(proof.state!=='terminal')return false;
++ }
++ return true;
++}

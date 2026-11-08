@@ -1,0 +1,111 @@
+{
+  "reviewedRepositoryCommit": "3d03209",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-stage-ownership-integration",
+  "dependencyHashes": {
+    "manifest.json": "9e7fa3bd1c0dc49dd85afa337a7d60df6d184fc0af6695df22da19d318b5bb6d",
+    "assemble.py": "8a65e188410f72fba3307c8dcc4a22d1273279804421ce649419061bb7aab3b4"
+  },
+  "files": [
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/expert-text-runtime.ts",
+      "beforeSha256": "48877ea66f20371341b3d84a25ebeba45b34b48d27858b140d59f6d97e9bab94",
+      "afterSha256": "81dba9bfe18e3c104383a0a955e46a3ea4fae28b977f9154376b55110710628f"
+    },
+    {
+      "path": "apps/web/src/server/job-store-stage-sql.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-store-stage-sql.test.ts",
+      "beforeSha256": "ef129fb6a658f1aed6193571dc00a882d2923ff28712d41fed7e545b8649eab7",
+      "afterSha256": "ac46e212969df8ef8ed5243aadd8135ddc3a2b4c73c1e65bc2352a5041ed386b"
+    },
+    {
+      "path": "apps/web/src/server/job-store.ts",
+      "postimage": "postimages/apps/web/src/server/job-store.ts",
+      "beforeSha256": "72cd8b1e02ad63a81088c5759d590ab8d7cd8b0d17b7c84042b2d11188fc0194",
+      "afterSha256": "e0444a85628f5e8f39334ccaab86e9e16ee01cbd7b34920daac507a06b089bc2"
+    },
+    {
+      "path": "apps/web/src/server/services-recovery.test.ts",
+      "postimage": "postimages/apps/web/src/server/services-recovery.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "248cac5db031542aa620390994c1d8bbd7b32d603053dc953651bd94182c2a42"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "postimage": "postimages/apps/web/src/server/services.ts",
+      "beforeSha256": "54afb2c5de1efe7158e8b7cf9ec8c3f25b7d1dde71192f3deaee5279a60f45b8",
+      "afterSha256": "e7d3d39a3fa83f4df0fcb8c33076b786c25c1efe2f9846bc3fa0c16edcaf7db9"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-children.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-children.test.ts",
+      "beforeSha256": "8a1e0e006f3d0ac6b4a68be16d5f662ec79dc0c110584fedeb9c842b1331f527",
+      "afterSha256": "c1941abd1fb26a1af2f287ebe38eec732793761b710e9e04ec90e5cc0854a743"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-children.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-children.ts",
+      "beforeSha256": "2b84f37e253881e5c00509c049b7291112e77befe119469f08873c14a9570a43",
+      "afterSha256": "9051cd608b40f9e7d20eace58bfe1096aaf6d74acf7f3ddba24d2848684f66e6"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-recovery-integration.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-recovery-integration.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "90c497ae2473ae35cc0ba3892a7f21c1f175af8e2e4be3f1892212f46a6dbfbd"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-runtime.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-runtime.test.ts",
+      "beforeSha256": "f6c479dc0da1a7bcf035ca7d512e6962a11ce253fb0fadcdd8bb03925699bdbb",
+      "afterSha256": "b8903986b32aae20e5110563a37c06bb4ff1147be138e0de6fc9729a0c4ad558"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-runtime.ts",
+      "beforeSha256": "ff4da7820fab69f0a2d29c8444cf43290b9ef2920e763ae620e3feb53168d68f",
+      "afterSha256": "92b637a5dee8deadce970f86e26f3095985900a5623772bd7cb5bb6353c4fcdf"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/evaluate.ts",
+      "beforeSha256": "e20c65776200ed3e9dbd72873a79ee6d2b4d360978284f80b5c10d60ad008da3",
+      "afterSha256": "4f5d188be2ecdde90098a2aeae963eb09db95cdcdd94c12f2e81984a5262782e"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/quote.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/quote.ts",
+      "beforeSha256": "0529367cd51f8309078fe3415aaebcde28b32ded71259536ac36509faa9d4c52",
+      "afterSha256": "a2cb72ba59dd969843584665e8974db3c8e1576f99fd817ba73cff16aeba0456"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/recovery-profile.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/recovery-profile.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "6b42b8c21c3c898e77cc3f447b7a59a1a2ed46633c0bf366ef6cbc8c23ff5057"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.test.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.test.ts",
+      "beforeSha256": "51d379ed6df0b39144ed544e91f17bc206d481d446b595561e49b3fb0a8bcf01",
+      "afterSha256": "220f2e87d15d6fe63eefc7c8c411fc4243590b3b945a62eb3b3fef750d697520"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.ts",
+      "beforeSha256": "d6a7a51d8b759cb98bc228598b674cd9737bb84f29a8beb124235e0c6f249bb2",
+      "afterSha256": "5cc0ef8e73051b64c95439bc79919c045a7ff8d6e986b355a163631d4a31d518"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-stage-recovery-profile.sql",
+      "sha256": "0c4238f884a3840611e37fe23e8c714afe42cf13305912ca4fd9103d2691f473"
+    },
+    {
+      "path": "sql/002-stage-progress.sql",
+      "sha256": "92539fca108f7d66a80c768038107a432c1efd8088bfd16b1b539fef4878739e"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "status": "verified_unapplied_incremental_candidate",
+  "reviewedRepositoryCommit": "3d03209",
+  "testedMain": "5da0635",
+  "latestMain": "187a85d",
+  "mainMerge": "1b288e6",
+  "latestMainDifference": "Feedback email wording only; outside candidate-tested baseline; candidate preimages unchanged",
+  "incrementalPaths": 15,
+  "composedUniquePaths": 57,
+  "baselinePins": 2234,
+  "focused": {
+    "passed": 71,
+    "failed": 0,
+    "skipped": 0,
+    "includedInFullSuite": true
+  },
+  "fullSuite": {
+    "passed": 4123,
+    "failed": 0,
+    "skipped": 2,
+    "maxWorkers": 2
+  },
+  "webTypesExitCode": 0,
+  "productionBuild": {
+    "exitCode": 0,
+    "steps": 57,
+    "workflows": 4,
+    "offlineFontFixture": true
+  },
+  "allPrePostimagesVerified": true,
+  "independentIncrementalPatch": true,
+  "reproducibleAssembly": true,
+  "manifestSha256": "e4417ec83fb603e2e4b75d67811e3259dcfb4306fbae72bb26707f2e27d5f909",
+  "retainedDependencies": true,
+  "newSqlFiles": 2,
+  "realRuntimeTaskStoreSessionRunnerCompositionTests": 4,
+  "automaticRecoveryProfiles": [
+    "real qualification",
+    "real trace audit",
+    "real ordinary report"
+  ],
+  "nativePostgresConcurrencyVerified": false,
+  "sourceAdopted": false,
+  "liveMigrationApplied": false,
+  "deployed": false,
+  "providerCalls": 0,
+  "remainingGates": [
+    "Mixed callback child protocols: lite/Gateway/target/proxy",
+    "Remediation pending handling and standalone publication/lifecycle/cancellation request fences",
+    "Parent budget envelopes, daily authority and optional V2 proxy admission",
+    "Factual/sourcing rebase and exact source adoption",
+    "Copilot conversation sends/cumulative accounting/streaming/idle",
+    "Full roster and native PostgreSQL/hosted/Naive acceptance"
+  ],
+  "rootVerification": {
+    "commit": "1b288e6",
+    "passed": 3932,
+    "failed": 0,
+    "skipped": 2,
+    "webTypesExitCode": 0
+  }
+}
