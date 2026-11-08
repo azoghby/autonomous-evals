@@ -6,6 +6,7 @@ import { SandboxIntakeInput, type SandboxDraft, type ScenarioReviewInput } from 
 import { createDraft, getDraft, reviewScenario, startRun, type ApiResult } from "./api";
 import { buildRequest, initialForm, stepOfError, withExample, type WizardForm } from "./form";
 import { ErrorList, type Errors } from "./controls";
+import { FatalNotice } from "@/components/billing/LimitNotice";
 import { ConnectStep } from "./ConnectStep";
 import { WorldStep } from "./WorldStep";
 import { ReviewStep } from "./ReviewStep";
@@ -178,7 +179,7 @@ export function Wizard() {
         {step === 2 && draft && <ReviewStep draft={draft} busyId={busyId} onReview={review} onAcceptAll={acceptAll} />}
         {step === 3 && draft && <RunStep draft={draft} k={k} onK={setK} starting={starting} onStart={start} />}
         <ErrorList errors={step < 2 ? errors : {}} />
-        {fatal && <p role="alert" className="border border-danger/40 px-4 py-3 text-sm text-danger break-words">{fatal}</p>}
+        {fatal && <FatalNotice message={fatal} />}
       </section>
       <div className="flex flex-wrap items-center gap-3 border-t border-line-2 pt-6">
         {step > 0 && <Button variant="outline" onClick={back} disabled={(generating && !pendingId) || starting}>Back</Button>}
