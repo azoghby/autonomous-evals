@@ -1,0 +1,9 @@
+{
+  "characterization": true,
+  "releaseAcceptance": false,
+  "source": "docs/workflow-judging-integration/app/files/apps/web/src/server/rich-judge.ts",
+  "requiredRubricChecks": 24,
+  "defaultRuntimeDispatches": 16,
+  "shortfall": 8,
+  "networkCalls": 0
+}
