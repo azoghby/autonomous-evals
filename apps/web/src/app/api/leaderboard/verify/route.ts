@@ -2,6 +2,7 @@ import { z } from "zod";
 import { jsonError } from "@/server/http";
 import { rateLimit, clientIp } from "@/server/rate-limit";
 import { verifySubmission } from "@/server/owner-submit";
+import { readBoundedJson } from "@/server/body-limit";
 
 const Body = z.object({ token: z.string().min(16).max(200) });
 
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
   const rl = await rateLimit(`agent-verify:ip:${clientIp(req)}`, 20, 3600);
   if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   let raw: unknown;
-  try { raw = await req.json(); } catch { return jsonError(400, "Invalid JSON body"); }
+  { const b = await readBoundedJson(req); if (!b.ok) return b.res; raw = b.value; }
   const parsed = Body.safeParse(raw);
   if (!parsed.success) return jsonError(400, "Invalid link");
   try {

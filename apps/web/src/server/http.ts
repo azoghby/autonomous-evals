@@ -2,15 +2,17 @@ import "server-only";
 import { z } from "zod";
 import { getCurrentCustomer } from "./session";
 import type { Viewer } from "./access";
+import { DEFAULT_MAX_BODY_BYTES, readBoundedJson } from "./body-limit";
 
 export const jsonError = (status: number, error: string, extra?: Record<string, unknown>) =>
   Response.json({ error, ...extra }, { status });
 
-export async function readJson<S extends z.ZodType>(req: Request, schema: S):
+/** Parses and validates a JSON body capped at maxBytes (default 256 KB; 413 above it). */
+export async function readJson<S extends z.ZodType>(req: Request, schema: S, maxBytes = DEFAULT_MAX_BODY_BYTES):
   Promise<{ ok: true; data: z.infer<S> } | { ok: false; res: Response }> {
-  let raw: unknown;
-  try { raw = await req.json(); } catch { return { ok: false, res: jsonError(400, "Invalid JSON body") }; }
-  const parsed = schema.safeParse(raw);
+  const body = await readBoundedJson(req, maxBytes);
+  if (!body.ok) return body;
+  const parsed = schema.safeParse(body.value);
   if (!parsed.success) return { ok: false, res: jsonError(400, "Invalid request", { issues: z.flattenError(parsed.error) }) };
   return { ok: true, data: parsed.data };
 }

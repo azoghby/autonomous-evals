@@ -12,6 +12,8 @@ export interface SendFromInboxInput {
   attachments?: EmailAttachment[];
   /** Extra headers, e.g. List-Unsubscribe. */
   headers?: Record<string, string>;
+  /** Reply-To address (e.g. route replies to a human founder). */
+  replyTo?: string;
 }
 export interface EmailAttachment { filename: string; contentType: string; content: string }
 export interface SentMessage { messageId: string; threadId: string }
@@ -43,6 +45,7 @@ export async function sendFromInbox(inboxId: string, input: SendFromInboxInput):
     ...(input.labels?.length ? { labels: input.labels } : {}),
     ...(input.attachments?.length ? { attachments: input.attachments } : {}),
     ...(input.headers ? { headers: input.headers } : {}),
+    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
   });
   return { messageId: res.messageId, threadId: res.threadId };
 }

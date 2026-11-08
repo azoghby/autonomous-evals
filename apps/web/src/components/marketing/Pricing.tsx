@@ -37,6 +37,11 @@ export function Pricing() {
                     <li>{nf(p.limits.environments)} environment{p.limits.environments === 1 ? "" : "s"}</li>
                     <li>{p.limits.overageAllowed ? "Overage billed per trial" : "Hard cap, never a surprise bill"}</li>
                   </ul>
+                  {id === "pro" && (
+                    <Button href="/pricing?checkout=pro" variant="primary" className="mt-auto w-full">
+                      {p.cta.label}
+                    </Button>
+                  )}
                 </li>
               );
             })}

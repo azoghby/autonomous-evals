@@ -37,25 +37,29 @@ export interface PlanCheckoutArgs {
   interval: BillingInterval;
   successUrl: string;
   cancelUrl: string;
+  /** Free trial days to include (0 = none). Card is still collected up front. */
+  trialDays?: number;
 }
 
 /** Subscription Checkout for Pro/Scale. Does not touch the database. */
 export async function createPlanCheckout(a: PlanCheckoutArgs): Promise<{ sessionId: string; url: string }> {
   const price = await resolvePriceId(lookupKeyFor(a.plan, a.interval));
+  const trialDays = a.trialDays && a.trialDays > 0 ? Math.floor(a.trialDays) : 0;
   const metadata = {
     kind: "plan", plan: a.plan, interval: a.interval, customer_id: a.customerId, environment: getStripeMode(),
+    ...(trialDays ? { trial_days: String(trialDays) } : {}),
   };
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price, quantity: 1 }],
     client_reference_id: a.customerId,
     metadata,
-    subscription_data: { metadata },
+    subscription_data: { metadata, ...(trialDays ? { trial_period_days: trialDays } : {}) },
     allow_promotion_codes: true,
     ...(a.stripeCustomerId ? { customer: a.stripeCustomerId } : { customer_email: a.customerEmail }),
     success_url: a.successUrl,
     cancel_url: a.cancelUrl,
-  }, { idempotencyKey: `plan:${a.customerId}:${a.plan}:${a.interval}:${utcDate()}` });
+  }, { idempotencyKey: `plan:${a.customerId}:${a.plan}:${a.interval}:${utcDate()}${trialDays ? `:trial${trialDays}` : ""}` });
   if (!session.url) throw new Error("Stripe returned a checkout session without a URL");
   return { sessionId: session.id, url: session.url };
 }
@@ -115,6 +119,7 @@ export async function recordPlanPurchase(session: Stripe.Checkout.Session, _even
   const product = metaKind === "plan" ? (plan as string) : "agent_audit";
   const stripeCustomerId = idOf(session.customer);
   const stripeSubscriptionId = idOf(session.subscription);
+  const trialDays = metaKind === "plan" ? Number.parseInt(session.metadata?.trial_days ?? "", 10) || 0 : 0;
 
   const rows = await db().insert(schema.planPurchases).values({
     customerId, email,
@@ -126,7 +131,7 @@ export async function recordPlanPurchase(session: Stripe.Checkout.Session, _even
     environment: session.livemode ? "live" : "test",
     stripeCheckoutSessionId: session.id,
     stripeSubscriptionId, stripeCustomerId,
-    status: metaKind === "plan" ? "active" : "paid",
+    status: metaKind === "plan" ? (trialDays ? "trialing" : "active") : "paid",
   }).onConflictDoNothing().returning();
   const inserted = rows.length > 0;
 
@@ -136,7 +141,8 @@ export async function recordPlanPurchase(session: Stripe.Checkout.Session, _even
     const prevSub = prev?.sub && prev.status && !LAPSED_STATUSES.has(prev.status) ? prev.sub : null;
     await cancelSupersededSubscription(prevSub, stripeSubscriptionId);
     await db().update(schema.customers).set({
-      plan: product, planInterval: interval as string, planStatus: "active",
+      plan: product, planInterval: interval as string, planStatus: trialDays ? "trialing" : "active",
+      planTrialEnd: trialDays ? new Date(Date.now() + trialDays * 86_400_000) : null,
       stripeCustomerId, stripeSubscriptionId, planUpdatedAt: new Date(),
     }).where(eq(schema.customers.id, customerId));
   }
@@ -144,6 +150,9 @@ export async function recordPlanPurchase(session: Stripe.Checkout.Session, _even
 }
 
 const LAPSED_STATUSES = new Set(["canceled", "incomplete_expired", "unpaid"]);
+
+/** Statuses that entitle the customer to the paid plan: a free trial counts, past_due is a grace period. */
+export const ENTITLED_STATUSES: ReadonlySet<string> = new Set(["active", "trialing", "past_due"]);
 
 /** Mirrors a Stripe subscription onto its customer. Returns the customer id, or null when it is not a plan subscription. */
 export async function syncSubscription(subscription: Stripe.Subscription): Promise<string | null> {
@@ -163,6 +172,7 @@ export async function syncSubscription(subscription: Stripe.Subscription): Promi
   const set: Partial<typeof schema.customers.$inferInsert> = {
     planStatus: subscription.status,
     planCurrentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
+    planTrialEnd: subscription.status === "trialing" && subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
     stripeSubscriptionId: subscription.id,
     stripeCustomerId: idOf(subscription.customer),
     planUpdatedAt: new Date(),
@@ -187,13 +197,11 @@ export interface PlanRow {
   planStatus: string | null;
 }
 
-const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
-
 /** Plan a customer is entitled to right now. past_due keeps access as a grace period; enterprise is operator-set. */
 export function effectivePlanFor(row: PlanRow | null | undefined): PlanId {
   if (!row || !isPlanId(row.plan)) return "developer";
   if (row.plan === "enterprise" || row.plan === "developer") return row.plan;
-  return row.planStatus && ACTIVE_STATUSES.has(row.planStatus) ? row.plan : "developer";
+  return row.planStatus && ENTITLED_STATUSES.has(row.planStatus) ? row.plan : "developer";
 }
 
 /**

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (auth.res) return auth.res;
   const userLimit = await rateLimit(`sandbox-drafts-user:${auth.viewer.id}`, 30, 3600);
   if (!userLimit.ok) return tooMany(userLimit.retryAfter);
-  const body = await readJson(req, SandboxIntakeInput);
+  const body = await readJson(req, SandboxIntakeInput, 4 * 1024 * 1024) /* tools 500k + data 2M chars */;
   if (!body.ok) return body.res;
   try {
     const rejected = await checkIntegrationTargets(body.data.integration);

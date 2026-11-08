@@ -1,4 +1,5 @@
 import "server-only";
+import { publicAppUrl } from "./public-url";
 import { and, asc, eq, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { isEmailConfigured, sendEmail, type SentEmail } from "@ae/core/auth/email";
@@ -23,7 +24,7 @@ export type FollowUpEnv = Record<string, string | undefined>;
 
 export interface FollowUpResult { processed: number; sent: number; skipped: number; errors: string[] }
 
-const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const appUrl = (): string => publicAppUrl();
 const companyAddress = () => process.env.COMPANY_ADDRESS?.trim() || "[physical mailing address: set COMPANY_ADDRESS]";
 const jobUrl = (jobId: string) => `${appUrl()}/jobs/${jobId}`;
 const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)[0] || "there";

@@ -4,6 +4,7 @@ import { jsonError } from "@/server/http";
 import { createExpertFromSignup } from "@/server/experts";
 import { rateLimit, clientIp } from "@/server/rate-limit";
 import { assertHuman } from "@/server/bot";
+import { readBoundedJson } from "@/server/body-limit";
 
 /** Public opt-in signup. `hp` is a honeypot: bots fill it, humans never see it. */
 export async function POST(req: Request) {
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
   const rl = await rateLimit(`expert-signup:${clientIp(req)}`, 10, 600);
   if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   let raw: unknown;
-  try { raw = await req.json(); } catch { return jsonError(400, "Invalid JSON body"); }
+  { const b = await readBoundedJson(req); if (!b.ok) return b.res; raw = b.value; }
   if (raw && typeof raw === "object" && typeof (raw as { hp?: unknown }).hp === "string" && (raw as { hp: string }).hp.trim()) {
     return Response.json({ ok: true }, { status: 201 }); // pretend success, store nothing
   }

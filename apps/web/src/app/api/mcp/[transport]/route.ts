@@ -1,9 +1,9 @@
-import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { createMcpHandler } from "mcp-handler";
 import { rateLimit } from "@/server/rate-limit";
 import { z } from "zod";
 import { TOOLS, HIRE_WORKFLOW_PROMPT, SAMPLE_REPORT_URI, sampleReportMarkdown, type McpCaller } from "@/server/mcp-tools";
 import { SANDBOX_TOOLS } from "@/server/mcp-sandbox-tools";
-import { authenticateMcpBearer } from "@/server/oauth/mcp-auth";
+import { authenticateMcpBearer, withMcpBearerAuth } from "@/server/oauth/mcp-auth";
 import { PRM_PATH } from "@/server/oauth/core";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ const mcp = createMcpHandler((server) => {
   );
 }, { serverInfo: { name: "standard-evals", version: "1.0.0" } });
 
-const authed = withMcpAuth(
+const authed = withMcpBearerAuth(
   async (req) => {
     // Per customer, not per key/grant: minting more API keys or OAuth grants must not multiply the limit.
     const customerId = (req.auth?.extra as { customerId?: unknown } | undefined)?.customerId;
@@ -65,7 +65,7 @@ const authed = withMcpAuth(
   },
   // Accepts OAuth access tokens (aeo_at_, issued by /oauth/token) and dashboard API keys (ae_).
   (req, bearer) => authenticateMcpBearer(req, bearer),
-  { required: true, resourceMetadataPath: PRM_PATH },
+  { resourceMetadataPath: PRM_PATH },
 );
 
 /** Streamable HTTP only, served at /api/mcp/mcp. Other transports (sse, message) are not offered. */

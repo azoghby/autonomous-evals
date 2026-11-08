@@ -27,6 +27,8 @@ export const customers = pgTable("customers", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   planCurrentPeriodEnd: ts("plan_current_period_end"),
+  /** End of the Stripe free trial while plan_status = trialing; null otherwise. */
+  planTrialEnd: ts("plan_trial_end"),
   planUpdatedAt: ts("plan_updated_at"),
   createdAt,
 }, (t) => [uniqueIndex("customers_email_uq").on(sql`lower(${t.email})`)]);
@@ -706,6 +708,24 @@ export const overageCharges = pgTable("overage_charges", {
   createdAt,
 }, (t) => [uniqueIndex("overage_charges_customer_period_uq").on(t.customerId, t.periodStart)]);
 
+/**
+ * One row per (customer, usage month, threshold) usage warning email (80 or 100 percent of included trials).
+ * The unique key is the idempotency marker: claim first, then send; a failed send deletes the claim so the next run retries.
+ * status "skipped" marks a lower threshold that was crossed in the same run as a higher one (no email sent).
+ */
+export const usageWarnings = pgTable("usage_warnings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  periodStart: ts("period_start").notNull(),
+  threshold: integer("threshold").notNull(),
+  plan: text("plan").notNull(),
+  trialsUsed: integer("trials_used").notNull(),
+  includedTrials: integer("included_trials").notNull(),
+  /** sent | skipped */
+  status: text("status").notNull().default("sent"),
+  createdAt,
+}, (t) => [uniqueIndex("usage_warnings_customer_period_threshold_uq").on(t.customerId, t.periodStart, t.threshold)]);
+
 /* ---------------- Agent-run company (packages/core/src/company, apps/web/src/server/company) ---------------- */
 
 /** Per-agent on/off toggle set from the operator console. Absent row = registry default for the environment. */
@@ -970,4 +990,51 @@ export const expertWorkflowTextBindings = expertWorkflow.table("text_bindings", 
   check("text_bindings_run_id_check", sql`${t.runId} ~ '^expert-[a-f0-9]{24}$'`),
   check("text_bindings_check", sql`${t.scope}->>'jobId'=${t.jobId}::text`),
   check("text_bindings_scope_check1", sql`octet_length(${t.scope}::text)<4096`),
+]);
+
+// ---- User-feedback campaign (/feedback, scripts/feedback-outreach.ts) ----
+
+/**
+ * One row per vetted builder we invited to give feedback. `token` is the unguessable ?ref= in their /feedback link and
+ * the key for their one-click opt-out. Email is stored lowercased; sourceUrl is where the address is publicly published.
+ */
+export const feedbackInvites = pgTable("feedback_invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  token: text("token").notNull(),
+  email: text("email").notNull(),
+  name: text("name"),
+  org: text("org").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  /** pending | sent | suppressed | failed | replied */
+  status: text("status").notNull().default("pending"),
+  messageId: text("message_id"),
+  threadId: text("thread_id"),
+  sentAt: ts("sent_at"),
+  replyText: text("reply_text"),
+  repliedAt: ts("replied_at"),
+  createdAt,
+}, (t) => [
+  uniqueIndex("feedback_invites_token_uq").on(t.token),
+  uniqueIndex("feedback_invites_email_uq").on(sql`lower(${t.email})`),
+]);
+
+/** Answers from /feedback. Only rows with quoteConsent=true AND a valid invite are ever shown publicly. */
+export const feedbackResponses = pgTable("feedback_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Null for anonymous (no ?ref) submissions. One response per invite (re-submits update it). */
+  inviteId: uuid("invite_id").references(() => feedbackInvites.id, { onDelete: "set null" }),
+  /** yes | maybe | no */
+  wouldUse: text("would_use").notNull(),
+  mustHave: text("must_have"),
+  pricePerMonth: text("price_per_month"),
+  quote: text("quote"),
+  quoteConsent: boolean("quote_consent").notNull().default(false),
+  name: text("name"),
+  company: text("company"),
+  ipHash: text("ip_hash"),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("feedback_responses_invite_uq").on(t.inviteId),
+  index("feedback_responses_created_idx").on(t.createdAt),
 ]);

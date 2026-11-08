@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { createAuditCheckout, createPlanCheckout, effectivePlanFor, resolvePriceId, syncSubscription } from "@ae/core/payments/plans-checkout";
 import { changePlanSubscription } from "@ae/core/payments/subscription-changes";
-import { BILLING_INTERVALS, SELF_SERVE_PLAN_IDS } from "@ae/core/pricing/plans";
+import { BILLING_INTERVALS, SELF_SERVE_PLAN_IDS, trialDaysFor } from "@ae/core/pricing/plans";
 import { getCurrentCustomer } from "@/server/queries";
 import { jsonError, readJson } from "@/server/http";
 
@@ -47,7 +47,12 @@ export async function POST(request: Request) {
       await syncSubscription(updated);
       return Response.json({ url: `${origin}/settings/billing?changed=${input.plan}`, changed: true });
     }
+    // One free trial per account: any earlier subscription (even a lapsed one) uses it up.
+    const [prior] = row?.stripeSubscriptionId ? [true] : await db().select({ id: schema.planPurchases.id }).from(schema.planPurchases)
+      .where(and(eq(schema.planPurchases.customerId, me.id), eq(schema.planPurchases.kind, "subscription"))).limit(1);
+    const trialDays = trialDaysFor(input.plan, { hadSubscription: !!prior });
     const { url } = await createPlanCheckout({
+      trialDays,
       customerId: me.id, customerEmail: me.email, stripeCustomerId: row?.stripeCustomerId ?? null,
       plan: input.plan, interval: input.interval, cancelUrl,
       successUrl: `${origin}/pricing?checkout=success&plan=${input.plan}`,

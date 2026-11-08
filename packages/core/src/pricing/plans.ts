@@ -17,6 +17,23 @@ export type BillingInterval = (typeof BILLING_INTERVALS)[number];
 /** Annual billing: pay for 10 months, get 12 ("2 months free"). */
 export const ANNUAL_MONTHS_BILLED = 10;
 
+/** Free trial length for the Pro plan (Stripe subscription_data.trial_period_days). One trial per account. */
+export const PRO_TRIAL_DAYS = 14;
+
+/**
+ * Trial days a Checkout for `plan` should include. Only Pro, and only for accounts that have never had a
+ * plan subscription (so a lapsed customer cannot restart a trial).
+ */
+export function trialDaysFor(plan: PlanId, history: { hadSubscription: boolean }): number {
+  return plan === "pro" && !history.hadSubscription ? PRO_TRIAL_DAYS : 0;
+}
+
+/** Whole days left until `trialEnd` (rounded up, never negative); 0 when there is no trial or it has ended. */
+export function trialDaysLeft(trialEnd: Date | null | undefined, now: Date = new Date()): number {
+  if (!trialEnd) return 0;
+  return Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / 86_400_000));
+}
+
 /** $0.20 per trial beyond the plan's included trials. */
 export const OVERAGE_CENTS_PER_TRIAL = 20;
 
@@ -92,7 +109,7 @@ export const PLANS: Record<PlanId, Plan> = {
       { label: "Voice + vision scenarios" },
       { label: "Email support" },
     ],
-    cta: { label: "Start Pro", href: "/pricing?checkout=pro" },
+    cta: { label: `Start ${PRO_TRIAL_DAYS}-day free trial`, href: "/pricing?checkout=pro" },
     highlighted: true,
     support: "Email",
   },

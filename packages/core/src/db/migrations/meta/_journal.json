@@ -211,6 +211,20 @@
       "when": 1794134174611,
       "tag": "0029_optimal_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794135124160,
+      "tag": "0030_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794135863587,
+      "tag": "0031_usage_warnings_trial_end",
+      "breakpoints": true
     }
   ]
 }

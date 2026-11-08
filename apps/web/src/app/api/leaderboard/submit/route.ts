@@ -5,6 +5,7 @@ import { assertHuman } from "@/server/bot";
 import { assertPublicTarget } from "@/server/target-url";
 import { SubmitAgentInput, createPendingSubmission } from "@/server/owner-submit";
 import { normalizeEmail } from "@ae/core/auth/tokens";
+import { readBoundedJson } from "@/server/body-limit";
 
 const OK = { ok: true, message: "Check your email to confirm" };
 const limited = (retryAfter: number) =>
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   const byIp = await rateLimit(`agent-submit:ip:${ip}`, 5, 3600);
   if (!byIp.ok) return limited(byIp.retryAfter);
   let raw: unknown;
-  try { raw = await req.json(); } catch { return jsonError(400, "Invalid JSON body"); }
+  { const b = await readBoundedJson(req); if (!b.ok) return b.res; raw = b.value; }
   if (raw && typeof raw === "object" && typeof (raw as { hp?: unknown }).hp === "string" && (raw as { hp: string }).hp.trim()) {
     return Response.json(OK, { status: 201 }); // honeypot: pretend success, store nothing
   }

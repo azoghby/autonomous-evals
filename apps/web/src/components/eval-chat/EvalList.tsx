@@ -14,11 +14,12 @@ const statusTone = (s: string): Tone => {
   return "muted";
 };
 
-export function EvalList() {
-  const [state, setState] = useState<State>({ phase: "loading" });
-  const [attempt, setAttempt] = useState(0);
+export function EvalList({ initial = null }: { initial?: EvalListItem[] | null } = {}) {
+  const [state, setState] = useState<State>(initial ? { phase: "ready", evals: initial } : { phase: "loading" });
+  const [attempt, setAttempt] = useState(initial ? -1 : 0);
 
   useEffect(() => {
+    if (attempt < 0) return; // server-provided list: only fetch on retry
     const ctl = new AbortController();
     fetch("/api/evals", { signal: ctl.signal, cache: "no-store" })
       .then(async (res) => {
@@ -39,7 +40,7 @@ export function EvalList() {
     return (
       <div className="ec-evals-wrap"><div className="ec-errbox" role="alert">
         <p className="ec-text"><span className="ec-strong">Could not load your evals.</span> {state.message}. Check your connection and try again.</p>
-        <button type="button" className="ec-btn" data-variant="outline" onClick={() => { setState({ phase: "loading" }); setAttempt((a) => a + 1); }}>Try again</button>
+        <button type="button" className="ec-btn" data-variant="outline" onClick={() => { setState({ phase: "loading" }); setAttempt((a) => Math.max(a, 0) + 1); }}>Try again</button>
       </div></div>
     );
   }

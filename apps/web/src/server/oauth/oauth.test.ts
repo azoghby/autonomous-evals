@@ -8,7 +8,7 @@ import {
   parseAuthorizeParams, pkceChallengeS256, protectedResourceMetadata, redirectUriMatches, verifyPkce, CODE_TTL_MS,
 } from "./core";
 import { signConsent, verifyConsent, isSameOrigin } from "./consent";
-import { authenticateMcpBearer } from "./mcp-auth";
+import { authenticateMcpBearer, withMcpBearerAuth } from "./mcp-auth";
 
 const ISSUER = "https://evals.example";
 const RESOURCE = `${ISSUER}${MCP_PATH}`;
@@ -310,6 +310,21 @@ describe("MCP route bearer auth", () => {
     const r2 = await call("ae_test_key");
     expect(r2.status).toBe(200);
     expect((await r2.json()).auth.extra).toMatchObject({ customerId: "c-key", via: "api_key" });
+  });
+
+  it("a present but invalid bearer says invalid_token, not 'No authorization provided'", async () => {
+    const { svc } = setup({ t: Date.now() });
+    const handler = vi.fn(async () => Response.json({ ok: true }));
+    const route = withMcpBearerAuth(handler, (req, bearer) => authenticateMcpBearer(req, bearer, { verifyApiKey: async () => null, service: () => svc }), { resourceMetadataPath: PRM_PATH });
+    const mk = (h: Record<string, string>) => route(new Request(`${ISSUER}${MCP_PATH}`, { method: "POST", headers: h }));
+    const bad = await mk({ authorization: "Bearer aeo_at_bogus" });
+    expect(bad.status).toBe(401);
+    expect(bad.headers.get("www-authenticate")).toContain('error="invalid_token", error_description="Invalid token"');
+    expect(bad.headers.get("www-authenticate")).toContain(`resource_metadata="${ISSUER}${PRM_PATH}"`);
+    const none = await mk({});
+    expect(none.status).toBe(401);
+    expect(none.headers.get("www-authenticate")).toContain("No authorization provided");
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("rejects revoked, unknown and refresh tokens", async () => {

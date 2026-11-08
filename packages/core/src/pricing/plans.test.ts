@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AGENT_AUDIT, OVERAGE_CENTS_PER_TRIAL, PLANS, PLAN_IDS, STRIPE_LOOKUP_KEYS, checkEnvironmentAllowance, checkTrialAllowance,
   effectiveMonthlyCents, formatUsd, isBillingInterval, isPlanId, isSelfServePlanId, lookupKeyFor, overageCents, planPriceCents,
-  productForLookupKey, usageWindowStart, FREE_MONTHLY_MODEL_SPEND_CAP_MICRO_USD, MODEL_TOKEN_MARKUP_PERCENT,
+  productForLookupKey, trialDaysFor, trialDaysLeft, PRO_TRIAL_DAYS, usageWindowStart, FREE_MONTHLY_MODEL_SPEND_CAP_MICRO_USD, MODEL_TOKEN_MARKUP_PERCENT,
 } from "./plans";
 
 describe("plan table", () => {
@@ -98,5 +98,25 @@ describe("allowances", () => {
   });
   it("uses the UTC calendar month", () => {
     expect(usageWindowStart(new Date("2026-11-07T23:00:00Z")).toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  });
+});
+
+describe("free trial", () => {
+  it("is 14 days, Pro only, once per account", () => {
+    expect(PRO_TRIAL_DAYS).toBe(14);
+    expect(trialDaysFor("pro", { hadSubscription: false })).toBe(14);
+    expect(trialDaysFor("pro", { hadSubscription: true })).toBe(0);
+    expect(trialDaysFor("scale", { hadSubscription: false })).toBe(0);
+    expect(trialDaysFor("developer", { hadSubscription: false })).toBe(0);
+  });
+  it("labels the Pro CTA with the trial", () => {
+    expect(PLANS.pro.cta.label).toBe("Start 14-day free trial");
+  });
+  it("counts whole days left, rounded up and never negative", () => {
+    const now = new Date("2026-11-08T12:00:00Z");
+    expect(trialDaysLeft(new Date("2026-11-22T12:00:00Z"), now)).toBe(14);
+    expect(trialDaysLeft(new Date("2026-11-09T00:00:00Z"), now)).toBe(1);
+    expect(trialDaysLeft(new Date("2026-11-01T00:00:00Z"), now)).toBe(0);
+    expect(trialDaysLeft(null, now)).toBe(0);
   });
 });

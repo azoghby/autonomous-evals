@@ -6,10 +6,18 @@ const plans = vi.hoisted(() => ({ plan: vi.fn(), audit: vi.fn(), change: vi.fn()
 
 vi.mock("@/server/queries", () => ({ getCurrentCustomer: async () => me.value }));
 vi.mock("@/server/session", () => ({ getCurrentCustomer: async () => me.value }));
-vi.mock("@ae/core/db/client", () => ({
-  db: () => ({ select: () => ({ from: () => ({ where: () => ({ limit: async () => (row.value ? [row.value] : []) }) }) }) }),
-  schema: { customers: new Proxy({}, { get: (_t, c) => String(c) }) },
-}));
+const purchases = vi.hoisted(() => ({ value: [] as unknown[] }));
+vi.mock("@ae/core/db/client", () => {
+  const schema = { customers: new Proxy({}, { get: (_t, c) => String(c) }), planPurchases: new Proxy({}, { get: (_t, c) => String(c) }) };
+  return {
+    db: () => ({
+      select: () => ({
+        from: (t: unknown) => ({ where: () => ({ limit: async () => (t === schema.planPurchases ? purchases.value : row.value ? [row.value] : []) }) }),
+      }),
+    }),
+    schema,
+  };
+});
 vi.mock("@ae/core/payments/plans-checkout", async (orig) => {
   const actual = await orig<typeof import("@ae/core/payments/plans-checkout")>();
   return { ...actual, createPlanCheckout: plans.plan, createAuditCheckout: plans.audit, syncSubscription: plans.sync };
@@ -26,6 +34,7 @@ beforeEach(() => {
   row.value = { plan: "developer", planStatus: null, stripeCustomerId: null };
   plans.plan.mockResolvedValue({ sessionId: "cs_1", url: "https://stripe/plan" });
   plans.audit.mockResolvedValue({ sessionId: "cs_2", url: "https://stripe/audit" });
+  purchases.value = [];
   delete process.env.APP_URL;
 });
 
@@ -51,6 +60,24 @@ describe("POST /api/billing/checkout", () => {
       customerId: "c1", plan: "pro", interval: "year",
       successUrl: "https://app.test/pricing?checkout=success&plan=pro", cancelUrl: "https://app.test/pricing?checkout=cancelled",
     }));
+  });
+  it("includes a 14-day trial on a first Pro checkout", async () => {
+    await post({ kind: "plan", plan: "pro", interval: "month" });
+    expect(plans.plan).toHaveBeenCalledWith(expect.objectContaining({ trialDays: 14 }));
+  });
+  it("gives no trial on Scale", async () => {
+    await post({ kind: "plan", plan: "scale", interval: "month" });
+    expect(plans.plan).toHaveBeenCalledWith(expect.objectContaining({ trialDays: 0 }));
+  });
+  it("gives no second trial after an earlier subscription purchase", async () => {
+    purchases.value = [{ id: "pp1" }];
+    await post({ kind: "plan", plan: "pro", interval: "month" });
+    expect(plans.plan).toHaveBeenCalledWith(expect.objectContaining({ trialDays: 0 }));
+  });
+  it("gives no second trial to a lapsed customer who still has a stored subscription id", async () => {
+    row.value = { plan: "developer", planStatus: "canceled", stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_old" };
+    await post({ kind: "plan", plan: "pro", interval: "month" });
+    expect(plans.plan).toHaveBeenCalledWith(expect.objectContaining({ trialDays: 0 }));
   });
   it("409s when already on that plan and active", async () => {
     row.value = { plan: "pro", planStatus: "active", stripeCustomerId: "cus_1" };

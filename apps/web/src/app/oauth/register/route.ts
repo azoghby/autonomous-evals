@@ -4,7 +4,7 @@ import { clientIp, rateLimit } from "@/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-const REGISTER_LIMIT = 20;
+const REGISTER_LIMIT = 10;
 const REGISTER_WINDOW_SEC = 3600;
 
 /** RFC 7591 Dynamic Client Registration (open registration; public clients use PKCE). */

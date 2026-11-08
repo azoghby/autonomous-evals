@@ -1,8 +1,10 @@
 import { withWorkflow } from "workflow/next";
 import { withBotId } from "botid/next/config";
 import type { NextConfig } from "next";
+import { CONTENT_SECURITY_POLICY } from "./src/server/csp";
 
 const securityHeaders = [
+  { key: "Content-Security-Policy-Report-Only", value: CONTENT_SECURITY_POLICY },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

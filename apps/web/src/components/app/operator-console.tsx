@@ -13,6 +13,7 @@ import { EASE, SPRING, Stagger, StaggerItem } from "./motion";
 import { OperatorAgents } from "./operator-agents";
 import { OperatorExperts } from "./operator-experts";
 import { OperatorInfra } from "./operator-infra";
+import { OperatorFeedback } from "./operator-feedback";
 import { OperatorLeads } from "./operator-leads";
 import { OperatorNotifications } from "./operator-notifications";
 import { OperatorRevenue } from "./operator-revenue";
@@ -64,7 +65,7 @@ export function OperatorConsole() {
       <Tabs tab={tab} onChange={setTab} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.24, ease: EASE }}>
-          {tab === "Overview" && <><Overview data={data} reload={reload} /><div className="mt-12"><OperatorLeads /></div></>}
+          {tab === "Overview" && <><Overview data={data} reload={reload} /><div className="mt-12"><OperatorLeads /></div><div className="mt-12"><OperatorFeedback /></div></>}
           {tab === "Revenue" && <OperatorRevenue />}
           {tab === "Experts" && <OperatorExperts />}
           {tab === "Agents" && <OperatorAgents />}

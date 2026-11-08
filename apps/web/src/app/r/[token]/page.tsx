@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { clientIp, rateLimit } from "@/server/rate-limit";
 import { loadSharedReport } from "@/server/share";
 import type { RedactedFinding } from "@/server/share-core";
 
@@ -26,9 +24,7 @@ function Fix({ f }: { f: NonNullable<RedactedFinding["fix"]> }) {
 }
 
 export default async function SharedReportPage({ params }: { params: Promise<{ token: string }> }) {
-  const h = await headers();
-  const rl = await rateLimit(`share-page:${clientIp(new Request("http://x", { headers: h }))}`, 60, 60);
-  if (!rl.ok) return <main className="min-h-screen bg-[#0A0A0B] p-8 text-white"><p>Too many requests. Try again in {rl.retryAfter}s.</p></main>;
+  // Rate limited in src/proxy.ts (a real 429 status; a page cannot set one).
   const { token } = await params;
   const r = await loadSharedReport(token);
   if (!r) notFound();
