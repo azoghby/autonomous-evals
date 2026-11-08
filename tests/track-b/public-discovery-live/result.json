@@ -1,14 +1,14 @@
 {
   "fixture": true,
-  "startedAt": "2026-11-07T22:43:49.716Z",
-  "finishedAt": "2026-11-07T22:43:51.709Z",
+  "startedAt": "2026-11-08T00:16:42.611Z",
+  "finishedAt": "2026-11-08T00:16:44.699Z",
   "origin": "https://en.wikipedia.org",
   "query": "ISO week date",
-  "status": "live_retrieval_failed",
-  "safeError": "public_discovery_invalid_response",
+  "status": "source_rejected_fallback_verified",
+  "safeError": null,
   "requests": 2,
   "replayRequests": 0,
-  "replayStatus": "pending",
+  "replayStatus": "rejected",
   "responseMetadata": [
     {
       "bytes": 168,
@@ -36,9 +36,22 @@
       ]
     }
   ],
+  "rejection": {
+    "reasons": [
+      "pii_detected"
+    ]
+  },
+  "fallbackPhases": [
+    "generation:acquiring",
+    "expert:waiting_for_expert",
+    "expert:waiting_for_expert"
+  ],
+  "generationCalls": 1,
+  "expertCalls": 1,
   "sources": [],
   "limitations": [
     "No source content committed.",
+    "Generation and expert ports are offline fixtures, not live providers.",
     "No permission approval, independent factual verification, generated cases or expert outreach.",
     "File-backed PGlite restart is not production Neon failover."
   ]

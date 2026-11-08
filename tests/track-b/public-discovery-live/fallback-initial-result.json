@@ -1,0 +1,59 @@
+{
+  "fixture": true,
+  "startedAt": "2026-11-08T00:15:59.593Z",
+  "finishedAt": "2026-11-08T00:16:01.335Z",
+  "origin": "https://en.wikipedia.org",
+  "query": "ISO week date",
+  "status": "diagnostic_assertion_failed",
+  "safeError": null,
+  "requests": 2,
+  "replayRequests": 0,
+  "replayStatus": "rejected",
+  "responseMetadata": [
+    {
+      "bytes": 168,
+      "hasWarnings": false,
+      "hasError": false,
+      "searchCount": 1,
+      "pages": []
+    },
+    {
+      "bytes": 33883,
+      "hasWarnings": false,
+      "hasError": false,
+      "searchCount": null,
+      "pages": [
+        {
+          "pageIdIsNumber": true,
+          "revisionIdIsNumber": true,
+          "revisionCount": 1,
+          "isWikitext": true,
+          "contentCharacters": 32783,
+          "safetyReasons": [
+            "pii_detected"
+          ]
+        }
+      ]
+    }
+  ],
+  "rejection": {
+    "reasons": [
+      "pii_detected"
+    ]
+  },
+  "fallbackPhases": [
+    "generation:acquiring",
+    "expert:waiting_for_expert",
+    "expert:waiting_for_expert"
+  ],
+  "generationCalls": 1,
+  "expertCalls": 1,
+  "sources": [],
+  "limitations": [
+    "No source content committed.",
+    "Generation and expert ports are offline fixtures, not live providers.",
+    "No permission approval, independent factual verification, generated cases or expert outreach.",
+    "File-backed PGlite restart is not production Neon failover."
+  ],
+  "diagnosticFailure": "Probe expected expert:acquiring, but the documented transition correctly returned expert:waiting_for_expert."
+}

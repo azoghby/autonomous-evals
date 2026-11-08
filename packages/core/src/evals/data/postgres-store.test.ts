@@ -30,6 +30,22 @@ describe('PostgreSQL evaluation data (actual PGlite SQL, serialized single engin
   });
   afterEach(async () => { await engine.close(); });
 
+  it('persists definitive discovery rejection and resumes generation/expert through fresh SQL adapters', async () => {
+    const discover = vi.fn(async () => ({ status: 'rejected' as const, rejection: { reasons: ['pii_detected' as const] } }));
+    const generate = vi.fn(async () => ({ status: 'complete' as const, data: { sources: [], cases: [] } }));
+    const expert = vi.fn(async () => ({ status: 'pending' as const }));
+    const run = () => acquireEvaluationData(fixture().spec, { sources: [], cases: [] }, {
+      store: createPostgresEvaluationDataStore(db, scope), discover, generate, expert, now: () => new Date(at),
+    });
+    const rejected = await run();
+    expect(rejected.phase).toBe('generation');
+    expect(rejected.decisions.at(-1)).toMatchObject({ phase: 'discovery', outcome: 'discovery_rejected', rejection: { reasons: ['pii_detected'] } });
+    expect((await run()).phase).toBe('expert');
+    expect((await run()).state).toBe('waiting_for_expert');
+    expect(discover).toHaveBeenCalledTimes(1); expect(generate).toHaveBeenCalledTimes(1); expect(expert).toHaveBeenCalledTimes(1);
+    expect((await store.get('task'))?.sources).toEqual([]);
+  });
+
   it('replays from independent service instances with detached input and outputs', async () => {
     const input = fixture();
     const inserted = await store.insertIfAbsent(input);

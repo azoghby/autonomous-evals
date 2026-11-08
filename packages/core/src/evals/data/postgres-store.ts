@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AgentTransactionalSql } from '../../agents/postgres-ports';
-import type { EvaluationDataStore, EvaluationDataTask } from './acquisition';
+import type { DiscoveryRejection, EvaluationDataStore, EvaluationDataTask } from './acquisition';
+import { validateDiscoveryRejection } from './discovery/rejection';
 import { reviewDigest } from './binding';
 import { inspectDataSafety } from './quality';
 
@@ -33,6 +34,9 @@ const source = z.strictObject({ id: text, url: text, content: text,
 const candidate = z.strictObject({ id: text, input: text, requirementIds: z.array(text), synthetic: z.boolean(),
   generatorId: text.optional(), sourceIds: z.array(text), expectedAnswer: text.optional(), verification: verification.optional() });
 const phase = z.enum(['discovery', 'generation', 'expert', 'complete']);
+const rejection = z.custom<DiscoveryRejection>(value => {
+  try { validateDiscoveryRejection(value); return true; } catch { return false; }
+});
 const recordSchema = z.strictObject({ taskId: id, revision: count, spec: specSchema, requestHash: digest,
   state: z.enum(['acquiring', 'ready', 'waiting_for_data', 'waiting_for_expert']), phase,
   sources: z.array(source), cases: z.array(candidate),
@@ -41,7 +45,8 @@ const recordSchema = z.strictObject({ taskId: id, revision: count, spec: specSch
     coverage: z.array(z.strictObject({ requirementId: text, minimumCases: count, acceptedCases: count, covered: z.boolean() })),
     issues: z.array(z.strictObject({ code: text, caseId: text.optional(), sourceId: text.optional() })),
   }),
-  decisions: z.array(z.strictObject({ id: text, phase, outcome: text, at: timestamp })), updatedAt: timestamp,
+  decisions: z.array(z.strictObject({ id: text, phase, outcome: text, at: timestamp, rejection: rejection.optional() })
+    .refine(row => !row.rejection || row.phase === 'discovery' && row.outcome === 'discovery_rejected')), updatedAt: timestamp,
 });
 
 /** Reject lossy JSON, accessors, non-plain objects, NUL and lone UTF-16 surrogates.
