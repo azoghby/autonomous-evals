@@ -26,12 +26,13 @@ export function toScenario(rt: RedTeamScenario): Scenario {
   return Scenario.parse({ id: rt.id, title: `[Red-team] ${rt.title}`, category: `redteam:${rt.category}`, input: rt.turns[0], checks });
 }
 
-/** Recovers the authoring object from a contract Scenario (spec first, library fallback by id). */
+/**
+ * Recovers the authoring object from a contract Scenario. Trust boundary: rt_ ids are ALWAYS resolved from
+ * the built-in library; the stored spec (which may have been tampered with or LLM-written) is ignored.
+ */
 export function fromScenario(s: Scenario): RedTeamScenario | undefined {
   if (!isRedTeamScenarioId(s.id)) return undefined;
-  const raw = s.checks.find((c) => c.kind === "objective")?.spec.redteam;
-  const parsed = RedTeamScenario.safeParse(raw);
-  return parsed.success ? parsed.data : redTeamById(s.id);
+  return redTeamById(s.id);
 }
 
 /** User turns the runner must send. A document injection is appended to the first turn in <document> tags. */

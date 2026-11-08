@@ -69,6 +69,12 @@ const { sendJobEvent, resumeJobForPayment } = vi.hoisted(() => ({
   resumeJobForPayment: vi.fn(async (p: { workflowResumedAt: Date | null }) => { p.workflowResumedAt = new Date(); return "resumed"; }),
 }));
 vi.mock("@/workflows/events", () => ({ sendJobEvent }));
+const { expireOpenCheckout, alertOperators } = vi.hoisted(() => ({
+  expireOpenCheckout: vi.fn(async (..._a: unknown[]) => "expired"),
+  alertOperators: vi.fn(async (..._a: unknown[]) => true),
+}));
+vi.mock("@ae/core/payments/checkout", () => ({ expireOpenCheckout }));
+vi.mock("./operator-alerts", () => ({ alertOperators }));
 vi.mock("@/workflows/resume", () => ({ resumeJobForPayment }));
 
 import { handleX402Pay } from "./x402-pay";
@@ -253,6 +259,53 @@ describe("cancelled jobs", () => {
     const res = await post({ "PAYMENT-SIGNATURE": signedHeader() });
     expect(await res.json()).toMatchObject({ outcome: "pending" });
     expect(payments[0].workflowResumedAt).toBeNull();
+    err.mockRestore();
+  });
+});
+
+describe("hardening", () => {
+  it("expires the open Stripe checkout once x402 is recorded", async () => {
+    await post({ "PAYMENT-SIGNATURE": signedHeader() });
+    expect(expireOpenCheckout).toHaveBeenCalledWith(JOB);
+  });
+  it("rejects a payload signed for a different resource before verify", async () => {
+    const payload = { x402Version: 2, resource: { url: "https://ae.test/other" }, accepted: requirements(), payload: { authorization: { from: PAYER, nonce: "0x01" } } } as unknown as PaymentPayload;
+    const res = await post({ "PAYMENT-SIGNATURE": encodePaymentSignatureHeader(payload) });
+    expect(res.status).toBe(402);
+    expect(facilitator.verify).not.toHaveBeenCalled();
+  });
+  it("verifies before accepting the quote: invalid payment leaves the quote untouched", async () => {
+    job.state = "quoted";
+    facilitator.verify.mockResolvedValue({ isValid: false, invalidReason: "bad_sig" });
+    expect((await post({ "PAYMENT-SIGNATURE": signedHeader() })).status).toBe(402);
+    expect(sendJobEvent).not.toHaveBeenCalled();
+  });
+  it("concurrent different signatures for the same quote settle only once", async () => {
+    let release!: () => void;
+    facilitator.settle.mockImplementationOnce(() => new Promise((r) => { release = () => r({ success: true, transaction: TX, network: "eip155:84532", payer: PAYER }); }));
+    const first = post({ "PAYMENT-SIGNATURE": signedHeader({}, "0x01") });
+    await vi.waitFor(() => expect(facilitator.settle).toHaveBeenCalled());
+    const second = await post({ "PAYMENT-SIGNATURE": signedHeader({}, "0x02") });
+    expect(second.status).toBe(409);
+    release();
+    expect((await first).status).toBe(200);
+    expect(facilitator.settle).toHaveBeenCalledTimes(1);
+  });
+  it("alerts operators and returns 502 when a settled payment cannot be recorded", async () => {
+    const { recordX402Payment } = await import("@ae/core/payments/x402-store");
+    vi.mocked(recordX402Payment).mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await post({ "PAYMENT-SIGNATURE": signedHeader() });
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toMatch(/Support has been notified/);
+    expect(alertOperators).toHaveBeenCalledWith(expect.objectContaining({ kind: "x402_settle_unrecorded", severity: "critical", detail: expect.stringContaining(TX) }));
+    err.mockRestore();
+  });
+  it("alerts operators with payer and nonce when settle is indeterminate", async () => {
+    facilitator.settle.mockRejectedValueOnce(new Error("timeout"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await post({ "PAYMENT-SIGNATURE": signedHeader({}, "0xbeef") })).status).toBe(502);
+    expect(alertOperators).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringMatching(/0xbeef/) }));
     err.mockRestore();
   });
 });

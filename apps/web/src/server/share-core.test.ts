@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hashToken } from "@ae/core/auth/tokens";
-import { generateShareToken, isPlausibleShareToken, redactReport, badgeColor, badgeMessage, renderBadgeSvg, shareUrls, BADGE_COLORS } from "./share-core";
+import { scrubText, generateShareToken, isPlausibleShareToken, redactReport, badgeColor, badgeMessage, renderBadgeSvg, shareUrls, BADGE_COLORS } from "./share-core";
 
 describe("share token", () => {
   it("returns the plaintext once and only a sha256 hash for storage", () => {
@@ -79,5 +79,17 @@ describe("badge", () => {
     const u = shareUrls("https://x.test/", "tok");
     expect(u.url).toBe("https://x.test/r/tok");
     expect(u.markdown).toBe("[![Standard Evals](https://x.test/r/tok/badge.svg)](https://x.test/r/tok)");
+  });
+});
+
+describe("scrubText", () => {
+  it("removes secrets, hostnames and IPs, and caps length", () => {
+    const out = scrubText("Leaks key sk-live-abc123def456ghi to api.acme.internal and 10.0.0.5:8080, token 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15");
+    expect(out).not.toMatch(/sk-live|acme|10\.0\.0\.5|9f86d081/);
+    expect(out).toContain("Leaks key");
+    expect(scrubText("x ".repeat(300)).length).toBeLessThanOrEqual(160);
+  });
+  it("removes Bearer tokens and api_key assignments", () => {
+    expect(scrubText("sent Authorization: Bearer abcdefghijkl and api_key=zzz123")).not.toMatch(/abcdefghijkl|zzz123/);
   });
 });

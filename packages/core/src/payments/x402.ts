@@ -86,7 +86,7 @@ export function buildPaymentRequired(a: X402QuoteArgs, error?: string): PaymentR
  * Exact match of what the client signed (`accepted`) against what we require. Checked BEFORE verify/settle
  * so a wrong amount, asset, network or recipient is never charged. Returns a reason or null.
  */
-export function payloadMismatch(payload: PaymentPayload, req: PaymentRequirements): string | null {
+export function payloadMismatch(payload: PaymentPayload, req: PaymentRequirements, resourceUrl?: string): string | null {
   if (payload.x402Version !== X402_VERSION) return `unsupported x402Version ${String(payload.x402Version)} (expected ${X402_VERSION})`;
   const acc = payload.accepted;
   if (!acc) return "payment payload has no accepted requirements";
@@ -95,6 +95,8 @@ export function payloadMismatch(payload: PaymentPayload, req: PaymentRequirement
   if (String(acc.asset).toLowerCase() !== req.asset.toLowerCase()) return "asset must be USDC on Base Sepolia";
   if (String(acc.payTo).toLowerCase() !== req.payTo.toLowerCase()) return "payTo does not match";
   if (String(acc.amount) !== req.amount) return `amount mismatch: quote requires ${req.amount} atomic USDC, payment offers ${String(acc.amount)}`;
+  // Resource binding: a payment signed for another resource must not unlock this job.
+  if (resourceUrl !== undefined && payload.resource?.url !== undefined && payload.resource.url !== resourceUrl) return "resource does not match this job's pay endpoint";
   return null;
 }
 

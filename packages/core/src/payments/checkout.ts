@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import type { JobEvent } from "../contracts/index";
 import { MONITORING_PRICE_CENTS_MONTHLY, paymentMatchesQuote, perFindingCaptureCents, type PricingMode } from "../contracts/index";
@@ -153,13 +153,14 @@ export async function expireOpenCheckout(jobId: string): Promise<"expired" | "sk
   }
 }
 
-type StrandedReason = "job_finished" | "stale_quote" | "workflow_gone" | "amount_mismatch";
+type StrandedReason = "job_finished" | "stale_quote" | "workflow_gone" | "amount_mismatch" | "duplicate_payment";
 
 const STRANDED_NOTE: Record<StrandedReason, string> = {
   job_finished: "payment arrived after the job was cancelled/failed/delivered",
   stale_quote: "payment is for a superseded quote version",
   workflow_gone: "payment arrived but the job workflow is no longer waiting",
   amount_mismatch: "paid amount/currency does not match the quote; work was NOT started",
+  duplicate_payment: "another payment already covers this quote (double charge); work was NOT started twice",
 };
 
 /**
@@ -203,6 +204,14 @@ async function strandedReasonFor(payment: PaymentRow): Promise<StrandedReason | 
     .orderBy(desc(schema.quotes.version)).limit(1);
   if (latest && latest.version !== payment.quoteVersion) return "stale_quote";
   if (latest && !paymentMatchesQuote(payment, latest)) return "amount_mismatch";
+  // Double charge (e.g. x402 + Stripe): the earlier payment for this (job, quote) wins; later ones go to refund.
+  const [earlier] = await db().select({ id: schema.payments.id }).from(schema.payments).where(and(
+    eq(schema.payments.jobId, payment.jobId), eq(schema.payments.quoteVersion, payment.quoteVersion),
+    eq(schema.payments.kind, "one_time"), inArray(schema.payments.status, ["paid", "authorized", "captured"]),
+    ne(schema.payments.id, payment.id),
+    or(lt(schema.payments.createdAt, payment.createdAt), and(eq(schema.payments.createdAt, payment.createdAt), lt(schema.payments.id, payment.id))),
+  )).limit(1);
+  if (earlier) return "duplicate_payment";
   return null;
 }
 

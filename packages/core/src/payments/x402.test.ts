@@ -58,6 +58,11 @@ describe("payloadMismatch", () => {
     expect(payloadMismatch(payload({ payTo: "0x3333333333333333333333333333333333333333" }), req)).toMatch(/payTo/);
     expect(payloadMismatch(payload({}, 1), req)).toMatch(/x402Version/);
   });
+  it("binds the payment to the resource url when present", () => {
+    expect(payloadMismatch(payload(), req, args.resourceUrl)).toBeNull();
+    const other = { ...payload(), resource: { url: "https://ae.test/api/x402/jobs/OTHER/pay" } } as PaymentPayload;
+    expect(payloadMismatch(other, req, args.resourceUrl)).toMatch(/resource/);
+  });
   it("matches what the official x402 client signs for our 402 (real EIP-3009 signature, no network)", async () => {
     const account = privateKeyToAccount(generatePrivateKey());
     const client = new x402HTTPClient(x402Client.fromConfig({

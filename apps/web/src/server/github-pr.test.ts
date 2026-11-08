@@ -25,6 +25,12 @@ describe("validation", () => {
     expect(isValidFilePath("prompts/system.md")).toBe(true);
     for (const p of ["../x", "/etc/passwd", "a/../b", ".github/workflows/ci.yml", "a\\b", ".git/config", "a//b", "a b"]) expect(isValidFilePath(p)).toBe(false);
   });
+  it("allowlists prompt/doc extensions and denies CI, hooks and build files", () => {
+    for (const p of ["prompts/a.md", "a.prompt", "cfg/x.yaml", "src/agent.py", "src/a.ts"]) expect(isValidFilePath(p)).toBe(true);
+    for (const p of [".gitlab-ci.yml", ".circleci/config.yml", ".husky/pre-commit", "package.json", "sub/package.json", "Makefile", "Dockerfile", ".env", ".env.local.md", "scripts/run.py", "a.sh", "noext", ".github/x.md"]) {
+      expect(isValidFilePath(p), p).toBe(false);
+    }
+  });
   it("requires a fine-grained token", () => {
     expect(GithubTargetInput.safeParse({ ...target, token: TOKEN }).success).toBe(true);
     expect(GithubTargetInput.safeParse({ ...target, token: "ghp_" + "a".repeat(36) }).success).toBe(false);

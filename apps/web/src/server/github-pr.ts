@@ -19,11 +19,21 @@ export function isValidBranch(s: string): boolean {
   if (!BRANCH_RE.test(s) || s.includes("..") || s.includes("//") || s.startsWith("/") || s.endsWith("/") || s.endsWith(".")) return false;
   return s.split("/").every((seg) => !seg.startsWith(".") && !seg.endsWith(".lock"));
 }
+const ALLOWED_DOC_EXT = /\.(md|mdx|txt|prompt|json|yaml|yml|toml)$/i;
+const ALLOWED_CODE_EXT = /\.(py|ts|js)$/i;
+const DENIED_DIRS = new Set([".github", ".circleci", ".husky", ".git", ".gitlab", ".vscode", ".devcontainer"]);
+const DENIED_NAMES = /^(package(-lock)?\.json|makefile|dockerfile|\.gitlab-ci\.yml|\.travis\.yml|azure-pipelines\.yml|jenkinsfile|\.env.*|\.npmrc|\.pre-commit-config\.yaml|pnpm-lock\.yaml|yarn\.lock|pyproject\.toml|setup\.py|conftest\.py|tox\.ini)$/i;
+const DENIED_CODE_DIRS = /^(scripts?|bin|hooks?|ci|\.?workflows?)$/i;
+/** Fix target must be a prompt/doc/config file; never CI, hooks, lockfiles, env or build scripts. */
 export function isValidFilePath(s: string): boolean {
   if (!PATH_RE.test(s) || s.startsWith("/") || s.endsWith("/") || s.includes("//")) return false;
   const segs = s.split("/");
-  if (segs.some((x) => x === "." || x === ".." || x.toLowerCase() === ".git")) return false;
-  return segs[0]!.toLowerCase() !== ".github"; // never let a fix touch CI workflows
+  if (segs.some((x) => x === "." || x === ".." || DENIED_DIRS.has(x.toLowerCase()))) return false;
+  const name = segs.at(-1)!;
+  if (DENIED_NAMES.test(name)) return false;
+  if (ALLOWED_DOC_EXT.test(name)) return true;
+  // Source files only outside CI/automation directories.
+  return ALLOWED_CODE_EXT.test(name) && !segs.slice(0, -1).some((d) => DENIED_CODE_DIRS.test(d));
 }
 export const isValidToken = (s: string) => TOKEN_RE.test(s);
 

@@ -1,3 +1,4 @@
+import { redactSecretPatterns } from "@/workflows/decisions";
 import { hashToken, newToken } from "@ae/core/auth/tokens";
 import type { Finding, Remediation } from "@ae/core/contracts/index";
 
@@ -46,9 +47,22 @@ export interface RedactedReport {
 
 const URL_RE = /\b(?:https?:\/\/|www\.)[^\s)>\]"']+/gi;
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
-/** Strip anything that could identify the customer's endpoints or people from free text. */
+const IPV4_RE = /\b(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?\b/g;
+/** Dotted hostnames ending in a TLD-ish or internal suffix, with optional port/path. */
+const HOST_RE = /\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|ai|dev|app|co|cloud|internal|local|lan|corp|intranet|svc|test|example)\b(?::\d{1,5})?(?:\/\S*)?/gi;
+/** Long opaque tokens (hex / base64-ish / ids) of 24+ chars containing a digit. */
+const OPAQUE_RE = /\b(?=[A-Za-z0-9_+/=-]*\d)[A-Za-z0-9_+/=-]{24,}\b/g;
+export const SCRUBBED_MAX_CHARS = 160;
+/** Strip anything that could identify the customer's endpoints, people or credentials from free text. */
 export function scrubText(s: string): string {
-  return s.replace(URL_RE, "[link removed]").replace(EMAIL_RE, "[email removed]").trim();
+  const out = redactSecretPatterns(s)
+    .replace(URL_RE, "[link removed]")
+    .replace(EMAIL_RE, "[email removed]")
+    .replace(IPV4_RE, "[host removed]")
+    .replace(HOST_RE, "[host removed]")
+    .replace(OPAQUE_RE, "[redacted]")
+    .replace(/\s+/g, " ").trim();
+  return out.length > SCRUBBED_MAX_CHARS ? `${out.slice(0, SCRUBBED_MAX_CHARS - 3)}...` : out;
 }
 
 const zeroCounts = (): Record<Severity, number> => ({ critical: 0, high: 0, medium: 0, low: 0 });

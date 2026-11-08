@@ -75,13 +75,18 @@ export const MAX_CONNECTION_CHECK_ROUNDS = 5;
 const MAX_DETAIL_CHARS = 300;
 
 /** Strips credentials from a connection-check detail before it reaches the customer. */
+/** Credential-shaped substrings -> [redacted]. Shared with the public share-page scrubber. */
+export function redactSecretPatterns(text: string): string {
+  return text
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [redacted]")
+    .replace(/\b(sk|pk|rk|key|tok|token)[-_][A-Za-z0-9_-]{8,}/gi, "[redacted]")
+    .replace(/\b(api[-_ ]?key|authorization|x-api-key)\s*[:=]\s*\S+/gi, "$1: [redacted]");
+}
+
 export function sanitizeCheckDetail(detail: string, secrets: readonly string[] = []): string {
   let out = detail;
   for (const s of secrets) if (s.length >= 4) out = out.split(s).join("[redacted]");
-  out = out
-    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [redacted]")
-    .replace(/\b(sk|pk|rk|key|tok|token)[-_][A-Za-z0-9_-]{8,}/gi, "[redacted]")
-    .replace(/\b(api[-_ ]?key|authorization|x-api-key)\s*[:=]\s*\S+/gi, "$1: [redacted]")
+  out = redactSecretPatterns(out)
     .replace(/\s+/g, " ").trim();
   return out.length > MAX_DETAIL_CHARS ? `${out.slice(0, MAX_DETAIL_CHARS)}...` : out;
 }

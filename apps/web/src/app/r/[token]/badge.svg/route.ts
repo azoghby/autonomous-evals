@@ -12,5 +12,5 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   const report = await loadSharedReport(token);
   if (!report) return new Response(invalidBadgeSvg(), { status: 404, headers: { "Content-Type": SVG, "Cache-Control": "public, max-age=60" } });
   const svg = renderBadgeSvg("Standard Evals", badgeMessage(report), badgeColor(report.openCounts));
-  return new Response(svg, { headers: { "Content-Type": SVG, "Cache-Control": "public, max-age=300, s-maxage=300", "X-Robots-Tag": "noindex" } });
+  return new Response(svg, { headers: { "Content-Type": SVG, "Cache-Control": "public, max-age=60, s-maxage=60", "X-Robots-Tag": "noindex" } });
 }

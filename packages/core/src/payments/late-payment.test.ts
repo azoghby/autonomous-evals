@@ -152,3 +152,19 @@ describe("x402 (USDC) payments through confirmAndResume", () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
+
+describe("duplicate payment (double charge)", () => {
+  it("flags a later payment when an earlier paid one exists for the same quote", async () => {
+    selects = [[{ state: "awaiting_payment" }], [quote()], [{ id: "p0" }]];
+    const send = vi.fn();
+    expect(await confirmAndResume(payment({ createdAt: new Date() }), send)).toBe("needs_review");
+    expect(send).not.toHaveBeenCalled();
+    expect(String((inserts[0] as { note: string }).note)).toMatch(/double charge/);
+    expect(stamped()).toBe(true);
+  });
+  it("resumes normally when there is no earlier payment", async () => {
+    selects = [[{ state: "awaiting_payment" }], [quote()], []];
+    const send = vi.fn();
+    expect(await confirmAndResume(payment({ createdAt: new Date() }), send)).toBe("resumed");
+  });
+});
