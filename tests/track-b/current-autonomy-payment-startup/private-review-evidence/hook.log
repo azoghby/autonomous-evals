@@ -1,0 +1,11 @@
+{"stage":"/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-EAW9cP","sourceSha256":"67b7ae84de16c2a41dfe0d13f877e31dd0b13db9720742e403f681d7ea15046d"}
+
+ RUN  v3.2.4 /private/tmp/chat-hook-existing-93Yktu
+
+ ✓ hook.test.tsx (4 tests) 258ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:36:28
+   Duration  2.21s (transform 81ms, setup 0ms, collect 268ms, tests 258ms, environment 819ms, prepare 106ms)
+

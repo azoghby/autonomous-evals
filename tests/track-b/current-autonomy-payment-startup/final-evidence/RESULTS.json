@@ -1,0 +1,156 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-EAW9cP",
+  "node": "v24.21.0",
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "commands": [
+    {
+      "label": "stage",
+      "command": [
+        "/usr/local/bin/node",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/docs/current-autonomy-payment-startup/stage.mjs",
+        "--out",
+        "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-EAW9cP"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "test-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "runtime-tests",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "current-autonomy-vitest.config.mjs",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/tests/track-b/current-autonomy-payment-startup/final-evidence/tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "parent-npm-test",
+      "command": [
+        "npm",
+        "test",
+        "--",
+        "--maxWorkers=2",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/tests/track-b/current-autonomy-payment-startup/final-evidence/parent-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "core-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-typegen",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "app-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "apps/web",
+        "--noEmit"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "next-workflow-build",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/next/dist/bin/next",
+        "build",
+        "--webpack"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "native-sql",
+      "command": [
+        "/usr/local/bin/node",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/tests/track-b/current-autonomy-payment-startup/sql.test.mjs"
+      ],
+      "exit": 0
+    }
+  ],
+  "releaseAccepted": false,
+  "liveRunPerformed": false,
+  "fontBoundary": "Retained real local Geist CSS/woff2 cache; not a clean uncached install/build",
+  "finalAppliedSource": {
+    "preservedFiles": 1944,
+    "preservedBytes": 17726769,
+    "changedFiles": 1,
+    "addedFiles": 88,
+    "compositionSha256": "cada083c542e3d15e920a8fc456c1ed5baf0c5434b595a6bf2ae9f839d42cf98",
+    "drift": []
+  },
+  "versions": {
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "workflow": "5.4.0",
+    "@usenaive-sdk/managed-agents": "0.12.3"
+  },
+  "appliedSourceSha256": {
+    "apps/web/src/server/current-payment.ts": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c"
+  },
+  "tests": {
+    "passed": 120,
+    "failed": 0,
+    "skipped": 0
+  },
+  "parentTests": {
+    "passed": 2385,
+    "failed": 0,
+    "skipped": 1
+  },
+  "finalFollowupChecks": [
+    {
+      "label": "latest-payment-startup-tests",
+      "passed": 20,
+      "failed": 0,
+      "evidence": "payment-tests.json"
+    },
+    {
+      "label": "latest-test-typecheck",
+      "exit": 0,
+      "evidence": "latest-test-typecheck.log"
+    },
+    {
+      "label": "npx tsc -p apps/web --noEmit",
+      "exit": 0,
+      "evidence": "npx-app-typecheck.log"
+    },
+    {
+      "label": "combined-private-review",
+      "passed": 51,
+      "failed": 0,
+      "evidence": "../private-review-evidence/"
+    }
+  ]
+}

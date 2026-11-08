@@ -1,0 +1,20 @@
+{
+  "offline": true,
+  "scopedSqlTests": {
+    "passed": 20,
+    "failed": 0
+  },
+  "fullTests": {
+    "passed": 2385,
+    "failed": 0,
+    "skipped": 1,
+    "filesPassed": 179
+  },
+  "appTypecheck": "failed: unchanged layout analytics/LayoutProps and transport ipaddr type errors",
+  "scopedTransitiveTypecheck": "failed: unchanged targets/transport.ts ipaddr type errors; no new worker/test diagnostics",
+  "build": "failed: external installed dependency symlinks outside Turbopack workspace root",
+  "providerAcceptance": false,
+  "independentPostgresConnectionsTested": false,
+  "remainingGate": "Genuine independently authenticated priced provider receipt adapter with retained operation/input/external-request/usage mapping; transactional current-authority scheduler composition by app owner.",
+  "commit": "Git metadata access recovered after initial staging timeouts; scoped changes staged for commit. See Git history for commit identity."
+}

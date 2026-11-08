@@ -1,0 +1,42 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-UHeKTP",
+  "node": "v24.21.0",
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "commands": [
+    {
+      "label": "stage",
+      "command": [
+        "/usr/local/bin/node",
+        "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/docs/current-autonomy-payment-startup/stage.mjs",
+        "--out",
+        "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-UHeKTP"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "test-typecheck",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/typescript/bin/tsc",
+        "-p",
+        "tsconfig.current-autonomy-tests.json"
+      ],
+      "exit": 0
+    },
+    {
+      "label": "runtime-tests",
+      "command": [
+        "/usr/local/bin/node",
+        "/tmp/workflow-bootstrap.JpxCTM/node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "current-autonomy-vitest.config.mjs",
+        "--reporter=json",
+        "--outputFile.json=/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/tests/track-b/current-autonomy-payment-startup/evidence/tests.json"
+      ],
+      "exit": 0
+    }
+  ],
+  "releaseAccepted": false,
+  "liveRunPerformed": false
+}

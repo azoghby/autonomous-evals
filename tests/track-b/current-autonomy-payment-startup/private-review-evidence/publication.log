@@ -1,0 +1,24 @@
+{
+  "reviewHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/current-autonomy-check-EAW9cP",
+  "sourceSha256": {
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": "5e609197aa4f11b679418158a40fc63c9832e76bd5f173dccecf37d510d93a9a",
+    "apps/web/src/server/current-autonomy.ts": "c37fd134e70aa65d3fc558a872dad288562883b54e613bd5505bb45991783fc2",
+    "apps/web/src/server/autonomy-release.ts": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f"
+  }
+}
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-0Oaj1a[39m
+
+ [32m✓[39m ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-0Oaj1a/publication.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 8344[2mms[22m[39m
+   [33m[2m✓[22m[39m returns the scoped report for a currently authorized owner through actual route/current app/release/SQL binding [33m 3267[2mms[22m[39m
+   [33m[2m✓[22m[39m denies report disclosure when the scripted cookie session is revoked while publication lookup is pending [33m 2284[2mms[22m[39m
+   [33m[2m✓[22m[39m denies report disclosure after canonical ownership changes during pending publication lookup [33m 2792[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 19:35:49
+[2m   Duration [22m 14.15s[2m (transform 1.48s, setup 0ms, collect 4.64s, tests 8.34s, environment 0ms, prepare 204ms)[22m
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-ce47ebca/tests/track-b/current-autonomy-payment-startup/private-review-evidence/publication-results.json
+Retained publication harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-publication-authority-0Oaj1a

@@ -1,0 +1,42 @@
+
+> build
+> npm run build -w web
+
+
+> web@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Compiled workflows in 1.6s (44 steps, 1 workflow)
+✓ Running next.config.ts took 2.2s
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 1 error:
+./apps/web/src/app
+Error: Could not find the Next.js package (next/package.json)
+Resolved from: /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/accounting-reconciliation-z0rghk5z/apps/web/src/app
+Filesystem root used for resolution: /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/accounting-reconciliation-z0rghk5z
+
+Possible causes:
+  - node_modules is being reorganized by a concurrent install (e.g. pnpm adding a package with a `next` peer dependency). This is transient and should clear once the install completes.
+  - node_modules/next was removed, renamed, or has a broken symlink.
+  - The workspace root is incorrect — see turbopack.root in the Next.js config docs for how to configure it.
+  - In a monorepo, the Next.js package may only exist in a directory above the closest directory containing a package manager lockfile. The workspace root is detected by locating the nearest package manager lockfile.
+  - Next.js is installed globally rather than as a project dependency. This is not supported; install it locally.
+
+Note: To ensure a hermetic build and a portable cache, files outside of the workspace root are not compiled.
+
+https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory
+
+
+    at <unknown> (Filesystem root used for resolution: /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/accounting-reconciliation-z0rghk5z)
+    at <unknown> (https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory)
+npm error Lifecycle script `build` failed with error:
+npm error code 1
+npm error path /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/accounting-reconciliation-z0rghk5z/apps/web
+npm error workspace web@0.1.0
+npm error location /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/accounting-reconciliation-z0rghk5z/apps/web
+npm error command failed
+npm error command sh -c next build

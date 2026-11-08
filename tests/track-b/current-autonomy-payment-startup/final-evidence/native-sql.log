@@ -1,0 +1,18 @@
+✔ actual baseline migrations + additive migration survive reapply; PUBLIC cannot read or execute (1359.06675ms)
+✔ verified event/outbox survives pre-bootstrap delivery and retry publishes exactly one retained receipt (1088.0105ms)
+✔ same provider event replay with altered payload or identity conflicts durably and does not replace receipt (855.15575ms)
+✔ independent completion events for one checkout converge; replay conflicts do not lose outbox (873.891083ms)
+✔ refund/cancel revocation is monotonic across old paid webhook retries and later distinct completion (2062.562708ms)
+✔ every read rechecks cancellation, current owner/environment, release revocation, latest quote, pricing contract and payment status (15409.492083ms)
+✔ per-finding cap/authorization is explicitly refused rather than prepaid quote authority (712.82175ms)
+✔ first binding can acquire canonical checkout session once, immutable quote/request identity cannot drift (777.56ms)
+✔ competing Stripe/x402 payment cannot grant either receipt authority or duplicate work (784.7425ms)
+✔ failed verified event transaction leaves neither event nor delivery work behind (731.190459ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24668.45825

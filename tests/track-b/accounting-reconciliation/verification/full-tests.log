@@ -1,0 +1,19 @@
+
+> test
+> vitest run --maxWorkers=2
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/accounting-reconciliation-z0rghk5z
+
+
+ Test Files  179 passed | 1 skipped (180)
+      Tests  2385 passed | 1 skipped (2386)
+   Start at  19:29:25
+   Duration  73.69s (tests 87%, import 11%, transform 1%)
+
+    Isolate  180 workers spawned · ~66ms startup each (spawn + environment, per file)
+             at least ~5.90s faster with isolate: false — reuses workers across files instead of one per file
+

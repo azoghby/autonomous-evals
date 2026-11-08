@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-current-privacy-ToEXmL
+
+ ✓ chat.test.tsx (9 tests) 1734ms
+   ✓ Private progress chat > paginates ascending history and displays plain text without evidence or digest  911ms
+ ✓ privacy.test.tsx (3 tests) 679ms
+   ✓ does not publish old-job history, poll or send after navigation even if transport ignores abort  639ms
+ ✓ reauth.test.tsx (4 tests) 524ms
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  19:36:28
+   Duration  10.29s (transform 206ms, setup 0ms, collect 1.65s, tests 2.94s, environment 3.29s, prepare 431ms)
+
+ 
