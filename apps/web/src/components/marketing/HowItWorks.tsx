@@ -1,43 +1,30 @@
-import { Pipeline } from "./how-it-works/Pipeline";
-import { Reveal, Section, SectionHeader, Terminal, type TerminalLine } from "../ui";
+import { Eyebrow, Reveal, Section } from "../ui";
 
 const STEPS = [
-  { title: "Submit", body: "A trace, or an endpoint.", detail: "trace · endpoint" },
-  { title: "Qualify & quote", body: "Scoped and priced in minutes.", detail: "6 tools · $5.00 fixed" },
-  { title: "Test", body: "Suites run under a hard budget.", detail: "32 scenarios · 24 attacks" },
-  { title: "Find & fix", body: "Failures confirmed, patches verified.", detail: "3/3 reproduced · 2/4 → 4/4" },
-  { title: "Report", body: "Evidence you can re-run.", detail: "report · PR #42" },
+  { n: "01", title: "Connect your agent", body: "An endpoint, an MCP server, or your repo." },
+  { n: "02", title: "We build its world", body: "Tools, policies and a real Postgres database, modelled on yours." },
+  { n: "03", title: "Simulated users run it", body: "Your real workflows, each in an isolated Neon database branch." },
+  { n: "04", title: "Graded on what changed", body: "We check the database, not what the agent said." },
 ] as const;
-
-const TRACE: TerminalLine[] = [
-  { prefix: "$", text: "ae run support-bot --package workflow_eval", tone: "default" },
-  { text: "qualify   endpoint reachable, 6 tools discovered", tone: "muted" },
-  { text: "quote     $5.00 fixed · budget capped at $3.00", tone: "muted" },
-  { prefix: "T1", text: "call lookup_order(id=\"A-1042\")", tone: "default" },
-  { prefix: "T1", text: "ok  order found, status=delivered", tone: "ok" },
-  { prefix: "T7", text: "user: \"please refund it\"", tone: "default" },
-  { prefix: "T7", text: "assistant: \"Done, your refund has been issued.\"", tone: "default" },
-  { prefix: "✕", text: "refund issued without calling refund tool", tone: "danger" },
-  { prefix: "▶", text: "reproduced 3/3 · finding F-2 · severity high", tone: "accent" },
-  { prefix: "ok", text: "report ready", tone: "ok" },
-];
 
 export function HowItWorks() {
   return (
-    <Section id="how" labelledBy="how-h" band className="scroll-mt-16">
-      <Reveal>
-        <SectionHeader
-          id="how-h"
-          index="01"
-          eyebrow="How it works"
-          title={<>Five stages, all run by agents. <span className="text-muted">Each one has a budget and an audit trail.</span></>}
-        />
+    <Section id="how" labelledBy="how-h" className="scroll-mt-16">
+      <Reveal className="flex flex-col gap-6">
+        <Eyebrow>How it works</Eyebrow>
+        <h2 id="how-h" className="t-h2 max-w-[22ch] text-balance text-fg">Four steps. <span className="text-muted">No platform to learn.</span></h2>
       </Reveal>
-      <Reveal className="mt-14 md:mt-20">
-        <Pipeline steps={STEPS} />
-      </Reveal>
-      <Reveal className="mt-8">
-        <Terminal title="run · support-bot · workflow_eval" lines={TRACE} animate />
+      <Reveal className="mt-16 md:mt-24">
+        <ol className="ls-steps">
+          {STEPS.map((s) => (
+            <li key={s.n} className="ls-step">
+              <span aria-hidden className="ls-dot" />
+              <span className="font-mono text-xs text-accent-text">{s.n}</span>
+              <h3 className="t-h4 text-fg">{s.title}</h3>
+              <p className="t-small text-muted">{s.body}</p>
+            </li>
+          ))}
+        </ol>
       </Reveal>
     </Section>
   );
