@@ -79,6 +79,12 @@ export async function collectDailyMetrics(now = new Date()): Promise<DailyMetric
 
 /** Text of the report; appends the operator-digest approve-all link when drafts are pending (confirm page, never auto-sends). */
 export async function buildDailyReportText(now = new Date()): Promise<string> {
+  return (await buildDailyReport(now)).text;
+}
+
+/** Report text plus the pending draft ids it covers (recorded on the email thread to scope a YES ALL reply). */
+export async function buildDailyReport(now = new Date()): Promise<{ text: string; draftIds: string[] }> {
+  let draftIds: string[] = [];
   const m = await collectDailyMetrics(now);
   const plan = await getTodaysPlan(now).catch(() => null);
   let text = formatDailyReport({ ...m, ...(plan?.length ? { plan } : {}) }, `${appUrl()}/operator`);
@@ -88,8 +94,9 @@ export async function buildDailyReportText(now = new Date()): Promise<string> {
     const ids = (await db().select({ id: d.id }).from(d).where(eq(d.status, "pending")).limit(DIGEST_MAX_DRAFTS)).map((r) => r.id);
     const token = signToken("approve_all", { ids, op, exp: now.getTime() + DIGEST_TOKEN_TTL_MS });
     text += `\nReview all ${ids.length} drafts (confirm page): ${appUrl()}${APPROVE_ALL_PATH}?t=${encodeURIComponent(token)}`;
+    draftIds = ids;
   }
-  return text;
+  return { text, draftIds };
 }
 
 export type ReportOutcome = { status: "sent"; results: ChannelResults; expired: number } | { status: "skipped"; reason: string };
@@ -103,9 +110,12 @@ export async function runFounderDailyReport(now = new Date()): Promise<ReportOut
     const claim = await db().insert(f).values({ subjectType: "founder_report", subjectId, kind: "founder_report" }).onConflictDoNothing().returning({ id: f.id });
     if (claim.length === 0) return { status: "skipped", reason: "already_sent" };
     const notes = await unreportedFounderNotes().catch(() => []);
-    const hint = "\n\nReply to respond: YES ALL approves every pending outreach draft; any other text is saved as a note and never acted on.";
-    const text = (await buildDailyReportText(now)) + formatNotesSection(notes) + hint;
-    const results = await sendFounderText(text, { subject: `Standard Evals daily report — ${now.toISOString().slice(0, 10)}`, threadKind: "report" });
+    const report = await buildDailyReport(now);
+    const hint = report.draftIds.length > 0
+      ? `\n\nReply to respond: YES ALL approves the ${report.draftIds.length} outreach draft(s) pending when this report was sent (newer drafts are not included); any other text is saved as a note and never acted on.`
+      : "\n\nReply to respond: any text is saved as a note and never acted on.";
+    const text = report.text + formatNotesSection(notes) + hint;
+    const results = await sendFounderText(text, { subject: `Standard Evals daily report — ${now.toISOString().slice(0, 10)}`, threadKind: "report", draftIds: report.draftIds });
     if (!Object.values(results).some((r) => r === "sent")) {
       // Nothing delivered (no channels or all failed): release the claim so a manual re-run can retry.
       await db().delete(f).where(and(eq(f.subjectType, "founder_report"), eq(f.subjectId, subjectId), eq(f.kind, "founder_report")));

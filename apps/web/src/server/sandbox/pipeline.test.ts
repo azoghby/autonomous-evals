@@ -255,6 +255,17 @@ describe("prepareRunWorld", () => {
     expect(getRun(run.id).status).toBe("queued");
   });
 
+  it("tears the world down when its worldId cannot be recorded (no leaked branch on step retry)", async () => {
+    const run = await seedRun();
+    const store = { ...m.store, updateRun: async (id: string, patch: Parameters<typeof m.store.updateRun>[1]) => {
+      if ("worldId" in patch) throw new Error("db down");
+      return m.store.updateRun(id, patch);
+    } };
+    await expect(prepareRunWorld({ ...deps, store }, run.id)).rejects.toThrow(/db down/);
+    expect(rt.prepared).toHaveLength(1);
+    expect(rt.tornDown).toEqual(rt.prepared);
+  });
+
   it("unknown run is fatal", async () => {
     await expect(prepareRunWorld(deps, "run_missing")).rejects.toBeInstanceOf(SandboxFatalError);
   });

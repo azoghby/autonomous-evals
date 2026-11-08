@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import type { BranchInfo, NeonBranchManager, SqlConn, SqlConnector } from "./types";
 import { createNeonSandboxRuntime } from "./runtime";
@@ -85,6 +85,51 @@ describe("createNeonSandboxRuntime (fakes)", () => {
     expect(log).toEqual([]);
     await expect(rt.startRun("neon-world:br-x", env, tinyScenario({ fixtureSql: "DROP DATABASE world" }), 0)).rejects.toThrow();
     await expect(rt.startRun("not-a-world", env, tinyScenario(), 0)).rejects.toThrow(/invalid worldId/);
+  });
+
+  it("seeds the world under a statement_timeout set before any customer SQL", async () => {
+    const { mgr } = fakeBranches();
+    const sql: string[] = [];
+    const rt = createNeonSandboxRuntime({ branches: mgr, connector: fakeConnector(sql), scriptTimeoutMs: 1234 });
+    await rt.prepare(tinyEnv(), "j");
+    const worldStmts = sql.filter((s) => s.startsWith("world: "));
+    expect(worldStmts[0]).toBe("world: SET statement_timeout = 1234");
+  });
+
+  it("refuses pg_sleep and statement_timeout overrides in seed/fixture SQL", async () => {
+    const { mgr, log } = fakeBranches();
+    const rt = createNeonSandboxRuntime({ branches: mgr, connector: fakeConnector([]) });
+    const env = tinyEnv();
+    for (const seedSql of ["SELECT pg_sleep(600);", "select PG_SLEEP_FOR('10 minutes');", "SET statement_timeout = 0;", "select set_config('statement_timeout','0',false);"]) {
+      await expect(rt.prepare({ ...env, state: { ...env.state, seedSql } }, "j")).rejects.toThrow(/not allowed/);
+    }
+    expect(log).toEqual([]);
+    await expect(rt.startRun("neon-world:br-x", env, tinyScenario({ fixtureSql: "select pg_sleep_until(now() + interval '1 hour');" }), 0)).rejects.toThrow(/pg_sleep/);
+  });
+
+  it("deletes the branch when seeding fails, so a retry does not leak it", async () => {
+    const { mgr, live } = fakeBranches();
+    const base = fakeConnector([]);
+    const failingSeed: SqlConnector = async (uri) => {
+      const c = await base(uri);
+      return new URL(uri).pathname === "/world" ? { ...c, async exec() { throw new Error("canceling statement due to statement timeout"); } } : c;
+    };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rt = createNeonSandboxRuntime({ branches: mgr, connector: failingSeed });
+    await expect(rt.prepare(tinyEnv(), "j")).rejects.toThrow(/statement timeout/);
+    expect(live.size).toBe(0);
+    err.mockRestore();
+  });
+
+  it("teardown still deletes the job branch when a pool leaf delete fails", async () => {
+    const { mgr, live } = fakeBranches();
+    const flaky: NeonBranchManager = { ...mgr, async deleteBranch(id) { if (id === "br-fake-2") throw new Error("neon 500"); return mgr.deleteBranch(id); } };
+    const rt = createNeonSandboxRuntime({ branches: flaky, connector: fakeConnector([]), tier: "branch_pool", poolSize: 1 });
+    const { worldId } = await rt.prepare(tinyEnv(), "j");
+    const run = await rt.startRun(worldId, tinyEnv(), tinyScenario(), 0);
+    await run.dispose();
+    await expect(rt.teardown(worldId)).rejects.toThrow(/neon 500/);
+    expect(live.has("br-fake-1")).toBe(false);
   });
 
   it("branch_pool tier: reuses leaves and resets them from the job branch", async () => {

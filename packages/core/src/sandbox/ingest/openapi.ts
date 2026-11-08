@@ -34,17 +34,50 @@ function lookupRef(doc: Obj, ref: string): unknown {
   return cur;
 }
 
-/** Recursively resolve local $refs; cycles collapse to a bare object schema. */
+/**
+ * Cap on schema nodes produced by $ref / YAML-alias expansion for one document. A tiny spec whose refs or aliases
+ * fan out (each level referencing the previous one several times) otherwise expands exponentially (915 B -> 27 MB).
+ */
+export const MAX_EXPANDED_NODES = 250_000;
+
+export class OpenApiTooLargeError extends Error {
+  constructor() {
+    super(`OpenAPI document expands to more than ${MAX_EXPANDED_NODES.toLocaleString("en-US")} schema nodes after resolving $refs and YAML aliases. Inline fewer shared schemas or split the spec.`);
+    this.name = "OpenApiTooLargeError";
+  }
+}
+
+/** Per-document expansion state: memoised $ref results (with their node counts) and the running node budget. */
+interface Expansion { memo: Map<string, { value: unknown; nodes: number }>; nodes: number }
+const expansions = new WeakMap<Obj, Expansion>();
+function expansionFor(doc: Obj): Expansion {
+  let e = expansions.get(doc);
+  if (!e) { e = { memo: new Map(), nodes: 0 }; expansions.set(doc, e); }
+  return e;
+}
+function spend(e: Expansion, n: number) {
+  e.nodes += n;
+  if (e.nodes > MAX_EXPANDED_NODES) throw new OpenApiTooLargeError();
+}
+
+/** Recursively resolve local $refs; cycles collapse to a bare object schema. Memoised per $ref, node-capped. */
 function resolve(doc: Obj, node: unknown, seen: readonly string[] = [], depth = 0): unknown {
-  if (Array.isArray(node)) return node.map((n) => resolve(doc, n, seen, depth));
+  const e = expansionFor(doc);
+  if (Array.isArray(node)) { spend(e, 1); return node.map((n) => resolve(doc, n, seen, depth)); }
   if (!isObj(node)) return node;
   if (typeof node.$ref === "string") {
     const ref = node.$ref;
     if (seen.includes(ref) || depth > MAX_DEPTH) return { type: "object" };
+    const hit = e.memo.get(ref);
+    if (hit) { spend(e, hit.nodes); return hit.value; } // the expanded size still counts against the budget
     const target = lookupRef(doc, ref);
     if (target === undefined) return {};
-    return resolve(doc, target, [...seen, ref], depth + 1);
+    const before = e.nodes;
+    const value = resolve(doc, target, [...seen, ref], depth + 1);
+    e.memo.set(ref, { value, nodes: e.nodes - before });
+    return value;
   }
+  spend(e, 1);
   const out: Obj = {};
   for (const [k, v] of Object.entries(node)) out[k] = resolve(doc, v, seen, depth + 1);
   return out;

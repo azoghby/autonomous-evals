@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "./Button";
 import { cn } from "./cn";
+import { CommandPalette, CommandPaletteTrigger } from "./CommandPalette";
 import { Wordmark } from "./Wordmark";
 
 export type NavItem = { label: string; href: string };
@@ -93,6 +94,7 @@ export function TopBar({
           </ul>
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <CommandPaletteTrigger />
           {showSecondary && <Button href={secondary.href} variant="ghost" size="sm" className="max-md:hidden">{secondary.label}</Button>}
           <Button href={cta.href} size="sm">{cta.label}</Button>
           <button
@@ -131,6 +133,7 @@ export function TopBar({
           </ul>
         </nav>
       )}
+      <CommandPalette />
     </header>
   );
 }

@@ -66,6 +66,7 @@ describe("auth and ownership", () => {
     const r = await handleCreateRegressionRun(post({ jobId: JOB }), { defer, store });
     expect(r.status).toBe(429);
     expect(r.headers.get("Retry-After")).toBe("30");
+    expect(h.rateLimit.mock.calls[0]![0]).toMatch(/:customer:A$/); // per customer, not per API key
   });
   it("404 for a job the caller does not own", async () => {
     const r = await handleCreateRegressionRun(post({ jobId: OTHER_JOB }), { defer, store });

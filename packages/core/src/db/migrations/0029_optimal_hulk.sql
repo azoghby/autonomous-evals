@@ -1,0 +1,1 @@
+ALTER TABLE "founder_email_threads" ADD COLUMN "draft_ids" jsonb;

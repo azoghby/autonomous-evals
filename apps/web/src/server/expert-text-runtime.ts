@@ -26,12 +26,15 @@ import { createTextTarget } from '@ae/core/targets/text';
 import type { JsonTransport } from '@ae/core/targets/transport';
 import { createNaiveProxyServiceJudge } from '@ae/core/judges/naive-proxy-service';
 import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
+import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 import { decryptJson } from '@ae/core/storage/crypto';
 import { isOperator } from '@ae/core/auth/tokens';
 import { expertOwnerDatabase } from './automated-expert-owner';
 import { credentialSlotsOf, injectCredentials } from './intake';
 import type { ProductionDataInput } from './expert-data-production';
 
+/** Month-wide `agent:judge:<period>` scope cap: the judge role's monthly cap, identical for every writer (never a per-job cap). */
+const JUDGE_MONTHLY_CAP_MICRO_USD = COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd;
 const fail = (): never => { throw new Error('expert_text_authority_unavailable'); };
 const hash = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
 type Tx = Parameters<Parameters<AgentTransactionalSql['transaction']>[0]>[0];
@@ -171,7 +174,7 @@ export async function createExpertTextRuntime(ctx: ServiceContext, deps: ExpertT
   const proxyKey=process.env.NAIVE_API_KEY;
   if(!model||!proxyKey||!Number.isSafeInteger(reservation)||reservation<=0||!Number.isSafeInteger(output)||output<1)return fail();
   const judge=createNaiveProxyServiceJudge(ctx,{jobId:ctx.jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints,
-   budget:createNaiveProxyBudget(new PostgresBudgetLedger(sql),{jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID??new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:cap}),
+   budget:createNaiveProxyBudget(new PostgresBudgetLedger(sql),{jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:JUDGE_MONTHLY_CAP_MICRO_USD}),
    client:idempotencyKey=>createClient({apiKey:process.env.NAIVE_API_KEY!,...(process.env.NAIVE_BASE_URL?{baseUrl:process.env.NAIVE_BASE_URL}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
    authorize:async()=>{const fresh=await current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey)return fail();return {knownSecrets:fresh.secrets};}});
   return {...a,retained:projection.retained,canonicalTarget:a.target,target:createTextTarget(a.target,deps.targetTransport),judge,knownSecrets:a.secrets};

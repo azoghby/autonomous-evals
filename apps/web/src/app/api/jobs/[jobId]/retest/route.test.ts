@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createJob = vi.fn(async (_a: unknown) => ({ jobId: "new" }));
+const rateLimit = vi.fn(async (_k: string, _l: number, _w: number) => ({ ok: true, retryAfter: 0 }));
+vi.mock("@/server/rate-limit", () => ({ rateLimit: (k: string, l: number, w: number) => rateLimit(k, l, w) }));
 vi.mock("@/server/queries", () => ({
   getCurrentCustomer: async () => ({ id: "u1", email: "o@x.io", isOperator: false }),
   getJobForViewer: async () => ({ job: {} }),
@@ -36,5 +38,13 @@ describe("POST /api/jobs/[jobId]/retest", () => {
     await post("job-b", "k1");
     const keys = createJob.mock.calls.map((c) => (c[0] as { idempotencyKey: string }).idempotencyKey);
     expect(keys).toEqual(["retest:job-a:k1", "retest:job-b:k1"]);
+  });
+  it("is rate limited per customer and creates nothing when limited", async () => {
+    rateLimit.mockResolvedValueOnce({ ok: false, retryAfter: 60 });
+    const res = await post("job-a", "k2");
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("60");
+    expect(rateLimit).toHaveBeenCalledWith("job-retest:u1", 10, 3600);
+    expect(createJob).not.toHaveBeenCalled();
   });
 });

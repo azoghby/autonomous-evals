@@ -41,7 +41,8 @@ async function authenticate(req: Request, scope: string) {
   const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   const key = await verifyApiKey(bearer);
   if (!key) return { err: json(401, { error: "Unauthorized: send your API key as 'Authorization: Bearer <key>'" }, { "WWW-Authenticate": "Bearer" }) };
-  const rl = await rateLimit(`${scope}:${key.keyId}`, REGRESSION_RATE_LIMIT, REGRESSION_RATE_WINDOW_SEC);
+  // Per customer, not per key: minting more API keys must not multiply the limit.
+  const rl = await rateLimit(`${scope}:customer:${key.customerId}`, REGRESSION_RATE_LIMIT, REGRESSION_RATE_WINDOW_SEC);
   if (!rl.ok) return { err: json(429, { error: "rate_limited" }, { "Retry-After": String(rl.retryAfter) }) };
   return { key };
 }

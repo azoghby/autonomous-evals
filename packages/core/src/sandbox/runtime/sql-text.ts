@@ -339,6 +339,9 @@ const SAFE_SCRIPT_RULES: ReadonlyArray<{ re: RegExp; what: string }> = [
     re: /\b(pg_terminate_backend|pg_cancel_backend|dblink\w*|lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_reload_conf)\b/i,
     what: 'a forbidden function',
   },
+  { re: /\b(pg_sleep(?:_for|_until)?)\b/i, what: 'pg_sleep' },
+  // Scripts run under a statement_timeout; they may not lift it.
+  { re: /\b(statement_timeout|set_config)\b/i, what: 'statement_timeout / set_config' },
   { re: /^[ \t]*\\/m, what: 'a psql meta-command' },
 ];
 

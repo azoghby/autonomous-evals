@@ -8,11 +8,11 @@ import type { getJobForViewer } from "./queries";
 import { addMessage, getJob, makeServiceContext, saveFindings } from "./job-store";
 import { getEvalServices } from "./services";
 import { sendJobEvent } from "@/workflows/events";
+import { MAX_RERUNS_PER_FINDING, claimRerunSlot, releaseRerunSlot } from "./rerun-slots";
 
 type JobData = NonNullable<Awaited<ReturnType<typeof getJobForViewer>>>;
 export type ActionResult<T> = { ok: true; value: T } | { ok: false; status: number; error: string; extra?: Record<string, unknown> };
 
-const MAX_RERUNS_PER_FINDING = 3;
 
 /** Shared by the messages route and the MCP answer_clarification tool. Caller has already authorized `data`. */
 export async function submitClarificationAnswer(data: JobData, answer: string): Promise<ActionResult<{ messageId: string }>> {
@@ -45,15 +45,19 @@ export async function rerunFindingForJob(data: JobData, findingId: string): Prom
   const [{ n }] = await db().select({ n: count() }).from(schema.findings)
     .where(and(eq(schema.findings.jobId, jobId), eq(schema.findings.rerunOfFindingId, originalId)));
   if (n >= MAX_RERUNS_PER_FINDING) return { ok: false, status: 409, error: "Re-run limit reached for this finding" };
+  // Placeholder-first: claim a unique slot row before the (paid) re-run, so concurrent requests that all passed the
+  // count check above cannot all run. The slot is given back only when the re-run fails.
+  const slot = await claimRerunSlot(originalId);
+  if (!slot) return { ok: false, status: 409, error: "Re-run limit reached for this finding" };
 
-  let scenario: Scenario | undefined;
-  const job = await getJob(jobId);
-  if (job?.suiteBlobPath && parsed.data.scenarioId) {
-    const raw = await readJobArtifactText(job.suiteBlobPath);
-    const suite = raw ? Suite.safeParse(JSON.parse(raw)) : null;
-    scenario = suite?.success ? suite.data.scenarios.find((s) => s.id === parsed.data.scenarioId) : undefined;
-  }
   try {
+    let scenario: Scenario | undefined;
+    const job = await getJob(jobId);
+    if (job?.suiteBlobPath && parsed.data.scenarioId) {
+      const raw = await readJobArtifactText(job.suiteBlobPath);
+      const suite = raw ? Suite.safeParse(JSON.parse(raw)) : null;
+      scenario = suite?.success ? suite.data.scenarios.find((s) => s.id === parsed.data.scenarioId) : undefined;
+    }
     const sctx = await makeServiceContext(jobId);
     await sctx.recordProgress("finding_rerun", `Re-running finding "${parsed.data.title}"`);
     const rerun = Finding.parse(await (await getEvalServices()).rerunFinding(sctx, parsed.data, scenario));
@@ -64,6 +68,7 @@ export async function rerunFindingForJob(data: JobData, findingId: string): Prom
     return { ok: true, value: { finding: saved } };
   } catch (err) {
     console.error("rerun failed", err);
+    await releaseRerunSlot(slot).catch((e) => console.error("release rerun slot failed", e));
     return { ok: false, status: 502, error: "Re-run failed" };
   }
 }

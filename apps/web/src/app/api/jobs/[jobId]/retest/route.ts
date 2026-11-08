@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { decryptJson } from "@ae/core/storage/crypto";
 import { jsonError } from "@/server/http";
+import { rateLimit } from "@/server/rate-limit";
 import { getJobForViewer, getCurrentCustomer } from "@/server/queries";
 import { getJob } from "@/server/job-store";
 import { withIdempotency, IdempotencyInProgressError } from "@/server/idempotency";
@@ -11,6 +12,8 @@ import { credentialSlotsOf, type CredentialMap } from "@/server/intake";
 export async function POST(req: Request, ctx: { params: Promise<{ jobId: string }> }) {
   const me = await getCurrentCustomer();
   if (!me) return jsonError(401, "Authentication required");
+  const rl = await rateLimit(`job-retest:${me.id}`, 10, 3600);
+  if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
   const { jobId } = await ctx.params;
   if (!(await getJobForViewer(jobId, me))) return jsonError(404, "Job not found");
   const key = req.headers.get("idempotency-key")?.trim();

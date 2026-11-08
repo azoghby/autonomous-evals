@@ -130,7 +130,7 @@ export async function dispatchApproval(msg: ApprovalMessage, approvalId: string,
 }
 
 /** Plain text (daily report, test message, decision confirmations) to every configured channel. */
-export async function sendFounderText(text: string, opts: { subject: string; emailAlways?: boolean; threadKind?: "report" } = { subject: "Standard Evals" }, env: Env = process.env): Promise<ChannelResults> {
+export async function sendFounderText(text: string, opts: { subject: string; emailAlways?: boolean; threadKind?: "report"; draftIds?: string[] } = { subject: "Standard Evals" }, env: Env = process.env): Promise<ChannelResults> {
   const s = await getFounderSettings();
   const results: ChannelResults = {};
   const chat = resolveTelegramChat(s, env), wa = resolveWhatsAppTo(s, env);
@@ -143,7 +143,7 @@ export async function sendFounderText(text: string, opts: { subject: string; ema
     await settle(results, "email", async () => {
       for (const to of founderRecipients(env)) {
         const sent = await sendEmail({ to, subject: opts.subject, text, purpose: "commercial", labels: ["founder-notify"] });
-        if (opts.threadKind) await recordFounderThread(sent.threadId, opts.threadKind);
+        if (opts.threadKind) await recordFounderThread(sent.threadId, opts.threadKind, undefined, opts.draftIds);
       }
     });
   } else results.email = phoneSent ? "skipped: phone channel delivered" : "skipped: not configured";
