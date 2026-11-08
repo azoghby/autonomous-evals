@@ -67,3 +67,70 @@
 @media (prefers-reduced-motion: reduce) {
   .pr-card, .pr-toggle button, .pr-faq summary::after { transition: none; }
 }
+
+/* ===== pricing ROI calculator ===== */
+.roi { display: grid; gap: 32px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) { .roi { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 56px; align-items: start; } .roi-out { position: sticky; top: 96px; } }
+.roi-inputs { display: flex; flex-direction: column; gap: 28px; }
+.roi-group { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 20px; border-top: 1px solid var(--line-2); padding-top: 16px; }
+.roi-legend { padding: 0; margin-bottom: 4px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cyan); float: left; width: 100%; }
+.roi-legend + * { clear: both; }
+.roi-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.roi-label { font-size: 15px; color: var(--fg); }
+.roi-row { display: grid; grid-template-columns: minmax(104px, 132px) minmax(0, 1fr); gap: 16px; align-items: center; }
+.roi-input-wrap { display: flex; align-items: center; gap: 4px; height: 44px; padding-inline: 12px; border: 1px solid var(--line-3); border-radius: 4px; background: var(--bg-raised); transition: border-color 150ms var(--ease-hover), box-shadow 150ms var(--ease-hover); }
+.roi-input-wrap:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px var(--violet-glow); }
+.roi-input { flex: 1; min-width: 0; width: 100%; background: transparent; border: 0; outline: 0; color: var(--fg); font-family: var(--font-mono); font-size: 16px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.roi-input::-webkit-outer-spin-button, .roi-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.roi-affix { color: var(--muted); font-family: var(--font-mono); font-size: 14px; }
+.roi-hint { font-size: 13px; color: var(--muted); }
+.roi-range { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; background: transparent; cursor: pointer; --roi-fill: 0%; }
+.roi-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--violet) 0, var(--cyan) var(--roi-fill), var(--line-3) var(--roi-fill)); }
+.roi-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-3); }
+.roi-range::-moz-range-progress { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--violet), var(--cyan)); }
+.roi-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; background: var(--fg); border: 2px solid var(--violet-deep); box-shadow: 0 0 0 0 var(--violet-glow); transition: box-shadow 150ms var(--ease-hover); }
+.roi-range::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--fg); border: 2px solid var(--violet-deep); }
+.roi-range:hover::-webkit-slider-thumb { box-shadow: 0 0 0 6px var(--violet-glow); }
+.roi-range:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+.roi-reset { align-self: flex-start; min-height: 44px; padding-inline: 4px; font-size: 14px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.roi-reset:hover { color: var(--fg); }
+.roi-reset:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 2px; }
+
+.roi-out { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.roi-hero {
+  position: relative; overflow: hidden; padding: 28px 24px; border: 1px solid var(--line-3); border-radius: 4px;
+  background: radial-gradient(120% 140% at 0% 0%, var(--violet-glow), transparent 55%), radial-gradient(90% 120% at 100% 100%, var(--cyan-glow), transparent 60%), var(--bg-raised);
+}
+.roi-kicker { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-2); }
+.roi-big {
+  margin-top: 12px; font-size: clamp(40px, 11vw, 76px); line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  background: var(--spectrum); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.roi-big[data-zero="true"] { background: none; color: var(--muted); }
+.roi-why { margin-top: 14px; font-size: 14px; line-height: 1.5; color: var(--fg-2); max-width: 46ch; }
+
+.roi-stats { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--line-2); border-radius: 4px; margin: 0; }
+.roi-stats > div { padding: 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.roi-stats > div + div { border-top: 1px solid var(--line-2); }
+@media (min-width: 640px) {
+  .roi-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .roi-stats > div + div { border-top: 0; border-left: 1px solid var(--line-2); }
+}
+.roi-stats dt { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; color: var(--muted); }
+.roi-stats dd { margin: 0; font-size: 26px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--fg); overflow-wrap: anywhere; }
+.roi-stats dd span { font-size: 13px; color: var(--muted); letter-spacing: 0; }
+.roi-stats dd[data-neg="true"] { color: var(--warn); }
+.roi-stats p { font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+.roi-plan { display: flex; flex-direction: column; gap: 14px; padding: 24px; border: 1px solid var(--violet-deep); border-radius: 4px; background: linear-gradient(180deg, var(--accent-soft), var(--bg) 70%); box-shadow: 0 24px 60px -32px var(--violet-glow); }
+.roi-plan-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.roi-plan-name { font-size: 28px; letter-spacing: -0.02em; color: var(--fg); }
+.roi-plan-price { font-size: 24px; font-variant-numeric: tabular-nums; color: var(--fg); }
+.roi-plan-price span { font-size: 13px; color: var(--muted); }
+.roi-plan-why { font-size: 14px; line-height: 1.55; color: var(--fg-2); }
+.roi-disclaimer { font-size: 13px; line-height: 1.5; color: var(--subtle); border-left: 2px solid var(--line-3); padding-left: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .roi-input-wrap, .roi-range::-webkit-slider-thumb { transition: none; }
+}
+/* ===== end pricing ROI calculator ===== */
