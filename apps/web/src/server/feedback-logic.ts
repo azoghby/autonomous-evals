@@ -96,11 +96,11 @@ export function buildFeedbackEmail(r: FeedbackRecipient, l: FeedbackEmailLinks):
     `Site: ${app}`,
     `Demo: ${app}/demo`,
     "",
-    "Honest question: would you actually use this? What would make it a must-have, and what would you pay per month? A one-line reply is plenty, or use this short form:",
+    "Honest question: would you actually use this? What would make it a must-have, and what would you pay per month? A one-line reply is plenty, or use this form:",
     fUrl,
     "",
     "Thanks,",
-    "Ronit",
+    "Ronit (our agent sent this for me; replies reach me directly)",
   ].join("\n");
   const footer = [
     "--",
