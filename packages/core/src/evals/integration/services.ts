@@ -1,3 +1,4 @@
+import { isNaiveProxyJudgePendingError, isNaiveProxyJudgeReconciliationRequiredError } from '../../judges/naive-proxy';
 import { createHash } from 'node:crypto';
 import type { ServiceContext, RunResult } from '../../contracts/services';
 import type { AgentTaskRunner } from '../../agents/session-service';
@@ -26,6 +27,8 @@ export interface TextEvaluationServiceDeps {
   clock?: Clock;
 }
 export interface TextSuiteDesignRequest {
+  /** New owner-assigned design slots only; absent preserves historical replay. */
+  factualGapPolicy?: 'propose_missing_reference.v1';
   suiteId: string;
   versionLabel: string;
   systemPrompt: string | null;
@@ -105,6 +108,7 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
   }
   function executionDeps(a: AuthorizedTextDependencies, suite: FrozenTextSuite, scope: string) {
     let blocked: 'pending' | 'ambiguous' | null = null;
+    let judgeRecoveryPending = false;
     const mark = (state: 'pending' | 'ambiguous') => { blocked = state === 'ambiguous' || blocked === 'ambiguous' ? 'ambiguous' : 'pending'; };
     const target: TextTargetPort = { async send(request) {
       if (blocked !== null) throw new Error('text_target_operation_blocked');
@@ -129,6 +133,7 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
       }
     } };
     const judge: RubricJudge | null = a.judge === null ? null : async input => {
+      if (blocked !== null) throw new Error('text_judge_operation_blocked');
       const k = key(a, 'judge', input.operationId, { targetVersion: a.targetVersion, scope, input });
       const claim = await store.claim(k);
       if (claim.state === 'completed') {
@@ -136,18 +141,26 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
         if (result.unavailable || !result.verdict) throw new Error('text_judge_unavailable');
         return result.verdict;
       }
-      if (claim.state !== 'claimed') throw new Error('text_judge_unavailable');
+      if (claim.state !== 'claimed') { mark(claim.state); throw new Error('text_judge_unavailable'); }
       try {
         const verdict = await a.judge!(input);
         if (containsSecret(JSON.stringify(verdict), a.knownSecrets)) throw new Error('text_judge_credential');
         await store.complete(k, claim.token, { unavailable: false, verdict }); return verdict;
-      } catch {
+      } catch (error) {
+        if (isNaiveProxyJudgePendingError(error) || isNaiveProxyJudgeReconciliationRequiredError(error)) {
+          judgeRecoveryPending = true; mark(isNaiveProxyJudgePendingError(error) ? 'pending' : 'ambiguous');
+          // This is the outer memoization claim. The provider's own SQL attempt/fence
+          // remains untouched. An unknown state holds for reconciliation; no provider
+          // dispatch is repeated merely because this outer memoization can resume.
+          await store.release(k, claim.token);
+          throw error;
+        }
         await store.complete(k, claim.token, { unavailable: true }).catch(() => undefined);
         throw new Error('text_judge_unavailable');
       }
     };
     const execution: TextExecutionDeps = { target, judge, evaluateObjective: evaluateObjectiveCheck, knownSecrets: a.knownSecrets, clock: deps.clock };
-    return { execution, assertUnblocked() { if (blocked === 'ambiguous') ambiguous(); if (blocked === 'pending') pending(); } };
+    return { execution, canResumeJudgeRecovery: () => judgeRecoveryPending, assertUnblocked() { if (blocked === 'ambiguous') ambiguous(); if (blocked === 'pending') pending(); } };
   }
 
   async function designSuite(ctx: ServiceContext, input: TextSuiteDesignRequest): Promise<TextDesignOutcome> {
@@ -162,7 +175,7 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
       return result;
     }
     if (claim.state !== 'claimed') return value(claim);
-    const result = await designTextSuite({ job: a.job, versionLabel: input.versionLabel, systemPrompt: input.systemPrompt, referenceText: input.referenceText, knownSecrets: a.knownSecrets }, { runner: runner(ctx, a), budgetMicroUsd: ctx.budgetMicroUsd, now: () => deps.clock?.now() ?? new Date() });
+    const result = await designTextSuite({ job: a.job, versionLabel: input.versionLabel, systemPrompt: input.systemPrompt, referenceText: input.referenceText, knownSecrets: a.knownSecrets, ...(input.factualGapPolicy ? { factualGapPolicy: input.factualGapPolicy } : {}) }, { runner: runner(ctx, a), budgetMicroUsd: ctx.budgetMicroUsd, now: () => deps.clock?.now() ?? new Date() });
     if (result.status === 'blocked' && result.agentOutcome?.status === 'pending') {
       // Safe because AgentSessionService resumes its persisted session, never a new task.
       await store.release(k, claim.token); await costs(ctx, a, result.costs); return result;
@@ -220,7 +233,19 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
     if (claim.state === 'completed') { const result = copy(claim.value) as TextInvestigation; await costs(ctx, a, result.costs); return result; }
     if (claim.state !== 'claimed') return value(claim);
     const safe = executionDeps(a, suite, `reproduction:${input.runId}`);
-    const result = await investigateTextRun({ job: a.job, suite, run: baseline, knownSecrets: a.knownSecrets }, { ...safe.execution, runner: runner(ctx, a), budgetMicroUsd: ctx.budgetMicroUsd });
+    const durableRunner = runner(ctx, a);
+    let result: TextInvestigation;
+    try {
+      result = await investigateTextRun({ job: a.job, suite, run: baseline, knownSecrets: a.knownSecrets }, {
+        ...safe.execution, runner: { run: async spec => { safe.assertUnblocked(); return durableRunner.run(spec); } }, budgetMicroUsd: ctx.budgetMicroUsd,
+      });
+    } catch (error) {
+      // Do not dispatch an investigator on partial reproduction evidence. Only the
+      // independently fenced judge-pending path is safe to resume automatically.
+      if (safe.canResumeJudgeRecovery()) await store.release(k, claim.token);
+      else await store.markAmbiguous(k, claim.token);
+      throw error;
+    }
     const accountingKey = { ...k, kind: 'investigation_costs' };
     if (result.costs.length) {
       const accounting = await store.claim(accountingKey);
@@ -228,7 +253,11 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
       else if (accounting.state !== 'completed') value(accounting);
     }
     try { safe.assertUnblocked(); }
-    catch (error) { await store.markAmbiguous(k, claim.token); await costs(ctx, a, result.costs); throw error; }
+    catch (error) {
+      if (safe.canResumeJudgeRecovery()) await store.release(k, claim.token);
+      else await store.markAmbiguous(k, claim.token);
+      await costs(ctx, a, result.costs); throw error;
+    }
     if (result.investigatorStatus === 'pending') { await store.release(k, claim.token); await costs(ctx, a, result.costs); return result; }
     await store.complete(k, claim.token, result); await costs(ctx, a, result.costs); return result;
   }

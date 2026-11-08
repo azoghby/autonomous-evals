@@ -1,3 +1,4 @@
+import { FactualGapProposalSchema, factualGapInputDigest, TextFactualGapError } from './text/factual-gap';
 /** Contract design adapter. Owner ports supply authorization, durable admission and accounting. */
 import { createHash } from "node:crypto";
 import { IntakeInput as IntakeSchema, type IntakeInput } from "../contracts";
@@ -39,6 +40,8 @@ export interface NaiveTextDesignAdmissionStore {
   admit(identity: NaiveTextDesignIdentity, frozen: FrozenTextSuite): Promise<NaiveTextDesignAdmission>;
 }
 export interface NaiveDesignServiceDeps {
+  /** Opt in only for a new owner-assigned design slot; legacy slots remain unchanged. */
+  factualGapPolicy?: 'propose_missing_reference.v1';
   authorize(ctx: ServiceContext): Promise<AuthorizedNaiveTextDesign>;
   engine: Pick<ReturnType<typeof createTextEvaluationServices>, "designSuite">;
   admission: NaiveTextDesignAdmissionStore;
@@ -106,9 +109,20 @@ export function createNaiveDesignService(deps: NaiveDesignServiceDeps): Pick<Eva
     if (ctx.budgetMicroUsd === 0) throw new TrackBBlockedError("paused_budget", "Text design requires a positive authorized budget.");
     // The rich engine owns durable task replay and measured cost redelivery, even for an approved replay.
     const outcome = structuredClone(await deps.engine.designSuite(ctx, { suiteId: first.identity.designId, versionLabel: first.identity.versionLabel,
-      systemPrompt: first.stored.endpoint.systemPrompt, referenceText: first.stored.endpoint.referenceText }));
+      systemPrompt: first.stored.endpoint.systemPrompt, referenceText: first.stored.endpoint.referenceText, ...(deps.factualGapPolicy ? { factualGapPolicy: deps.factualGapPolicy } : {}) }));
     fresh = await reauthorize();
-    if (outcome.status !== "completed") return blocked(outcome);
+    if (outcome.status !== "completed") {
+      if (outcome.reason === "factual_reference_required" && outcome.factualGap && !outcome.agentOutcome) {
+        const proposal = FactualGapProposalSchema.safeParse(outcome.factualGap);
+        const expected = factualGapInputDigest({ job: first.identity,
+          versionLabel: first.identity.versionLabel, systemPrompt: first.stored.endpoint.systemPrompt, referenceText: first.stored.endpoint.referenceText });
+        if (prior || !proposal.success || proposal.data.inputDigest !== expected || first.stored.endpoint.referenceText !== null ||
+          proposal.data.requirements.some(r => !r.check.assessesFactualCorrectness || !r.check.requiresReference || r.check.behavioralInstructionId !== undefined || r.check.conditionalInstructionId !== undefined || !r.check.id.startsWith(`${r.scenarioId}.`)) ||
+          containsSecret(JSON.stringify(proposal.data), fresh.secrets)) return reject();
+        throw new TextFactualGapError(proposal.data, first.identity.inputDigest);
+      }
+      return blocked(outcome);
+    }
     let frozen: FrozenTextSuite;
     try { frozen = verifyAdmittedFrozenSuite(outcome.suite); } catch { return reject(); }
     if (frozen.jobId !== first.identity.jobId || frozen.versionLabel !== first.identity.versionLabel || frozen.systemPrompt !== first.stored.endpoint.systemPrompt ||

@@ -1,3 +1,4 @@
+import { NaiveProxyJudgePendingError, NaiveProxyJudgeReconciliationRequiredError } from '../../judges/naive-proxy';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -5,7 +6,7 @@ import { PostgresAgentTaskStore, PostgresBudgetLedger, type AgentTransactionalSq
 import { AgentSessionService } from '../../agents/session-service';
 import { harness } from '../../agents/__tests__/fakes';
 import type { ServiceContext } from '../../contracts/services';
-import type { TextTargetPort, JobRef } from '../types';
+import type { TextTargetPort, JobRef, RubricJudge } from '../types';
 import { createTrackBServices } from '../service-adapter';
 import { makeScenarios } from '../text/__tests__/fixtures';
 import { PostgresTextCheckpointStore, type TextCheckpointStore } from './checkpoints';
@@ -34,9 +35,9 @@ describe('text integration: real SQL, fake provider, Workflow replay', () => {
   let seq = 0;
   beforeEach(() => { seq++; });
 
-  function setup(options: { target?: TextTargetPort; checkpoints?: TextCheckpointStore; badDraft?: boolean; pendingDraft?: boolean; pausedReview?: boolean; denied?: boolean } = {}) {
+  function setup(options: { target?: TextTargetPort; judge?: RubricJudge; checkpoints?: TextCheckpointStore; badDraft?: boolean; factualDraft?: boolean; pendingDraft?: boolean; pausedReview?: boolean; denied?: boolean } = {}) {
     const currentJob = { ...job, jobId: `${job.jobId}-${seq}` };
-    const h = harness(body => ({ ...(options.pendingDraft && body.metadata.ae_output === 'text_design' ? { pollsUntilDone: 65 } : {}), ...(options.pausedReview && body.metadata.ae_output === 'text_review' ? { stopReason: 'budget_paused' as const } : {}), structuredOutput: body.metadata.ae_output === 'text_design' ? { scenarios: options.badDraft ? [] : makeScenarios() } : body.metadata.ae_output === 'text_review' ? accepted() : investigator() }), {
+    const h = harness(body => ({ ...(options.pendingDraft && body.metadata.ae_output === 'text_design' ? { pollsUntilDone: 65 } : {}), ...(options.pausedReview && body.metadata.ae_output === 'text_review' ? { stopReason: 'budget_paused' as const } : {}), structuredOutput: body.metadata.ae_output === 'text_design' ? { scenarios: options.badDraft ? [] : options.factualDraft ? makeScenarios().map(s => ({ ...s, rubricChecks: [{ id: `${s.id}.r1`, kind: 'rubric', description: 'Answer accuracy', rubric: 'Factual claims must be supported by the reference.', assessesFactualCorrectness: true, requiresReference: true }] })) : makeScenarios() } : body.metadata.ae_output === 'text_review' ? accepted() : investigator() }), {
       store: new PostgresAgentTaskStore(db), ledger: new PostgresBudgetLedger(db),
     });
     const costs = new Map<string, unknown>();
@@ -46,7 +47,7 @@ describe('text integration: real SQL, fake provider, Workflow replay', () => {
     let targetVersion = 'target-v1';
     const checkpoints = options.checkpoints ?? new PostgresTextCheckpointStore(db);
     const deps = { runner: h.service, checkpoints,
-      async resolve() { if (options.denied) throw new Error('authorization_denied'); return { job: currentJob, target: options.target ?? { send }, targetVersion, judge: null }; },
+      async resolve() { if (options.denied) throw new Error('authorization_denied'); return { job: currentJob, target: options.target ?? { send }, targetVersion, judge: options.judge ?? null }; },
       clock: h.clock,
     };
     const restart = () => createTextEvaluationServices({ ...deps, runner: new AgentSessionService({ ...h.deps, workerId: 'restarted', store: new PostgresAgentTaskStore(db), ledger: new PostgresBudgetLedger(db) }), checkpoints: options.checkpoints ?? new PostgresTextCheckpointStore(db) });
@@ -105,6 +106,84 @@ describe('text integration: real SQL, fake provider, Workflow replay', () => {
     expect(await f.restart().rerun(f.ctx, { suiteDigest: suite.digest, baselineRunId: 'baseline', runId: 'after' })).toEqual(rerun);
     expect(f.send).toHaveBeenCalledTimes(27);
     await expect(f.api.rerun(f.ctx, { suiteDigest: suite.digest, baselineRunId: 'baseline', runId: 'baseline' })).rejects.toThrow();
+  });
+
+  it('retains a new-policy factual gap across restart without reinterpreting a legacy design', async () => {
+    const f = setup({ factualDraft: true });
+    const legacy = await f.api.designSuite(f.ctx, design);
+    expect(legacy.status).toBe('completed');
+    const request = { ...design, suiteId: 'factual-gap-v1', factualGapPolicy: 'propose_missing_reference.v1' as const };
+    const gap = await f.api.designSuite(f.ctx, request);
+    expect(gap).toMatchObject({ status: 'blocked', reason: 'factual_reference_required', factualGap: { authority: 'model_proposed_coverage_requires_owner_validation' } });
+    const dispatched = f.h.naive.createCalls.length;
+    expect(await f.restart().designSuite(f.ctx, request)).toEqual(gap);
+    expect(await f.restart().designSuite(f.ctx, design)).toEqual(legacy);
+    expect(f.h.naive.createCalls).toHaveLength(dispatched);
+    await expect(f.restart().designSuite(f.ctx, { ...design, factualGapPolicy: request.factualGapPolicy })).rejects.toThrow('identity_conflict');
+    expect(f.send).not.toHaveBeenCalled();
+  });
+
+  it('holds a safely undispatched judge and resumes without replaying the retained target', async () => {
+    let waiting = true;
+    const judge = vi.fn<RubricJudge>(async input => {
+      if (waiting) throw new NaiveProxyJudgePendingError(input.operationId, 1, 'budget_denied');
+      return { outcome: 'passed', explanation: 'Reference supports the answer.', evidenceQuotes: [] };
+    });
+    const f = setup({ factualDraft: true, judge });
+    const designed = await f.api.designSuite(f.ctx, { ...design, referenceText: 'Trusted reference.' });
+    if (designed.status !== 'completed') throw Error('design blocked');
+    const request = { suiteDigest: designed.suite.digest, runId: 'judge-pending', scenarioIds: ['S01'] };
+    await expect(f.api.runSuite(f.ctx, request)).rejects.toMatchObject({ retryAfterMs: 5000 });
+    expect(f.send).toHaveBeenCalledTimes(1);
+    expect((await db.query("SELECT 1 FROM text_integration.checkpoints WHERE job_id=$1 AND kind='run_result'", [f.ctx.jobId])).rows).toHaveLength(0);
+    expect((await db.query("SELECT 1 FROM text_integration.checkpoints WHERE job_id=$1 AND kind='judge' AND state='completed'", [f.ctx.jobId])).rows).toHaveLength(0);
+    waiting = false;
+    const run = await f.restart().runSuite(f.ctx, request);
+    expect(run.executions[0].checks.some(c => c.kind === 'rubric' && c.status === 'pass')).toBe(true);
+    expect(f.send).toHaveBeenCalledTimes(1);
+    expect(await f.restart().runSuite(f.ctx, request)).toEqual(run);
+    expect(judge).toHaveBeenCalledTimes(2);
+  });
+
+  it('holds unknown judge state without caching an inconclusive run and can read a reconciled receipt', async () => {
+    let unknown = true;
+    const judge = vi.fn<RubricJudge>(async input => {
+      if (unknown) throw new NaiveProxyJudgeReconciliationRequiredError(input.operationId);
+      return { outcome: 'passed', explanation: 'Reconciled retained receipt.', evidenceQuotes: [] };
+    });
+    const f = setup({ factualDraft: true, judge });
+    const designed = await f.api.designSuite(f.ctx, { ...design, referenceText: 'Trusted reference.' });
+    if (designed.status !== 'completed') throw Error('design blocked');
+    const request = { suiteDigest: designed.suite.digest, runId: 'judge-unknown', scenarioIds: ['S01'] };
+    await expect(f.api.runSuite(f.ctx, request)).rejects.toMatchObject({ code: 'needs_operator' });
+    expect((await db.query("SELECT 1 FROM text_integration.checkpoints WHERE job_id=$1 AND kind='run_result'", [f.ctx.jobId])).rows).toHaveLength(0);
+    unknown = false;
+    const run = await f.restart().runSuite(f.ctx, request);
+    expect(run.executions[0].checks.some(c => c.kind === 'rubric' && c.status === 'pass')).toBe(true);
+    expect(f.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the investigator task while a reproduction judge requires recovery', async () => {
+    let waiting = false;
+    const judge: RubricJudge = async input => {
+      if (waiting) throw new NaiveProxyJudgePendingError(input.operationId, 1, 'undispatched_recovery_required');
+      return { outcome: 'passed', explanation: 'Reference supports the answer.', evidenceQuotes: [] };
+    };
+    const f = setup({ factualDraft: true, judge });
+    const designed = await f.api.designSuite(f.ctx, { ...design, referenceText: 'Trusted reference.' });
+    if (designed.status !== 'completed') throw Error('design blocked');
+    const request = { suiteDigest: designed.suite.digest, runId: 'investigator-pending' };
+    await f.api.runSuite(f.ctx, request);
+    const tasks = f.h.naive.createCalls.length;
+    waiting = true;
+    await expect(f.api.investigate(f.ctx, request)).rejects.toMatchObject({ retryAfterMs: 5000 });
+    expect(f.h.naive.createCalls).toHaveLength(tasks + 1);
+    expect(f.send).toHaveBeenCalledTimes(13);
+    waiting = false;
+    const investigation = await f.restart().investigate(f.ctx, request);
+    expect(investigation.investigatorStatus).toBe('completed');
+    expect(f.send).toHaveBeenCalledTimes(15);
+    expect(f.h.naive.createCalls).toHaveLength(tasks + 1);
   });
 
   it('binds design and run identity to immutable inputs and resolved target versions', async () => {

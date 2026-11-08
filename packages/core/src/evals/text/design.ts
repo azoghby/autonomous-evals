@@ -1,3 +1,4 @@
+import { proposeFactualGap, type FactualGapProposal } from './factual-gap';
 import { RUBRIC_ADMISSION_VERSION, constructConditionalChecks, bindRubricReferences, conditionalResponses, conditionalRubric, behavioralInstructions, behavioralRubric, rubricAdmissionProblems } from './rubric-admission';
 import { ADMISSION_VERSION, bindObjectiveConstraints, buildConstraintCatalog, objectiveAdmissionProblems } from './admission';
 import { z } from 'zod';
@@ -14,6 +15,8 @@ export const TextReviewOutput = z.object({
 }).strict();
 export interface TextDesignInput {
   job: JobRef;
+  /** Explicit new-operation policy; absent preserves historical task identities and outcomes. */
+  factualGapPolicy?: 'propose_missing_reference.v1';
   versionLabel: string;
   systemPrompt: string | null;
   referenceText: string | null;
@@ -22,7 +25,7 @@ export interface TextDesignInput {
 }
 export type TextDesignOutcome =
   | { status: 'completed'; suite: FrozenTextSuite; costs: CostEntry[] }
-  | { status: 'blocked'; reason: string; costs: CostEntry[]; agentOutcome?: AgentTaskOutcome<unknown> };
+  | { status: 'blocked'; reason: string; costs: CostEntry[]; agentOutcome?: AgentTaskOutcome<unknown>; factualGap?: FactualGapProposal };
 export const untrusted = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
 const identity = (value: unknown): string => createHash('sha256').update(canonicalJson(value)).digest('hex').slice(0, 24);
 
@@ -30,6 +33,7 @@ const identity = (value: unknown): string => createHash('sha256').update(canonic
 export async function designTextSuite(input: TextDesignInput, deps: { runner: AgentTaskRunner; budgetMicroUsd?: number; now?: () => Date }): Promise<TextDesignOutcome> {
   input = { ...input, referenceText: normalizeReferenceText(input.referenceText) };
   const costs: CostEntry[] = [];
+  if (input.factualGapPolicy !== undefined && input.factualGapPolicy !== 'propose_missing_reference.v1') return { status: 'blocked', reason: 'unsupported_factual_gap_policy', costs };
   const { knownSecrets = [], ...safe } = input;
   if (containsSecret(JSON.stringify(safe), knownSecrets)) return { status: 'blocked', reason: 'credential_in_input', costs };
   // Validate bounded inputs before any agent dispatch; suite placeholders never reach agents.
@@ -70,6 +74,8 @@ export async function designTextSuite(input: TextDesignInput, deps: { runner: Ag
       review.rejections.push({ draftScenarioRef: `draft_${revision}`, by: 'code_validation', reasons: admissionProblems, resolution: 'dropped' });
       continue;
     }
+    const factualGap = input.factualGapPolicy === 'propose_missing_reference.v1' ? proposeFactualGap(input, body.scenarios) : null;
+    if (factualGap) return { status: 'blocked', reason: 'factual_reference_required', costs, factualGap };
     Object.assign(body, bindObjectiveConstraints(input.systemPrompt, body.scenarios));
     const reviewPurpose = `text_review_${scope}_${revision}_${suiteDigest(body).slice(0, 12)}`;
     const checked = await deps.runner.run({ job: input.job, role: 'quality_investigator', purpose: reviewPurpose,

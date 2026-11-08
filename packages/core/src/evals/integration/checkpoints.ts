@@ -19,7 +19,9 @@ export type CheckpointClaim = CheckpointValue | { state: 'claimed'; token: strin
  * not repeated by another Workflow worker. release is ONLY for safe resumptions
  * whose external dispatch is independently fenced: durable agent polling or an
  * enclosing scenario whose target intent remains pending/ambiguous. Never
- * release a target or judge dispatch checkpoint. */
+ * release a target or provider judge dispatch checkpoint. An outer judge memoization
+ * claim may resume ONLY when the optional SQL attempt protocol separately fences
+ * provider dispatch and proves that explicit undispatched recovery is required. */
 export interface TextCheckpointStore {
   claim(key: CheckpointKey): Promise<CheckpointClaim>;
   get(key: CheckpointLookup): Promise<CheckpointValue | null>;

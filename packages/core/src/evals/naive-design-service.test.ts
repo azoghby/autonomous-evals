@@ -1,3 +1,4 @@
+import { factualGapInputDigest, TextFactualGapError, type FactualGapProposal } from './text/factual-gap';
 import { describe, expect, it, vi } from "vitest";
 import type { IntakeInput } from "../contracts";
 import type { ServiceContext } from "../contracts/services";
@@ -85,4 +86,31 @@ describe("Naive contract design service", () => {
     const f = harness(); f.result = { status: "completed", suite: makeSuite({ jobId, versionLabel: "wrong" }), costs: [] }; await expect(f.api.designSuite(f.ctx, f.intake)).rejects.toBeInstanceOf(TrackBBlockedError); expect(f.admission.admit).not.toHaveBeenCalled();
     const g = harness(); g.admission.admit.mockRejectedValueOnce(new Error("storage unavailable")); await expect(g.api.designSuite(g.ctx, g.intake)).rejects.toThrow("storage unavailable");
   });
+});
+
+function gapFor(f: ReturnType<typeof harness>): FactualGapProposal {
+  if (f.auth.intake.package !== "text_eval") throw Error();
+  return { schemaVersion: "text_factual_gap.v1", authority: "model_proposed_coverage_requires_owner_validation",
+    inputDigest: factualGapInputDigest({ job: f.auth.job, versionLabel: f.auth.versionLabel, systemPrompt: f.auth.intake.endpoint.systemPrompt, referenceText: null }),
+    requirements: [{ reason: "factual_check_missing_reference", scenarioId: "S01", userMessage: "What are the product limits?",
+      check: { id: "S01.r1", kind: "rubric", description: "Product limits", rubric: "Matches product facts.", assessesFactualCorrectness: true, requiresReference: true } }] };
+}
+it("propagates bounded proposal only after current owner authorization without admission", async () => {
+  const f = harness(); const proposal = gapFor(f);
+  f.result = { status: "blocked", reason: "factual_reference_required", factualGap: proposal, costs: [] };
+  await expect(f.api.designSuite(f.ctx, f.intake)).rejects.toBeInstanceOf(TextFactualGapError);
+  await expect(f.api.designSuite(f.ctx, f.intake)).rejects.toMatchObject({ proposal, canonicalInputDigest: expect.stringMatching(/^[a-f0-9]{64}$/) });
+  expect(f.admission.admit).not.toHaveBeenCalled();
+  f.afterEngine = () => f.deny();
+  await expect(f.api.designSuite(f.ctx, f.intake)).rejects.toThrow("Denied");
+});
+it("refuses foreign proposal digests, unsupported bindings and newly rotated proposal secrets", async () => {
+  for (const change of [(p: FactualGapProposal) => { p.inputDigest = "0".repeat(64); }, (p: FactualGapProposal) => { p.requirements[0]!.check.behavioralInstructionId = "fake"; }]) {
+    const f = harness(); const proposal = gapFor(f); change(proposal);
+    f.result = { status: "blocked", reason: "factual_reference_required", factualGap: proposal, costs: [] };
+    await expect(f.api.designSuite(f.ctx, f.intake)).rejects.toMatchObject({ code: "rejected_input" });
+  }
+  const f = harness(); f.result = { status: "blocked", reason: "factual_reference_required", factualGap: gapFor(f), costs: [] };
+  f.afterEngine = () => { f.auth.knownSecrets = ["Product limits"]; };
+  await expect(f.api.designSuite(f.ctx, f.intake)).rejects.toMatchObject({ code: "rejected_input" });
 });

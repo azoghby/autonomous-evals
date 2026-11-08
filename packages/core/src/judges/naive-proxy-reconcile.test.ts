@@ -4,7 +4,8 @@ import { afterEach,describe,it,expect,vi } from 'vitest';
 import { PostgresTextCheckpointStore } from '../evals/integration/checkpoints';
 import { PostgresBudgetLedger,type AgentTransactionalSql,type AgentSqlExecutor } from '../agents/postgres-ports';
 import type { VettaClient } from '@usenaive-sdk/managed-agents';
-import { createNaiveProxyJudge,type NaiveProxyCost } from './naive-proxy';
+import { createNaiveProxyJudge,NaiveProxyJudgePendingError,type NaiveProxyCost } from './naive-proxy';
+import { PostgresNaiveProxyDispatchStore } from './naive-proxy-dispatch-store';
 import { reconcileNaiveProxyBilling } from './naive-proxy-reconcile';
 import { createNaiveProxyBudget } from './naive-proxy-budget';
 import { naiveProxyCostEntry } from './naive-proxy-service';
@@ -12,10 +13,11 @@ import { naiveProxyCostEntry } from './naive-proxy-service';
 const opened:PGlite[]=[];
 afterEach(async()=>{for(const pg of opened.splice(0))await pg.close();});
 /** Actual PostgreSQL execution in PGlite; single connection, not a concurrency test. */
-async function fixture(){
+async function fixture(attemptMode=false){
  const pg=new PGlite();opened.push(pg);let failMain=false;
  await pg.exec(readFileSync(new URL('../evals/integration/migrations/001-text-integration.sql',import.meta.url),'utf8'));
  await pg.exec(readFileSync(new URL('../agents/persistence-migrations/001-agent-persistence.sql',import.meta.url),'utf8'));
+ if(attemptMode)await pg.exec(readFileSync(new URL('./migrations/001-proxy-dispatch.sql',import.meta.url),'utf8'));
  await pg.exec('CREATE TABLE fixture_cost(receipt_key text PRIMARY KEY, receipt jsonb NOT NULL)');
  const forward=(executor:AgentSqlExecutor):AgentSqlExecutor=>({query:async <T>(text:string,p:unknown[]=[])=>{
   const result=await executor.query<T>(text,p);
@@ -48,10 +50,12 @@ async function fixture(){
  const checkpointStates=async()=> (await pg.query<{kind:string;state:string}>('SELECT kind,state FROM text_integration.checkpoints')).rows;
  const authorize=vi.fn(async()=>({knownSecrets:[]}));
  const proxy={messages,call} as unknown as VettaClient['proxy'];
- const judge=createNaiveProxyJudge({jobId,model,maxOutputTokens:1000,reservationMicroUsd:300000,client:()=>({proxy}),checkpoints,budget,recordCost,authorize});
- const reconcile=()=>reconcileNaiveProxyBilling({jobId,operationId},{checkpoints:new PostgresTextCheckpointStore(db),proxy,budget:createNaiveProxyBudget(new PostgresBudgetLedger(db),{jobId,period:'2026-11',jobCapMicroUsd:1000000,judgeCapMicroUsd:1000000}),recordCost});
+ const dispatch=attemptMode?new PostgresNaiveProxyDispatchStore(db,{jobId,period:'2026-11',jobCapMicroUsd:1000000,judgeCapMicroUsd:1000000}):undefined;
+ const makeJudge=()=>createNaiveProxyJudge({jobId,model,maxOutputTokens:1000,reservationMicroUsd:300000,client:()=>({proxy}),checkpoints:new PostgresTextCheckpointStore(db),budget,recordCost,authorize,...(dispatch?{dispatch}:{})});
+ const judge=makeJudge();
+ const reconcile=(attempt=attemptMode?1:undefined)=>reconcileNaiveProxyBilling({jobId,operationId,...(attempt===undefined?{}:{attempt})},{checkpoints:new PostgresTextCheckpointStore(db),proxy,budget:createNaiveProxyBudget(new PostgresBudgetLedger(db),{jobId,period:'2026-11',jobCapMicroUsd:1000000,judgeCapMicroUsd:1000000}),recordCost});
  const rewriteMetadata=async(kind:string,value:unknown)=>{await pg.query('UPDATE text_integration.checkpoints SET value=$2::jsonb WHERE kind=$1',[kind,JSON.stringify(value)]);};
- return {judge,reconcile,input,metadata,rewriteMetadata,checkpointStates,messages,call,recordCost,costCount,settledCount,authorize,crash:()=>{failMain=true;}};
+ return {judge,makeJudge,reconcile,input,metadata,rewriteMetadata,checkpointStates,messages,call,recordCost,costCount,settledCount,authorize,dispatch,pg,db,jobId,operationId,crash:()=>{failMain=true;}};
 }
 describe('independent Jude billing recovery',()=>{
  it('recovers a crash after request identity retention despite revoked evaluation authority',async()=>{
@@ -94,5 +98,88 @@ describe('independent Jude billing recovery',()=>{
   await expect(f.reconcile()).rejects.toThrow('unavailable');expect(await f.costCount()).toBe(0);
   f.call.mockImplementationOnce(async()=>({...await trace(),session_id:'ses_other'}) as never);
   await expect(f.reconcile()).rejects.toThrow('unavailable');expect(await f.settledCount()).toBe(0);
+ });
+});
+describe('SQL attempt-backed Jude dispatch and billing',()=>{
+ const owner=async()=>({actorId:'operator:test',reason:'Explicitly recover proven undispatched attempt'});
+ async function attemptIdentity(f:Awaited<ReturnType<typeof fixture>>,attempt=1){
+  const row=(await f.pg.query<{input_digest:string}>('SELECT input_digest FROM naive_proxy_dispatch.operations WHERE job_id=$1 AND operation_id=$2',[f.jobId,f.operationId])).rows[0];
+  return {jobId:f.jobId,operationId:f.operationId,inputDigest:row.input_digest,attempt};
+ }
+ it('keeps denied attempts pending until explicit recovery and settles only the new attempt',async()=>{
+  const f=await fixture(true),ledger=new PostgresBudgetLedger(f.db);
+  await ledger.reserve({reservationId:'blocker',jobId:f.jobId,amountMicroUsd:800000,scopes:[{key:`job:${f.jobId}`,capMicroUsd:1000000},{key:'agent:judge:2026-11',capMicroUsd:1000000}]});
+  await expect(f.judge(f.input)).rejects.toMatchObject({code:'naive_proxy_judge_pending',reason:'budget_denied',attempt:1});
+  await ledger.settle('blocker',0);
+  await expect(f.makeJudge()(f.input)).rejects.toBeInstanceOf(NaiveProxyJudgePendingError);
+  expect(f.messages).not.toHaveBeenCalled();
+  await f.dispatch!.recoverUndispatched(await attemptIdentity(f),owner);
+  expect((await f.makeJudge()(f.input)).outcome).toBe('rubric_concern');
+  const rows=(await f.pg.query<{attempt:number;state:string;settled_micro_usd:number|null}>(`SELECT a.attempt,a.state,r.settled_micro_usd FROM naive_proxy_dispatch.attempts a JOIN agent_persistence.reservations r ON r.id=a.reservation_id ORDER BY a.attempt`)).rows;
+  expect(rows.map(r=>({attempt:r.attempt,state:r.state,settled:r.settled_micro_usd===null?null:Number(r.settled_micro_usd)}))).toEqual([{attempt:1,state:'abandoned',settled:null},{attempt:2,state:'dispatched',settled:17}]);
+  expect(f.messages).toHaveBeenCalledTimes(1);expect((await f.reconcile(2)).microUsd).toBe(17);
+ });
+ it('releases a revoked undispatched hold without reusing its zero settlement',async()=>{
+  const f=await fixture(true);f.authorize.mockResolvedValueOnce({knownSecrets:[]}).mockRejectedValueOnce(Error('revoked'));
+  await expect(f.judge(f.input)).rejects.toBeInstanceOf(NaiveProxyJudgePendingError);expect(f.messages).not.toHaveBeenCalled();
+  await f.dispatch!.recoverUndispatched(await attemptIdentity(f),owner);
+  expect((await f.makeJudge()(f.input)).outcome).toBe('rubric_concern');
+  const settlements=(await f.pg.query<{n:string}>('SELECT settled_micro_usd::text AS n FROM agent_persistence.reservations ORDER BY id')).rows.map(r=>r.n).sort();
+  expect(settlements).toEqual(['0','17']);
+  await expect(f.dispatch!.recoverUndispatched(await attemptIdentity(f,2),owner)).rejects.toThrow('unavailable');
+ });
+ it('fences a lost dispatch acknowledgement and never misclassifies it as undispatched pending',async()=>{
+  const f=await fixture(true),dispatch=f.dispatch!.dispatch.bind(f.dispatch!);
+  vi.spyOn(f.dispatch!,'dispatch').mockImplementationOnce(async handle=>{await dispatch(handle);throw Error('dispatch acknowledgement lost');});
+  await expect(f.judge(f.input)).rejects.toMatchObject({code:'naive_proxy_judge_reconciliation_required'});
+  await expect(f.makeJudge()(f.input)).rejects.not.toBeInstanceOf(NaiveProxyJudgePendingError);
+  expect(f.messages).not.toHaveBeenCalled();await expect(f.dispatch!.recoverUndispatched(await attemptIdentity(f),owner)).rejects.toThrow('unavailable');
+ });
+ it('keeps a stale abandoned worker pending after the replacement attempt dispatches',async()=>{
+  const f=await fixture(true);f.authorize.mockResolvedValueOnce({knownSecrets:[]}).mockRejectedValueOnce(Error('revoked'));
+  await expect(f.judge(f.input)).rejects.toBeInstanceOf(NaiveProxyJudgePendingError);
+  const identity=await attemptIdentity(f),old=await f.dispatch!.prepare({...identity,amountMicroUsd:300000});
+  await f.dispatch!.recoverUndispatched(identity,owner);
+  expect((await f.makeJudge()(f.input)).outcome).toBe('rubric_concern');
+  vi.spyOn(f.dispatch!,'prepare').mockResolvedValueOnce(old);
+  await expect(f.makeJudge()(f.input)).rejects.toMatchObject({code:'naive_proxy_judge_pending',attempt:1});
+  await expect(f.dispatch!.dispatch(old)).rejects.toThrow('unavailable');expect(f.messages).toHaveBeenCalledTimes(1);
+ });
+ it('holds a proven undispatched attempt when checkpoint setup fails after reservation',async()=>{
+  const f=await fixture(true);
+  const read=vi.spyOn(PostgresTextCheckpointStore.prototype,'get').mockRejectedValueOnce(Error('checkpoint read acknowledgement lost'));
+  try{await expect(f.judge(f.input)).rejects.toMatchObject({code:'naive_proxy_judge_pending',attempt:1});}finally{read.mockRestore();}
+  expect(f.messages).not.toHaveBeenCalled();await f.dispatch!.recoverUndispatched(await attemptIdentity(f),owner);
+  expect((await f.makeJudge()(f.input)).outcome).toBe('rubric_concern');expect(f.messages).toHaveBeenCalledTimes(1);
+ });
+ it('reads a lost prepare acknowledgement without another reservation or paid dispatch',async()=>{
+  const f=await fixture(true),prepare=f.dispatch!.prepare.bind(f.dispatch!);
+  vi.spyOn(f.dispatch!,'prepare').mockImplementationOnce(async input=>{await prepare(input);throw Error('prepare acknowledgement lost');});
+  await expect(f.judge(f.input)).rejects.toMatchObject({code:'naive_proxy_judge_pending',attempt:1});
+  expect(f.messages).not.toHaveBeenCalled();expect(await f.settledCount()).toBe(0);
+  expect((await f.pg.query('SELECT 1 FROM agent_persistence.reservations')).rows).toHaveLength(1);
+  const retained=await attemptIdentity(f);
+  await expect(f.dispatch!.lookup({...retained,amountMicroUsd:1})).rejects.toThrow('unavailable');
+  await expect(f.dispatch!.lookup({...retained,inputDigest:'b'.repeat(64),amountMicroUsd:300000})).rejects.toThrow('unavailable');
+  await f.dispatch!.recoverUndispatched(await attemptIdentity(f),owner);
+  expect((await f.makeJudge()(f.input)).outcome).toBe('rubric_concern');expect(f.messages).toHaveBeenCalledTimes(1);
+ });
+ it.each(['missing','failed'] as const)('holds unknown prepare outcomes when lookup is %s',async mode=>{
+  const f=await fixture(true);
+  vi.spyOn(f.dispatch!,'prepare').mockRejectedValueOnce(Error('prepare outcome unknown'));
+  if(mode==='failed')vi.spyOn(f.dispatch!,'lookup').mockRejectedValueOnce(Error('lookup unavailable'));
+  await expect(f.judge(f.input)).rejects.toMatchObject({code:'naive_proxy_judge_reconciliation_required'});
+  expect(f.messages).not.toHaveBeenCalled();expect(await f.costCount()).toBe(0);
+  expect((await f.pg.query('SELECT 1 FROM naive_proxy_dispatch.operations')).rows).toHaveLength(0);
+ });
+ it('independently reconciles v2 after crash and revocation while rejecting v1/v2 or attempt identity mismatch',async()=>{
+  const f=await fixture(true);f.crash();await expect(f.judge(f.input)).rejects.toThrow();f.authorize.mockRejectedValue(Error('revoked'));
+  const calls=f.authorize.mock.calls.length;expect((await f.reconcile()).microUsd).toBe(17);expect(f.authorize).toHaveBeenCalledTimes(calls);expect(f.messages).toHaveBeenCalledTimes(1);
+  await expect(f.reconcile(2)).rejects.toThrow('unavailable');
+  const metadata=await f.metadata() as Array<{kind:string;value:Record<string,unknown>}>;const intent=metadata.find(r=>r.kind==='naive_proxy_intent')!.value;
+  expect(intent).toMatchObject({schemaVersion:'naive_proxy_intent.v2',attempt:1});
+  await f.rewriteMetadata('naive_proxy_intent',{...intent,attempt:2});await expect(f.reconcile()).rejects.toThrow('unavailable');
+  const {attempt:_attempt,checkpointId:_checkpoint,reservationId:_reservation,...v1}=intent;
+  await f.rewriteMetadata('naive_proxy_intent',{...v1,schemaVersion:'naive_proxy_intent.v1'});await expect(f.reconcile()).rejects.toThrow('unavailable');
  });
 });
