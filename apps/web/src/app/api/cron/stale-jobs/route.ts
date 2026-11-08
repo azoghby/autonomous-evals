@@ -34,7 +34,8 @@ async function flagExpiringAuthorizations(now: number): Promise<string[]> {
       .where(and(eq(schema.progressEvents.jobId, p.jobId), eq(schema.progressEvents.milestone, AUTH_FLAG))).limit(1);
     if (prior) continue;
     await db().insert(schema.progressEvents).values({
-      jobId: p.jobId, milestone: AUTH_FLAG, message: "Internal note: payment authorization is over 5 days old and may expire soon. Operator review needed.",
+      // progress_events are customer-visible (job page, MCP, live feed): keep operator detail in interventions only.
+      jobId: p.jobId, milestone: AUTH_FLAG, message: "We're finalizing your payment. No action is needed from you.",
     });
     await db().insert(schema.interventions).values({
       jobId: p.jobId, operatorEmail: "system@cron", kind: "other",
