@@ -4,6 +4,7 @@ import {resolve, join, relative, sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {planReconciliation, safeRelativePath} from './planner.mjs';
+import {parseUniqueJson} from './strict-json.mjs';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
 /** All reads are local. Refuse symlinks, nonregular files, and path traversal. */
@@ -20,8 +21,8 @@ export function reconcileFiles({manifestPath, sqlRoot, registryPath, scopeDecisi
   }
   const manifestBytes=readRegular(manifestPath), registryBytes=readRegular(registryPath);
   const scopeBytes=scopeDecisionsPath?readRegular(scopeDecisionsPath):undefined;
-  const manifest=JSON.parse(manifestBytes), registry=JSON.parse(registryBytes);
-  const scopeDecisions=scopeBytes?JSON.parse(scopeBytes):[];
+  const manifest=parseUniqueJson(manifestBytes), registry=parseUniqueJson(registryBytes);
+  const scopeDecisions=scopeBytes?parseUniqueJson(scopeBytes):[];
   const root=resolve(sqlRoot);
   if(lstatSync(root).isSymbolicLink() || !lstatSync(root).isDirectory())throw Error('SQL root must be a real directory');
   const realRoot=realpathSync(root);

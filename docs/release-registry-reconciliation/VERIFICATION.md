@@ -8,3 +8,5 @@ Implementation verification on 2026-11-07:
 - Independent native reviews covered the planner and CLI/documented export seam. Fixed simulator canonical-path acceptance, unknown inflight-row exclusion, and inherited CLI option names, with regression tests.
 
 The test suite is portable; the composed-stage check requires that external local stage to exist. The tool itself intentionally requires an explicitly assembled SQL root holding both artifact and stage-origin sources. No historical files, databases, registry rows, cloud resources, or release acceptance flags were changed.
+
+Parent verification: the original 45 tests passed. The CLI was then hardened to reject repeated JSON keys (including escaped aliases) and malformed UTF-8 rather than relying on owner preprocessing. All **49 tests passed**, none skipped. This does not authenticate an export or prove hosted schema state.

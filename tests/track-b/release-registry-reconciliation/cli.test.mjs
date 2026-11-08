@@ -165,3 +165,19 @@ test('CLI fences an input changed after its initial read', t => {
   assert.match(result.stderr, /Input changed during comparison/);
   assert.equal(result.stdout, '');
 });
+for(const duplicate of ['"state":"failed","state":"applied"','"state":"failed","st\\u0061te":"applied"'])test(`CLI refuses ambiguous registry object keys: ${duplicate}`,t=>{
+ const f=fixture(t);
+ writeFileSync(f.registryPath,readFileSync(f.registryPath,'utf8').replace('"state":"applied"',duplicate));
+ const r=run(f.args);assert.equal(r.status,1);assert.match(r.stderr,/Duplicate JSON object key/);assert.equal(r.stdout,'');
+});
+test('CLI refuses duplicate manifest aliases even when the final mapping would be valid',t=>{
+ const f=fixture(t);
+ const key='"app.workflow-comparison.006"';
+ writeFileSync(f.manifestPath,readFileSync(f.manifestPath,'utf8').replace(`${key}:`,`${key}:"wrong",${key}:`));
+ const r=run(f.args);assert.equal(r.status,1);assert.match(r.stderr,/Duplicate JSON object key/);
+});
+test('CLI refuses invalid UTF-8 rather than replacing bytes inside registry metadata',t=>{
+ const f=fixture(t),content=readFileSync(f.registryPath);
+ const i=content.indexOf('synthetic-cli-owner');content[i]=0xff;writeFileSync(f.registryPath,content);
+ assert.equal(run(f.args).status,1);
+});
