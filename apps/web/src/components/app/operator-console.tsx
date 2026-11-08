@@ -15,11 +15,12 @@ import { OperatorExperts } from "./operator-experts";
 import { OperatorInfra } from "./operator-infra";
 import { OperatorLeads } from "./operator-leads";
 import { OperatorNotifications } from "./operator-notifications";
+import { OperatorRevenue } from "./operator-revenue";
 
 const UNKNOWN_COSTS = ["Customer provider usage (their own API credits)", "Hosting (Vercel, Neon)"];
 const KINDS = ["refund", "override", "fix", "approve_outreach", "other"] as const;
 
-const TABS = ["Overview", "Experts", "Agents", "Infra", "Notifications"] as const;
+const TABS = ["Overview", "Revenue", "Experts", "Agents", "Infra", "Notifications"] as const;
 type Tab = (typeof TABS)[number];
 
 function Tabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
@@ -64,6 +65,7 @@ export function OperatorConsole() {
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.24, ease: EASE }}>
           {tab === "Overview" && <><Overview data={data} reload={reload} /><div className="mt-12"><OperatorLeads /></div></>}
+          {tab === "Revenue" && <OperatorRevenue />}
           {tab === "Experts" && <OperatorExperts />}
           {tab === "Agents" && <OperatorAgents />}
           {tab === "Infra" && <OperatorInfra />}

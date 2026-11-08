@@ -32,6 +32,8 @@ vi.mock("@ae/core/payments/plans-checkout", async (orig) => {
   const actual = await orig<typeof import("@ae/core/payments/plans-checkout")>();
   return { ...actual, syncSubscription: (s: unknown) => sync.fn(s) };
 });
+const monSync = vi.hoisted(() => ({ fn: vi.fn() }));
+vi.mock("@ae/core/payments/subscription-changes", () => ({ syncMonitoringSubscription: (s: unknown) => monSync.fn(s), cancelSupersededSubscription: async () => false }));
 vi.mock("../../../../workflows/resume", () => ({
   resumeJobForPayment: async (p: Record<string, unknown>) => {
     await resume.fn(p);
@@ -165,6 +167,17 @@ describe("stripe webhook", () => {
     const res = await POST(signed(body));
     expect(res.status).toBe(200);
     expect(sync.fn).toHaveBeenCalledWith(expect.objectContaining({ id: "sub_1" }));
+    expect(await res.json()).toMatchObject({ synced: true });
+  });
+
+  it("syncs monitoring subscription status instead of ignoring it", async () => {
+    monSync.fn.mockResolvedValueOnce(1);
+    const body = JSON.stringify({ id: "evt_m", object: "event", type: "customer.subscription.deleted", livemode: false,
+      data: { object: { id: "sub_mon", object: "subscription", status: "canceled", metadata: { kind: "monitoring", job_id: JOB } } } });
+    const res = await POST(signed(body));
+    expect(res.status).toBe(200);
+    expect(monSync.fn).toHaveBeenCalledWith(expect.objectContaining({ id: "sub_mon", status: "canceled" }));
+    expect(sync.fn).not.toHaveBeenCalled();
     expect(await res.json()).toMatchObject({ synced: true });
   });
 

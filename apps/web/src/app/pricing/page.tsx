@@ -9,6 +9,7 @@ import { Footer } from "@/components/marketing/Footer";
 import { CheckoutButton } from "./CheckoutButton";
 import { ComparisonTable } from "./ComparisonTable";
 import { PlanCards } from "./PlanCards";
+import { RoiCalculator } from "./RoiCalculator";
 import "./pricing.css";
 
 export const metadata: Metadata = {
@@ -69,6 +70,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
             <p className="t-lead max-w-[56ch]">
               Staging for AI agents: a copy of your world, thousands of simulated users, graded on what actually changed.
             </p>
+            <p><a href="#roi" className="text-[15px] text-accent-text underline underline-offset-4 hover:text-fg">What does an agent failure cost you? Estimate it</a></p>
             {checkout === "success" && (
               <p role="status" className="pr-banner max-w-[56ch]" data-tone="ok">
                 {boughtPlan ? `You're on ${boughtPlan}. It can take a minute for limits to update.` : "Payment received. It can take a minute for limits to update."}
@@ -85,7 +87,16 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
           </p>
         </Section>
 
-        <Section band labelledBy="audit-h">
+        <Section id="roi" band labelledBy="roi-h">
+          <div className="mb-10 flex flex-col gap-5 md:mb-14">
+            <Eyebrow tone="muted">Cost of failure</Eyebrow>
+            <h2 id="roi-h" className="t-h2 max-w-[24ch] text-balance">What does an agent failure cost you?</h2>
+            <p className="t-lead max-w-[60ch]">Put in your own numbers. We estimate what failures cost you each month, and which plan covers the testing to catch them.</p>
+          </div>
+          <RoiCalculator />
+        </Section>
+
+        <Section labelledBy="audit-h">
           <Reveal className="grid gap-10 lg:grid-cols-12 lg:items-center">
             <div className="flex flex-col gap-4 lg:col-span-6">
               <Eyebrow tone="muted">One-off</Eyebrow>

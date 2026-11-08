@@ -6,6 +6,7 @@ const BASE_NAV = [
   { label: "New request", href: "/start" },
   { label: "My jobs", href: "/jobs" },
   { label: "My evals", href: "/evals" },
+  { label: "Billing", href: "/settings/billing" },
 ];
 const OPERATOR_NAV = { label: "Operator", href: "/operator" };
 

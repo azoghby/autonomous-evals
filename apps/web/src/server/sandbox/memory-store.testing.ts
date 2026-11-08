@@ -11,7 +11,14 @@ export function createMemoryStore() {
   const costs: Array<{ kind: "suite" | "run"; id: string; microUsd: number }> = [];
   const t0 = new Date("2026-06-01T00:00:00Z");
 
+  let lockChain: Promise<unknown> = Promise.resolve();
   const store: SandboxStore = {
+    /** Serializes like the DB's per-owner advisory lock (one global chain is enough for tests). */
+    withOwnerLock(_ownerId, fn) {
+      const next = lockChain.then(() => fn(store));
+      lockChain = next.catch(() => undefined);
+      return next;
+    },
     async insertEnvironment(row) {
       const r = { orgId: null, prebuiltId: null, warnings: [], createdAt: t0, updatedAt: t0, ...row } as EnvironmentRow;
       envs.set(r.id, r);
@@ -71,7 +78,9 @@ export function createMemoryStore() {
       const rs = [...runs.values()].filter(inWindow);
       const trials = rs.reduce((n, r) => n + (r.status === "failed" ? r.trialsDone : r.trialsTotal), 0);
       const cost = rs.reduce((n, r) => n + r.costMicroUsd, 0) + [...suites.values()].filter(inWindow).reduce((n, s) => n + s.costMicroUsd, 0);
-      return { trials, costMicroUsd: cost };
+      const reserved = [...runs.values()].filter((r) => r.ownerId === ownerId && (r.status === "queued" || r.status === "running")).reduce((n, r) => n + Math.max(0, r.budgetMicroUsd - r.costMicroUsd), 0)
+        + [...suites.values()].filter((s) => s.ownerId === ownerId && (s.status === "generating" || s.status === "gating")).reduce((n, s) => n + Math.max(0, s.budgetMicroUsd - s.costMicroUsd), 0);
+      return { trials, costMicroUsd: cost, reservedMicroUsd: reserved };
     },
     async addCost(target, entry) {
       costs.push({ ...target, microUsd: entry.microUsd });

@@ -5,7 +5,9 @@ import { recordSettledCost } from "../cost-settlement";
  * for rows that belong to someone else, so ids are not probeable. *ById variants are for workflow steps only.
  */
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { db, schema } from "@ae/core/db/client";
+import { Pool } from "@neondatabase/serverless";
+import { drizzle as drizzleWs } from "drizzle-orm/neon-serverless";
+import { db as dbHttp, schema } from "@ae/core/db/client";
 import type { GatewayContext } from "@ae/core/ai/gateway";
 import type { EnvironmentSpec, SandboxScenario, ScenarioResult } from "@ae/core/sandbox/spec";
 import type { DraftScenario, SuiteStatus } from "@/components/sandbox/contract";
@@ -49,9 +51,15 @@ export interface SandboxStore {
   countEnvironments(ownerId: string): Promise<number>;
   /**
    * Usage since `since` (plan window): trials = trials reserved by runs created in the window (a run that failed
-   * before finishing counts only the trials it actually ran), costMicroUsd = our spend on suites + runs in the window.
+   * before finishing counts only the trials it actually ran), costMicroUsd = our spend on suites + runs in the window,
+   * reservedMicroUsd = budget still reserved (budget - cost) by suites/runs that have not finished yet.
    */
-  usageSince(ownerId: string, since: Date): Promise<{ trials: number; costMicroUsd: number }>;
+  usageSince(ownerId: string, since: Date): Promise<{ trials: number; costMicroUsd: number; reservedMicroUsd?: number }>;
+  /**
+   * Runs fn inside one transaction holding pg_advisory_xact_lock(hashtext(ownerId)), with a store bound to that
+   * transaction, so plan checks (concurrency, trials, spend) and the insert they guard cannot interleave per owner.
+   */
+  withOwnerLock?<T>(ownerId: string, fn: (store: SandboxStore) => Promise<T>): Promise<T>;
   /** Records one cost row (costs table, job_id null) and adds it to the suite/run total. */
   addCost(target: { kind: "suite" | "run"; id: string }, entry: Parameters<GatewayContext["recordCost"]>[0]): Promise<void | { inserted: boolean }>;
 }
@@ -59,9 +67,24 @@ export interface SandboxStore {
 const one = <T>(rows: T[]): T | null => rows[0] ?? null;
 const now = () => new Date();
 
-export function createDbSandboxStore(): SandboxStore {
+type Db = ReturnType<typeof dbHttp>;
+let lockPool: Pool | undefined;
+/** WebSocket pool for interactive transactions (the HTTP driver cannot hold a transaction across round-trips). */
+function lockDb() {
+  lockPool ??= new Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL });
+  return drizzleWs(lockPool, { schema });
+}
+
+export function createDbSandboxStore(conn?: Db): SandboxStore {
+  const db = () => conn ?? dbHttp();
   const E = schema.sandboxEnvironments, S = schema.sandboxSuites, R = schema.sandboxRuns;
   return {
+    async withOwnerLock(ownerId, fn) {
+      return lockDb().transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ownerId}))`);
+        return fn(createDbSandboxStore(tx as unknown as Db));
+      });
+    },
     async insertEnvironment(row) { return (await db().insert(E).values(row).returning())[0]!; },
     async getEnvironment(ownerId, id) { return one(await db().select().from(E).where(and(eq(E.id, id), eq(E.ownerId, ownerId))).limit(1)); },
     async getEnvironmentById(id) { return one(await db().select().from(E).where(eq(E.id, id)).limit(1)); },
@@ -110,7 +133,11 @@ export function createDbSandboxStore(): SandboxStore {
       }).from(R).where(and(eq(R.ownerId, ownerId), gte(R.createdAt, since)));
       const [s] = await db().select({ cost: sql<number>`coalesce(sum(${S.costMicroUsd}), 0)::bigint` })
         .from(S).where(and(eq(S.ownerId, ownerId), gte(S.createdAt, since)));
-      return { trials: Number(r?.trials ?? 0), costMicroUsd: Number(r?.cost ?? 0) + Number(s?.cost ?? 0) };
+      const [rr] = await db().select({ n: sql<number>`coalesce(sum(greatest(${R.budgetMicroUsd} - ${R.costMicroUsd}, 0)), 0)::bigint` })
+        .from(R).where(and(eq(R.ownerId, ownerId), inArray(R.status, ["queued", "running"])));
+      const [sr] = await db().select({ n: sql<number>`coalesce(sum(greatest(${S.budgetMicroUsd} - ${S.costMicroUsd}, 0)), 0)::bigint` })
+        .from(S).where(and(eq(S.ownerId, ownerId), inArray(S.status, ["generating", "gating"])));
+      return { trials: Number(r?.trials ?? 0), costMicroUsd: Number(r?.cost ?? 0) + Number(s?.cost ?? 0), reservedMicroUsd: Number(rr?.n ?? 0) + Number(sr?.n ?? 0) };
     },
     async addCost(target, entry) {
       return recordSettledCost(target, entry);

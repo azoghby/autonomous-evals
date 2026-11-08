@@ -7,6 +7,7 @@ import {
 } from "../pricing/plans";
 import { getStripeMode, stripe } from "./stripe";
 import { isOperator } from "../auth/tokens";
+import { cancelSupersededSubscription } from "./subscription-changes";
 
 const priceIdCache = new Map<string, string>();
 
@@ -130,6 +131,10 @@ export async function recordPlanPurchase(session: Stripe.Checkout.Session, _even
   const inserted = rows.length > 0;
 
   if (inserted && metaKind === "plan" && customerId) {
+    const [prev] = await db().select({ sub: schema.customers.stripeSubscriptionId, status: schema.customers.planStatus })
+      .from(schema.customers).where(eq(schema.customers.id, customerId)).limit(1);
+    const prevSub = prev?.sub && prev.status && !LAPSED_STATUSES.has(prev.status) ? prev.sub : null;
+    await cancelSupersededSubscription(prevSub, stripeSubscriptionId);
     await db().update(schema.customers).set({
       plan: product, planInterval: interval as string, planStatus: "active",
       stripeCustomerId, stripeSubscriptionId, planUpdatedAt: new Date(),

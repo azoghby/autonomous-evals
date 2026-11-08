@@ -758,3 +758,40 @@ p.ec-dim { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
   .ec-bar-fill, .ec-resize::after, .ec-btn, .ec-suggest-btn, .ec-eval-main { transition: none; }
 }
 /* ---- /eval-chat ---- */
+
+/* ===== billing page (settings/billing) ===== */
+.bill-kicker { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--subtle); }
+.bill-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (min-width: 900px) { .bill-grid:has(.bill-side) { grid-template-columns: minmax(0, 1fr) 340px; } }
+.bill-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.bill-card { background: var(--bg-raised); border: 1px solid var(--line-2); border-radius: var(--radius-card); padding: 20px; position: relative; }
+.bill-card:first-child::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--spectrum); }
+.bill-plan-name { font-size: clamp(32px, 6vw, 44px); line-height: 1.05; letter-spacing: -0.04em; font-weight: 400; color: var(--fg); margin-top: 4px; }
+.bill-overage { font-family: var(--font-mono, ui-monospace, monospace); font-size: 32px; line-height: 1.1; color: var(--fg); margin-top: 6px; }
+.bill-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line-2); }
+.bill-facts dt { font-size: 12px; color: var(--subtle); }
+.bill-facts dd { margin: 2px 0 0; font-size: 15px; color: var(--fg); }
+.bill-pill { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line-3); border-radius: 999px; color: var(--fg-2); white-space: nowrap; }
+.bill-pill[data-state="near_limit"] { color: var(--warn); border-color: var(--warn); }
+.bill-pill[data-state="at_limit"] { color: var(--danger); border-color: var(--danger); }
+.bill-testmode { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cyan); border: 1px solid var(--cyan-deep); padding: 4px 10px; border-radius: var(--radius-ctl); }
+.bill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan-glow); }
+.bill-track { height: 8px; margin-top: 8px; background: var(--bg-sunken); border: 1px solid var(--line-2); border-radius: 2px; overflow: hidden; }
+.bill-fill { height: 100%; background: var(--spectrum); }
+.bill-meter[data-state="near"] .bill-fill { background: var(--warn); }
+.bill-meter[data-state="full"] .bill-fill { background: var(--danger); }
+.bill-upgrade { background: var(--bg-raised); border: 1px solid var(--violet-deep); border-radius: var(--radius-card); padding: 20px; box-shadow: 0 0 32px var(--violet-glow); }
+.bill-upgrade .bill-kicker { color: var(--violet); }
+.bill-toggle { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line-3); border-radius: var(--radius-ctl); overflow: hidden; }
+.bill-toggle button { padding: 10px 8px; font-size: 14px; color: var(--muted); background: transparent; transition: background-color var(--dur-fast) var(--ease-hover), color var(--dur-fast) var(--ease-hover); }
+.bill-toggle button[aria-checked="true"] { background: var(--accent-soft); color: var(--fg); }
+.bill-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.bill-free { display: block; font-size: 11px; color: var(--ok); }
+.bill-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; padding: 12px 16px; margin: 16px 0 0; border: 1px solid var(--warn); border-left-width: 3px; border-radius: var(--radius-card); background: var(--bg-raised); }
+.bill-banner[data-state="at_limit"] { border-color: var(--danger); }
+.bill-limit { border: 1px solid var(--violet-deep); border-left-width: 3px; border-radius: var(--radius-card); background: var(--bg-raised); padding: 14px 16px; }
+.bill-limit .bill-kicker { color: var(--violet); }
+.bill-limit-cta { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; background: var(--accent); color: #fff; border-radius: var(--radius-ctl); }
+.bill-limit-cta:hover { background: var(--accent-hover); }
+@media (prefers-reduced-motion: reduce) { .bill-toggle button { transition: none; } }
+/* ===== end billing page ===== */

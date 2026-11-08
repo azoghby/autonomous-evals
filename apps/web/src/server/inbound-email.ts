@@ -5,7 +5,7 @@ import type { InboundMessage } from "@ae/core/email/webhook";
 import { sendJobEvent } from "@/workflows/events";
 import { respondToOwner } from "./owner-responder";
 import { findFounderThread, founderReplyDeps } from "./notify/founder-email";
-import { authAllows, resolveFounderEmail } from "./notify/founder-email-logic";
+import { authAllows, authVerified, resolveFounderEmail } from "./notify/founder-email-logic";
 import { processFounderReply, type FounderReplyDeps, type FounderThreadRef } from "./notify/founder-email-reply";
 
 /** Inbound content is untrusted: bounded, stored as data, never interpreted. */
@@ -38,7 +38,8 @@ export interface InboundStore {
   customerByEmail?(email: string): Promise<{ id: string } | null>;
   /** Marks the thread as an onboarding thread so later replies route back. Best-effort. */
   recordOnboardingThread?(threadId: string): Promise<void>;
-  handleOnboarding?(i: { customerId: string; threadId: string; inboxId: string; messageId: string; subject: string; body: string }): Promise<void>;
+  /** Returns the onboarding turn status; "locked" means another turn holds the agent and the message must be retried. */
+  handleOnboarding?(i: { customerId: string; threadId: string; inboxId: string; messageId: string; subject: string; body: string }): Promise<{ status: string } | void>;
   /** Prospect-lead reply bookkeeping (outreach agent). */
   recordProspectReply?(fromEmail: string, text: string): Promise<{ matched: boolean; optedOut: boolean }>;
 }
@@ -47,7 +48,12 @@ export type InboundResult =
   | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped"
   | "owner_replied" | "owner_escalated"
   | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated"
-  | "onboarding" | "prospect_reply";
+  | "onboarding" | "prospect_reply" | "unauthenticated";
+
+/** Thrown when the onboarding agent is busy so the claim is released and AgentMail retries the webhook. */
+export class OnboardingBusyError extends Error {
+  constructor() { super("onboarding agent busy; retry later"); this.name = "OnboardingBusyError"; }
+}
 
 /** Pulls the bare address out of "Name <a@b.c>" and lowercases it. */
 export const bareAddress = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
@@ -72,9 +78,13 @@ export async function handleInbound(msg: InboundMessage, store: InboundStore): P
       return r === "decided" ? "founder_decided" : r === "approved_all" ? "founder_approved_all" : r === "note" ? "founder_note" : "founder_no_target";
     }
 
+    // Every non-founder path (customer job threads, experts, owners, onboarding, prospects) needs an explicit SPF/DKIM/DMARC
+    // pass: a From header alone must never start onboarding (which can spend money on sandbox builds/runs) or act for someone.
+    if (!authVerified(msg.auth)) return "unauthenticated";
+
     const thread = await store.findThread(msg.threadId);
     const known = !!thread && !!(thread.jobId || thread.expertEngagementId || thread.publicAgentId);
-    if (!known) return routeUnknownThread(msg, body, sender, store);
+    if (!known) return await routeUnknownThread(msg, body, sender, store); // await: a rejection must hit the catch below
     if (!thread) return "unmatched";
 
     if (thread.jobId) {
@@ -97,7 +107,7 @@ export async function handleInbound(msg: InboundMessage, store: InboundStore): P
       const owner = await store.ownerAgent(thread.publicAgentId);
       if (!owner) return "unmatched";
       if (!owner.ownerEmail || !owner.verifiedAt || bareAddress(owner.ownerEmail) !== sender) return "sender_mismatch";
-      return store.handleOwnerReply({ agentId: thread.publicAgentId, inboxId: msg.inboxId, messageId: msg.messageId, body });
+      return await store.handleOwnerReply({ agentId: thread.publicAgentId, inboxId: msg.inboxId, messageId: msg.messageId, body });
     }
     return "unmatched";
   } catch (err) {
@@ -119,7 +129,8 @@ async function routeUnknownThread(msg: InboundMessage, body: string, sender: str
   const customer = store.customerByEmail ? await store.customerByEmail(sender) : null;
   if (customer && store.handleOnboarding) {
     await store.recordOnboardingThread?.(msg.threadId);
-    await store.handleOnboarding({ customerId: customer.id, threadId: msg.threadId, inboxId: msg.inboxId, messageId: msg.messageId, subject: msg.subject, body });
+    const r = await store.handleOnboarding({ customerId: customer.id, threadId: msg.threadId, inboxId: msg.inboxId, messageId: msg.messageId, subject: msg.subject, body });
+    if (r && r.status === "locked") throw new OnboardingBusyError(); // handleInbound releases the claim; the webhook 500s so AgentMail retries
     return "onboarding";
   }
   return prospect ? "prospect_reply" : "unmatched";
@@ -192,7 +203,7 @@ export function drizzleInboundStore(): InboundStore {
     },
     async handleOnboarding(i) {
       const { handleOnboardingMessage } = await import("./company/onboarding");
-      await handleOnboardingMessage({ customerId: i.customerId, channel: "email", text: i.body, threadId: i.threadId, subject: i.subject, inboxId: i.inboxId, messageId: i.messageId });
+      return handleOnboardingMessage({ customerId: i.customerId, channel: "email", text: i.body, threadId: i.threadId, subject: i.subject, inboxId: i.inboxId, messageId: i.messageId });
     },
     async recordProspectReply(fromEmail, text) {
       const { recordProspectReply } = await import("./company/outreach");

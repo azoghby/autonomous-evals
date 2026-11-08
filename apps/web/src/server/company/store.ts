@@ -32,23 +32,10 @@ export async function companySpentTodayMicroUsd(now: Date): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
-/** Session advisory lock on a dedicated connection (same pattern as public-agent-cron). */
+/** Session advisory lock on a dedicated unpooled connection (see session-lock.ts). */
 export async function withAdvisoryLock<T>(key: bigint, fn: () => Promise<T>): Promise<{ locked: true } | { locked: false; value: T }> {
-  const { Pool } = await import("@neondatabase/serverless");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
-  const client = await pool.connect();
-  try {
-    const { rows } = await client.query("select pg_try_advisory_lock($1::bigint) as ok", [key.toString()]);
-    if (!rows[0]?.ok) return { locked: true };
-    try {
-      return { locked: false, value: await fn() };
-    } finally {
-      await client.query("select pg_advisory_unlock($1::bigint)", [key.toString()]).catch(() => {});
-    }
-  } finally {
-    client.release();
-    await pool.end().catch(() => {});
-  }
+  const { withSessionAdvisoryLock } = await import("../session-lock");
+  return withSessionAdvisoryLock(key, fn);
 }
 
 export function drizzleRuntimeDeps(): RuntimeDeps {
