@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-labelledby="t d">
+  <title id="t">Standard Evals</title>
+  <desc id="d">Standard Evals: evaluate AI agents inside a sandbox copy of their own world.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07080f"/>
+      <stop offset="0.55" stop-color="#0c1020"/>
+      <stop offset="1" stop-color="#0a0714"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="0.5" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f0abfc"/>
+      <animate attributeName="x1" values="0;-0.4;0" dur="12s" repeatCount="indefinite"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.15" cy="0.2" r="0.6">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.9" cy="0.9" r="0.6">
+      <stop offset="0" stop-color="#c084fc" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#c084fc" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#94a3b8" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <style>
+    .title { font: 800 108px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: -3px; }
+    .tag { font: 400 26px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #cbd5e1; letter-spacing: 0.2px; }
+    .chip { font: 600 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #93c5fd; letter-spacing: 1.5px; }
+    .ring { fill: none; stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: spin 40s linear infinite; }
+    .ring2 { animation-duration: 60s; animation-direction: reverse; }
+    .blip { animation: blink 3s ease-in-out infinite; }
+    .blip:nth-of-type(2) { animation-delay: 1s; }
+    .blip:nth-of-type(3) { animation-delay: 2s; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes blink { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+  </style>
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <rect width="1280" height="400" fill="url(#grid)"/>
+  <rect width="1280" height="400" fill="url(#glowA)"/>
+  <rect width="1280" height="400" fill="url(#glowB)"/>
+  <g transform="translate(1080 200)" opacity="0.9">
+    <circle class="ring" r="120" stroke="#7dd3fc" stroke-opacity="0.35" stroke-dasharray="4 10"/>
+    <circle class="ring ring2" r="86" stroke="#a78bfa" stroke-opacity="0.5" stroke-dasharray="2 8"/>
+    <circle r="50" fill="none" stroke="#f0abfc" stroke-opacity="0.45" stroke-width="1.5"/>
+    <path d="M-22 4 L-6 20 L26 -16" fill="none" stroke="#7dd3fc" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="blip" cx="0" cy="-120" r="5" fill="#7dd3fc"/>
+    <circle class="blip" cx="104" cy="60" r="5" fill="#a78bfa"/>
+    <circle class="blip" cx="-104" cy="60" r="5" fill="#f0abfc"/>
+  </g>
+  <text x="80" y="118" class="chip">AGENT EVALS &#183; SANDBOXED &#183; REPRODUCIBLE</text>
+  <text x="76" y="228" class="title" fill="url(#ink)">Standard Evals</text>
+  <text x="80" y="288" class="tag">Test your AI agent inside a copy of its own world.</text>
+  <text x="80" y="326" class="tag" style="fill:#94a3b8;font-size:20px">Real tools, real data shape, real policies. Graded on what the agent did, not what it said.</text>
+  <rect x="80" y="352" width="120" height="3" rx="1.5" fill="url(#ink)"/>
+</svg>
