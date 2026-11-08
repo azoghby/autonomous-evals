@@ -15,6 +15,7 @@ import {
 import { runCompanyAgent, type AgentRunContext, type AgentRunOutcome, type RunOptions, type RunResult, type RuntimeDeps } from "./runtime";
 import { gatewayWebSearch, type WebSearch } from "./web-search";
 import { companyStructured } from "./structured";
+import { withNaive } from "./naive-runtime";
 import { ContactFinderError, defaultContactFinder, pickContact, type ContactFinder } from "./contacts";
 import { getLatestBrief } from "./market-research";
 
@@ -207,7 +208,7 @@ export async function runProspectingAgent(
   const d: ProspectingDeps = {
     runtime: deps.runtime,
     webSearch: deps.webSearch ?? gatewayWebSearch,
-    generate: deps.generate ?? companyStructured,
+    generate: deps.generate ?? withNaive("prospecting", companyStructured),
     store: deps.store ?? drizzleProspectingStore(),
     contactFinder: deps.contactFinder ?? defaultContactFinder(opts.env ?? process.env),
   };

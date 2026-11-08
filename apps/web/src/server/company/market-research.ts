@@ -15,6 +15,7 @@ import {
 import { runCompanyAgent, type AgentRunContext, type AgentRunOutcome, type RunOptions, type RunResult, type RuntimeDeps } from "./runtime";
 import { gatewayWebSearch, type WebSearch } from "./web-search";
 import { companyStructured } from "./structured";
+import { withNaive } from "./naive-runtime";
 
 export type CompanyRunOptions = Omit<RunOptions, "deps">;
 
@@ -151,7 +152,7 @@ export async function runMarketResearchAgent(
   const d: MarketResearchDeps = {
     runtime: deps.runtime,
     webSearch: deps.webSearch ?? gatewayWebSearch,
-    generate: deps.generate ?? companyStructured,
+    generate: deps.generate ?? withNaive("market_research", companyStructured),
     saveBrief: deps.saveBrief ?? saveBriefToDb,
   };
   return runCompanyAgent("market_research", { ...opts, deps: d.runtime }, (ctx) => runResearch(ctx, d));

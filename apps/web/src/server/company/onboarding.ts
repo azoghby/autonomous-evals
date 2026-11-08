@@ -6,6 +6,7 @@ import "server-only";
  * It never contacts anyone who did not write to us first and never accepts or stores credentials.
  */
 import { GatewayError, generateStructured } from "@ae/core/ai/gateway";
+import { withNaive } from "./naive-runtime";
 import { replyInThread } from "@ae/core/email/agentmail";
 import { COMPANY_AGENTS } from "@ae/core/company/registry";
 import { PLANS, usageWindowStart } from "@ae/core/pricing/plans";
@@ -70,7 +71,7 @@ const defaultFlagFounder: OnboardingDeps["flagFounder"] = async ({ conversationI
 };
 
 const defaultGenerate: OnboardingDeps["generate"] = async (prompt, ctx) => {
-  const res = await generateStructured({
+  const res = await withNaive("onboarding", generateStructured)({
     model: "sonnet", system: COMPANY_AGENTS.onboarding.system, schema: OnboardingModelOutput, prompt, ctx: ctx.gateway, maxOutputTokens: 900,
   });
   return res.object;

@@ -6,6 +6,7 @@ import "server-only";
 import { and, asc, desc, eq, gte, inArray, ne } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { GatewayError, generateStructured } from "@ae/core/ai/gateway";
+import { withNaive } from "./naive-runtime";
 import { COMPANY_AGENTS, type CompanyAgentId } from "@ae/core/company/registry";
 import { dayKey, startOfUtcDay } from "@ae/core/company/policy";
 import {
@@ -94,7 +95,7 @@ async function dispatchTasks(deps: PlannerDeps, ctx: AgentRunContext, tasks: Sto
 }
 
 export async function runPlannerAgent(opts: CompanyRunOptions = { trigger: "cron" }, deps: Partial<PlannerDeps> = {}): Promise<RunResult> {
-  const full: PlannerDeps = { generate: generateStructured, store: drizzlePlannerStore(), ...deps };
+  const full: PlannerDeps = { generate: withNaive("planner", generateStructured), store: drizzlePlannerStore(), ...deps };
   return runCompanyAgent("planner", { ...opts, deps: deps.runtime }, async (ctx) => {
     const planDate = dayKey(ctx.now);
     const metrics = await full.store.getMetrics(ctx.now);

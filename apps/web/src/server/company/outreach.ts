@@ -4,6 +4,7 @@ import "server-only";
  * (outreach_drafts status "pending"). It NEVER sends: sending happens only in outreach-approve.ts after a human approves.
  */
 import { generateStructured } from "@ae/core/ai/gateway";
+import { withNaive } from "./naive-runtime";
 import { COMPANY_AGENTS } from "@ae/core/company/registry";
 import { outreachDailyCap, startOfUtcDay } from "@ae/core/company/policy";
 import {
@@ -25,7 +26,7 @@ export interface OutreachDeps {
 }
 
 const defaultGenerate: DraftGenerator = async (lead, kind, ctx) => {
-  const res = await generateStructured({
+  const res = await withNaive("outreach", generateStructured)({
     model: "sonnet", system: COMPANY_AGENTS.outreach.system, schema: outreachEmailSchema,
     prompt: buildOutreachPrompt(lead, kind), ctx: ctx.gateway, maxOutputTokens: 600,
   });

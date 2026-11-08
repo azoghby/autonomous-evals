@@ -9,6 +9,7 @@ import type { CostEntry } from "@ae/core/contracts/index";
 import { COMPANY_AGENTS, type CompanyAgentId } from "@ae/core/company/registry";
 import { decideRunBudget, isAgentEnabled } from "@ae/core/company/policy";
 import { drizzleRuntimeDeps } from "./store";
+import type { CompanyGatewayContext, LlmCallRecord } from "./naive-runtime";
 
 export type RunTrigger = "cron" | "manual" | "webhook" | "planner" | "chat";
 export type ActivityStatus = "running" | "ok" | "skipped" | "failed" | "budget";
@@ -103,6 +104,7 @@ export async function runCompanyAgent(
 
     let spent = 0;
     const events: Array<Record<string, unknown>> = [];
+    const llmCalls: LlmCallRecord[] = [];
     const costAgent = companyCostAgent(agentId);
     const addCost = async (microUsd: number, source: string, meta: Record<string, unknown>) => {
       spent += Math.max(0, microUsd);
@@ -116,13 +118,15 @@ export async function runCompanyAgent(
       gateway: {
         get budgetMicroUsd() { return Math.max(0, budget.runBudgetMicroUsd - spent); },
         recordCost: async (entry: Omit<CostEntry, "jobId">) => addCost(entry.microUsd, entry.source, { ...entry.meta, trackBAgent: entry.agent ?? null }),
-      },
+        logLlmCall: (r: LlmCallRecord) => { if (llmCalls.length < MAX_EVENTS) llmCalls.push(r); },
+      } as CompanyGatewayContext,
       recordCost: (microUsd, meta) => addCost(microUsd, "company_tool", meta),
       log: (event, data) => { if (events.length < MAX_EVENTS) events.push({ at: new Date().toISOString(), event, ...data }); },
     };
 
     try {
-      const outcome = await fn(ctx);
+      const raw = await fn(ctx);
+      const outcome: AgentRunOutcome = { ...raw, detail: { ...raw.detail, llmCalls } };
       await deps.finishActivity(activityId, {
         status: outcome.status ?? "ok", summary: outcome.summary, publicSummary: outcome.publicSummary,
         counts: outcome.counts ?? {}, detail: { ...outcome.detail, events }, costMicroUsd: Math.round(spent), error: null,
@@ -134,7 +138,7 @@ export async function runCompanyAgent(
       await deps.finishActivity(activityId, {
         status: isBudget ? "budget" : "failed", summary: isBudget ? "Stopped: per-run budget reached." : `Failed: ${message}`,
         publicSummary: isBudget ? "Stopped at its budget cap." : "Run failed; the founder was notified in the console.",
-        counts: {}, detail: { events }, costMicroUsd: Math.round(spent), error: message,
+        counts: {}, detail: { events, llmCalls }, costMicroUsd: Math.round(spent), error: message,
       });
       return { status: isBudget ? "budget" : "failed", agentId, activityId, costMicroUsd: Math.round(spent), error: message };
     }
