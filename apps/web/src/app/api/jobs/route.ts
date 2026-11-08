@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   if (auth.res) return auth.res;
   const key = req.headers.get("idempotency-key")?.trim();
   if (!key || key.length > 200) return jsonError(400, "Idempotency-Key header is required (max 200 chars)");
-  const body = await readJson(req, IntakeInput);
+  const body = await readJson(req, IntakeInput, 1024 * 1024) /* 200 KB trace, JSON-escaped */;
   if (!body.ok) return body.res;
   try {
     const out = await withIdempotency(`${auth.viewer.id}:jobs.create:${key}`, async () => {
