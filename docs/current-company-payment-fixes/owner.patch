@@ -1,0 +1,130 @@
+--- a/apps/web/src/server/autonomous-paid.ts
++++ b/apps/web/src/server/autonomous-paid.ts
+@@ -27,6 +27,8 @@
+ export function createAutonomousPaidContext(input: {
+   sql: AgentTransactionalSql; policy: AutonomousPolicy; job: JobRef; runner: AgentTaskRunner;
+   runnerForMonitor?(monitor: PaidMonitor): AgentTaskRunner;
++  /** Current owner/job/policy authorization without the new-spend payment gate. */
++  reconciliationGuard?(): Promise<void>;
+   guard(): Promise<void>; jobCapMicroUsd: number; targetReservationMicroUsd: number; judgeReservationMicroUsd: number;
+   deliverCost: RemediationAccountingDeps['deliverCost'];
+   verifyReceipt?(receipt: Readonly<PaidReceipt>): Promise<boolean>;
+@@ -37,7 +39,7 @@
+     judge: createAutonomousPaidReservationPolicy({policy,job,role:'evaluation_engineer',jobCapMicroUsd:input.jobCapMicroUsd,reservationMicroUsd:input.judgeReservationMicroUsd}),
+   };
+   // Snapshot callbacks and transport references: mutating a constructor argument cannot replace authority.
+-  const {sql, runner, guard, deliverCost, verifyReceipt,runnerForMonitor} = input;
++  const {sql, runner, guard, deliverCost, verifyReceipt,runnerForMonitor,reconciliationGuard=guard} = input;
+   const jobCap=input.jobCapMicroUsd;
+   const guarded=(raw:AgentTaskRunner):AgentTaskRunner=>({async run(spec){
+     await guard();
+@@ -71,9 +73,9 @@
+     async reconcile(raw: PaidReceipt) {
+       const receipt = structuredClone(raw);
+       if (typeof receipt.receiptId!=='string' || !receipt.receiptId.length || receipt.receiptId.length>4096 || /[\u0000\uD800-\uDFFF]/u.test(receipt.receiptId) || !/^[a-f0-9]{64}$/.test(receipt.inputDigest) || receipt.microUsd!==null && (!Number.isSafeInteger(receipt.microUsd)||receipt.microUsd<0)) refuse();
+-      await context.guard();
++      await reconciliationGuard();
+       if (!verifyReceipt || !await verifyReceipt(Object.freeze(receipt))) refuse();
+-      await context.guard();
++      await reconciliationGuard();
+       await sql.transaction(async tx => {
+         const row = (await tx.query<{job_id:string;input_digest:string;state:string;receipt:PaidReceipt|null;policy_digest:string;reservation:BudgetReservationRequest}>('SELECT * FROM autonomous_paid_app.operations WHERE operation_id=$1 FOR UPDATE',[receipt.operationId])).rows[0];
+         if (!row || row.job_id!==job.jobId || row.input_digest!==receipt.inputDigest || row.policy_digest!==autonomyDigest(policy) || !['dispatched','settled'].includes(row.state)) refuse();
+--- a/apps/web/src/server/autonomy-release.ts
++++ b/apps/web/src/server/autonomy-release.ts
+@@ -34,6 +34,8 @@
+   sourcePermissions(request: CompanyRequest): Promise<readonly { sourceId: string; permissionDigest: string }[]>;
+   /** Verify the retained webhook/processor receipt with the configured authoritative payment adapter. */
+   verifyPayment(request: CompanyRequest, quote: FixedQuote, receipt: ReleasePaymentReceipt): Promise<boolean>;
++  /** Current canonical payment revocation check, supplied by the payment startup. */
++  paymentStillValid?(request: CompanyRequest): Promise<boolean>;
+   /** Read/reconcile a genuine provider receipt, not an agent assertion. No redispatch here. */
+   verifyProviderReceipt(request: CompanyRequest, receipt: { provider_id: string; receipt: unknown }): Promise<boolean>;
+   data(request: CompanyRequest, key: string, paid: AutonomousPaidContext): ReturnType<CompanyPorts['data']>;
+@@ -101,7 +103,12 @@
+     const autonomous = createAutonomousRunner({supervisor,runner:makeService(),now:config.now,
+       currentPolicyVersion:async()=>{await guard();return policy.version;},currentSecrets:()=>config.currentSecrets(request)});
+     const runner: CompanyPorts['runner'] = {async run(spec){await guard(); if(autonomyDigest(spec.job)!==autonomyDigest(request.job))return refuse(); return autonomous.run(spec);}};
+-    const paid=createAutonomousPaidContext({sql:config.db,policy,job:request.job,runner,guard,...paidPolicy,
++    const paid=createAutonomousPaidContext({sql:config.db,policy,job:request.job,runner,reconciliationGuard:guard,
++      guard:async()=>{
++        await guard();
++        if(config.paymentStillValid && !await config.paymentStillValid(structuredClone(request))) return refuse();
++        await guard();
++      },...paidPolicy,
+       runnerForMonitor:monitor=>createAutonomousRunner({supervisor,runner:makeService(monitor),now:config.now,
+         currentPolicyVersion:async()=>{await guard();return policy.version;},currentSecrets:()=>config.currentSecrets(request)}),
+       deliverCost:deliverRemediationCost,verifyReceipt:receipt=>config.verifyPaidReceipt?.(request,receipt) ?? Promise.resolve(false)});
+--- a/apps/web/src/server/current-payment-startup.ts
++++ b/apps/web/src/server/current-payment-startup.ts
+@@ -6,7 +6,7 @@
+ 
+ /** Deliberately excludes payment/request authority: only this canonical bridge supplies those. */
+ export interface CurrentOwnerAdapters {
+-  config: Omit<CurrentAutonomyConfig, 'loadRequest' | 'verifyPayment' | 'enqueue'>;
++  config: Omit<CurrentAutonomyConfig, 'loadRequest' | 'verifyPayment' | 'paymentStillValid' | 'enqueue'>;
+   bridge: Omit<BridgeOptions,'verifyStripe'>;
+   dependencies: CurrentAutonomyDependencies;
+   enqueue: CurrentAutonomyConfig['enqueue'];
+@@ -38,6 +38,7 @@
+     },
+     loadRequest: bridge.loadRequest,
+     verifyPayment: bridge.verifyPayment,
++    paymentStillValid: bridge.paymentStillValid,
+     async enqueue(request, key, message, paid) {
+       // A quote is offered, never accepted. The human/customer agent still calls the existing
+       // owner-authenticated accept-quote endpoint to start the real fixed-price Stripe checkout.
+--- a/apps/web/src/server/current-payment.ts
++++ b/apps/web/src/server/current-payment.ts
+@@ -100,6 +100,23 @@
+       [request.tenantId,request.job.jobId,autonomyDigest(quote),receipt.receipt_id])).rows[0]?.valid===true;
+     await current(request);return answer;
+   }
++  async function paymentStillValid(request:CompanyRequest):Promise<boolean> {
++    const c=await current(request);
++    // Qualification may precede payment. Once a receipt or revocation exists for
++    // this exact quote, no subsequent paid dispatch may ignore its current state.
++    const answer=(await sql.query<{valid:boolean}>(`SELECT NOT EXISTS (
++      SELECT 1 FROM current_autonomy_payment.bindings b
++      WHERE b.tenant_id=$1 AND b.job_id=$2 AND b.quote_version=$3 AND (
++        b.revoked OR EXISTS (
++          SELECT 1 FROM company_autonomy_release.payment_receipts r
++          WHERE r.tenant_id=b.tenant_id AND r.job_id=b.job_id
++          AND r.record->>'quoteDigest'=b.quote_digest
++          AND (NOT r.settled OR NOT current_autonomy_payment.receipt_valid(b.tenant_id,b.job_id,b.quote_digest,r.receipt_id))
++        )
++      )) AS valid`,[request.tenantId,c.id,c.version])).rows[0]?.valid===true;
++    await current(request);
++    return answer;
++  }
+   async function ingestStripe(raw:string,signature:string,ignoreUnbound=false) {
+     if(!signature)return fail('signature_required');
+     const event=options.verifyStripe(raw,signature); // authenticity gate precedes ANY SQL read/write
+@@ -160,17 +177,24 @@
+   }
+   async function drainPendingReceipts(limit=25) {
+     if(!Number.isSafeInteger(limit) || limit<1 || limit>100)return fail('drain_limit_refused');
+-    const jobs=await sql.query<{tenant_id:string;job_id:string}>(`SELECT DISTINCT ev.tenant_id,ev.job_id
++    await sql.query('SELECT current_autonomy_payment.retire_receipts($1)',[1000]);
++    const jobs=await sql.query<{tenant_id:string;job_id:string}>(`SELECT ev.tenant_id,ev.job_id
+       FROM current_autonomy_payment.events ev JOIN current_autonomy_payment.outbox o USING(provider,environment,event_id)
+-      WHERE NOT o.delivered ORDER BY ev.tenant_id,ev.job_id LIMIT $1`,[limit]);
++      WHERE NOT o.delivered GROUP BY ev.tenant_id,ev.job_id ORDER BY min(o.last_attempt_at),ev.tenant_id,ev.job_id LIMIT $1`,[limit]);
+     const outcomes=[];
+     for(const job of jobs.rows) {
++      const now=options.now();
++      if(!Number.isSafeInteger(now) || now<0)return fail('drain_clock_refused');
++      // Rotate blocked jobs behind unattempted work; failures retain their rows.
++      await sql.query(`UPDATE current_autonomy_payment.outbox o SET last_attempt_at=GREATEST(o.last_attempt_at+1,$3)
++        FROM current_autonomy_payment.events ev WHERE o.provider=ev.provider AND o.environment=ev.environment AND o.event_id=ev.event_id
++        AND ev.tenant_id=$1 AND ev.job_id=$2 AND NOT o.delivered`,[job.tenant_id,job.job_id,now]);
+       try{outcomes.push({jobId:job.job_id,...await drainReceipts(job.tenant_id,job.job_id)});}
+       catch{outcomes.push({jobId:job.job_id,blocked:true});}
+     }
+     return {outcomes};
+   }
+-  return {loadRequest,prepareQuote,verifyPayment,ingestStripe,drainReceipts,drainPendingReceipts,
++  return {loadRequest,prepareQuote,verifyPayment,paymentStillValid,ingestStripe,drainReceipts,drainPendingReceipts,
+     ingestStripeIfBound:(raw:string,signature:string)=>ingestStripe(raw,signature,true),
+     async ingestX402():Promise<never> {return fail('usdc_release_currency_contract_unsupported');}};
+ }
