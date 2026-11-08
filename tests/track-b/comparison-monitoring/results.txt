@@ -1,0 +1,34 @@
+Review source HEAD: e47a852737e7aca7d2fa984c363abe58f5c0ad05; local contracts: 7771433722cac9f20536bcc55a142f7ed7d9d8b1
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/comparison-monitoring-OG8VOF
+
+ ✓ review/acceptance.test.ts (11 tests) 9297ms
+   ✓ Track B rich composition acceptance — local fixtures and real PostgreSQL storage (8)
+     ✓ retains rich outcomes, measured and unknown costs, paired arithmetic, grounded alert and immutable baseline 1374ms
+     ✓ reopens disk PostgreSQL and replays complete results without a second execution 1193ms
+     ✓ rejects job conflicts before dispatch/replay 769ms
+     ✓ rejects tenant conflicts before dispatch/replay 706ms
+     ✓ rejects target conflicts before dispatch/replay 951ms
+     ✓ rejects appended_inventory conflicts before dispatch/replay 724ms
+     ✓ rejects changed_suite conflicts before dispatch/replay 970ms
+     ✓ persists ambiguous dispatch and never automatically retries either version 1205ms
+   ✓ paired comparison arithmetic and monitor-only alert drafts (3)
+     ✓ drafts a monitoring alert for observed changes while never sending a message 710ms
+     ✓ rejects a monitor with a dispatching baseline before either call 691ms
+ ✓ review/calendar.test.ts (1 test) 1467ms
+   ✓ composes actual calendar fixture runs on one reviewed suite with isolated version state and restart replay 1465ms
+ ✓ src/monitoring/index.test.ts (8 tests) 8ms
+
+ Test Files  3 passed (3)
+      Tests  20 passed (20)
+   Start at  16:42:09
+   Duration  11.68s (tests 95%, import 3%, transform 3%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/comparison-monitoring-OG8VOF/results.json
+Strict review: 3 files, 20 passed, none skipped. Local fixtures only; no provider, cloud, or message sends. Application deployment remains a separate gate.
+
+Final integrated verification after production validation changes:
+Command: TRACK_B_REVIEW_NODE_MODULES=/tmp/autonomous-evals-checks.m10du4/node_modules node tests/track-b/comparison-monitoring/run.mjs
+Track A local contracts ref: f0068733ca49c37f40fd7de279325f21a4b5fbbb
+Strict TypeScript passed. 3 files, 20 tests passed, none skipped (12 new + 8 legacy).
+Elapsed Vitest: 5.78s. Actual PostgreSQL checkpoint adapter; disk-backed PGlite close/reopen replay and calendar SQL fixtures. Offline only.

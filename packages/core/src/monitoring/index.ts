@@ -88,3 +88,7 @@ export function monitoringAlertDraft(comparison: MonitoringComparison): { subjec
     text: `${count} previously passing check${count === 1 ? '' : 's'} failed on the frozen evaluation suite. Review the authenticated report for evidence and reproduction details. These are observed differences, not a statistical significance claim.${comparison.unresolved.length ? ` ${comparison.unresolved.length} other check comparisons remain unresolved.` : ''}`,
   };
 }
+
+// Additive rich boundary; legacy pure comparison exports above remain compatible.
+export * from './composition';
+export * from './adapters';
