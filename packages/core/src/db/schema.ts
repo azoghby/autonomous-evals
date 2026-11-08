@@ -199,6 +199,8 @@ export const outreachDrafts = pgTable("outreach_drafts", {
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   status: text("status").notNull().default("pending"), // pending | approved | rejected | sent
+  /** expert_invite (default, legacy rows) | agent_invite (free-benchmark invitation to a third-party agent owner). */
+  kind: text("kind").notNull().default("expert_invite"),
   approvedBy: text("approved_by"),
   sentAt: ts("sent_at"),
   createdAt,
@@ -329,7 +331,9 @@ export const emailThreads = pgTable("email_threads", {
   threadId: text("thread_id").primaryKey(),
   jobId: uuid("job_id").references(() => jobs.id),
   expertEngagementId: uuid("expert_engagement_id").references(() => expertEngagements.id),
-  purpose: text("purpose").notNull(), // auth | commercial | job | expert_outreach
+  /** Owner-submitted public agent this thread is about (owner replies are answered by the responder). */
+  publicAgentId: uuid("public_agent_id").references(() => publicAgents.id, { onDelete: "set null" }),
+  purpose: text("purpose").notNull(), // auth | commercial | job | expert_outreach | owner_agent
   createdAt,
 }, (t) => [index("email_threads_job_idx").on(t.jobId), index("email_threads_engagement_idx").on(t.expertEngagementId)]);
 
@@ -421,8 +425,22 @@ export const publicAgents = pgTable("public_agents", {
   termsUrl: text("terms_url"),
   authorizedNote: text("authorized_note"),
   active: boolean("active").notNull().default(true),
+  // ---- owner-submitted agents (agent-owner autopilot). Null owner_email = operator-seeded reference/third-party row. ----
+  /** Lowercased owner address; the only person our agents email about this agent. */
+  ownerEmail: text("owner_email"),
+  /** public (leaderboard) | private (results go to the owner only). */
+  visibility: text("visibility").notNull().default("public"),
+  /** pending_verification | active | paused | opted_out. `active` mirrors status === "active" (the runner gate). */
+  status: text("status").notNull().default("active"),
+  /** AES-256-GCM ciphertext (storage/crypto encrypt) of the owner's API key. Never returned or logged. */
+  apiKeyCiphertext: text("api_key_ciphertext"),
+  /** Consent record captured at submission: { version, authorizeText, emailsText, acceptedAt, ipHash }. */
+  consent: jsonb("consent"),
+  verifiedAt: ts("verified_at"),
+  /** Set by the owner (reply responder) to ask for a re-run; cleared when the run starts. */
+  rerunRequestedAt: ts("rerun_requested_at"),
   createdAt,
-}, (t) => [uniqueIndex("public_agents_slug_uq").on(t.slug)]);
+}, (t) => [uniqueIndex("public_agents_slug_uq").on(t.slug), index("public_agents_owner_idx").on(sql`lower(${t.ownerEmail})`)]);
 
 export const publicAgentRuns = pgTable("public_agent_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -437,3 +455,26 @@ export const publicAgentRuns = pgTable("public_agent_runs", {
   jobId: uuid("job_id"),
 }, (t) => [index("public_agent_runs_agent_ran_idx").on(t.agentId, t.ranAt)]);
 
+
+/** Single-use hashed tokens for owner-submitted agents (purpose: verify). Only sha256(token) is stored. */
+export const publicAgentTokens = pgTable("public_agent_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agentId: uuid("agent_id").notNull().references(() => publicAgents.id, { onDelete: "cascade" }),
+  purpose: text("purpose").notNull().default("verify"),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  usedAt: ts("used_at"),
+  createdAt,
+}, (t) => [uniqueIndex("public_agent_tokens_hash_uq").on(t.tokenHash), index("public_agent_tokens_agent_idx").on(t.agentId)]);
+
+/** Every email our agents send to an agent owner. Drives the non-transactional cadence cap (1 per owner per 3 days). */
+export const ownerEmailLog = pgTable("owner_email_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Lowercased. */
+  ownerEmail: text("owner_email").notNull(),
+  agentId: uuid("agent_id").references(() => publicAgents.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(),
+  transactional: boolean("transactional").notNull(),
+  messageId: text("message_id"),
+  sentAt: ts("sent_at").notNull().defaultNow(),
+}, (t) => [index("owner_email_log_owner_sent_idx").on(t.ownerEmail, t.sentAt)]);
