@@ -144,8 +144,15 @@ export async function prepareRunWorld(deps: PipelineDeps, runId: string): Promis
   try { resolveSandboxTarget(env, deps.gatewayKey); } catch (e) { throw new SandboxFatalError(`Target not runnable: ${errText(e)}`); }
   await deps.store.updateRun(runId, { status: "running", startedAt: run.startedAt ?? new Date(), versions: runVersions(env, runScenarios(run)) });
   const ctx = stepBudgetContext(deps.store, { kind: "run", id: runId }, run.budgetMicroUsd, run.costMicroUsd);
-  const { worldId } = await deps.runtime(ctx, env).prepare(env, jobIdFor(runId));
-  await deps.store.updateRun(runId, { worldId });
+  const runtime = deps.runtime(ctx, env);
+  const { worldId } = await runtime.prepare(env, jobIdFor(runId));
+  try {
+    await deps.store.updateRun(runId, { worldId });
+  } catch (e) {
+    // Unrecorded world: a step retry would provision another branch, so delete this one now.
+    await runtime.teardown(worldId).catch(() => undefined);
+    throw e;
+  }
   return { worldId };
 }
 

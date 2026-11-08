@@ -31,7 +31,12 @@ export interface NeonSandboxRuntimeOptions {
   poolSize?: number;
   simulate?: Simulate;
   onTiming?: (event: RuntimeTimingEvent, ms: number) => void;
+  /** statement_timeout for customer DDL/seed/fixture scripts (ms). Default 15 s. */
+  scriptTimeoutMs?: number;
 }
+
+/** Per-statement cap on customer seed/fixture SQL, so a slow query cannot pin a branch or a workflow step. */
+export const SCRIPT_STATEMENT_TIMEOUT_MS = 15_000;
 
 const WORLD_PREFIX = "neon-world:";
 const TEMPLATE_BUSY_RETRIES = 2;
@@ -48,6 +53,7 @@ export function createNeonSandboxRuntime(options: NeonSandboxRuntimeOptions = {}
   const tier = options.tier ?? "template";
   const poolSize = options.poolSize ?? 4;
   const worlds = new Map<string, WorldState>();
+  const scriptTimeoutMs = Math.max(1, Math.trunc(options.scriptTimeoutMs ?? SCRIPT_STATEMENT_TIMEOUT_MS));
 
   const time = async <T>(event: RuntimeTimingEvent, fn: () => Promise<T>): Promise<T> => {
     const t = performance.now();
@@ -100,6 +106,7 @@ export function createNeonSandboxRuntime(options: NeonSandboxRuntimeOptions = {}
   async function seedWorld(uri: string, env: EnvironmentSpec): Promise<void> {
     const conn = await connector(uri);
     try {
+      await conn.query(`SET statement_timeout = ${scriptTimeoutMs}`);
       await conn.exec(WORLD_PREAMBLE_SQL);
       const clock = clockSql(env.state.frozenNow);
       await conn.query(clock.text, clock.values);
@@ -128,7 +135,8 @@ export function createNeonSandboxRuntime(options: NeonSandboxRuntimeOptions = {}
       });
       return { worldId };
     } catch (e) {
-      await teardown(worldId).catch(() => undefined);
+      // Never leak the branch on a failed seed: a step retry would otherwise create another one.
+      await teardown(worldId).catch((te) => console.error("sandbox prepare cleanup failed", branch.branchId, te instanceof Error ? te.message : te));
       throw e;
     }
   }
@@ -157,8 +165,10 @@ export function createNeonSandboxRuntime(options: NeonSandboxRuntimeOptions = {}
     const conn = await connector(uri);
     try {
       await time("trial_fixture", async () => {
+        await conn.query(`SET statement_timeout = ${scriptTimeoutMs}`);
         if (scenario.fixtureSql.trim()) await conn.exec(scenario.fixtureSql);
         await snapshotBaseline(conn);
+        await conn.query("RESET statement_timeout"); // tool calls set their own (SET LOCAL) per transaction
       });
     } catch (e) {
       await conn.close().catch(() => undefined);
@@ -239,10 +249,13 @@ export function createNeonSandboxRuntime(options: NeonSandboxRuntimeOptions = {}
     await w.lock;
     await w.admin?.close().catch(() => undefined);
     w.admin = undefined;
-    for (const leaf of w.pool.filter((l) => l.branchId)) await branches.deleteBranch(leaf.branchId);
+    // Delete every branch even if one delete fails (a failed leaf must not leak the job branch); rethrow after.
+    const errors: unknown[] = [];
+    for (const leaf of w.pool.filter((l) => l.branchId)) await branches.deleteBranch(leaf.branchId).catch((e) => { errors.push(e); });
     w.pool = [];
-    await time("branch_delete", () => branches.deleteBranch(w.branchId));
+    await time("branch_delete", () => branches.deleteBranch(w.branchId)).catch((e) => { errors.push(e); });
     worlds.delete(w.branchId);
+    if (errors.length) throw errors[0];
   }
 
   return { prepare, startRun, teardown };
