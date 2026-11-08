@@ -7,9 +7,11 @@ import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { isEmailConfigured, sendEmail, type SentEmail } from "@ae/core/auth/email";
 import { decrypt } from "@ae/core/storage/crypto";
+import { publicAppUrl } from "./public-url";
 import { NON_TRANSACTIONAL_GAP_MS, decideOwnerEmail, ownerFooter, unsubscribeToken, type OwnerEmailDecision } from "./owner-policy";
 
-export const appUrl = (): string => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+/** Public production base for every emailed link (see public-url.ts): never localhost or a request host. */
+export const appUrl = (): string => publicAppUrl();
 export const companyAddress = (): string => process.env.COMPANY_ADDRESS?.trim() || "[physical mailing address: set COMPANY_ADDRESS]";
 export const unsubscribeUrl = (email: string): string => `${appUrl()}/api/leaderboard/unsubscribe?t=${encodeURIComponent(unsubscribeToken(email))}`;
 export const footerFor = (agentName: string, email: string): string =>

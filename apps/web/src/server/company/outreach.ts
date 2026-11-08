@@ -11,6 +11,7 @@ import {
   outreachEmailSchema, runDraftLimit, validateOutreachEmail, type OutreachEmail, type SdrKind,
 } from "@ae/core/company/outreach";
 import { runCompanyAgent, type AgentRunContext, type AgentRunOutcome, type RunOptions, type RunResult } from "./runtime";
+import { containsLocalUrl } from "../public-url";
 import { drizzleOutreachStore, type OutreachLead, type OutreachStore } from "./outreach-store";
 
 export type CompanyRunOptions = Omit<RunOptions, "deps"> & { deps?: RunOptions["deps"] };
@@ -66,6 +67,10 @@ async function draftOne(
     return "rejected";
   }
   const final = finalizeOutreachEmail(raw, { email, unsubscribeUrl: store.unsubscribeUrl(email), companyAddress: store.companyAddress() });
+  if (containsLocalUrl(`${final.subject}\n${final.body}`)) {
+    ctx.log("validator_rejected", { leadId: lead.id, reasons: ["local_url"] });
+    return "rejected";
+  }
   const draftId = await store.insertDraft({ toEmail: email, subject: final.subject, body: final.body, kind });
   if (kind === "sdr_first_touch") await store.setLead(lead.id, { status: "drafted", outreachDraftId: draftId });
   // Founder's phone/email approval request (same "outreach_draft" kind as the console queue). Skipped on dry runs.

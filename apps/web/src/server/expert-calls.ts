@@ -1,4 +1,5 @@
 import "server-only";
+import { publicAppUrl } from "./public-url";
 import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { hashToken, operatorEmails } from "@ae/core/auth/tokens";
@@ -11,7 +12,7 @@ import {
   icsDescription, icsUid, newMeetUrl, slotStartError,
 } from "./expert-calls-logic";
 
-const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const appUrl = (): string => publicAppUrl();
 const companyAddress = () => process.env.COMPANY_ADDRESS?.trim() || "[physical mailing address: set COMPANY_ADDRESS]";
 const ICS_TYPE = "text/calendar; charset=utf-8";
 

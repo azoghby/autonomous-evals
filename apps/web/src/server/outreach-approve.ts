@@ -9,6 +9,7 @@ import { recordEmailThread } from "./email-threads";
 import { isOperator } from "@ae/core/auth/tokens";
 import { isUuid } from "./http";
 import { isSuppressed } from "./owner-shared";
+import { containsLocalUrl } from "./public-url";
 import { closeApprovalFromSource } from "./notify/sync";
 
 export type ApproveResult =
@@ -20,10 +21,14 @@ export type ApproveResult =
  * then send (if email is configured). Shared by the single-approve route and the one-click approve-all route.
  */
 async function approveLegacyDraft(id: string, approverEmail: string, opts: { syncApproval?: boolean } = {}): Promise<ApproveResult> {
-  const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail, kind: schema.outreachDrafts.kind })
+  const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail, kind: schema.outreachDrafts.kind, subject: schema.outreachDrafts.subject, body: schema.outreachDrafts.body })
     .from(schema.outreachDrafts)
     .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).limit(1);
   if (pending) {
+    // A draft generated without a public APP_URL carries http://localhost links (broken unsubscribe): never send it.
+    if (containsLocalUrl(`${pending.subject}\n${pending.body}`)) {
+      return { ok: false, status: 409, error: "Draft contains a localhost link (broken unsubscribe/site URL). Reject it; the agent will redraft with production links." };
+    }
     if (pending.kind === "agent_invite" && (await isSuppressed(pending.toEmail))) {
       return { ok: false, status: 409, error: "Recipient is on the suppression list; this draft must not be sent. Reject it." };
     }

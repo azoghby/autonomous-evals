@@ -1,4 +1,5 @@
 import "server-only";
+import { publicAppUrl } from "./public-url";
 import { notifyOutreachDraft } from "./notify/hooks";
 import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
@@ -17,7 +18,7 @@ export class ExpertError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const appUrl = (): string => publicAppUrl();
 const companyAddress = () => process.env.COMPANY_ADDRESS?.trim() || "[physical mailing address: set COMPANY_ADDRESS]";
 
 // ---- suppression --------------------------------------------------------------------------------
