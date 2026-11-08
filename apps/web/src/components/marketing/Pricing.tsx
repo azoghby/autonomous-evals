@@ -31,7 +31,7 @@ const sep = "border-t border-dashed border-line-3 pt-6";
 
 export function Pricing() {
   return (
-    <Section id="pricing" labelledBy="pricing-h" className="scroll-mt-16">
+    <Section id="pricing" labelledBy="pricing-h" className="scroll-mt-16 [content-visibility:auto] [contain-intrinsic-size:auto_900px]">
       <Reveal>
         <SectionHeader
           id="pricing-h"

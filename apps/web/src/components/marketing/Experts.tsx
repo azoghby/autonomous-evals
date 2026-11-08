@@ -3,7 +3,7 @@ import { NudgeArrow, Reveal, Section, SectionHeader, Stat } from "../ui";
 
 export function Experts() {
   return (
-    <Section id="experts" labelledBy="experts-h">
+    <Section id="experts" labelledBy="experts-h" className="[content-visibility:auto] [contain-intrinsic-size:auto_900px]">
       <Reveal>
         <SectionHeader
           id="experts-h"

@@ -1,3 +1,4 @@
+import { LeaderboardTeaser } from "@/components/marketing/LeaderboardTeaser";
 import { RevenueTicker } from "@/components/marketing/RevenueTicker";
 import { Hero } from "@/components/marketing/Hero";
 import { HowItWorks } from "@/components/marketing/HowItWorks";
@@ -19,6 +20,7 @@ export default function Home() {
         <Pricing />
         <McpSection />
         <Experts />
+        <LeaderboardTeaser />
         <section aria-label="Revenue" className="border-t border-line">
           <div className="mx-auto flex max-w-[1440px] flex-wrap items-baseline justify-between gap-3 px-8 py-6 font-mono text-xs uppercase tracking-wide text-fg-muted">
             <span>▶ Earned by our agents this weekend · live payments only</span>

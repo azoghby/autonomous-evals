@@ -6,7 +6,7 @@ const CAN = ["Get a quote for a job", "Submit a job and pay by key", "Fetch the 
 
 export function McpSection() {
   return (
-    <Section id="mcp" labelledBy="mcp-h" band className="scroll-mt-16">
+    <Section id="mcp" labelledBy="mcp-h" band className="scroll-mt-16 [content-visibility:auto] [contain-intrinsic-size:auto_900px]">
       <Reveal>
         <SectionHeader
           id="mcp-h"

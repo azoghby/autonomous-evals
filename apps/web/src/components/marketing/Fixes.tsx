@@ -25,7 +25,7 @@ function Bar({ label, pass, total, tone: c }: { label: string; pass: number; tot
 
 export function Fixes() {
   return (
-    <Section id="fixes" labelledBy="fixes-h" band>
+    <Section id="fixes" labelledBy="fixes-h" band className="[content-visibility:auto] [contain-intrinsic-size:auto_900px]">
       <Reveal>
         <SectionHeader
           id="fixes-h"

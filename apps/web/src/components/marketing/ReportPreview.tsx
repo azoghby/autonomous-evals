@@ -16,7 +16,7 @@ const FINDINGS = [
 
 export function ReportPreview() {
   return (
-    <Section id="report" labelledBy="report-h">
+    <Section id="report" labelledBy="report-h" className="[content-visibility:auto] [contain-intrinsic-size:auto_900px]">
       <Reveal>
         <SectionHeader
           id="report-h"
