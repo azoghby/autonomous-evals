@@ -1,0 +1,203 @@
+{
+  "format": 1,
+  "parentBase": "f8d1f75cf53422015e63b8ac3233eacbaa1a30d5",
+  "applicationBaseline": {
+    "commit": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "migrations": [
+      {
+        "path": "packages/core/src/db/migrations/0000_init.sql",
+        "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0001_expert_network.sql",
+        "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0002_delivery_snapshot.sql",
+        "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0003_rate_limits.sql",
+        "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0004_email_threads.sql",
+        "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0005_remediations.sql",
+        "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0006_per_finding_pricing.sql",
+        "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0007_api_keys.sql",
+        "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0008_monitoring_runs.sql",
+        "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0009_call_slots.sql",
+        "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0010_engagement_prev_tokens.sql",
+        "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0011_job_shares.sql",
+        "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0012_github_prs.sql",
+        "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0013_regression_runs.sql",
+        "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0"
+      },
+      {
+        "path": "packages/core/src/db/migrations/0014_public_agents.sql",
+        "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b"
+      }
+    ]
+  },
+  "searchPath": "public, pg_catalog",
+  "chatSelection": "packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql",
+  "excludedChat": "docs/progress-chat-integration/server/001-private-conversations.sql",
+  "application": [
+    {
+      "id": "agent",
+      "path": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+      "tables": [
+        "agent_persistence.tasks",
+        "agent_persistence.scopes",
+        "agent_persistence.reservations"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "ledger",
+      "path": "packages/core/src/simulator/ledger-migrations/001_branch_ownership.sql",
+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+      "tables": [
+        "public.app_branch_ownership"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "data001",
+      "path": "packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql",
+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+      "tables": [
+        "evaluation_data_persistence.tasks"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "data002",
+      "path": "packages/core/src/evals/data/persistence-migrations/002-data-operations.sql",
+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+      "tables": [
+        "evaluation_data_persistence.operations"
+      ],
+      "transactionOwner": "runner",
+      "after": [
+        "data001"
+      ]
+    },
+    {
+      "id": "checkpoint",
+      "path": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+      "tables": [
+        "text_integration.checkpoints"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "chat",
+      "path": "packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql",
+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+      "tables": [
+        "public.reporting_chat_scopes",
+        "public.reporting_chat_exchanges"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "journal",
+      "path": "packages/core/src/simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql",
+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+      "tables": [
+        "public.app_workflow_investigation_journals"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "inventory",
+      "path": "docs/structured-progress-integration/backend/001-structured-progress.sql",
+      "sha256": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+      "tables": [
+        "structured_progress.inventory"
+      ],
+      "transactionOwner": "runner",
+      "after": []
+    },
+    {
+      "id": "workflow001",
+      "path": "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+      "sha256": "41ceb9cc8de444d04884d429011e531818563432b0951249fc647f52fcfb88bd",
+      "tables": [
+        "workflow_integration.cost_keys",
+        "workflow_integration.bindings"
+      ],
+      "transactionOwner": "artifact",
+      "after": [
+        "agent",
+        "ledger",
+        "data002",
+        "checkpoint",
+        "chat",
+        "journal",
+        "inventory"
+      ],
+      "patchTarget": "apps/web/migrations/001-workflow-integration.sql"
+    },
+    {
+      "id": "workflow002",
+      "path": "docs/workflow-integration/workflow-producers/migrations/002-rich-artifacts.sql",
+      "sha256": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
+      "tables": [
+        "workflow_integration.rich_artifacts"
+      ],
+      "transactionOwner": "artifact",
+      "after": [
+        "workflow001"
+      ]
+    }
+  ],
+  "simulatorSeed": {
+    "path": "packages/core/src/simulator/migrations/001_calendar.sql",
+    "sha256": "7153e1bbdec0558a46d0fc6d9cbea4366a1c56ae8e2849240a21472c9af17834",
+    "transactionOwner": "runner",
+    "tables": [
+      "public.sim_runs",
+      "public.sim_calendars",
+      "public.sim_permissions",
+      "public.sim_events",
+      "public.sim_tool_calls"
+    ]
+  }
+}

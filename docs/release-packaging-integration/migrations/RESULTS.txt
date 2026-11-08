@@ -1,0 +1,24 @@
+HEAD f8d1f75cf53422015e63b8ac3233eacbaa1a30d5
+PGlite cache /tmp/track-b-harness/node_modules; baseline f0068733ca49c37f40fd7de279325f21a4b5fbbb; in-memory databases only
+  catalog tables=14; constraints=133
+PASS 1 actual 15 owner migrations + ten canonical application artifacts execute; catalog reference captured
+PASS 2 preflight whole batch, apply with declared transaction owners, repeat without replaying once-only SQL
+PASS 3 all IF NOT EXISTS application artifacts replay actual SQL and retain exact catalogs
+PASS 4 same columns but missing CHECK refuses before any write; no regex-only acceptance
+PASS 5 bogus preexisting table refuses and leaves absent agent schema untouched
+PASS 6 trigger definition/enable state drift refuses data002 reuse
+PASS 7 partial chat, missing owner baseline and unsafe search_path refuse
+PASS 8 changed CHECK text, PUBLIC CREATE and temporary-table shadowing refuse
+PASS 9 historical duplicate cost identities refuse before migration writes
+PASS 10 data002 CHECK and actual trigger enforce immutable completion/delete
+PASS 11 runner-owned artifacts roll back; artifact-owned Workflow failure rolls back its schema
+PASS 12 simulator seed is separate; actual SQL replays with exact FK/index catalog
+12 groups passed. Local PostgreSQL WASM/catalog proof only; deployment acceptance remains blocked on owner integration/session/role/native concurrency gates.
+
+Commands and exit evidence:
+node --check tests/track-b/release-packaging/migrations/preflight.mjs — exit 0
+node --check tests/track-b/release-packaging/migrations/verify.mjs — exit 0
+tests/track-b/release-packaging/migrations/verify.sh > docs/release-packaging-integration/migrations/RESULTS.txt 2>&1 — exit 0 (final 12-group run above)
+git diff --check — exit 0
+An initial verify.sh attempt returned 75 while the shared lock was busy; no SQL started. Syntax/review work continued before a later successful lock acquisition. The intermediate 10-group run also passed; the final 12-group transcript supersedes it.
+The wrapper used mkdir /tmp/track-b-release-heavy.lock with trap cleanup. All databases were disposable in-memory PGlite; no native/provider/cloud/deployment acceptance is claimed.
