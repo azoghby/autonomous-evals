@@ -1,0 +1,14 @@
+✔ additive migration is idempotent and preserves bindings across reapplication (1284.857584ms)
+✔ tenant/job composite foreign keys reject source, payment and provider evidence crossing tenants (798.124667ms)
+✔ unknown payment cannot masquerade as settled or lose exact quote identity (834.691792ms)
+✔ permission evidence requires exact digest and bounded expiry; no implicit default permission (934.103333ms)
+✔ public has neither schema nor table authority and cannot read or write as a customer role (675.375125ms)
+✔ schema contains no alternative monetary ledger or legacy human review authority (0.351541ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4647.506875

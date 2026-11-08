@@ -1,0 +1,23 @@
+// Read-only current-main preservation inventory. No historical overlay is applied to current A.
+import {execFileSync as exec} from 'node:child_process';
+import {readFileSync as read,writeFileSync as write,readdirSync} from 'node:fs';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {root,sha} from './stage.mjs';
+const here=dirname(fileURLToPath(import.meta.url));
+const git=args=>exec('git',args,{cwd:root,maxBuffer:64*1024*1024});
+const ref=process.env.PAID_CURRENT_REF??'origin/main',head=git(['rev-parse',ref]).toString().trim();
+const walk=(d,p='')=>readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(d,e.name),p+e.name+'/'):[p+e.name]);
+const owned=walk(join(here,'source'));
+const protectedPath=p=>p.startsWith('packages/core/src/sandbox/')||p.startsWith('packages/core/src/evals/sandbox/')||p.startsWith('apps/web/public/')||p.startsWith('apps/web/src/app/')||/(^|\/)(package(-lock)?\.json|pnpm-lock\.yaml)$/.test(p);
+for(const p of owned)if(protectedPath(p))throw Error('Extension would overwrite current A/B protected source: '+p);
+const files=git(['ls-tree','-r','--name-only',head]).toString().trim().split('\n').filter(protectedPath);
+const hashes=Object.fromEntries(files.map(p=>[p,sha(git(['show',head+':'+p]))]));
+const spec=git(['show',head+':packages/core/src/sandbox/spec.ts']).toString();
+if(!spec.includes('exec?(sql: string)'))throw Error('Expected current optional trusted exec seam missing');
+if(!files.some(p=>p.startsWith('packages/core/src/sandbox/engine/')))throw Error('Current Track A engine missing');
+const runtimePaths=files.filter(p=>p.startsWith('packages/core/src/sandbox/runtime/')&&p.endsWith('.ts'));
+const queryEvidence=runtimePaths.flatMap(p=>git(['show',head+':'+p]).toString().split('\n').flatMap((line,i)=>/async query|async exec|\.query\(sql/.test(line)?[{path:p,line:i+1,text:line.trim()}]:[]));
+const result={currentRef:ref,currentCommit:head,implementationBase:git(['rev-parse','HEAD']).toString().trim(),protectedFiles:hashes,extensionPaths:owned,protectedOverlap:[],optionalTrustedExecPresent:true,queryEvidence,currentMainApplication:'not attempted: patch explicitly targets prior full adoption stage; owner must reconcile divergent caller preimages',parameterPatchStillRequired:true,historicalArtifactsUnchanged:true,releaseAccepted:false};
+write(join(here,'CURRENT-PRESERVATION.json'),JSON.stringify(result,null,2)+'\n');
+console.log(JSON.stringify({currentCommit:head,protectedFiles:files.length,protectedOverlap:0,optionalTrustedExecPresent:true}));

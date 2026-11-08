@@ -1,0 +1,25 @@
+✔ default Text24 + Calendar8 plan exhausts approved target32 cap (0.462834ms)
+✔ reproductions or pack requests reject before any dispatch when target32 cap exhausted (0.348459ms)
+✔ explicitly approved expanded cap or reviewed reduced plan admits exact total (0.091709ms)
+✔ rejects invalid counts and cap without dispatch (0.800166ms)
+CONTROLLED INTERNAL FIXTURES SQL RESULTS [{"scenario":"booking","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"conflict","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"duplicate","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"cancel","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"reschedule","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"time-zone","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"read-only-permission","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"dependency-failure","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"cancel-idempotence","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"list","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"adjacent","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"invalid-interval","version":"fixed","statePassed":true,"failedChecks":[]},{"scenario":"booking","version":"buggy","statePassed":false,"failedChecks":["count","matching_events"]},{"scenario":"conflict","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"duplicate","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"cancel","version":"buggy","statePassed":false,"failedChecks":["count","event"]},{"scenario":"reschedule","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"time-zone","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"read-only-permission","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"dependency-failure","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"cancel-idempotence","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"list","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"adjacent","version":"buggy","statePassed":true,"failedChecks":[]},{"scenario":"invalid-interval","version":"buggy","statePassed":true,"failedChecks":[]}]
+✔ independently pins complete actual canonical scenarios/tools and exact system (1931.916916ms)
+✔ actual route + ChatCompletionsClient + simulator SQL: fixed all12 pass; buggy booking/cancel fail state (206.017875ms)
+✔ forged/missing/reordered/duplicate/cross-scenario tool transcripts denied (2.769583ms)
+✔ result schemas, expected codes, event values and linked generated event IDs validated (3.160708ms)
+✔ final failures truthfully report failure and never claim mutation succeeded (0.788166ms)
+✔ parallel repeated and interleaved complete requests share no scenario/version workflow state (11.206375ms)
+✔ disabled by default; strict independent bearer checked before reading body; rotation immediate (1.610875ms)
+✔ exact payload/system/scenario/tools/model constraints and token bounds (19.369417ms)
+✔ bounds all turns, messages, arguments/results and UTF8 body including streamed overflow (1.84525ms)
+✔ method/media/encoding/JSON failures always use the same safe private error envelope (1.175542ms)
+✔ default client cap1024 and connectivity probe are quarantined, never accepted as Calendar execution (2.028ms)
+✔ QUARANTINED: shape-valid forged UUID result is indistinguishable from execution without trusted SQL receipt (2.014459ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2372.058792

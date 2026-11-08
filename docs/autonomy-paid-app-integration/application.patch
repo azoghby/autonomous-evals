@@ -1,0 +1,720 @@
+diff --git a/apps/web/src/server/autonomous-paid-authority.sql b/apps/web/src/server/autonomous-paid-authority.sql
+new file mode 100644
+index 0000000..6c852b1
+--- /dev/null
++++ b/apps/web/src/server/autonomous-paid-authority.sql
+@@ -0,0 +1,5 @@
++-- app.autonomy-paid-authority.001. Owner transaction/registry only; after autonomy-release access.
++-- Existing bindings remain NULL and fail closed. The owner must explicitly reauthorize
++-- their immutable original policy and paid caps; this migration never infers/backfills authority.
++ALTER TABLE company_autonomy_release.job_bindings
++ ADD COLUMN authority_digest text CHECK(authority_digest IS NULL OR authority_digest ~ '^[a-f0-9]{64}$');
+diff --git a/apps/web/src/server/autonomous-paid.sql b/apps/web/src/server/autonomous-paid.sql
+new file mode 100644
+index 0000000..0ae0612
+--- /dev/null
++++ b/apps/web/src/server/autonomous-paid.sql
+@@ -0,0 +1,11 @@
++-- Owner migration only. Constructors never run DDL. Local intent is not provider attestation.
++CREATE SCHEMA IF NOT EXISTS autonomous_paid_app;
++REVOKE ALL ON SCHEMA autonomous_paid_app FROM PUBLIC;
++CREATE TABLE autonomous_paid_app.operations (
++ operation_id text PRIMARY KEY, job_id text NOT NULL, input_digest text NOT NULL,
++ policy_digest text NOT NULL, reservation jsonb NOT NULL, state text NOT NULL CHECK(state IN ('reserved','denied','dispatched','settled')),
++ receipt jsonb,
++ CHECK(input_digest ~ '^[a-f0-9]{64}$')
++);
++REVOKE ALL ON autonomous_paid_app.operations FROM PUBLIC;
++-- Owner grants server-only access and reconciles this stable identity with its migration registry.
+diff --git a/apps/web/src/server/autonomous-paid.ts b/apps/web/src/server/autonomous-paid.ts
+new file mode 100644
+index 0000000..bae6688
+--- /dev/null
++++ b/apps/web/src/server/autonomous-paid.ts
+@@ -0,0 +1,122 @@
++import 'server-only';
++import { createAutonomousPaidReservationPolicy } from '@ae/core/agents/autonomy/budget';
++import { createAutonomousPolicy, autonomyDigest, type AutonomousPolicy } from '@ae/core/agents/autonomy/policy';
++import { PostgresBudgetLedger, type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import type { BudgetReservationRequest, JobRef } from '@ae/core/evals/types';
++import type { RemediationAccountingDeps } from '@ae/core/evals/remediation/accounting/index';
++
++export type PaidMonitor = { key: string; capMicroUsd: number };
++export interface PaidReceipt { operationId: string; inputDigest: string; receiptId: string; microUsd: number | null; evidence: unknown }
++const refuse = (): never => { throw new Error('autonomous_paid_authority_or_reconciliation_required'); };
++const issued = new WeakSet<object>();
++export interface AutonomousPaidContext {
++  readonly job: JobRef; readonly policy: AutonomousPolicy; readonly sql: AgentTransactionalSql;
++  readonly runner: AgentTaskRunner;
++  runnerForMonitor(monitor: PaidMonitor): AgentTaskRunner; readonly targetReservationMicroUsd: number; readonly judgeReservationMicroUsd: number;
++  guard(job?: JobRef, sql?: AgentTransactionalSql): Promise<void>;
++  reservation(kind: 'target' | 'judge', monitor?: PaidMonitor): (op: {operationId: string}) => BudgetReservationRequest;
++  reconcile(receipt: PaidReceipt): Promise<void>;
++}
++export function assertAutonomousPaidContext(value: AutonomousPaidContext): void {
++  if (!value || !issued.has(value)) refuse();
++}
++/** Created only by authenticated company composition. A parsed HTTP object cannot carry this capability.
++ * guard must compare the current company/job/owner and complete immutable policy to these pins.
++ * The SQL port must be the exact port constructing the guarded autonomous Naive runner. */
++export function createAutonomousPaidContext(input: {
++  sql: AgentTransactionalSql; policy: AutonomousPolicy; job: JobRef; runner: AgentTaskRunner;
++  runnerForMonitor?(monitor: PaidMonitor): AgentTaskRunner;
++  guard(): Promise<void>; jobCapMicroUsd: number; targetReservationMicroUsd: number; judgeReservationMicroUsd: number;
++  deliverCost: RemediationAccountingDeps['deliverCost'];
++  verifyReceipt?(receipt: Readonly<PaidReceipt>): Promise<boolean>;
++}): AutonomousPaidContext {
++  const policy = createAutonomousPolicy(input.policy), job = Object.freeze(structuredClone(input.job));
++  const factories = {
++    target: createAutonomousPaidReservationPolicy({policy,job,role:'evaluation_engineer',jobCapMicroUsd:input.jobCapMicroUsd,reservationMicroUsd:input.targetReservationMicroUsd}),
++    judge: createAutonomousPaidReservationPolicy({policy,job,role:'evaluation_engineer',jobCapMicroUsd:input.jobCapMicroUsd,reservationMicroUsd:input.judgeReservationMicroUsd}),
++  };
++  // Snapshot callbacks and transport references: mutating a constructor argument cannot replace authority.
++  const {sql, runner, guard, deliverCost, verifyReceipt,runnerForMonitor} = input;
++  const jobCap=input.jobCapMicroUsd;
++  const guarded=(raw:AgentTaskRunner):AgentTaskRunner=>({async run(spec){
++    await guard();
++    if(autonomyDigest(spec.job)!==autonomyDigest(job)
++      || spec.jobCapMicroUsd!==undefined && spec.jobCapMicroUsd!==jobCap) refuse();
++    const result=await raw.run({...spec,jobCapMicroUsd:jobCap});
++    await guard();
++    return result;
++  }});
++  const context: AutonomousPaidContext = Object.freeze({sql,job,policy,runner:guarded(runner),
++    runnerForMonitor(monitor:PaidMonitor) {
++      context.reservation('target',monitor); // validate before constructing any transport
++      if(!runnerForMonitor) return refuse();
++      return guarded(runnerForMonitor({...monitor}));
++    },
++    targetReservationMicroUsd:input.targetReservationMicroUsd,judgeReservationMicroUsd:input.judgeReservationMicroUsd,
++    async guard(expected?: JobRef, db?: AgentTransactionalSql) {
++      if (expected && autonomyDigest(expected)!==autonomyDigest(job) || db && db!==sql) refuse();
++      await guard();
++    },
++    reservation(kind: 'target'|'judge', monitor?: PaidMonitor) {
++      if (!factories[kind]) return refuse();
++      if (monitor && (!/^monitor:[A-Za-z0-9_.:-]+:[A-Za-z0-9_.:-]+$/.test(monitor.key) || !Number.isSafeInteger(monitor.capMicroUsd) || monitor.capMicroUsd<=0)) return refuse();
++      const pinned = monitor && {...monitor};
++      return (op: {operationId:string}) => {
++        const reservation = factories[kind](op);
++        if (pinned) reservation.scopes.push({key:pinned.key,capMicroUsd:pinned.capMicroUsd});
++        return reservation;
++      };
++    },
++    async reconcile(raw: PaidReceipt) {
++      const receipt = structuredClone(raw);
++      if (typeof receipt.receiptId!=='string' || !receipt.receiptId.length || receipt.receiptId.length>4096 || /[\u0000\uD800-\uDFFF]/u.test(receipt.receiptId) || !/^[a-f0-9]{64}$/.test(receipt.inputDigest) || receipt.microUsd!==null && (!Number.isSafeInteger(receipt.microUsd)||receipt.microUsd<0)) refuse();
++      await context.guard();
++      if (!verifyReceipt || !await verifyReceipt(Object.freeze(receipt))) refuse();
++      await context.guard();
++      await sql.transaction(async tx => {
++        const row = (await tx.query<{job_id:string;input_digest:string;state:string;receipt:PaidReceipt|null;policy_digest:string;reservation:BudgetReservationRequest}>('SELECT * FROM autonomous_paid_app.operations WHERE operation_id=$1 FOR UPDATE',[receipt.operationId])).rows[0];
++        if (!row || row.job_id!==job.jobId || row.input_digest!==receipt.inputDigest || row.policy_digest!==autonomyDigest(policy) || !['dispatched','settled'].includes(row.state)) refuse();
++        const originalBase={...row.reservation,scopes:row.reservation.scopes.filter(s=>!s.key.startsWith('monitor:'))};
++        if(autonomyDigest(originalBase)!==autonomyDigest(factories.target({operationId:receipt.operationId}))) refuse();
++        if (row.receipt && (row.receipt.receiptId!==receipt.receiptId || autonomyDigest(row.receipt.evidence)!==autonomyDigest(receipt.evidence))) refuse();
++        if (row.state==='settled') {if (autonomyDigest(row.receipt)!==autonomyDigest(receipt)) refuse();return;}
++        if (receipt.microUsd!==null) {
++          const pinned:AgentTransactionalSql={query:tx.query.bind(tx),transaction:fn=>fn(tx)};
++          const result=await new PostgresBudgetLedger(pinned).settle(receipt.operationId,receipt.microUsd);
++          if(result.settledMicroUsd!==receipt.microUsd) refuse();
++          await deliverCost(tx,{jobId:job.jobId,operationId:receipt.operationId,kind:'target',microUsd:receipt.microUsd,idempotencyKey:`autonomous-target:${receipt.operationId}`,receiptId:receipt.receiptId});
++        }
++        await tx.query('UPDATE autonomous_paid_app.operations SET state=$2,receipt=$3::jsonb WHERE operation_id=$1',[receipt.operationId,receipt.microUsd===null?'dispatched':'settled',JSON.stringify(receipt)]);
++      });
++    },
++  });
++  issued.add(context);return context;
++}
++
++/** Permanent local dispatch intent, never a provider receipt. Stable lifecycle ID excludes payload digest:
++ * changing input conflicts under the same identity rather than minting a fresh retry. Unknown cost holds.
++ * Caller checkpoints retain results. Any lost acknowledgement requires owner reconciliation, never replay. */
++export async function runAutonomousTarget<T>(context: AutonomousPaidContext, operation: {
++  operationId: string; input: unknown; job: JobRef; monitor?: PaidMonitor;
++}, dispatch: () => Promise<T>): Promise<T> {
++  assertAutonomousPaidContext(context);
++  await context.guard(operation.job,context.sql);
++  const reservation=context.reservation('target',operation.monitor)(operation);
++  const digest=autonomyDigest({job:operation.job,input:operation.input,policy:context.policy});
++  await context.sql.transaction(async tx=>{
++    const inserted=await tx.query(`INSERT INTO autonomous_paid_app.operations(operation_id,job_id,input_digest,reservation,state,policy_digest)
++      VALUES($1,$2,$3,$4::jsonb,'reserved',$5) ON CONFLICT DO NOTHING RETURNING operation_id`,[operation.operationId,operation.job.jobId,digest,JSON.stringify(reservation),autonomyDigest(context.policy)]);
++    // Even denied/reserved intents are immutable; no lease or fresh-ID retry path.
++    if(!inserted.rows.length) refuse();
++    const pinned:AgentTransactionalSql={query:tx.query.bind(tx),transaction:fn=>fn(tx)};
++    const result=await new PostgresBudgetLedger(pinned).reserve(reservation);
++    await tx.query('UPDATE autonomous_paid_app.operations SET state=$2 WHERE operation_id=$1',[operation.operationId,result.ok?'dispatched':'denied']);
++  });
++  const row=(await context.sql.query<{state:string}>('SELECT state FROM autonomous_paid_app.operations WHERE operation_id=$1',[operation.operationId])).rows[0];
++  if(row?.state!=='dispatched') refuse();
++  await context.guard(operation.job,context.sql);
++  const result=await dispatch();
++  await context.guard(operation.job,context.sql);
++  return result;
++}
+diff --git a/apps/web/src/server/autonomy-release.ts b/apps/web/src/server/autonomy-release.ts
+index dcf9fbe..13490b8 100644
+--- a/apps/web/src/server/autonomy-release.ts
++++ b/apps/web/src/server/autonomy-release.ts
+@@ -1,7 +1,9 @@
++import { createAutonomousPaidContext, type AutonomousPaidContext, type PaidMonitor, type PaidReceipt } from './autonomous-paid';
++import { deliverRemediationCost } from './rich-remediation';
+ import 'server-only';
+ import { AgentSessionService } from '@ae/core/agents/session-service';
+ import { PostgresAgentTaskStore, PostgresBudgetLedger, type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
+-import { createAutonomousBudgetLedger } from '@ae/core/agents/autonomy/budget';
++import { createAutonomousBudgetLedger, createAutonomousPaidReservationPolicy } from '@ae/core/agents/autonomy/budget';
+ import { PostgresAutonomySupervisor } from '@ae/core/agents/autonomy/supervisor';
+ import { createAutonomousRunner } from '@ae/core/agents/autonomy/runner';
+ import { AUTONOMY_ROLES, createAutonomousPolicy, autonomyDigest, type AutonomousPolicy } from '@ae/core/agents/autonomy/policy';
+@@ -11,7 +13,7 @@ import type { DataOperationLedger } from '@ae/core/evals/data/operation-ledger';
+ import type { FixedQuote } from '@ae/core/agents/commercial';
+ 
+ export interface ReleasePrincipal { tenantId: string; subject: string }
+-type Binding = { tenant_id: string; job_id: string; owner_id: string; policy_version: string; request: CompanyRequest; enabled: boolean };
++type Binding = { tenant_id: string; job_id: string; owner_id: string; policy_version: string; authority_digest: string | null; request: CompanyRequest; enabled: boolean };
+ export interface ReleasePaymentReceipt { receipt_id: string; settled: boolean; amount_micro_usd: string | number | null; currency: string; record: { quoteDigest: string; [key: string]: unknown } }
+ export interface ReleaseConfig {
+   db: AgentTransactionalSql;
+@@ -35,7 +37,10 @@ export interface ReleaseConfig {
+   /** Read/reconcile a genuine provider receipt, not an agent assertion. No redispatch here. */
+   verifyProviderReceipt(request: CompanyRequest, receipt: { provider_id: string; receipt: unknown }): Promise<boolean>;
+   data(request: CompanyRequest, key: string): ReturnType<CompanyPorts['data']>;
+-  evaluate(request: CompanyRequest, key: string, digest: string, runner: CompanyPorts['runner']): ReturnType<CompanyPorts['evaluate']>;
++  /** Frozen server configuration, reloaded with current company authority; never an HTTP/body value. */
++  paidPolicy(request: CompanyRequest): Promise<{jobCapMicroUsd:number;targetReservationMicroUsd:number;judgeReservationMicroUsd:number}>;
++  verifyPaidReceipt?(request: CompanyRequest, receipt: Readonly<PaidReceipt>): Promise<boolean>;
++  evaluate(request: CompanyRequest, key: string, digest: string, runner: CompanyPorts['runner'], paid: AutonomousPaidContext): ReturnType<CompanyPorts['evaluate']>;
+   recoverEvaluation(request: CompanyRequest, key: string): ReturnType<CompanyPorts['recoverEvaluation']>;
+   enqueue(request: CompanyRequest, key: string, message: Parameters<CompanyPorts['enqueue']>[1]): Promise<void>;
+   now(): number;
+@@ -53,16 +58,18 @@ export function createAutonomyReleaseServer(config: ReleaseConfig) {
+     return p;
+   }
+   async function binding(tenantId: string, jobId: string) {
+-    return (await config.db.query<Binding>('SELECT tenant_id,job_id,owner_id,policy_version,request,enabled FROM company_autonomy_release.job_bindings WHERE tenant_id=$1 AND job_id=$2',[tenantId,jobId])).rows[0];
++    return (await config.db.query<Binding>('SELECT tenant_id,job_id,owner_id,policy_version,authority_digest,request,enabled FROM company_autonomy_release.job_bindings WHERE tenant_id=$1 AND job_id=$2',[tenantId,jobId])).rows[0];
+   }
+   async function current(row: Binding, expected?: AutonomousPolicy) {
+     if (!row || !row.enabled || row.tenant_id !== row.request.tenantId || row.job_id !== row.request.job.jobId || row.tenant_id !== row.request.job.customerId) return refuse();
+     const fresh = await binding(row.tenant_id,row.job_id);
+-    if (!fresh?.enabled || autonomyDigest(fresh.request) !== autonomyDigest(row.request) || fresh.owner_id !== row.owner_id || fresh.policy_version !== row.policy_version) return refuse();
++    if (!fresh?.enabled || autonomyDigest(fresh.request) !== autonomyDigest(row.request) || fresh.owner_id !== row.owner_id || fresh.policy_version !== row.policy_version || !row.authority_digest || fresh.authority_digest!==row.authority_digest) return refuse();
+     const policyInput = await config.policyFor(row.tenant_id);
+     if (!policyInput) return refuse();
+     const policy = createAutonomousPolicy(policyInput);
+     if (policy.tenantId !== row.tenant_id || policy.version !== row.policy_version || expected && autonomyDigest(expected) !== autonomyDigest(policy)) return refuse();
++    const paidPolicy=await config.paidPolicy(structuredClone(row.request));
++    if(row.authority_digest!==autonomyDigest({policy,paidPolicy})) return refuse();
+     const p = {tenantId:row.tenant_id,subject:row.owner_id};
+     const canonical = await config.loadRequest(p,row.job_id);
+     if (!canonical || autonomyDigest(canonical) !== autonomyDigest(row.request) || !await config.authorizeJob(p,structuredClone(row.request))) return refuse();
+@@ -70,7 +77,11 @@ export function createAutonomyReleaseServer(config: ReleaseConfig) {
+   }
+   async function ports(row: Binding): Promise<CompanyPorts> {
+     const request = structuredClone(row.request), policy = await current(row);
+-    const guard = async () => { await current(row,policy); };
++    const paidPolicy=Object.freeze({...await config.paidPolicy(request)});
++    const guard = async () => {
++      await current(row,policy);
++      if(autonomyDigest(await config.paidPolicy(request))!==autonomyDigest(paidPolicy)) return refuse();
++    };
+     const supervisor = new PostgresAutonomySupervisor(config.db,policy,async (tenantId,jobId) => {
+       if (tenantId !== request.tenantId || jobId !== request.job.jobId) return false;
+       await guard(); return true;
+@@ -80,13 +91,20 @@ export function createAutonomyReleaseServer(config: ReleaseConfig) {
+       async getSession(id){await guard();return config.naive.getSession(id);},
+       async listAgentSessions(id,page){await guard();return config.naive.listAgentSessions(id,page);},
+     };
+-    const service = new AgentSessionService({naive,store:new PostgresAgentTaskStore(config.db),
+-      ledger:createAutonomousBudgetLedger(new PostgresBudgetLedger(config.db),policy),
++    const makeService = (monitor?:PaidMonitor) => new AgentSessionService({naive,store:new PostgresAgentTaskStore(config.db),
++      ledger:createAutonomousBudgetLedger(monitor ? {
++        reserve:request=>new PostgresBudgetLedger(config.db).reserve({...request,scopes:[...request.scopes,{key:monitor.key,capMicroUsd:monitor.capMicroUsd}]}),
++        settle:(id,cost)=>new PostgresBudgetLedger(config.db).settle(id,cost),
++      } : new PostgresBudgetLedger(config.db),policy),
+       directory:Object.fromEntries(AUTONOMY_ROLES.map(role=>[role,{agentId:policy.agents[role].id,agentVersion:policy.agents[role].version}])) as ConstructorParameters<typeof AgentSessionService>[0]['directory'],
+       budgetPeriodId:policy.periodId,idempotencyNamespace:config.idempotencyNamespace,workerId:config.workerId,maxWaitMs:0,clock:{now:()=>new Date(config.now())}});
+-    const autonomous = createAutonomousRunner({supervisor,runner:service,now:config.now,
++    const autonomous = createAutonomousRunner({supervisor,runner:makeService(),now:config.now,
+       currentPolicyVersion:async()=>{await guard();return policy.version;},currentSecrets:()=>config.currentSecrets(request)});
+-    const runner: CompanyPorts['runner'] = {async run(spec){await guard(); if(spec.job.jobId!==request.job.jobId || spec.job.environment!==request.job.environment || spec.job.package!==request.job.package || spec.job.isFixture!==request.job.isFixture)return refuse(); return autonomous.run(spec);}};
++    const runner: CompanyPorts['runner'] = {async run(spec){await guard(); if(autonomyDigest(spec.job)!==autonomyDigest(request.job))return refuse(); return autonomous.run(spec);}};
++    const paid=createAutonomousPaidContext({sql:config.db,policy,job:request.job,runner,guard,...paidPolicy,
++      runnerForMonitor:monitor=>createAutonomousRunner({supervisor,runner:makeService(monitor),now:config.now,
++        currentPolicyVersion:async()=>{await guard();return policy.version;},currentSecrets:()=>config.currentSecrets(request)}),
++      deliverCost:deliverRemediationCost,verifyReceipt:receipt=>config.verifyPaidReceipt?.(request,receipt) ?? Promise.resolve(false)});
+     const ledger = await config.operationsFor(request);
+     const operations: DataOperationLedger = {
+       async claim(key,digest){await guard();return ledger.claim(key,digest);},
+@@ -104,7 +122,7 @@ export function createAutonomyReleaseServer(config: ReleaseConfig) {
+       }
+       await guard();return true;
+     };
+-    return {now:()=>new Date(config.now()),policy:{schema:'autonomous-company-v1',version:policy.version,enabled:true,maxClarificationRounds:2},operations,runner,
++    return {now:()=>new Date(config.now()),policy:{schema:'autonomous-company-v1',version:policy.version,enabled:true,maxClarificationRounds:2},operations,runner:paid.runner,
+       authorize:async input=>{if(autonomyDigest(input)!==autonomyDigest(request))return false;await guard();return true;},
+       async payment(quote){
+         await guard();
+@@ -122,7 +140,7 @@ export function createAutonomyReleaseServer(config: ReleaseConfig) {
+         if(!await authorizeSources())return {status:'not_assessed',digest:'',reasons:['source_permission_missing_expired_or_changed']};
+         await guard();const result=await config.data(request,key);if(!await authorizeSources())return refuse();return result;
+       },
+-      async evaluate(key,digest){if(!await authorizeSources())return refuse();const result=await config.evaluate(request,key,digest,runner);if(!await authorizeSources())return refuse();return result;},
++      async evaluate(key,digest){if(!await authorizeSources())return refuse();const result=await config.evaluate(request,key,digest,paid.runner,paid);if(!await authorizeSources())return refuse();return result;},
+       async recoverEvaluation(key){
+         if(!await authorizeSources())return refuse();
+         const rows=await config.db.query<{provider_id:string;receipt:unknown}>('SELECT provider_id,receipt FROM company_autonomy_release.provider_receipts WHERE tenant_id=$1 AND job_id=$2 AND action_key=$3',[row.tenant_id,row.job_id,key]);
+@@ -138,13 +156,18 @@ export function createAutonomyReleaseServer(config: ReleaseConfig) {
+       const request=await config.loadRequest(p,jobId), input=await config.policyFor(p.tenantId);
+       if(!request || !input || request.tenantId!==p.tenantId || request.job.customerId!==p.tenantId || request.job.jobId!==jobId || !await config.authorizeJob(p,request))return refuse();
+       const policy=createAutonomousPolicy(input);if(policy.tenantId!==p.tenantId)return refuse();
+-      await config.db.query('INSERT INTO company_autonomy_release.job_bindings(tenant_id,job_id,owner_id,policy_version,request,enabled,next_tick_at) VALUES($1,$2,$3,$4,$5::jsonb,true,$6) ON CONFLICT DO NOTHING',[p.tenantId,jobId,p.subject,policy.version,JSON.stringify(request),config.now()]);
++      const paidPolicy=await config.paidPolicy(request);
++      for(const reservationMicroUsd of [paidPolicy.targetReservationMicroUsd,paidPolicy.judgeReservationMicroUsd]) {
++        createAutonomousPaidReservationPolicy({policy,job:request.job,role:'evaluation_engineer',jobCapMicroUsd:paidPolicy.jobCapMicroUsd,reservationMicroUsd});
++      }
++      const authorityDigest=autonomyDigest({policy,paidPolicy});
++      await config.db.query('INSERT INTO company_autonomy_release.job_bindings(tenant_id,job_id,owner_id,policy_version,request,enabled,next_tick_at,authority_digest) VALUES($1,$2,$3,$4,$5::jsonb,true,$6,$7) ON CONFLICT DO NOTHING',[p.tenantId,jobId,p.subject,policy.version,JSON.stringify(request),config.now(),authorityDigest]);
+       const row=await binding(p.tenantId,jobId);if(!row || row.owner_id!==p.subject || autonomyDigest(row.request)!==autonomyDigest(request))return refuse();
+       await current(row,policy);return {tenantId:p.tenantId,jobId,policyVersion:policy.version,authority:'automated_review' as const};
+     },
+     async scheduledTick(credential: unknown) {
+       if(!await config.authenticateScheduler(credential))return refuse();
+-      const rows=await config.db.query<Binding>('SELECT tenant_id,job_id,owner_id,policy_version,request,enabled FROM company_autonomy_release.job_bindings WHERE enabled=true AND next_tick_at<=$1 ORDER BY next_tick_at,tenant_id,job_id LIMIT 25',[config.now()]);
++      const rows=await config.db.query<Binding>('SELECT tenant_id,job_id,owner_id,policy_version,authority_digest,request,enabled FROM company_autonomy_release.job_bindings WHERE enabled=true AND next_tick_at<=$1 ORDER BY next_tick_at,tenant_id,job_id LIMIT 25',[config.now()]);
+       if(rows.rows.length>25)return refuse();
+       const outcomes=[];
+       for(const row of rows.rows) {
+diff --git a/apps/web/src/server/comparison-production.ts b/apps/web/src/server/comparison-production.ts
+index 34e3d42..d158fc0 100644
+--- a/apps/web/src/server/comparison-production.ts
++++ b/apps/web/src/server/comparison-production.ts
+@@ -1,3 +1,4 @@
++import { assertAutonomousPaidContext, type AutonomousPaidContext } from './autonomous-paid';
+ import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
+ import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
+ import { deliverRemediationCost } from './rich-remediation';
+@@ -20,9 +21,10 @@ import { workflowSql } from './rich-services';
+ import { createRichComparisonApp, comparisonDigest, type ComparisonBinding, type ComparisonRuntime } from './rich-comparison';
+ const deny=():never=>{throw new Error('rich_comparison_configuration_refused');};
+ /** No network performed by construction. Credentials remain in this internal closure. */
+-export async function comparisonProduction(jobId:string, judgeRuntime?:TrustedJudgeRuntime) {
+- const sql=workflowSql(); const initial=await getJobWithDecryptedCredentials(jobId); if(!initial) return deny();
+- const runner=(await buildAgentDeps()).runner; const pools:Pool[]=[];
++export async function comparisonProduction(jobId:string, judgeRuntime?:TrustedJudgeRuntime, autonomous?:AutonomousPaidContext) {
++ if(autonomous) assertAutonomousPaidContext(autonomous);
++ const sql=autonomous?.sql ?? workflowSql(); const initial=await getJobWithDecryptedCredentials(jobId); if(!initial) return deny();
++ const runner=autonomous ? autonomous.runner : (await buildAgentDeps()).runner; const pools:Pool[]=[];
+  const endpoint=async(v:ComparisonBinding['current'])=>{
+   const latest=await getJobWithDecryptedCredentials(jobId); if(!latest || latest.job.customerId!==initial.job.customerId || latest.job.environment!==initial.job.environment) return deny();
+   const canonicalEndpoint=(IntakeInput.parse(latest.intake) as unknown as Record<string,unknown>)[v.endpointSlot] as {url:string;model:string;apiKey?:string;systemPrompt:string}|undefined;
+@@ -32,12 +34,13 @@ export async function comparisonProduction(jobId:string, judgeRuntime?:TrustedJu
+   return {latest,ep};
+  };
+  const sharedJudgeRuntime=judgeRuntime ?? workflowJudgeRuntime('comparison');
+- const config:ComparisonRuntime={
+-  judge: v => createTrustedJudgeResolver({sql,checkpoints:new PostgresTextCheckpointStore(sql),policy:workflowJudgePolicy(),runtime:judgeRuntime ?? sharedJudgeRuntime,deliverCost:deliverRemediationCost,canonical:async()=>{
++ const sharedMonitoringJudgeRuntime=judgeRuntime ?? workflowJudgeRuntime('monitoring');
++ const config:ComparisonRuntime={autonomous,
++  judge: (v,monitor) => createTrustedJudgeResolver({autonomous,monitor,sql,checkpoints:new PostgresTextCheckpointStore(sql),policy:workflowJudgePolicy(),runtime:judgeRuntime ?? (monitor ? sharedMonitoringJudgeRuntime : sharedJudgeRuntime),deliverCost:deliverRemediationCost,canonical:async()=>{
+    const {latest}=await endpoint(v);
+    if(latest.job.state!=='delivered' || latest.job.isMock) return deny();
+    const fixture=await sql.query<{fixture:boolean}>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1',[latest.job.customerId]);
+-   return {job:{jobId,customerId:latest.job.customerId,environment:latest.job.environment,package:'text_eval' as const,isFixture:fixture.rows[0]?.fixture===true,linkedRetestOf:latest.job.retestOfJobId,quoteVersion:null},targetVersion:v.version,knownSecrets:Object.values(latest.credentials).filter((s):s is string=>typeof s==='string')};
++   return {job:autonomous?.job ?? {jobId,customerId:latest.job.customerId,environment:latest.job.environment,package:'text_eval' as const,isFixture:fixture.rows[0]?.fixture===true,linkedRetestOf:latest.job.retestOfJobId,quoteVersion:null},targetVersion:v.version,knownSecrets:Object.values(latest.credentials).filter((s):s is string=>typeof s==='string')};
+   }}),
+   runner,knownSecrets:Object.values(initial.credentials).filter((s):s is string=>typeof s==='string'),
+   verify:async(id,b,retained)=>{
+@@ -75,6 +78,7 @@ export async function comparisonProduction(jobId:string, judgeRuntime?:TrustedJu
+   },
+   target:async v=>createTextTarget((await endpoint(v)).ep),
+   calendar:async(v,guard,checkpoints)=>{
++   if(autonomous) return deny(); // missing stable target lifecycle identity
+    if(!v.branchId) return deny();
+    const journalPool=new Pool({connectionString:process.env.DATABASE_URL,max:2}); pools.push(journalPool);
+    let sequence=0;
+diff --git a/apps/web/src/server/rich-comparison.ts b/apps/web/src/server/rich-comparison.ts
+index 926b0bf..3c697f5 100644
+--- a/apps/web/src/server/rich-comparison.ts
++++ b/apps/web/src/server/rich-comparison.ts
+@@ -1,3 +1,4 @@
++import { assertAutonomousPaidContext, runAutonomousTarget, type AutonomousPaidContext, type PaidMonitor } from './autonomous-paid';
+ import type { createTrustedJudgeResolver } from './rich-judge';
+ import 'server-only';
+ import { createHash } from 'node:crypto';
+@@ -31,8 +32,9 @@ export const comparisonDigest = (v: unknown) => createHash('sha256').update(cano
+ const refused = (): never => { throw new Error('rich_comparison_refused'); };
+ export interface ComparisonPrincipal { tenantId: string; environment: 'test' | 'live' }
+ export interface ComparisonRuntime {
++  autonomous?: AutonomousPaidContext;
+   runner: AgentTaskRunner;
+-  judge?(binding: ComparisonBinding['current']): ReturnType<typeof createTrustedJudgeResolver>;
++  judge?(binding: ComparisonBinding['current'], monitor?: PaidMonitor): ReturnType<typeof createTrustedJudgeResolver>;
+   knownSecrets: readonly string[];
+   verify(jobId: string, binding: ComparisonBinding, retained: RichRunArtifact): Promise<{scenarioIds:string[]}>;
+   /** Called again immediately before every target operation; closure loads decrypted canonical intake. */
+@@ -42,6 +44,7 @@ export interface ComparisonRuntime {
+ }
+ /** Concrete SQL-backed app coordinator. Runtime contains transports, not authorization decisions. */
+ export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: ComparisonRuntime) {
++  if(runtime.autonomous) assertAutonomousPaidContext(runtime.autonomous);
+   const checkpoints = new PostgresTextCheckpointStore(sql);
+   async function authority(principal: ComparisonPrincipal, jobId: string, subscriptionId?: string) {
+     const row = (await sql.query<{ customer_id: string; environment: string; state: string; package: keyof typeof JOB_BUDGET_MICRO_USD; is_mock: boolean; is_internal_fixture: boolean; suite: ComparisonSuite; retained: RichRunArtifact; binding: unknown; binding_digest: string }>(`SELECT j.customer_id,j.environment,j.state,j.package,j.is_mock,c.is_internal_fixture,b.suite,b.retained,b.binding,b.binding_digest
+@@ -49,6 +52,10 @@ export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: Com
+       WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3`, [jobId,principal.tenantId,principal.environment])).rows[0];
+     if (!row || row.is_mock || row.state !== 'delivered' || comparisonDigest({suite:row.suite,retained:row.retained,binding:row.binding}) !== row.binding_digest) return refused();
+     if(runtime.knownSecrets.some(s=>s.length<4) || containsSecret(canonicalJson(row),runtime.knownSecrets)) return refused();
++    if(runtime.autonomous) {
++      await runtime.autonomous.guard(undefined,sql);
++      if(runtime.autonomous.job.jobId!==jobId || runtime.autonomous.job.customerId!==principal.tenantId || runtime.autonomous.job.environment!==principal.environment) refused();
++    }
+     const binding = comparisonBindingSchema.parse(row.binding);
+     const canonical = await runtime.verify(jobId,binding,row.retained);
+     if (binding.jobCapMicroUsd > JOB_BUDGET_MICRO_USD[row.package] || !JOB_BUDGET_MICRO_USD[row.package]
+@@ -68,6 +75,8 @@ export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: Com
+     if ((request.mode === 'monitoring') !== Boolean(subscriptionId)) return refused();
+     const a = await authority(principal,ctx.jobId,subscriptionId);
+     if (ctx.environment !== principal.environment || request.baselineVersion !== a.binding.baseline.version || request.currentVersion !== a.binding.current.version) return refused();
++    const monitor:PaidMonitor|undefined=subscriptionId?{key:`monitor:${subscriptionId}:${request.operationId}`,capMicroUsd:MONITORING_RUN_BUDGET_MICRO_USD}:undefined;
++    if(runtime.autonomous && a.binding.targetCallMicroUsd!==runtime.autonomous.targetReservationMicroUsd) return refused();
+     const immutable = { tenantId:principal.tenantId, environment:principal.environment, jobId:ctx.jobId, bindingDigest:a.binding_digest, request, subscriptionId:subscriptionId??null };
+     // Stable tick/request identity is committed before factory construction, agent calls, or targets.
+     const tick = {jobId:ctx.jobId,kind:'app_rich_tick',id:request.operationId,inputDigest:comparisonDigest(immutable)};
+@@ -83,6 +92,7 @@ export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: Com
+       const adapter = async (v:ComparisonBinding['current']) => {
+         const guard = async (operation:string) => {
+           await reauthorize();
++          if(runtime.autonomous) return refused(); // autonomous targets use the durable dispatch wrapper below
+           const period=process.env.NAIVE_BUDGET_PERIOD_ID; if(!period || !/^[A-Za-z0-9_-]+$/.test(period))return refused();
+           const reserved = await new PostgresBudgetLedger(sql).reserve({reservationId:`cmp:${comparisonDigest({immutable,v,operation})}`,jobId:ctx.jobId,amountMicroUsd:a.binding.targetCallMicroUsd,scopes:[{key:`agent:evaluation_engineer:${period}`,capMicroUsd:ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd},{key:`job:${ctx.jobId}`,capMicroUsd:a.binding.jobCapMicroUsd}, ...(subscriptionId?[{key:`monitor:${subscriptionId}:${request.operationId}`,capMicroUsd:MONITORING_RUN_BUDGET_MICRO_USD}]:[])]});
+           if (!reserved.ok) refused();
+@@ -102,13 +112,22 @@ export function createRichComparisonApp(sql: AgentTransactionalSql, runtime: Com
+             // On failure core retains the cost and the outer tick stays ambiguous.
+             await ctx.recordCost(cost);
+           }};
+-          const services = createTextEvaluationServices({checkpoints,runner:runtime.runner,resolveApprovedSuite:async()=>suite,resolve:async()=>{
++          const services = createTextEvaluationServices({checkpoints,runner:runtime.autonomous ? (monitor ? runtime.autonomous.runnerForMonitor(monitor) : runtime.autonomous.runner) : runtime.runner,resolveApprovedSuite:async()=>suite,resolve:async()=>{
+             await reauthorize();
+-            return {job:{jobId:ctx.jobId,customerId:principal.tenantId,environment:ctx.environment,package:'text_eval' as const,isFixture:a.is_internal_fixture,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,knownSecrets:runtime.knownSecrets,judge:runtime.judge?.(v) ?? null,
+-              target:{send:async req=>{await guard(`${req.runId}:${req.scenarioId}`);return (await runtime.target(v)).send(req);}}};
++            return {job:runtime.autonomous?.job ?? {jobId:ctx.jobId,customerId:principal.tenantId,environment:ctx.environment,package:'text_eval' as const,isFixture:a.is_internal_fixture,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,knownSecrets:runtime.knownSecrets,judge:runtime.judge?.(v,monitor) ?? null,
++              target:{send:async req=>{
++                if(runtime.autonomous) {
++                  await reauthorize();
++                  return runAutonomousTarget(runtime.autonomous,{job:runtime.autonomous.job,monitor,
++                    operationId:`autonomous-comparison:${ctx.jobId}:${request.operationId}:${v===a.binding.baseline?'baseline':'current'}:${req.runId}:${req.scenarioId}`,
++                    input:{request:req,version:v,bindingDigest:a.binding_digest}},async()=>{await reauthorize();return (await runtime.target(v)).send(req);});
++                }
++                await guard(`${req.runId}:${req.scenarioId}`);return (await runtime.target(v)).send(req);
++              }}};
+           }});
+           return createTextComparisonAdapter({services,ctx:scopedCtx,suiteDigest:suite.digest,readCosts:costs});
+         }
++        if (runtime.autonomous) return refused(); // Calendar lacks stable target run identity
+         if (!runtime.calendar) return refused();
+         const services=await runtime.calendar(v,guard,checkpoints);
+         // Calendar checkpoint identity includes target/branch. Use distinct references to identical frozen content.
+diff --git a/apps/web/src/server/rich-judge.ts b/apps/web/src/server/rich-judge.ts
+index 8194c9d..f48109b 100644
+--- a/apps/web/src/server/rich-judge.ts
++++ b/apps/web/src/server/rich-judge.ts
+@@ -1,3 +1,4 @@
++import { assertAutonomousPaidContext, type AutonomousPaidContext, type PaidMonitor } from './autonomous-paid';
+ import 'server-only';
+ import { createHash } from 'node:crypto';
+ import { createGatewayJudge, type JudgeInput } from '@ae/core/judges/gateway';
+@@ -23,10 +24,12 @@ export interface TrustedJudgeRuntime {
+ }
+ const refuse = (): never => { throw new Error('judge_reconciliation_required'); };
+ export function createTrustedJudgeResolver(deps: {
++  autonomous?: AutonomousPaidContext; monitor?: PaidMonitor;
+   sql: RemediationAccountingDeps['sql']; checkpoints: TextCheckpointStore;
+   canonical(): Promise<{ job: JobRef; knownSecrets: readonly string[]; targetVersion: string }>;
+   policy: JudgePolicy; runtime: TrustedJudgeRuntime; deliverCost: RemediationAccountingDeps['deliverCost'];
+ }) {
++  if (deps.autonomous) assertAutonomousPaidContext(deps.autonomous);
+   const policy = Object.freeze({ ...deps.policy });
+   if (!policy.model.trim() || !policy.configVersion || !policy.privateKeyRef || !/^[A-Za-z0-9_-]+$/.test(policy.periodId)
+     || !Number.isSafeInteger(policy.reservationMicroUsd) || policy.reservationMicroUsd <= 0
+@@ -35,24 +38,28 @@ export function createTrustedJudgeResolver(deps: {
+     const input = structuredClone(raw);
+     let privateToken: string | undefined;
+     const a = await deps.canonical();
++    if (deps.autonomous) { await deps.autonomous.guard(a.job,deps.sql); if(policy.periodId!==deps.autonomous.policy.periodId || policy.reservationMicroUsd!==deps.autonomous.judgeReservationMicroUsd) refuse(); }
+     function safe(value: unknown, secrets = a.knownSecrets) { if (containsSecret(JSON.stringify(value), [...secrets, ...(privateToken ? [privateToken] : [])])) refuse(); }
+     safe(input);
+-    const digest = createHash('sha256').update(canonicalJson({ input, policy, job: a.job, targetVersion: a.targetVersion })).digest('hex');
++    const digest = createHash('sha256').update(canonicalJson({ input, policy, job: a.job, targetVersion: a.targetVersion, ...(deps.autonomous ? {autonomousPolicy:deps.autonomous.policy,monitor:deps.monitor ?? null} : {}) })).digest('hex');
+     const operationId = `workflow-judge:${a.job.jobId}:${input.operationId}`;
+     const op = { operationId, kind: 'judge' as const, inputDigest: digest };
+     const key = { jobId: a.job.jobId, kind: 'gateway_judge', id: operationId, inputDigest: digest };
+     const accounting = new JudgeAccounting({ sql: deps.sql, jobId: a.job.jobId, deliverCost: deps.deliverCost,
+-      reservation: () => ({ reservationId: operationId, jobId: a.job.jobId, amountMicroUsd: policy.reservationMicroUsd, scopes: [
++      reservation: deps.autonomous ? deps.autonomous.reservation('judge',deps.monitor) : () => ({ reservationId: operationId, jobId: a.job.jobId, amountMicroUsd: policy.reservationMicroUsd, scopes: [
+         { key: `job:${a.job.jobId}`, capMicroUsd: PRICE_TABLE[a.job.package].jobBudgetMicroUsd },
+         { key: `agent:evaluation_engineer:${policy.periodId}`, capMicroUsd: ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd },
++        ...(deps.monitor ? [{key:deps.monitor.key,capMicroUsd:deps.monitor.capMicroUsd}] : []),
+       ] }) });
+     async function current() {
+       deps.runtime.signal.throwIfAborted();
++      await deps.autonomous?.guard(a.job,deps.sql);
+       const latest = await deps.canonical();
+       if (canonicalJson(latest.job) !== canonicalJson(a.job) || latest.targetVersion !== a.targetVersion) refuse();
+       safe(input, latest.knownSecrets);
+       return latest;
+     }
++    await current();
+     const claim = await deps.checkpoints.claim(key);
+     if (claim.state === 'completed') { const latest = await current(); safe(claim.value, latest.knownSecrets); return claim.value as Awaited<ReturnType<ReturnType<typeof createGatewayJudge>>>; }
+     if (claim.state !== 'claimed') return refuse();
+@@ -108,7 +115,7 @@ export function workflowJudgePolicy(): JudgePolicy {
+     reservationMicroUsd: Number(process.env.WORKFLOW_JUDGE_RESERVATION_MICRO_USD), periodId: process.env.NAIVE_BUDGET_PERIOD_ID ?? '',
+     auth, privateKeyRef: auth === 'api_key' ? 'AI_GATEWAY_API_KEY' : 'VERCEL_OIDC_TOKEN' };
+ }
+-export type WorkflowJudgePhase = 'baseline' | 'remediation' | 'rerun' | 'comparison';
++export type WorkflowJudgePhase = 'baseline' | 'remediation' | 'rerun' | 'comparison' | 'monitoring';
+ /** Server-only phase plan; no HTTP/body choice. Missing plan refuses dispatch. Permanent
+  * SQL claims and monetary reservations still fence every call across worker restarts.
+  * This local ceiling never overrides acceptance's separate durable lower-cap meter. */
+@@ -119,7 +126,7 @@ export function workflowJudgeRuntime(phase: WorkflowJudgePhase = 'baseline'): Tr
+     let plan: Record<string, unknown>;
+     try { plan = JSON.parse(raw); } catch { return refuse(); }
+     if (!plan || typeof plan !== 'object' || Array.isArray(plan)
+-      || Object.keys(plan).some(k => !['baseline','remediation','rerun','comparison'].includes(k))) return refuse();
++      || Object.keys(plan).some(k => !['baseline','remediation','rerun','comparison','monitoring'].includes(k))) return refuse();
+     const value = plan[phase];
+     if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > 96) return refuse();
+     limit = Number(value);
+diff --git a/apps/web/src/server/rich-remediation.ts b/apps/web/src/server/rich-remediation.ts
+index a499958..63b7905 100644
+--- a/apps/web/src/server/rich-remediation.ts
++++ b/apps/web/src/server/rich-remediation.ts
+@@ -1,3 +1,4 @@
++import { assertAutonomousPaidContext, type AutonomousPaidContext } from './autonomous-paid';
+ import type { createTrustedJudgeResolver } from './rich-judge';
+ import 'server-only';
+ import type { AgentTaskRunner } from '@ae/core/agents/session-service';
+@@ -39,13 +40,16 @@ export async function deliverRemediationCost(tx: AgentSqlExecutor, entry: {
+ 
+ /** Internal Workflow closure; request finding IDs select only canonical retained investigation facts. */
+ export function createRichRemediation(deps: {
++  autonomous?: AutonomousPaidContext;
+   sql: AgentTransactionalSql; runner: AgentTaskRunner; checkpoints: TextCheckpointStore;
+   canonical(): Promise<RemediationCanonical>;
+   text: ReturnType<typeof createTextEvaluationServices>;
+   judge?: ReturnType<typeof createTrustedJudgeResolver>;
+ }) {
+-  return createRemediationServices({ runner: deps.runner, checkpoints: deps.checkpoints, resolve: async (ctx, findingId) => {
++  if (deps.autonomous) assertAutonomousPaidContext(deps.autonomous);
++  return createRemediationServices({ runner: deps.autonomous?.runner ?? deps.runner, checkpoints: deps.checkpoints, resolve: async (ctx, findingId) => {
+     const a = await deps.canonical();
++    await deps.autonomous?.guard(a.job,deps.sql);
+     if (a.job.jobId !== ctx.jobId || a.job.environment !== ctx.environment || a.job.package !== 'text_eval') return refused();
+     const suiteDigest = a.binding.baseline_suite_digest, runId = a.binding.baseline_run_id;
+     if (!suiteDigest || !runId) return refused();
+@@ -62,10 +66,11 @@ export function createRichRemediation(deps: {
+     const trialId = `trial:${remediationDigest({ binding, findingId, suiteDigest, runId })}`;
+     const bound = a.binding.remediation_operation_micro_usd;
+     const enabled = a.binding.isolation === 'request_messages_only' && Number.isSafeInteger(bound) && Number(bound) > 0;
+-    const period = process.env.NAIVE_BUDGET_PERIOD_ID;
++    const period = deps.autonomous?.policy.periodId ?? process.env.NAIVE_BUDGET_PERIOD_ID;
++    if (deps.autonomous && enabled && Number(bound)!==deps.autonomous.targetReservationMicroUsd) return refused();
+     if (enabled && (!period || !/^[A-Za-z0-9_-]+$/.test(period))) return refused();
+     const accounting = new PostgresRemediationAccounting({ sql: deps.sql, jobId: ctx.jobId,
+-      reservation: op => ({ reservationId: op.operationId, jobId: ctx.jobId, amountMicroUsd: Number(bound), scopes: [
++      reservation: deps.autonomous ? deps.autonomous.reservation('target') : op => ({ reservationId: op.operationId, jobId: ctx.jobId, amountMicroUsd: Number(bound), scopes: [
+         { key: `job:${ctx.jobId}`, capMicroUsd: PRICE_TABLE[a.job.package].jobBudgetMicroUsd },
+         { key: `agent:evaluation_engineer:${period}`, capMicroUsd: ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd },
+       ] }), deliverCost: deliverRemediationCost });
+@@ -73,6 +78,7 @@ export function createRichRemediation(deps: {
+       scope: { job: a.job, finding, binding, original, trialId,
+         endpoint: { kind: 'stateless_chat_completions', isolation: 'request_messages_only', ...a.intake.endpoint } },
+       currentSecrets: async () => {
++        await deps.autonomous?.guard(a.job,deps.sql);
+         const latest = await deps.canonical();
+         if (latest.targetVersion !== a.targetVersion || latest.binding.isolation !== a.binding.isolation
+           || latest.binding.remediation_operation_micro_usd !== bound) return refused();
+@@ -81,6 +87,6 @@ export function createRichRemediation(deps: {
+     }) : null;
+     // The shared secured judge owns its durable reservation, usage and keyed delivery.
+     return { job: a.job, finding, knownSecrets: a.knownSecrets, binding, original, trial, judge: deps.judge ? async input => ({ value: await deps.judge!(input), costs: [] }) : null,
+-      authorize: async op => op.kind === 'judge' ? Boolean(deps.judge) : enabled ? accounting.authorize(op) : false };
++      authorize: async op => { await deps.autonomous?.guard(a.job,deps.sql); return op.kind === 'judge' ? Boolean(deps.judge) : enabled ? accounting.authorize(op) : false; } };
+   } });
+ }
+diff --git a/apps/web/src/server/rich-services.ts b/apps/web/src/server/rich-services.ts
+index 79a89b3..fa1c448 100644
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -1,3 +1,4 @@
++import { assertAutonomousPaidContext, runAutonomousTarget, type AutonomousPaidContext } from './autonomous-paid';
+ import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
+ import { deliverRemediationCost } from './rich-remediation';
+ import 'server-only';
+@@ -35,8 +36,9 @@ export function workflowSql() {
+ const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Canonical Workflow binding unavailable or changed; operator reconciliation required.'); };
+ 
+ /** Internal Workflow authority only; no route accepts this value from a customer body. */
+-export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string; judgeRuntime?: TrustedJudgeRuntime; rerun?: { ownerId: string; targetVersion: string } }) {
+-  const sql = workflowSql();
++export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string; autonomous?: AutonomousPaidContext; judgeRuntime?: TrustedJudgeRuntime; rerun?: { ownerId: string; targetVersion: string } }) {
++  if (authority.autonomous) assertAutonomousPaidContext(authority.autonomous);
++  const sql = authority.autonomous?.sql ?? workflowSql();
+   async function canonical() {
+     const loaded = await getJobWithDecryptedCredentials(ctx.jobId);
+     if (!loaded || !authority.workflowRunId || loaded.job.workflowRunId !== authority.workflowRunId
+@@ -49,8 +51,11 @@ export async function createRichWorkflowServices(ctx: ServiceContext, authority:
+     const b = binding.rows[0];
+     if (!b || !/^[A-Za-z0-9_.:-]{1,128}$/.test(b.target_revision)) return refused();
+     const fixture = await sql.query<{ fixture: boolean }>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1', [loaded.job.customerId]);
++    // Quote identity comes from the minted release capability; its current guard rechecks
++    // the complete canonical company request. Other identity fields remain DB-derived.
+     const job: JobRef = { jobId: ctx.jobId, customerId: loaded.job.customerId, package: intake.package,
+-      environment: ctx.environment, isFixture: fixture.rows[0]?.fixture === true, linkedRetestOf: loaded.job.retestOfJobId, quoteVersion: null };
++      environment: ctx.environment, isFixture: fixture.rows[0]?.fixture === true, linkedRetestOf: loaded.job.retestOfJobId, quoteVersion: authority.autonomous?.job.quoteVersion ?? null };
++    await authority.autonomous?.guard(job,sql);
+     const knownSecrets = Object.values(loaded.credentials).filter((x): x is string => typeof x === 'string');
+     if (knownSecrets.some(s => s.length < 4)) return refused();
+     // The ciphertext changes with credential rotation; hash stays server-only and never enters artifacts.
+@@ -68,13 +73,13 @@ export async function createRichWorkflowServices(ctx: ServiceContext, authority:
+       })() } };
+   }
+   const judgeRuntime = authority.judgeRuntime ?? workflowJudgeRuntime(authority.rerun ? 'rerun' : 'baseline');
+-  const judge = createTrustedJudgeResolver({ sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
++  const judge = createTrustedJudgeResolver({ autonomous:authority.autonomous, sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
+     policy: workflowJudgePolicy(), runtime: { ...judgeRuntime, beforeDispatch: async intent => {
+       if (ctx.budgetMicroUsd <= 0) return refused();
+       await judgeRuntime.beforeDispatch(intent);
+     } }, deliverCost: deliverRemediationCost });
+   const remediationRuntime = authority.judgeRuntime ?? workflowJudgeRuntime('remediation');
+-  const remediationJudge = createTrustedJudgeResolver({ sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
++  const remediationJudge = createTrustedJudgeResolver({ autonomous:authority.autonomous, sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
+     policy: workflowJudgePolicy(), runtime: { ...remediationRuntime, beforeDispatch: async intent => {
+       if (ctx.budgetMicroUsd <= 0) return refused();
+       await remediationRuntime.beforeDispatch(intent);
+@@ -82,8 +87,8 @@ export async function createRichWorkflowServices(ctx: ServiceContext, authority:
+   const initial = await canonical();
+   const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
+   const checkpoints = inventory.wrap(new PostgresTextCheckpointStore(sql));
+-  const agentDeps = await buildAgentDeps();
+-  const runner = withAgentCostDelivery(agentDeps.runner, { record: async (_key, cost) => recordCost({ ...toContractCost(cost), jobId: cost.jobId }) });
++  const selectedRunner = authority.autonomous ? authority.autonomous.runner : (await buildAgentDeps()).runner;
++  const runner = withAgentCostDelivery(selectedRunner, { record: async (_key, cost) => recordCost({ ...toContractCost(cost), jobId: cost.jobId }) });
+   const dataScope = { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment, workflowRunId: authority.workflowRunId };
+   const approved = createApprovedSuiteAdmission({ resolve: async (current, suiteDigest) => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+@@ -102,17 +107,30 @@ export async function createRichWorkflowServices(ctx: ServiceContext, authority:
+     if (a.job.package !== 'text_eval') return refused();
+     return advanceWorkflowData(sql, dataScope, a.knownSecrets, inventory);
+   }
++  async function sendText(a: Awaited<ReturnType<typeof canonical>>, input: Parameters<ReturnType<typeof createTextTarget>['send']>[0]) {
++    const dispatch = async () => {
++      const fresh=await canonical(); if(fresh.targetVersion!==a.targetVersion) return refused();
++      return createTextTarget(fresh.intake.endpoint).send(input);
++    };
++    if (!authority.autonomous) return dispatch();
++    return runAutonomousTarget(authority.autonomous,{job:a.job,
++      operationId:`autonomous-text:${a.job.jobId}:${input.runId}:${input.scenarioId}`,
++      input:{request:input,targetVersion:a.targetVersion}},dispatch);
++  }
+   const text = createTextEvaluationServices({ runner, checkpoints, resolveApprovedSuite: approved.resolveApprovedSuite, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+     const a = await canonical();
+-    return { job: a.job, target: { async send(input) { const fresh=await canonical(); if(fresh.targetVersion!==a.targetVersion) return refused(); return createTextTarget(fresh.intake.endpoint).send(input); } }, targetVersion: a.targetVersion,
++    return { job: a.job, target: { send: input => sendText(a,input) }, targetVersion: a.targetVersion,
+       judge, knownSecrets: a.knownSecrets };
+   } });
+-  const remediation = createRichRemediation({ sql, runner, checkpoints, canonical, text, judge: remediationJudge });
++  const remediation = createRichRemediation({ autonomous:authority.autonomous, sql, runner, checkpoints, canonical, text, judge: remediationJudge });
+   let branchBinding: { connection: string; pool: Pool } | undefined;
+   const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+     const a = await canonical();
++    // targetForScenario has no retained run/attempt identity. Autonomous Calendar is refused
++    // before pool/branch/provider work; a process-local counter or payload hash is not replay authority.
++    if (authority.autonomous) return refused();
+     if (!a.row.neonBranchId || !a.binding.reviewed_calendar) return refused();
+     const ledger = new PostgresBranchLedger(applicationPool!);
+     const owned = await ledger.findOwnedBranch(a.row.neonBranchId);
+@@ -147,7 +165,7 @@ export async function createRichWorkflowServices(ctx: ServiceContext, authority:
+     if (a.job.package !== 'text_eval') return refused();
+     return { configuration: { endpoint: a.intake.endpoint.url, model: a.intake.endpoint.model,
+       configurationVersion: a.targetVersion, systemPrompt: a.intake.endpoint.systemPrompt || null },
+-      target: createTextTarget(a.intake.endpoint), knownSecrets: a.knownSecrets };
++      target: {send: (input:Parameters<ReturnType<typeof createTextTarget>['send']>[0]) => sendText(a,input)}, knownSecrets: a.knownSecrets };
+   }
+   /** Discovery is read-only. Approved admission creates neither design nor suite checkpoints. */
+   async function resolvePackBaseSuite(expectedDigest?: string) {
+diff --git a/packages/core/src/agents/autonomy/budget.ts b/packages/core/src/agents/autonomy/budget.ts
+index 7b3e1df..0405baf 100644
+--- a/packages/core/src/agents/autonomy/budget.ts
++++ b/packages/core/src/agents/autonomy/budget.ts
+@@ -1,19 +1,55 @@
+-import type { BudgetLedger } from '../../evals/types';
++import type { BudgetLedger, BudgetReservationRequest, JobRef } from '../../evals/types';
++import { JobRefSchema } from '../../evals/types';
++import { ROLE_DEFINITIONS } from '../roles';
+ import { createAutonomousPolicy, type AutonomousPolicy, type AutonomyRole } from './policy';
+ 
++/** One monetary reservation spans the existing job/role scopes and company root.
++ * This is policy construction, not customer authentication or dispatch authority. */
++function scoped(request: BudgetReservationRequest, p: AutonomousPolicy): BudgetReservationRequest {
++ const copy=structuredClone(request);
++ const roles=copy.scopes.filter(s=>s.key.startsWith('agent:'));
++ const role=roles[0]?.key.split(':')[1] as AutonomyRole;
++ if(roles.length!==1 || !p.agents[role] || roles[0].key!==`agent:${role}:${p.periodId}`
++   || !copy.scopes.some(s=>s.key===`job:${copy.jobId}`)
++   || copy.scopes.some(s=>s.key.startsWith('autonomous-root:'))) throw new Error('autonomous_budget_scope_required');
++ for(const scope of copy.scopes) {
++  if(!Number.isSafeInteger(scope.capMicroUsd) || scope.capMicroUsd<0) throw new Error('autonomous_budget_scope_required');
++  if(scope.key===roles[0].key) scope.capMicroUsd=Math.min(scope.capMicroUsd,p.roleCapsMicroUsd[role],ROLE_DEFINITIONS[role].periodCapMicroUsd);
++ }
++ copy.scopes.push({key:`autonomous-root:${p.tenantId}:${p.periodId}`,capMicroUsd:p.rootBudgetMicroUsd});
++ return copy;
++}
++
+ /** Adds root policy scope to the EXISTING atomic SQL reservation, never a second monetary
+  * debit. Use this ledger when constructing AgentSessionService. Existing lower caps survive. */
+ export function createAutonomousBudgetLedger(underlying: BudgetLedger, input: AutonomousPolicy): BudgetLedger {
+  const p=createAutonomousPolicy(input);
+  return {
+-  async reserve(request) {
+-   const roleScope=request.scopes.find(s=>s.key.startsWith('agent:'));
+-   const role=roleScope?.key.split(':')[1] as AutonomyRole;
+-   if(!p.agents[role] || !request.scopes.some(s=>s.key===`job:${request.jobId}`)) throw new Error('autonomous_budget_scope_required');
+-   const scopes=request.scopes.map(scope=>({...scope,capMicroUsd:scope.key.startsWith('agent:') ? Math.min(scope.capMicroUsd,p.roleCapsMicroUsd[role]) : scope.capMicroUsd}));
+-   scopes.push({key:`autonomous-root:${p.tenantId}:${p.periodId}`,capMicroUsd:p.rootBudgetMicroUsd});
+-   return underlying.reserve({...request,scopes});
+-  },
++  async reserve(request) { return underlying.reserve(scoped(request,p)); },
+   settle:(id,cost)=>underlying.settle(id,cost),
+  };
+ }
++
++/** Server-owned policy for target/judge/media accounting adapters that reserve directly
++ * through PostgresBudgetLedger in their own transaction. Supply this to their reservation
++ * callback. Do NOT additionally wrap that ledger: this request already includes root.
++ * All writers must use the same immutable job cap and role period in the same SQL ledger.
++ * reservationMicroUsd is an authorized worst-case hold, never a measured price. */
++export function createAutonomousPaidReservationPolicy(input: {
++ policy: AutonomousPolicy; job: JobRef; role: AutonomyRole;
++ jobCapMicroUsd: number; reservationMicroUsd: number;
++}): (operation: { operationId: string }) => BudgetReservationRequest {
++ const p=createAutonomousPolicy(input.policy),job=JobRefSchema.parse(input.job),role=input.role;
++ const jobCap=input.jobCapMicroUsd,hold=input.reservationMicroUsd;
++ const ceiling=job.package==='version_comparison'?p.comparisonJobCapMicroUsd:p.singleJobCapMicroUsd;
++ if(job.customerId!==p.tenantId || !p.agents[role] || !/^[A-Za-z0-9_-]+$/.test(p.periodId)
++   || !Number.isSafeInteger(jobCap) || jobCap<=0 || jobCap>ceiling
++   || !Number.isSafeInteger(hold) || hold<=0 || hold>jobCap) throw new Error('autonomous_paid_policy_invalid');
++ return ({operationId})=>{
++  if(typeof operationId!=='string' || !operationId.length || operationId.length>4096 || /[\u0000\uD800-\uDFFF]/u.test(operationId)) throw new Error('autonomous_paid_operation_invalid');
++  return scoped({reservationId:operationId,jobId:job.jobId,amountMicroUsd:hold,scopes:[
++   {key:`job:${job.jobId}`,capMicroUsd:jobCap},
++   {key:`agent:${role}:${p.periodId}`,capMicroUsd:ROLE_DEFINITIONS[role].periodCapMicroUsd},
++  ]},p);
++ };
++}

@@ -1,0 +1,21 @@
+import {execFileSync as exec} from 'node:child_process';
+import {readFileSync as read,writeFileSync as write,mkdirSync,cpSync,existsSync} from 'node:fs';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {pins,sha} from './stage.mjs';
+const here=dirname(fileURLToPath(import.meta.url));
+const fresh=(baseline=false)=>JSON.parse(exec(process.execPath,[join(here,'stage.mjs'),...(baseline?['--baseline']:[])],{maxBuffer:64*1024*1024}));
+const baseline=fresh(true),full=fresh(),paths=full.paidPaths;
+exec('git',['init','-q'],{cwd:baseline.stage});
+exec('git',['add','--',...paths.filter(p=>existsSync(join(baseline.stage,p)))],{cwd:baseline.stage});
+for(const p of paths){mkdirSync(dirname(join(baseline.stage,p)),{recursive:true});cpSync(join(full.stage,p),join(baseline.stage,p));}
+exec('git',['add','-N','--',...paths],{cwd:baseline.stage});
+const patch=exec('git',['diff','--binary','--no-ext-diff','--',...paths],{cwd:baseline.stage,maxBuffer:64*1024*1024});
+write(join(here,'application.patch'),patch);
+const check=fresh(true);
+exec('git',['apply','--check',join(here,'application.patch')],{cwd:check.stage});
+exec('git',['apply',join(here,'application.patch')],{cwd:check.stage});
+for(const p of paths)if(!read(join(check.stage,p)).equals(read(join(full.stage,p))))throw Error('Patch bytes differ: '+p);
+for(const [p,h] of Object.entries(check.paidBaselineInventory))if(!paths.includes(p)&&sha(read(join(check.stage,p)))!==h)throw Error('Unowned baseline changed: '+p);
+write(join(here,'APPLICATION.json'),JSON.stringify({pins,baseline:'immutable stageAutonomy() full prior adoption',patch:'application.patch',sha256:sha(patch),paths:Object.fromEntries(paths.map(p=>[p,sha(read(join(full.stage,p)))])),preimages:Object.fromEntries(paths.map(p=>[p,check.paidBaselineInventory[p]??null])),helperDelta:'exact e4686a8 -> 0f1fe3c budget.ts, explicitly included',verified:'fresh git apply --check/apply; exact postimages; all unmodified baseline bytes preserved',releaseAccepted:false,liveRunPerformed:false},null,2)+'\n');
+console.log(JSON.stringify({stage:full.stage,paths:paths.length,sha256:sha(patch)}));

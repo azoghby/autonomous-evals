@@ -1,0 +1,39 @@
+{
+  "pins": {
+    "judgedTrackA": "aa94505fd535f5c0f586cc6325b49b71a1683761",
+    "ownerTrackA": "875ceef6a743df41736ee55c4145ca794e0854a8",
+    "core": "e4686a84f248bfe8be9bcda4ed534b0807379714",
+    "sharedBudgetCore": "0f1fe3cb5c11eb20477eace00a0447a56e728bac"
+  },
+  "baseline": "immutable stageAutonomy() full prior adoption",
+  "patch": "application.patch",
+  "sha256": "68f1fbe35c4c301307359c9188c2dd59ffb8390363a010592a11f0ed18cc1ef2",
+  "paths": {
+    "apps/web/src/server/autonomous-paid-authority.sql": "0b508bde681c43c965f8e04dfad26c3dbeb62581c9b1f428a4603219a9c11755",
+    "apps/web/src/server/autonomous-paid.sql": "4184a090bc12cad229d6b410671e1aac32e7cab21c7fd64d122c5836d2f2faa3",
+    "apps/web/src/server/autonomous-paid.ts": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
+    "apps/web/src/server/autonomy-release.ts": "4978ec7ea97436487a8a347bb430c98eabf45a4197178efbf72cf4d8359d434d",
+    "apps/web/src/server/comparison-production.ts": "47f693ad2e7bebdc66611c54181edda13f59fa52eaab9321ec5e9218b07d2d38",
+    "apps/web/src/server/rich-comparison.ts": "ad364311ca80aa8fb378295a5148d7dd1a6302fd9992cf21b8dc9cb9e4586601",
+    "apps/web/src/server/rich-judge.ts": "ac9050e532933d8e7a857f82466e802de8ddb355dcb8d142107c4355a5d31862",
+    "apps/web/src/server/rich-remediation.ts": "d51c60027312d613f0cb931a8ba8d05ec092eff89f76bc7a0baa70f58fa96f6d",
+    "apps/web/src/server/rich-services.ts": "6b00075f8324abc9715a944f1d509c9394faecddbe961c8f746ba542522d7313",
+    "packages/core/src/agents/autonomy/budget.ts": "c124413f7a4ad7d44a2c46776a4ee66428743b1f62e2c10f97959943bb7d4d9f"
+  },
+  "preimages": {
+    "apps/web/src/server/autonomous-paid-authority.sql": null,
+    "apps/web/src/server/autonomous-paid.sql": null,
+    "apps/web/src/server/autonomous-paid.ts": null,
+    "apps/web/src/server/autonomy-release.ts": "1ddcac91fc2cdc28d9e04f4e919f252b1680c2f68b0644c4f1aa4817007732f3",
+    "apps/web/src/server/comparison-production.ts": "e61dc259727cb5d02bbe71e43e70c72bb880501ac393ddb96f6ce6e618d1c676",
+    "apps/web/src/server/rich-comparison.ts": "37f6767e2f5d78e3a13d1dd2a995bdd971fdfff17a460490394be27ca73198b8",
+    "apps/web/src/server/rich-judge.ts": "11dae4a2e9cd6be2686bf0d77c1a423cce43d1fb6520c910d1a4e063bf6ca33e",
+    "apps/web/src/server/rich-remediation.ts": "67607d7a21f19fa00ae5f3e34ae55913488e73634059392078db9f82278e4353",
+    "apps/web/src/server/rich-services.ts": "eb156e03726e6f6c18c8cba248f8bbd4e7391663928bdf09a3a78f698fd1b117",
+    "packages/core/src/agents/autonomy/budget.ts": "962a7c97cd291c42775a603d76350c50d85a5b7e65ad4cbeaacd16b82f01cba4"
+  },
+  "helperDelta": "exact e4686a8 -> 0f1fe3c budget.ts, explicitly included",
+  "verified": "fresh git apply --check/apply; exact postimages; all unmodified baseline bytes preserved",
+  "releaseAccepted": false,
+  "liveRunPerformed": false
+}

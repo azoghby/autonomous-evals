@@ -1,0 +1,34 @@
+{
+  "patchSha256": "68f1fbe35c4c301307359c9188c2dd59ffb8390363a010592a11f0ed18cc1ef2",
+  "appliedSourceHashes": {
+    "apps/web/src/server/autonomous-paid-authority.sql": "0b508bde681c43c965f8e04dfad26c3dbeb62581c9b1f428a4603219a9c11755",
+    "apps/web/src/server/autonomous-paid.sql": "4184a090bc12cad229d6b410671e1aac32e7cab21c7fd64d122c5836d2f2faa3",
+    "apps/web/src/server/autonomous-paid.ts": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
+    "apps/web/src/server/autonomy-release.ts": "4978ec7ea97436487a8a347bb430c98eabf45a4197178efbf72cf4d8359d434d",
+    "apps/web/src/server/comparison-production.ts": "47f693ad2e7bebdc66611c54181edda13f59fa52eaab9321ec5e9218b07d2d38",
+    "apps/web/src/server/rich-comparison.ts": "ad364311ca80aa8fb378295a5148d7dd1a6302fd9992cf21b8dc9cb9e4586601",
+    "apps/web/src/server/rich-judge.ts": "ac9050e532933d8e7a857f82466e802de8ddb355dcb8d142107c4355a5d31862",
+    "apps/web/src/server/rich-remediation.ts": "d51c60027312d613f0cb931a8ba8d05ec092eff89f76bc7a0baa70f58fa96f6d",
+    "apps/web/src/server/rich-services.ts": "6b00075f8324abc9715a944f1d509c9394faecddbe961c8f746ba542522d7313",
+    "packages/core/src/agents/autonomy/budget.ts": "c124413f7a4ad7d44a2c46776a4ee66428743b1f62e2c10f97959943bb7d4d9f"
+  },
+  "tests": {
+    "passed": 113,
+    "failed": 0,
+    "skipped": 0,
+    "files": 13
+  },
+  "sqlSecurityTests": 6,
+  "strictTestTypecheck": true,
+  "fullCoreTypecheck": true,
+  "fullAppTypecheck": true,
+  "nextWorkflowBuild": true,
+  "baseline": "Immutable prior adoption; explicit main0f1fe3c budget helper delta",
+  "artifactRoundtrip": "fresh git apply --check/apply; exact postimages; all unmodified baseline bytes preserved",
+  "currentPreservation": "d892dd5ea2c70a3ad388f9ceea0b2462445ff7ba",
+  "currentMainBuild": "parent-owned; not claimed by historical stage",
+  "migrationApplication": "owner-only, not executed outside disposable test databases",
+  "cloud": false,
+  "providers": "offline scripted only",
+  "releaseAccepted": false
+}
