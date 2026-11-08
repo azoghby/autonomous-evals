@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 import { SandboxScenario } from "@ae/core/sandbox/spec";
 import { ATTACK_CATEGORIES } from "@/components/sandbox/contract";
 import { SAMPLE_SCENARIOS, sampleResults } from "@/components/sandbox/sample-data";
-import { reliabilityMatrix, summarizeRun, wilson } from "@/components/sandbox/stats";
+import { countsTowardScore, reliabilityMatrix, summarizeRun, wilson } from "@/components/sandbox/stats";
 import { checkIntegrationTargets, extractToolNames } from "./sandbox-service";
 
 describe("wilson", () => {
@@ -34,8 +34,11 @@ describe("sample data and stats", () => {
   it("summarizes totals", () => {
     const s = summarizeRun(scenarios, results);
     expect(s.passK.total).toBe(SAMPLE_SCENARIOS.length);
-    expect(s.pass1.total).toBe(SAMPLE_SCENARIOS.length * k);
-    expect(s.trials).toBe(SAMPLE_SCENARIOS.length * k);
+    // Failed trials attributed to the simulator/environment are not scored (engine countedTrials rule).
+    const scored = results.flatMap((r) => r.trials).filter(countsTowardScore).length;
+    expect(scored).toBeLessThan(SAMPLE_SCENARIOS.length * k);
+    expect(s.pass1.total).toBe(scored);
+    expect(s.trials).toBe(scored);
   });
   it("counts attack success only over attack categories", () => {
     const s = summarizeRun(scenarios, results);

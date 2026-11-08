@@ -22,12 +22,14 @@ import {
   sampleVersions,
 } from "@/components/sandbox/sample-data";
 import { assertPublicTarget } from "./target-url";
+import { createEngineSandboxService, type EngineSandboxService } from "./sandbox/engine-service";
+import { createDbSandboxStore } from "./sandbox/store";
+import { workflowSandboxExecutor } from "@/workflows/sandbox-start";
 
 /**
  * App-side boundary to the sandbox engine. Pages and API routes talk ONLY to this interface.
- * Today the only implementation is `createFixtureSandboxService`, which returns clearly labelled SAMPLE data
- * (`sample: true`). When packages/core/src/sandbox/engine lands, add an engine-backed implementation and switch
- * `getSandboxService()`; the UI does not change.
+ * `getSandboxService()` is engine-backed (sandbox/engine-service.ts: Postgres + durable workflows).
+ * `createFixtureSandboxService` returns clearly labelled SAMPLE data (`sample: true`) for the sample run and tests.
  *
  * Every method takes the owner id and enforces ownership: a draft/run belonging to someone else is `null`
  * (callers render 404, never 403, so ids are not probeable).
@@ -37,7 +39,7 @@ export interface SandboxService {
   createDraft(ownerId: string, input: SandboxIntakeInput): Promise<SandboxDraft>;
   getDraft(ownerId: string, draftId: string): Promise<SandboxDraft | null>;
   reviewScenario(ownerId: string, draftId: string, scenarioId: string, review: ScenarioReviewInput): Promise<SandboxDraft | null>;
-  startRun(ownerId: string, draftId: string, opts: { k: number }): Promise<{ ok: true; runId: string } | { ok: false; status: 404 | 409; error: string }>;
+  startRun(ownerId: string, draftId: string, opts: { k: number; scenarioIds?: string[]; validatedOnly?: boolean }): Promise<{ ok: true; runId: string } | { ok: false; status: 404 | 409 | 429; error: string }>;
   getRunReport(ownerId: string, runId: string): Promise<SandboxRunReport | null>;
 }
 
@@ -71,7 +73,7 @@ export async function checkIntegrationTargets(
 
 const TOOL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
 
-export function extractToolNames(format: SandboxIntakeInput["world"]["tools"]["format"], content: string): string[] {
+export function extractToolNames(format: NonNullable<SandboxIntakeInput["world"]>["tools"]["format"], content: string): string[] {
   try {
     if (format === "openapi") {
       const ids = [...content.matchAll(/"?operationId"?\s*:\s*"?([A-Za-z_][A-Za-z0-9_]*)"?/g)].map((m) => m[1]);
@@ -103,9 +105,9 @@ const evictOldest = <V>(m: Map<string, V>) => { while (m.size >= MAX_ITEMS_PER_S
 
 function buildEnvironment(input: SandboxIntakeInput): EnvironmentSummary {
   const base = sampleEnvironment();
-  const names = extractToolNames(input.world.tools.format, input.world.tools.content);
+  const names = input.world ? extractToolNames(input.world.tools.format, input.world.tools.content) : [];
   const tools = names.length > 0
-    ? names.map((name) => ({ name, description: "Parsed from your input (descriptions arrive with the ingest engine).", effect: "read" as const, source: `${input.world.tools.format}:${name}` }))
+    ? names.map((name) => ({ name, description: "Parsed from your input (descriptions arrive with the ingest engine).", effect: "read" as const, source: `${input.world?.tools.format ?? "prebuilt"}:${name}` }))
     : base.tools;
   return { ...base, tools };
 }
@@ -156,6 +158,7 @@ export function createFixtureSandboxService(store: FixtureStore = newFixtureStor
         mode: input.integration.mode,
         createdAt: now().toISOString(),
         sample: true,
+        status: "ready",
         environment: buildEnvironment(input),
         scenarios,
       };
@@ -213,8 +216,22 @@ export function createFixtureSandboxService(store: FixtureStore = newFixtureStor
 
 const g = globalThis as unknown as { __aeSandboxFixtureStore?: FixtureStore };
 
-/** The service used by pages and routes. Fixture-backed (sample data) until the engine ships. */
-export function getSandboxService(): SandboxService {
+/** In-memory SAMPLE service (fixture data, `sample: true`). Used for /sandbox/runs/sample and tests. */
+export function getFixtureSandboxService(): SandboxService {
   g.__aeSandboxFixtureStore ??= newFixtureStore();
   return createFixtureSandboxService(g.__aeSandboxFixtureStore);
+}
+
+/**
+ * The service used by pages, routes and MCP tools: engine-backed (Postgres + Vercel Workflow). The sample run
+ * (`/sandbox/runs/sample`) is still served from fixture data and labelled "Sample".
+ */
+export function getSandboxService(): EngineSandboxService {
+  const sample = getFixtureSandboxService();
+  return createEngineSandboxService({
+    store: createDbSandboxStore(),
+    executor: workflowSandboxExecutor,
+    sampleReport: () => sample.getRunReport("", SAMPLE_RUN_ID),
+    checkTarget: (integration) => checkIntegrationTargets(integration),
+  });
 }
