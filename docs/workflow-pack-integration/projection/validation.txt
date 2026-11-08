@@ -1,0 +1,10 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-pack-projection-XL2CIt
+
+
+ Test Files  3 passed (3)
+      Tests  15 passed (15)
+   Start at  17:16:53
+   Duration  3.15s (transform 55%, tests 37%, import 8%)
+
+{"stage":"/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-pack-projection-XL2CIt","core":"48519bf16e04bce3397ceaeb8abea060d2636263","trackA":"f0068733ca49c37f40fd7de279325f21a4b5fbbb"}
