@@ -7,7 +7,7 @@ export interface HomeStats {
   agents: number;
   /** Distinct (agent, model) pairings with at least one graded run. */
   pairings: number;
-  /** Sum of public_agent_runs.total. */
+  /** Sum of total over the latest graded run per agent row (same basis as the leaderboard). */
   scenarios: number;
   /** Median of cost_micro_usd / total over runs, in USD per scenario. Null when no run has a cost. */
   medianCostPerScenarioUsd: number | null;
@@ -35,10 +35,15 @@ export async function getHomeStats(): Promise<HomeStats | null> {
         percentile_cont(0.5) WITHIN GROUP (ORDER BY r.cost_micro_usd::float8 / r.total)
           FILTER (WHERE r.total > 0 AND r.cost_micro_usd > 0) AS median_micro,
         max(r.ran_at) AS as_of
-      FROM public_agent_runs r
+      FROM (
+        -- Latest graded run per agent row, matching the leaderboard (re-runs must not inflate the totals).
+        SELECT DISTINCT ON (agent_id) agent_id, total, cost_micro_usd, ran_at
+        FROM public_agent_runs
+        WHERE suite_version = 'standard-v1' AND total > 0
+        ORDER BY agent_id, ran_at DESC
+      ) r
       JOIN public_agents a ON a.id = r.agent_id
-      WHERE a.visibility = 'public' AND r.total > 0
-        AND (a.active OR a.status = 'paused') AND r.suite_version = 'standard-v1'`);
+      WHERE a.visibility = 'public' AND (a.active OR a.status = 'paused')`);
     const rows = (Array.isArray(res) ? res : (res as { rows?: unknown[] }).rows ?? []) as Row[];
     const row = rows[0];
     if (!row || row.as_of == null) return null;
