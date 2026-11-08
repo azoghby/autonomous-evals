@@ -1,0 +1,19 @@
+{
+  "status": "template_not_run",
+  "origin": "internal_fixture",
+  "targetKind": "deterministic_canned_chat_completions",
+  "suiteDigest": "0e5d6df16cd4c5953bb3a0966cf410216690549d3393cf60150d30b711a942e9",
+  "supportedScenarioIds": ["S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12"],
+  "runnerScenarioIds": ["S01", "S09"],
+  "runId": "PARENT_APPROVED_UNIQUE_RUN_ID",
+  "runnerJournalSha256": "RECORD_AFTER_AUTHORIZED_RUN",
+  "deployedTrackACommit": "TRACK_A_OWNER_RECORDS_ACTUAL_DEPLOYED_REVISION",
+  "appliedPatchSha256": "COPY_VERIFIED_PATCH_DIGEST",
+  "liveLlmTarget": false,
+  "customerIntelligenceValidated": false,
+  "remotePromptPatchAttested": false,
+  "sqlEngineValidatedByDirectTextRunner": false,
+  "gatewayJudgment": "not_run",
+  "secureHostedTransport": "not_run",
+  "calendarAppAcceptance": "not_run"
+}

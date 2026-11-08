@@ -1,0 +1,21 @@
+{
+  "runId": "PARENT_APPROVED_UNIQUE_RUN_ID",
+  "dependenciesDirectory": "/ABSOLUTE/APPROVED/DEPENDENCIES/node_modules",
+  "evidenceFile": "/PRIVATE/UNIQUE/controlled-text.jsonl",
+  "approvedTargetCalls": 4,
+  "approvedGatewayCalls": 8,
+  "buggy": {
+    "url": "${TRACK_A_APPROVED_HTTPS_ORIGIN}/api/internal/track-b-acceptance/buggy/chat/completions",
+    "model": "track-b-lumen-buggy-v1",
+    "tokenRef": { "env": "TRACK_B_ACCEPTANCE_TOKEN" }
+  },
+  "fixed": {
+    "url": "${TRACK_A_APPROVED_HTTPS_ORIGIN}/api/internal/track-b-acceptance/fixed/chat/completions",
+    "model": "track-b-lumen-fixed-v1",
+    "tokenRef": { "env": "TRACK_B_ACCEPTANCE_TOKEN" }
+  },
+  "gateway": {
+    "model": "PARENT_APPROVED_EXPLICIT_GATEWAY_MODEL",
+    "tokenRef": { "env": "AI_GATEWAY_API_KEY" }
+  }
+}

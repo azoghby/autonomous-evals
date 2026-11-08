@@ -1,0 +1,13 @@
+{
+  "trackA": "da92bedd68b230188e2499fdd8440ea23b2f1d6b",
+  "patch": "docs/controlled-acceptance-targets/0001-controlled-acceptance-targets.patch",
+  "patchSha256": "88af08e750f78eb67eeb95dc3b21bc12e7b5383efd9e80f6d9751b2d5a887f01",
+  "suiteDigest": "0e5d6df16cd4c5953bb3a0966cf410216690549d3393cf60150d30b711a942e9",
+  "files": {
+    "apps/web/src/app/api/internal/track-b-acceptance/buggy/chat/completions/route.ts": "2fb487c00ab2d9a93146547da241c5b8afbbb84f57c1d4f4938f8c9a5991fa68",
+    "apps/web/src/app/api/internal/track-b-acceptance/fixed/chat/completions/route.ts": "ddbd23fee10410d87a1d27ee9275ba6908cafc74ef6a8d0f8fb232b5f475e044",
+    "apps/web/src/app/api/internal/track-b-acceptance/fixture.ts": "5851cefa74e79d3b18213dceb5efc459689bf53979aea7649a92f694bfcc9d69"
+  },
+  "liveRunPerformed": false,
+  "calendarSupported": false
+}

@@ -1,0 +1,16 @@
+Offline verification, 2026-11-07 (local date)
+
+ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node docs/controlled-acceptance-targets/verify.mjs
+PASS: patch/source SHA-256 checks, exact clean archive application to da92bedd68b230188e2499fdd8440ea23b2f1d6b, strict route TypeScript compilation.
+Patch SHA-256: 88af08e750f78eb67eeb95dc3b21bc12e7b5383efd9e80f6d9751b2d5a887f01
+
+ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node --test tests/track-b/controlled-acceptance-targets/route.test.mjs
+PASS: 15 tests, 0 failed, 0 skipped, 0 todo. See test directory/results.txt.
+
+ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node --test tests/track-b/live-acceptance/provider/*.test.mjs
+PASS: 20 tests, 0 failed, 0 skipped, 0 todo. Existing acceptance assertions unchanged.
+
+node tests/track-b/live-acceptance/provider/run.mjs --plan
+PASS: accepted suite reused; S01/S09; target4, Gateway8; token caps512/2048; retries0; Naive0; cloudMutations0; liveRunPerformed:false.
+
+No hosted HTTPS request, provider call, credentials/secret files, cloud mutation, deployment, full Next build, SQL engine acceptance, customer intelligence validation, remote prompt patch attestation or push performed.

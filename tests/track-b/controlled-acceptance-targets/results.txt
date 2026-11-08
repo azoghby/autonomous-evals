@@ -1,0 +1,23 @@
+✔ independent exact accepted all12 artifact digest remains frozen (473.0565ms)
+✔ all12 fixed completions satisfy actual objective checks and independent factual oracle (9.9985ms)
+✔ all12 buggy responses produce objective failure; versions cannot be swapped (1.486292ms)
+✔ core Text adapter parses real route response shape without network or provider judge (0.677417ms)
+✔ disabled configuration and malformed config fail closed on each request (0.27375ms)
+✔ auth is independent bearer only and checked before parsing or reading payload (0.35225ms)
+✔ revoked or rotated configuration cannot reuse prior authorization (0.114792ms)
+✔ malformed and unknown requests use fixed private errors without echo (0.555209ms)
+✔ exact system and exactly two known messages prevent generic inference (0.406875ms)
+✔ completion budget bounded at integer16..512 and store false mandatory (0.534333ms)
+✔ body bound enforced on actual UTF8 bytes with and without Content-Length (0.322791ms)
+✔ non-POST method handlers deny with private fixed errors (0.227167ms)
+✔ parallel/interleaved versions and scenarios have no state bleed (6.857083ms)
+✔ all denial classes share fixed error envelope; encoding and malformed UTF8 rejected (0.358917ms)
+✔ streamed oversized body cancels before accepting trailing fixture input (0.358458ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 543.318458
