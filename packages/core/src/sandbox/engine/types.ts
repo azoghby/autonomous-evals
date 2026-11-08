@@ -112,6 +112,8 @@ export interface GenerationSlot {
   /** Impossible-by-design slot (expectRefusal). */
   impossible: boolean;
   index: number;
+  /** Optional customer request for this scenario (untrusted text; the prompt fences it as data). */
+  brief?: string;
 }
 
 /**

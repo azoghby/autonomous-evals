@@ -38,6 +38,16 @@ export function createMemoryStore() {
     },
     async getRun(ownerId, id) { const r = runs.get(id); return r && r.ownerId === ownerId ? r : null; },
     async getRunById(id) { return runs.get(id) ?? null; },
+    async listRuns(ownerId, limit) {
+      return [...runs.values()].filter((r) => r.ownerId === ownerId)
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, limit)
+        .map((r) => ({
+          runId: r.id, name: envs.get(r.environmentId)?.name ?? "Environment", status: r.status as never, k: r.k,
+          scenarios: Array.isArray(r.scenarios) ? r.scenarios.length : 0, passAt1: r.passAt1 ?? null, passHatK: r.passHatK ?? null,
+          costMicroUsd: r.costMicroUsd ?? 0, createdAt: new Date(r.createdAt ?? Date.now()).toISOString(),
+          completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
+        }));
+    },
     async updateRun(id, patch) { const r = runs.get(id); if (r) runs.set(id, { ...r, ...patch } as RunRow); },
     async putRunResult(id, result) {
       const r = runs.get(id);
