@@ -1,17 +1,15 @@
-import { mediaPlanIdentity } from '../../../packages/core/src/evals/sandbox/integration/media';
 import { ActualMediaRuntime } from '../sandbox-media-integration/actual-runtime';
 import { it, expect } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { type SandboxEngineConfig, type PrivateSandboxReport } from '../../../packages/core/src/evals/sandbox/integration';
-import { createReceiptChatTarget } from '../../../packages/core/src/evals/sandbox/multimodal/vision';
+import { createReceiptChatTarget, runReceiptVision } from '../../../packages/core/src/evals/sandbox/multimodal/vision';
 import { FileMediaAuthority, createMediaTransport } from '../../../packages/core/src/evals/sandbox/multimodal/common';
 import { executionDigest } from '../../../packages/core/src/evals/sandbox/execution/runner';
-import { gradeSandbox } from '../../../packages/core/src/evals/sandbox/grading';
-import { bridgeGateGrade } from '../../../packages/core/src/evals/sandbox/integration/gate-bridge';
+import { hashGradingScenario, hashPerceptionTrajectory } from '../../../packages/core/src/evals/sandbox/grading';
 import { freezeSandboxInputs } from '../../../packages/core/src/evals/sandbox/identity';
-import { createSuiteGateArtifact, runScenarioGates, gateDigest, requiredGateCheckIds, type CustomerSuiteApproval } from '../../../packages/core/src/evals/sandbox/generation/gates';
+import { gateDigest, requiredGateCheckIds, type CustomerSuiteApproval } from '../../../packages/core/src/evals/sandbox/generation/gates';
 import { gateFixture, environment, trialInput, versions } from '../sandbox-integration/sql-fixtures';
 import { SqlWorld, SqlRuntime, checkpointDatabase, sqlPort } from '../sandbox-integration/sql-world';
 
@@ -32,12 +30,9 @@ for (const kind of ['receipt','voice'] as const) it(`${kind}: admitted SQL lifec
  if(kind==='voice')s.persona.knowledge=[{fact:'Quote 47',revealWhen:'upfront'}];
  if(kind==='voice')s.persona.voice={ttsModel:'fixture-tts',voiceId:'alloy',pace:'normal',interrupts:false};
  if(kind==='receipt')s.attachments=[{id:'receipt',kind:'image',source:'render',prompt:'template:receipt',groundTruth:{total:'47'},perturbations:[]}];
- // Gates run actual SQL, actual deterministic grader and actual mutations. The gate agent
- // here is a controlled reference fixture; media SDK fidelity is exercised in the trial.
+ // Reference execution uses SQL and the real receipt SDK with a local transport.
  const execute=f.ports.execute;
- f.ports.execute=async i=>{const r=await execute(i); if(kind==='receipt'){if(i.role==='dump')await i.run.callTool('lookup',{});(i.run as SqlWorld).records[0].args={total:i.role==='oracle'?'47':'48'};} return r;};
- f.ports.grade=async i=>bridgeGateGrade(i.scenario,await gradeSandbox({scenario:i.scenario,run:i.run,versions:versions(),transcript:i.execution.transcript,
- completeDiff:{runId:i.run.runId,allTables:true},perception:kind==='receipt'?[{attachmentId:'receipt',field:'total',toolSeq:1,argumentPath:['total']}]:[]}));
+ let gateAssetSha256='';
  f.ports.mutations=async()=>requiredGateCheckIds(s).map(id=>({id:id.replace(':','_'),targetCheckId:id}));
  const mutate=f.ports.mutate; f.ports.mutate=async i=>{const r=await mutate(i);if(kind==='receipt' && i.plan.targetCheckId==='trajectory:read')(r.run as SqlWorld).records=i.oracleRun.trajectory().map(c=>({...c,tool:'other'}));if(i.plan.targetCheckId==='media:receipt')(r.run as SqlWorld).records[0].args={total:'48'};return r;};
  const makeTransport=()=>createMediaTransport({authority:new FileMediaAuthority(join(root,'dispatch')),allowedUrls:['https://ai-gateway.vercel.sh/v4/ai/language-model','https://ai-gateway.vercel.sh/v4/ai/speech-model','https://ai-gateway.vercel.sh/v4/ai/transcription-model','https://example.com/v1/chat/completions'],authorize:async()=>{},token:async()=> 'offline-credential',secrets:['offline-credential'],maxRequestBytes:2000000,maxResponseBytes:100000,timeoutMs:5000,maxMicroUsd:10,meter:{reserve:async()=>{},observed:async()=>{}},fetchImpl:async(url,init)=>{
@@ -58,19 +53,34 @@ for (const kind of ['receipt','voice'] as const) it(`${kind}: admitted SQL lifec
  authority:{authorize:async()=>authorized,finalSnapshot:async a=>{events.push('grade');expect(runtime.disposed.has(a.runId!)).toBe(true);const snapshot=await runtime.handles.get(a.runId!)!.finalSnapshot(a);return{...snapshot,evidence:{...snapshot.evidence,perception:kind==='receipt'?[{attachmentId:'receipt',field:'total',toolSeq:1,argumentPath:['total']}]:[]}};}}};
  const scope={tenantId:'owner',...f.input.scope};
  const persistenceConfig={scope,db:sqlPort(persistent.db),authorize:async()=>authorized,knownSecrets:['offline-credential']};
+ if(kind==='receipt') {
+  f.ports.execute=async input=>{
+   if(input.role==='dump')return execute(input); // No extraction call from a dump response.
+   const gateTarget=createReceiptChatTarget({...target,transport,callTool:(name,args)=>input.run.callTool(name,args)});
+   const receipt=await runReceiptVision({operationId:input.key,attachment:s.attachments[0],oracleModel:'independent-oracle',targetModel:target.model,seed:42,maxBytes:2000000},
+    {once:async(_id,_digest,work)=>work(),transport,targetConfigDigest:gateTarget.configDigest,target:gateTarget});
+   gateAssetSha256=receipt.provenance.assetSha256;
+   expect(receipt.oracle.fields).toEqual([expect.objectContaining({matched:true,read:'47'})]);
+   // The injected local transport incurs zero provider spend; actual report money stays null.
+   return {status:'completed',costMicroUsd:0,evidenceRef:input.key,transcript:receipt.target.transcript};
+  };
+ }
+ config.gateEvidence=async({run,scenario})=>{
+  const binding={runId:run.runId,scenarioHash:hashGradingScenario(scenario),envHash:executionDigest(environment),suiteHash:freezeSandboxInputs(environment,[scenario]).suiteHash};
+  return {completeDiff:{runId:run.runId,allTables:true},...(kind==='receipt'?{
+   perceptionAuthority:{...binding,requirements:[{attachmentId:'receipt',field:'total',tool:'lookup',argumentPath:['total'],expected:'47',assetSha256:gateAssetSha256}]},
+   perceptionEvidence:{...binding,status:'completed' as const,complete:true as const,trajectoryHash:hashPerceptionTrajectory(run.trajectory()),assets:[{attachmentId:'receipt',sha256:gateAssetSha256}]}
+  }:{})};
+ };
  const engine=createDurableSandboxEngine(config,persistenceConfig);
- // Use the actual media grader for proposal as well.
- config.gateEvidence=async({run})=>({completeDiff:{runId:run.runId,allTables:true},perception:kind==='receipt'?[{attachmentId:'receipt',field:'total',toolSeq:1,argumentPath:['total']}]:[]});
- // Receipt admission is a trusted protocol fixture: current deterministic perception
- // treats absent null-control arguments as unknown, so it cannot admit that suite.
- // The local engine lifecycle below still uses the actual deterministic SQL grader.
- const gateInput={...f.input,environment,scenario:s,replayKey:'receipt-admission-fixture'};
- const artifact=kind==='voice'?await engine.propose({environment,scenarios:[s],operationKey:'media-suite'}):createSuiteGateArtifact({scope:f.input.scope,environment,scenarios:[s],evidence:[await runScenarioGates(gateInput,{...f.ports,grade:async i=> /\/(do_nothing|empty|dump)$/.test(i.execution.evidenceRef ?? '')?{complete:true,checks:requiredGateCheckIds(i.scenario).map(id=>({id,rewardBearing:true,passed:false}))}:f.ports.grade(i)})]});
+ const artifact=await engine.propose({environment,scenarios:[s],operationKey:'media-suite'});
+ expect(artifact.evidence[0].status).toBe('passed');
+ const admissionDispatches=dispatched;
  approval={decision:'approved',suiteDigest:artifact.digest,environmentDigest:gateDigest(artifact.environment),evidenceDigest:gateDigest(artifact.evidence),scope:artifact.scope,customerId:'owner',approvalId:'approved'};
  const {environment:_e,scenario:_s,jobId:_j,versions:_v,...trial}=trialInput('media');
  const request={artifact,versions:{...versions(),envHash:executionDigest(environment),suiteHash:freezeSandboxInputs(environment,artifact.scenarios).suiteHash},trial:{...trial,bounds:{...trial.bounds,timeoutMs:60000,cleanupTimeoutMs:10000},agentConfigDigest:digest,scenarioId:s.id}};
  await expect(engine.run({...request,versions:{...request.versions,spec:'unsupported' as never}})).rejects.toThrow('spec');
- await expect(engine.run({...request,trial:{...request.trial,agentConfigDigest:'changed'}})).rejects.toThrow('config');expect(dispatched).toBe(0);
+ await expect(engine.run({...request,trial:{...request.trial,agentConfigDigest:'changed'}})).rejects.toThrow('config');expect(dispatched).toBe(admissionDispatches);
  const report=await engine.run(request);
  expect(events).toEqual(['allocate','capture','dispose','grade']);expect(runtime.tools).toBe(1);
  expect(report.grade?.verdict,JSON.stringify({execution:report.execution,unresolved:report.unresolved})).toBe('pass');expect(report.media?.kind).toBe(kind);
@@ -89,6 +99,8 @@ for (const kind of ['receipt','voice'] as const) it(`${kind}: admitted SQL lifec
  await persistent.db.close();const reopened=await checkpointDatabase(join(root,'sql'));
  try{
  const restarted=createDurableSandboxEngine(config,{...persistenceConfig,db:sqlPort(reopened.db)});
+ expect(await restarted.propose({environment,scenarios:[s],operationKey:'media-suite'})).toEqual(artifact);
+ expect(dispatched).toBe(count);
  expect(privateSandboxReportDigest((await restarted.readPrivateReport(request.trial.trialId,report.execution.identityDigest))!)).toBe(bytes);
  expect(await restarted.run(request)).toEqual(report);expect(dispatched).toBe(count);expect(runtime.tools).toBe(1);
  await expect(restarted.readPrivateReport(request.trial.trialId,executionDigest('wrong'))).rejects.toThrow('identity_conflict');
