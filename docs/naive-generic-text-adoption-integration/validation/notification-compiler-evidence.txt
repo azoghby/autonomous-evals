@@ -1,0 +1,11 @@
+Workflow 5.4.0 local documentation, foundations/workflows-and-steps.mdx:93:
+Calling a step from another step runs in the same process like a normal function; use step is a no-op.
+The same document at line118 states outside-workflow calls provide no retry semantics.
+
+Built production flow route sha256: 1de920c9416e410bdc8b9337c1047f6dfe70b74bb019522a65f6fc0dac30861b
+
+Compiled selected notification step body (Q) directly awaits imported sender, then completes its claim; no nested Workflow dispatcher is introduced:
+async function Q(a){let b=await (0,y.vt)(a),c=await (0,B.GM)(b);return"pending"!==c.status&&("completed"===c.status||(await (0,E.i)(a),await (0,B.px)(b,c.token),!0))}
+
+Registration retains outer maxRetries=0:
+s/steps/evaluate//genericTextNotifyStep",Object.defineProperty(Q,"name",{value:"genericTextNotifyStep",configurable:!0}),Q.maxRetries=0,d()}catch(a){d(a)}})},78474:a=>{a.exports=re

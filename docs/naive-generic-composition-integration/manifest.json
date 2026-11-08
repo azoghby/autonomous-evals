@@ -1,0 +1,17 @@
+{
+  "files": [
+    {
+      "path": "apps/web/src/server/naive-text-methods.test.ts",
+      "sha256": "17055f098e60582a0c3645088b7fe7526d1716c311c617ca51d6564e16559328"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.ts",
+      "sha256": "ddc031e98060631a01d9308ccffeee69160961f68914a184faee13efd7230bee"
+    }
+  ],
+  "requires": [
+    "apps/web/src/server/naive-method-authority.ts",
+    "apps/web/src/server/naive-engine-admission-policy.ts"
+  ],
+  "schemaChanges": false
+}

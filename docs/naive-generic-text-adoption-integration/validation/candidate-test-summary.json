@@ -1,0 +1,346 @@
+[
+  {
+    "path": "apps/web/src/workflows/job-naive-routing.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "actual candidate Workflow caller durably waits for admission then resumes generic evaluation",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller cancels while waiting without another design dispatch",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller durably resumes provider operations separately from admission",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller preserves expert route isolation before generic steps",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller holds all-unassessed generic baselines before delivery or settlement",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller generic rich reporting skips legacy automatic fix verification",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller recovers an acknowledged committed publication without overwriting delivered state",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller holds an ambiguous notification claim without dispatching legacy notifications",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller reconciles an existing receipt before a delivered text resume returns finished",
+        "status": "passed"
+      },
+      {
+        "name": "actual candidate Workflow caller preserves a delivered state when reconciliation cannot establish a receipt outcome",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/server/naive-engine-admission-policy.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "automated generic admission on real SQL migrations approves completed independent retained design, stable fresh-factory replay and current validation",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations missing or pending engine design remains pending",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects a valid rehashed foreign body and foreign identity",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects a rehashed forged checkpoint body despite matching review assertions",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations honors the supplied transaction and its rollback",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects foreign job on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects missing review on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects revoked session on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects changed message on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects changed output on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects forged engine review on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "automated generic admission on real SQL migrations rejects changed revision on retained approval replay",
+        "status": "passed"
+      },
+      {
+        "name": "initial admission request pin enforcement refuses unversioned request before issuing an approval",
+        "status": "passed"
+      },
+      {
+        "name": "initial admission request pin enforcement refuses wrong requested schema before issuing an approval",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/server/naive-method-authority.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "generic text canonical authority real SQL retains canonical bindings across close/reopen, rejects changed secret and never stores keys",
+        "status": "passed"
+      },
+      {
+        "name": "generic text canonical authority real SQL pending cannot approve and rejection survives retry",
+        "status": "passed"
+      },
+      {
+        "name": "generic text canonical authority real SQL replays lost approval acknowledgement, rejects public mutation and approval revocation",
+        "status": "passed"
+      },
+      {
+        "name": "generic text canonical authority real SQL retains full immutable rich runs and investigations through fresh authority reconstruction",
+        "status": "passed"
+      },
+      {
+        "name": "generic text canonical authority real SQL refuses changed owner/environment/intake, expired/deleted credentials and revoked publication",
+        "status": "passed"
+      },
+      {
+        "name": "generic text canonical authority real SQL current gates dispatch and publication after job revocation; changed intake cannot replace a slot",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/server/naive-method-routing.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "generic Naive routing candidate refuses malformed designSuite,",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate refuses malformed all",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate refuses malformed designSuite,designSuite",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate refuses malformed  designSuite",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate rejects mode/branch configuration and unsupported packages",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate does not invoke legacy or construct selected services at zero/invalid budget",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate selected unavailable never falls back and unrelated expert/legacy calls retain identity",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate pending admission is terminal for step retries and identifiable as a hold",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate transports provider pending distinctly for durable resume",
+        "status": "passed"
+      },
+      {
+        "name": "generic Naive routing candidate invokes injected implementation and selects real branches separately",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/server/naive-services-registration.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "app factory default owner registration loads actual owner builder lazily only on selected calls and caches composition seam",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/server/naive-text-methods.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "generic application text composition with durable SQL authority routes selected methods through the actual app factory and durable owner composition without lite substitution",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority resumes pending selected provider sessions through reconstructed app factories without redispatch",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority rejects zero and unsafe budgets before SQL or provider construction, and unsupported methods fail closed",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority requires configured judge policy before provider or target calls",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority pins provider task allocations below role maxima and default budgets for a larger initial allowance",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority designs and independently admits then runs/investigates, reconstructs with reduced remaining budget without redispatch",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority uses the configured real Jude proxy adapter for rubric checks and retains keyed billed receipts across restart",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority preserves inconclusive rubric checks in public and retained rich runs without publishing boolean pass",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority uses the canonical job scope already established by qualification with a lower remaining allowance",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority shares the canonical judge-period scope across jobs with different generic allocations",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority recovers lost cost acknowledgement via reconstruction without another provider operation",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority refuses revoked canonical scope before target dispatch and retained publication",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority retains measured provider cost before post-await revocation and drains it before revoked factory admission",
+        "status": "passed"
+      },
+      {
+        "name": "generic application text composition with durable SQL authority rechecks authority after target await and prevents run publication when revocation occurs in flight",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/server/naive-text-publication.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "generic text report canonical SQL publication reads canonical retained evidence at zero remaining budget without provider work",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication atomically publishes exact findings and immutable paths; fresh replay has stable delivery timestamp",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication rejects substituted public suite/findings/report before any delivered state",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication checks current canonical state, credentials and independent review before report publication",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication rolls back findings, job delivery and publication receipt if a SQL write fails",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication preserves all-inconclusive coverage instead of claiming assessed scenarios",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication acknowledges an immutable committed receipt after credential cleanup and rejects receipt corruption",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication refuses extra preexisting baseline findings and secret-bearing report artifacts",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication rechecks current independent reviewer evidence before publishing an already rendered report",
+        "status": "passed"
+      },
+      {
+        "name": "generic text report canonical SQL publication fences a single notification intent across restart and rejects foreign or changed authority",
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "path": "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts",
+    "status": "passed",
+    "tests": [
+      {
+        "name": "actual selected generic evaluation steps text execution creates no simulator branch",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps does not append red-team cases after design admission",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps retains legacy post-design augmentation and public version projection",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps preserves exact suite identity across public version labels",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps holds entirely unassessed results before paid rendering, blobs, or publication",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps publishes assessed coverage atomically after releasing the paid reservation",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps refuses changed current authority before uploading or publishing",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps does not redispatch an ambiguous or completed notification claim",
+        "status": "passed"
+      },
+      {
+        "name": "actual selected generic evaluation steps completes only its own notification attempt token after the existing sender returns",
+        "status": "passed"
+      }
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "baseCommit": "f99d436b6a9589f586ecd591710c1b5c5a87683f",
+  "status": "candidate-only; actual owner builder registration pending",
+  "files": [
+    {
+      "path": "apps/web/src/server/naive-method-routing.ts",
+      "baseSha256": null,
+      "postimageSha256": "d8852bb40c8d051cc4a08f17cec67c9ccaeaba4b026e065def50a47254ffe741"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "baseSha256": "653a5296f154309bf8dd61c5816543bd8517a5e117566e6c910fe4ab53001f01",
+      "postimageSha256": "85b4fdb3694b7e2058441d3a13af3b0f4da4225770350ad916b2ef82756a0c32"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "baseSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b",
+      "postimageSha256": "ec4df36f68698f571eea1bfd6d53f7a9539d31f5bd8bb4223e38e4280e66de42"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "baseSha256": "ba10d271051605f5f78035d04dfeb38f985beeee71d2e2f651e5a621e090865c",
+      "postimageSha256": "94b483a161995b038e9cec3d4da11a80198df45267303736007c4acf01642bc0"
+    }
+  ]
+}

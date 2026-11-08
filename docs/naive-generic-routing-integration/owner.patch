@@ -1,0 +1,196 @@
+--- /dev/null
++++ b/apps/web/src/server/naive-method-routing.ts
+@@ -0,0 +1,61 @@
++import { FatalError } from 'workflow';
++import type { EvalServices, ServiceContext } from '@ae/core/contracts/services';
++import { EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError } from '@ae/core/integration/eval-services';
++
++export const naiveMethods = ['designSuite', 'runSuite', 'investigate', 'proposeAndVerifyFix', 'rerunFinding'] as const;
++export type NaiveMethod = typeof naiveMethods[number];
++export type NaiveMethodBuilder = (method: NaiveMethod, ctx: ServiceContext) => Promise<Partial<Pick<EvalServices, NaiveMethod>>>;
++export type RoutingSelection = { methods: ReadonlySet<NaiveMethod>; realBranches?: boolean };
++export function readRoutingSelection(env: Record<string, string | undefined> = process.env): RoutingSelection {
++  const raw = env.EVAL_NAIVE_METHODS;
++  const methods = new Set<NaiveMethod>();
++  if (raw !== undefined && raw !== '') {
++    for (const item of raw.split(',')) {
++      if (!naiveMethods.includes(item as NaiveMethod) || methods.has(item as NaiveMethod)) {
++        throw new EvalServiceConfigError(`Invalid EVAL_NAIVE_METHODS selection: ${item}`, ["EVAL_NAIVE_METHODS"]);
++      }
++      methods.add(item as NaiveMethod);
++    }
++  }
++  const flag = env.EVAL_REAL_BRANCHES;
++  if (flag !== undefined && flag !== '0' && flag !== '1') throw new EvalServiceConfigError('EVAL_REAL_BRANCHES must be 0 or 1', ['EVAL_REAL_BRANCHES']);
++  if (methods.size && env.EVAL_SERVICES !== 'real') throw new EvalServiceConfigError('Selected Naive methods require EVAL_SERVICES=real', ['EVAL_SERVICES']);
++  return { methods, realBranches: flag === undefined ? undefined : flag === '1' };
++}
++export function selectedNaiveMethod(method: NaiveMethod): boolean { return readRoutingSelection().methods.has(method); }
++export function selectedNaiveEvaluation(): boolean {
++  const { methods } = readRoutingSelection();
++  return ['designSuite', 'runSuite', 'investigate'].some(m => methods.has(m as NaiveMethod));
++}
++export function requireNaivePackage(pkg: string, selection = readRoutingSelection()): void {
++  if (selection.methods.size && pkg !== 'text_eval') throw new EvalServiceUnavailableError("genericNaive", `Selected generic Naive evaluation does not support ${pkg}`);
++}
++/** The injected builder is an owner-authorized composition boundary, never a lite fallback. */
++export function routeNaiveMethods(legacy: EvalServices, branches: EvalServices, selection: RoutingSelection, builder: NaiveMethodBuilder): EvalServices {
++  const out = { ...legacy };
++  for (const method of selection.methods) {
++    const invoke = async (ctx: ServiceContext, ...args: unknown[]) => {
++      if (!Number.isSafeInteger(ctx.budgetMicroUsd) || ctx.budgetMicroUsd <= 0) throw new TrackBBlockedError('paused_budget', 'Naive method requires a positive finite reserved budget');
++      try {
++      const built = await builder(method, ctx);
++      const fn = built[method];
++      if (typeof fn !== 'function') throw new EvalServiceUnavailableError(method, `Selected Naive method ${method} has no owner builder`);
++        return await (fn as (...args: unknown[]) => Promise<unknown>).apply(built, [ctx, ...args]);
++      } catch (error) {
++        if (error instanceof TrackBPendingError && error.reason === 'Generic text design admission pending.') throw new FatalError(`NAIVE_ADMISSION_PENDING: ${error.message}`);
++        throw error;
++      }
++    };
++    (out as unknown as Record<string, unknown>)[method] = invoke;
++  }
++  if (selection.realBranches !== undefined) {
++    for (const method of ['createJobBranch', 'deleteJobBranch', 'getJobBranchConnection'] as const) {
++      if (selection.realBranches) (out as unknown as Record<string, unknown>)[method] = branches[method]?.bind(branches) ?? (async () => { throw new EvalServiceUnavailableError(method, "Real branch method unavailable"); });
++      else (out as unknown as Record<string, unknown>)[method] = async () => { throw new EvalServiceUnavailableError(method, 'Real simulator branches are disabled'); };
++    }
++  }
++  return out;
++}
++export const unavailableNaiveBuilder: NaiveMethodBuilder = async method => {
++  throw new EvalServiceUnavailableError(method, `Selected Naive method ${method} requires an installed owner builder`);
++};
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -12,6 +12,8 @@
+ import { FatalError, RetryableError } from "workflow";
+ import { createLiteServices, LiteJudgeOutageError, LiteUnavailableError } from "@ae/core/lite/index";
+ import { resolveJobTarget } from "./lite-target";
++
++import { readRoutingSelection, routeNaiveMethods, unavailableNaiveBuilder, type NaiveMethodBuilder } from "./naive-method-routing";
+ 
+ const MOCK = "[MOCK]";
+ const MOCK_CLARIFY_MARKER = "[needs-clarification]";
+@@ -233,13 +235,14 @@
+  * EVAL_SERVICES=lite -> lite engine only (@ae/core/lite: AI gateway + SSRF-safe target transport).
+  * All lazy; no I/O until first call.
+  */
+-export async function getEvalServices(): Promise<EvalServices> {
++export async function getEvalServices(builder: NaiveMethodBuilder = unavailableNaiveBuilder): Promise<EvalServices> {
++  const selection = readRoutingSelection();
+   const mode = evalServicesMode();
+-  if (mode === "mock") return mockServices;
++  if (mode === "mock") return selection.realBranches === undefined ? mockServices : withWorkflowErrors(routeNaiveMethods(mockServices, trackBServices, selection, builder));
+   if (mode === "lite") {
+     lite ??= withWorkflowErrors(liteServices());
+-    return lite;
++    return selection.realBranches === undefined ? lite : withWorkflowErrors(routeNaiveMethods(lite, trackBServices, selection, builder));
+   }
+   real ??= withWorkflowErrors(withLiteFallback(trackBServices, liteServices()));
+-  return real;
+-}
++  return withWorkflowErrors(routeNaiveMethods(real, trackBServices, selection, builder));
++}
+--- a/apps/web/src/workflows/job.ts
++++ b/apps/web/src/workflows/job.ts
+@@ -37,6 +37,8 @@
+   const events = hook[Symbol.asyncIterator]();
+   const stashedPayments: PaymentEvent[] = [];
+   const seenPaymentIds: string[] = [];
++  let admissionPolls = 0;
++  let admissionEvent: Promise<JobEvent> | undefined;
+ 
+   async function nextEvent(): Promise<JobEvent> {
+     const r = await events.next();
+@@ -299,11 +301,32 @@
+     return undefined;
+   }
+ 
+-  try {
+-    return await run();
+-  } catch (err) {
+-    const message = err instanceof Error ? err.message : String(err);
+-    await failStep(jobId, message);
+-    return { jobId, status: "failed" };
++  for (;;) {
++    try {
++      return await run();
++    } catch (err) {
++      const message = err instanceof Error ? err.message : String(err);
++      if (message.startsWith("NAIVE_ADMISSION_PENDING:")) {
++        await progressStep(jobId, "naive_admission_pending", "Evaluation is waiting for owner admission.");
++        if (admissionPolls++ >= 336) return { jobId, status: "on_hold" };
++        const timer = sleep("30m");
++        for (;;) {
++          admissionEvent ??= nextEvent();
++          const wake = await Promise.race([
++            timer.then(() => ({ type: "timer" as const })),
++            admissionEvent.then(event => ({ type: "event" as const, event })),
++          ]);
++          if (wake.type === "timer") break;
++          admissionEvent = undefined;
++          if (wake.event.type === "cancel") {
++            await cancelStep(jobId, wake.event.reason);
++            return { jobId, status: "cancelled" };
++          }
++        }
++        continue;
++      }
++      await failStep(jobId, message);
++      return { jobId, status: "failed" };
++    }
+   }
+ }
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -8,6 +8,7 @@
+ import { putJobArtifact } from "@ae/core/storage/blob";
+ import { findingRowIdByKey, recordProgress, saveFindings, saveRemediation, setJobState } from "@/server/job-store";
+ import { resolveBranchConnection } from "@/server/branch-connection";
++import { requireNaivePackage, selectedNaiveMethod, selectedNaiveEvaluation } from "@/server/naive-method-routing";
+ import { getEvalServices } from "@/server/services";
+ import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+ 
+@@ -34,8 +35,13 @@
+ auditTraceStep.maxRetries = 1;
+ 
+ /** Creates the per-job Neon branch. Returns only the branch id: step I/O is persisted in plaintext, so the connection string is never returned. */
+-export async function createBranchStep(jobId: string): Promise<{ branchId: string }> {
++export async function createBranchStep(jobId: string): Promise<{ branchId?: string }> {
+   "use step";
++  const intake = await loadIntake(jobId, false);
++  if (selectedNaiveEvaluation()) {
++    requireNaivePackage(intake.package);
++    return {}; // text execution has no simulator isolation requirement
++  }
+   const services = await getEvalServices();
+   const job = await requireJob(jobId);
+   // A previous attempt that wrote neon_branch_id but lost its result is simply recreated.
+@@ -53,7 +59,7 @@
+   const result = await withBudget(jobId, "engineer", async (ctx) => {
+     const designed = await services.designSuite(ctx, intake);
+     // Red-team pack (rt_* scenarios): pure + free, so it does not touch the budget. Disable with REDTEAM_PACK=off.
+-    const suite = redTeamPackEnabled() ? appendRedTeamToSuite(designed, intake) : designed;
++    const suite = !selectedNaiveEvaluation() && redTeamPackEnabled() ? appendRedTeamToSuite(designed, intake) : designed;
+     const path = await putJobArtifact(jobId, "suite", JSON.stringify(suite), "application/json");
+     const job = await requireJob(jobId);
+     await setJobState(jobId, job.state, { suiteBlobPath: path });
+@@ -89,7 +95,7 @@
+   const branchConnectionString = branchId ? await resolveBranchConnection(branchId) : undefined;
+   const result = await withBudget(jobId, "judge", async (ctx) => {
+     await ctx.recordProgress("running_suite", `Running ${suite.scenarios.length} scenario(s) against ${versionLabel}.`);
+-    return services.runSuite(ctx, { ...suite, versionLabel }, target, branchConnectionString);
++    return services.runSuite(ctx, selectedNaiveEvaluation() ? suite : { ...suite, versionLabel }, target, branchConnectionString);
+   });
+   if (result.status === "ok") {
+     const counts = summarizeRunResults(result.data.results);
+@@ -127,6 +133,7 @@
+       await saveRemediation(jobId, rowId, fix);
+       return fix;
+     } catch (err) {
++      if (selectedNaiveMethod("proposeAndVerifyFix")) throw err;
+       await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
+       return null;
+     }

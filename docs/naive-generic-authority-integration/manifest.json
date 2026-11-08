@@ -1,0 +1,13 @@
+{
+  "files": [
+    {
+      "path": "apps/web/src/server/naive-method-authority.test.ts",
+      "sha256": "1ab965bad3ebcbf2d66d4f1d66b6bfcf2bf98a76af1fc8f18e63a8143a5bef02"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.ts",
+      "sha256": "cead459c2bc7f0ccef32415ccaf8f38af17b6951792bacb966891642b5b2012f"
+    }
+  ],
+  "schemaChanges": false
+}

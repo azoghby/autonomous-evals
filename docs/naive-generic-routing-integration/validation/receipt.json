@@ -1,0 +1,30 @@
+{
+  "stage": "/tmp/naive-routing-stage",
+  "dependencies": "exact npm ci workspace dependencies; stage node_modules symlink farm, @ae/core points to stage/packages/core",
+  "tests": {
+    "command": "ROUTING_STAGE=/tmp/naive-routing-stage node node_modules/vitest/vitest.mjs run --config docs/naive-generic-routing-integration/validation.config.ts",
+    "files": 3,
+    "passed": 18,
+    "exitCode": 0
+  },
+  "typegen": {
+    "exitCode": 0
+  },
+  "typecheck": {
+    "command": "node node_modules/typescript/bin/tsc -p apps/web --noEmit",
+    "exitCode": 0
+  },
+  "build": {
+    "command": "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=/tmp/naive-routing-stage/font-mock.cjs NEXT_TELEMETRY_DISABLED=1 node ../../node_modules/next/dist/bin/next build --webpack",
+    "exitCode": 0,
+    "workflows": 4,
+    "steps": 57,
+    "scope": "offline stage only; fonts mocked, no credentials/provider/deployment"
+  },
+  "limitations": [
+    "Actual owner generic builder not registered by this candidate",
+    "Full repo test suite belongs to root integration",
+    "No hosted, provider or SQL composition acceptance claimed",
+    "Workflow tests execute real orchestration with mocked step ports, not durable runtime replay"
+  ]
+}
