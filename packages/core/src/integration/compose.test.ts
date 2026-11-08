@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ServiceContext } from "../contracts/services";
-import { composeEvalServices, EvalServiceUnavailableError, type BranchServices } from "./compose";
-import { evalServices, EvalServiceConfigError, missingRealServiceEnv, NAIVE_AGENT_ENV } from "./eval-services";
+import { TrackBBlockedError } from "../evals/service-adapter";
+import { assertPaidBudget, composeEvalServices, EvalServiceUnavailableError, type BranchServices } from "./compose";
+import { evalServices, EvalServiceConfigError, missingRealServiceEnv, NAIVE_AGENT_ENV, trackBDatabaseUrl } from "./eval-services";
 
 const ctx: ServiceContext = {
   jobId: "job-1", environment: "test", budgetMicroUsd: 1_000_000,
@@ -52,11 +53,52 @@ describe("composeEvalServices", () => {
   });
 });
 
+describe("budget-0 refusal", () => {
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("refuses paid methods with budget %s before building agent services", async (budgetMicroUsd) => {
+    const agents = vi.fn(async () => { throw new Error("must not be built"); });
+    const recordCost = vi.fn(async () => {});
+    const c: ServiceContext = { ...ctx, budgetMicroUsd, recordCost };
+    const s = composeEvalServices({ agents, branches: async () => fakeBranches() });
+    for (const call of [
+      () => s.qualify(c, { package: "trace_audit", trace: "x" } as never, []),
+      () => s.auditTrace(c, "trace"),
+      () => s.renderReport(c, { intake: { package: "trace_audit", trace: "x" } as never, findings: [] }),
+    ]) {
+      const err = await call().then(() => null, (e: unknown) => e);
+      expect(err).toBeInstanceOf(TrackBBlockedError);
+      expect((err as TrackBBlockedError).code).toBe("paused_budget");
+      expect((err as Error).message).toMatch(/budget/i);
+    }
+    expect(agents).not.toHaveBeenCalled();
+    expect(recordCost).not.toHaveBeenCalled();
+  });
+
+  it("lets a positive budget through to agent services", async () => {
+    expect(() => assertPaidBudget(ctx, "qualify")).not.toThrow();
+    const agents = vi.fn(async () => { throw new Error("built"); });
+    const s = composeEvalServices({ agents, branches: async () => fakeBranches() });
+    await expect(s.qualify(ctx, { package: "trace_audit", trace: "x" } as never, [])).rejects.toThrow("built");
+    expect(agents).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not gate free branch/target methods on budget", async () => {
+    const zero: ServiceContext = { ...ctx, budgetMicroUsd: 0 };
+    const s = composeEvalServices({ agents: async () => { throw new Error("unused"); }, branches: async () => fakeBranches() });
+    await expect(s.deleteJobBranch("br-1")).resolves.toBeUndefined();
+    expect((await s.checkTarget(zero, { url: "http://127.0.0.1/v1/chat/completions", model: "m" })).ok).toBe(false);
+  });
+});
+
 describe("env-configured evalServices", () => {
   it("reports missing env var names (never values)", () => {
     const m = missingRealServiceEnv({ DATABASE_URL: "postgres://u:p@h/db" });
     expect(m.agents).toEqual(["NAIVE_API_KEY", ...Object.values(NAIVE_AGENT_ENV)]);
     expect(m.branches).toEqual(["NEON_API_KEY", "NEON_PROJECT_ID", "NEON_SIM_SEED_BRANCH_ID"]);
+  });
+
+  it("prefers the unpooled endpoint for Track B session-lock pools", () => {
+    expect(trackBDatabaseUrl({ DATABASE_URL: "postgres://a-pooler/db", DATABASE_URL_UNPOOLED: "postgres://a/db" })).toBe("postgres://a/db");
+    expect(trackBDatabaseUrl({ DATABASE_URL: "postgres://a-pooler/db", DATABASE_URL_UNPOOLED: " " })).toBe("postgres://a-pooler/db");
   });
 
   it("fails agent calls with EvalServiceConfigError when Naïve is not configured", async () => {

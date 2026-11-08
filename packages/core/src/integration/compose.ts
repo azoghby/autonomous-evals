@@ -14,7 +14,7 @@
  *   - rerunFinding: needs authorized frozen state/credentials from durable storage.
  */
 import type { EvalServices, ServiceContext } from "../contracts/services";
-import { createTrackBServices, type TrackBServiceDeps } from "../evals/service-adapter";
+import { createTrackBServices, TrackBBlockedError, type TrackBServiceDeps } from "../evals/service-adapter";
 import { createTargetServices } from "../targets/adapters";
 import type { createBranchServices } from "../simulator/adapters";
 
@@ -24,6 +24,19 @@ export class EvalServiceUnavailableError extends Error {
   constructor(readonly method: string, readonly reason: string) {
     super(`EvalServices.${method} is unavailable: ${reason}`);
     this.name = "EvalServiceUnavailableError";
+  }
+}
+
+/**
+ * Budget-0 refusal (LEDGER §5 NO-GO 3). Track B's adapter treats `ctx.budgetMicroUsd` as information only,
+ * so the seam refuses any paid (Naïve-backed) method when the job has no budget left, before agent services
+ * are even built: no session, reservation or cost row. A typed, non-retryable `paused_budget` block, so
+ * Track A maps it to FatalError and never falls back to the (also paid) lite engine.
+ */
+export function assertPaidBudget(ctx: ServiceContext, method: string): void {
+  const budget = ctx.budgetMicroUsd;
+  if (typeof budget !== "number" || !Number.isFinite(budget) || budget <= 0) {
+    throw new TrackBBlockedError("paused_budget", `EvalServices.${method} refused: job budget is ${Number.isFinite(budget) ? budget : "invalid"} micro-USD (no paid calls with zero budget)`);
   }
 }
 
@@ -64,9 +77,9 @@ export function composeEvalServices(deps: ComposeEvalServicesDeps): EvalServices
   };
 
   return {
-    async qualify(ctx, intake, clarifications) { return (await agents()).qualify(ctx, intake, clarifications); },
-    async auditTrace(ctx, trace, systemPrompt) { return (await agents()).auditTrace(ctx, trace, systemPrompt); },
-    async renderReport(ctx, input) { return (await agents()).renderReport(ctx, input); },
+    async qualify(ctx, intake, clarifications) { assertPaidBudget(ctx, "qualify"); return (await agents()).qualify(ctx, intake, clarifications); },
+    async auditTrace(ctx, trace, systemPrompt) { assertPaidBudget(ctx, "auditTrace"); return (await agents()).auditTrace(ctx, trace, systemPrompt); },
+    async renderReport(ctx, input) { assertPaidBudget(ctx, "renderReport"); return (await agents()).renderReport(ctx, input); },
     async checkTarget(ctx: ServiceContext, endpoint) { return targets.checkTarget(ctx, endpoint); },
     async createJobBranch(jobId) { return (await branches()).createJobBranch(jobId); },
     async deleteJobBranch(branchId) { return (await branches()).deleteJobBranch(branchId); },

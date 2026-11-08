@@ -2,7 +2,7 @@
 import { createClient } from "@usenaive-sdk/managed-agents";
 import { describe, expect, it } from "vitest";
 import type { AgentRole } from "../evals/types";
-import { AgentProvisioningError, buildAgentCreateBody, ensureAgents } from "./provision";
+import { AgentProvisioningError, agentNameFor, buildAgentCreateBody, ensureAgents } from "./provision";
 
 const roles: AgentRole[] = ["commercial", "evaluation_engineer", "quality_investigator", "company_operator"];
 const stamp = "2026-11-07T20:00:00.000Z";
@@ -183,5 +183,40 @@ describe("bounded agent provisioning verification", () => {
     expect(err.diagnostic.code).toBe(create ? "creation_uncertain" : "inspection_failed");
     expect(JSON.stringify(err)).not.toContain("provider-secret");
     expect(err.cause).toBeUndefined();
+  });
+  it("namespaces names with a prefix: unprefixed ae-* agents are ignored, created bodies carry the prefix", async () => {
+    let n = 0;
+    const stored: ReturnType<typeof agent>[] = [];
+    const legacy = roles.map((r, i) => agent(r, 50 + i));
+    const h = harness((path, method, body) => {
+      if (method === "POST") { const a = agent(roles[n]!, ++n, body as object); stored.push(a); return a; }
+      if (path === "/v1/agents") return page([...legacy, { ...agent("commercial", 70), name: "CEO" }]);
+      return version(stored.find((a) => path.includes(a.id))!);
+    });
+    const dry = await ensureAgents(h.client, { dryRun: true, namePrefix: "standard-evals-" });
+    expect(dry.missing).toEqual(roles);
+    const result = await ensureAgents(h.client, { namePrefix: "standard-evals-" });
+    expect(result.created).toEqual(roles);
+    const posted = h.calls.filter((c) => c.method === "POST").map((c) => (c.body as { name: string; handoffs: unknown }));
+    expect(posted.map((b) => b.name)).toEqual(roles.map((r) => agentNameFor(r, "standard-evals-")));
+    expect(posted.every((b) => b.handoffs === false)).toBe(true);
+    expect(agentNameFor("evaluation_engineer", "standard-evals-")).toBe("standard-evals-evaluation-engineer");
+  });
+  it("finds existing prefixed agents without creating duplicates", async () => {
+    const agents = roles.map((r, i) => ({ ...agent(r, i + 1), name: agentNameFor(r, "standard-evals-") }));
+    const h = harness((path) => {
+      if (path === "/v1/agents") return page(agents);
+      const a = agents.find((a) => path.includes(a.id))!;
+      return path.includes("/versions/") ? version(a) : a;
+    });
+    const result = await ensureAgents(h.client, { namePrefix: "standard-evals-" });
+    expect(result.created).toEqual([]);
+    expect(Object.keys(result.directory)).toEqual(roles);
+    expect(h.calls.some((c) => c.method === "POST")).toBe(false);
+  });
+  it.each(["Standard-", "no-trailing", "", "-x-"])("rejects malformed prefix %j before any call", async (namePrefix) => {
+    const h = harness(() => page([]));
+    expect((await diagnostic(ensureAgents(h.client, { namePrefix }))).diagnostic.code).toBe("invalid_options");
+    expect(h.calls).toHaveLength(0);
   });
 });

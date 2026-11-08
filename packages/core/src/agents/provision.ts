@@ -3,16 +3,25 @@ import type { AgentCreate, VettaClient } from "@usenaive-sdk/managed-agents";
 import type { AgentDirectory, AgentRole } from "../evals/types";
 import { DEFAULT_AGENT_MODEL, ROLE_DEFINITIONS } from "./roles";
 
+/** Optional deployment namespace, e.g. "standard-evals-" -> "standard-evals-commercial". */
+const NAME_PREFIX = /^[a-z0-9][a-z0-9-]{0,40}-$/;
+
+/** Provider agent name for a role. Without a prefix this is the historical `ae-<role>` name. */
+export function agentNameFor(role: AgentRole, namePrefix?: string): string {
+  const base = ROLE_DEFINITIONS[role].agentName;
+  return namePrefix ? `${namePrefix}${base.replace(/^ae-/, "")}` : base;
+}
+
 /** Explicit safety configuration; callers cannot attest omitted provider defaults. */
 export type ExpectedAgentConfiguration = Required<Pick<AgentCreate,
   "model" | "window" | "system" | "description" | "budget" | "tools" |
   "mcp_servers" | "skills" | "multiagent" | "handoffs" | "metadata"
 >> & Pick<AgentCreate, "model_selection" | "structured_output_required">;
 
-export function buildAgentCreateBody(role: AgentRole, model: string = DEFAULT_AGENT_MODEL): AgentCreate & ExpectedAgentConfiguration {
+export function buildAgentCreateBody(role: AgentRole, model: string = DEFAULT_AGENT_MODEL, name: string = agentNameFor(role)): AgentCreate & ExpectedAgentConfiguration {
   const def = ROLE_DEFINITIONS[role];
   return {
-    name: def.agentName,
+    name,
     model,
     window: "immediate",
     model_selection: null,
@@ -55,6 +64,8 @@ export interface ProvisionOptions {
   dryRun?: boolean;
   /** Verify these exact IDs/versions, never silently advance a configured pin. */
   directory?: Partial<AgentDirectory>;
+  /** Namespace agent names (lowercase, ends with "-"). Lookup, identity checks and creation all use it. */
+  namePrefix?: string;
 }
 
 type Config = Awaited<ReturnType<VettaClient["agents"]["getVersion"]>>;
@@ -133,7 +144,8 @@ export async function ensureAgents(
   options: ProvisionOptions = {},
 ): Promise<{ directory: Partial<AgentDirectory>; created: AgentRole[]; missing: AgentRole[] }> {
   const model = options.model ?? DEFAULT_AGENT_MODEL;
-  if (!model.trim() || (options.directory && Object.entries(options.directory).some(([role, pin]) =>
+  const nameOf = (role: AgentRole) => agentNameFor(role, options.namePrefix);
+  if (!model.trim() || (options.namePrefix !== undefined && !NAME_PREFIX.test(options.namePrefix)) || (options.directory && Object.entries(options.directory).some(([role, pin]) =>
     !roles.includes(role as AgentRole) || !pin || !/^agt_[0-9a-hjkmnp-tv-z]{26}$/.test(pin.agentId) || !positiveVersion(pin.agentVersion)))) {
     throw new AgentProvisioningError({ code: "invalid_options", phase: "discovery" });
   }
@@ -167,7 +179,7 @@ export async function ensureAgents(
     if (!complete) throw new AgentProvisioningError({ code: "incomplete_listing", phase });
     // Resolve all ambiguity before any cloud mutation.
     for (const role of roles) {
-      const matches = byName.get(ROLE_DEFINITIONS[role].agentName) ?? [];
+      const matches = byName.get(nameOf(role)) ?? [];
       if (matches.length > 1) throw new AgentProvisioningError({ code: "duplicate_role", phase, role });
       const pin = options.directory?.[role];
       if (pin && (matches.length !== 1 || matches[0]!.id !== pin.agentId)) {
@@ -179,10 +191,10 @@ export async function ensureAgents(
     phase = "existing";
     for (const role of roles) {
       activeRole = role;
-      const found = byName.get(ROLE_DEFINITIONS[role].agentName)?.[0];
+      const found = byName.get(nameOf(role))?.[0];
       if (!found) { missing.push(role); continue; }
       const current = await client.agents.get(found.id);
-      if (current.id !== found.id || current.name !== ROLE_DEFINITIONS[role].agentName) {
+      if (current.id !== found.id || current.name !== nameOf(role)) {
         throw new AgentProvisioningError({ code: "identity_mismatch", phase, role });
       }
       const version = options.directory?.[role]?.agentVersion ?? found.current_version;
@@ -197,10 +209,10 @@ export async function ensureAgents(
     phase = "creation";
     for (const role of missing) {
       activeRole = role;
-      const agent = await client.agents.create(buildAgentCreateBody(role, model));
+      const agent = await client.agents.create(buildAgentCreateBody(role, model, nameOf(role)));
       // Retain returned identity for manual reconciliation even when response config is rejected.
       createdDirectory[role] = { agentId: agent.id, agentVersion: agent.current_version };
-      if (agent.name !== ROLE_DEFINITIONS[role].agentName || !positiveVersion(agent.current_version)) {
+      if (agent.name !== nameOf(role) || !positiveVersion(agent.current_version)) {
         throw new AgentProvisioningError({ code: "identity_mismatch", phase, role });
       }
       checkConfig(agent, role, model, phase);

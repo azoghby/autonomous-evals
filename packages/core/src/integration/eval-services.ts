@@ -73,9 +73,17 @@ function agentDirectory(): AgentDirectory {
 }
 
 let pool: Pool | undefined;
-/** One WebSocket pool per process: Track B ports need pinned-connection transactions (not Neon HTTP). */
-function sqlPool(connectionString: string): Pool {
-  pool ??= new Pool({ connectionString, max: 5 });
+/**
+ * One WebSocket pool per process: Track B ports need pinned-connection transactions (not Neon HTTP).
+ * Prefer the direct (unpooled) endpoint: the branch ledger holds a SESSION advisory lock across
+ * statements, which PgBouncer transaction pooling (`-pooler` hosts) breaks: the unlock lands on a
+ * different server connection and returns false (`branch_ledger_unlock_failed`).
+ */
+export function trackBDatabaseUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return env.DATABASE_URL_UNPOOLED?.trim() || env.DATABASE_URL?.trim() || undefined;
+}
+function sqlPool(): Pool {
+  pool ??= new Pool({ connectionString: trackBDatabaseUrl(), max: 5 });
   return pool;
 }
 
@@ -93,7 +101,7 @@ async function resolveJob(ctx: ServiceContext) {
 
 async function buildAgentDeps(): Promise<TrackBServiceDeps> {
   const env = requireEnv("agents", AGENT_ENV);
-  const sql = pooledCalendarDatabase(sqlPool(env.DATABASE_URL));
+  const sql = pooledCalendarDatabase(sqlPool());
   const naive = createNaiveSessionsPort(createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined }));
   const runner = new AgentSessionService({
     naive,
@@ -109,7 +117,7 @@ async function buildAgentDeps(): Promise<TrackBServiceDeps> {
 
 async function buildBranchServices(): Promise<BranchServices> {
   const env = requireEnv("branches", BRANCH_ENV);
-  const ledger = new PostgresBranchLedger(sqlPool(env.DATABASE_URL));
+  const ledger = new PostgresBranchLedger(sqlPool());
   const service = new NeonBranchService(new NeonHttpApi(env.NEON_API_KEY), ledger, env.NEON_PROJECT_ID, env.NEON_SIM_SEED_BRANCH_ID);
   const appUrl = new URL(env.DATABASE_URL);
   const findOwnedBranch = (branchId: string) => ledger.findOwnedBranch(branchId);
