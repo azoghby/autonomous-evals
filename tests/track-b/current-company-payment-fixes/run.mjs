@@ -1,9 +1,9 @@
-// Review runner: rebuilds the exact recorded company candidate in a fresh
+// Payment correction runner: rebuilds the exact recorded company candidate in a fresh
 // temporary directory, adds the parent's supplemental tests and this review's
 // tests, and runs vitest offline. The parent's candidate directories are only
 // read (after hash checks), never written.
 //
-//   node tests/track-b/current-company-review/run.mjs [--baseline] [vitest filters...]
+//   node tests/track-b/current-company-payment-fixes/run.mjs [--baseline] [vitest filters...]
 //
 // --baseline also runs the parent's 23 selected files (expect 164 passing).
 // Env: COMPANY_REVIEW_CANDIDATE (default reproduced candidate),

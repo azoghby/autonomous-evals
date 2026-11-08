@@ -20,3 +20,9 @@ The optional release hook preserves legacy factory compatibility; the corrected 
 The three previously failing reviewer reproducers are retained. Assertions that deliberately pinned wrong queue counts are converted to corrected counts in disposable staging only; original review artifacts remain unchanged. Real Calendar identity, SQL-port, revocation and replay tests remain included. The docs bridge postimage is staged byte-identically to the corrected application bridge so its tests exercise the same code.
 
 Final verification passed strict TypeScript and all 222 tests across 36 files, including the explicit regression that prior costs reconcile after refund without permitting another dispatch. The run exited 0 with no skipped tests; its output is retained in `verification.log`. Current-main adoption, migration registration/grants, hosted contention/recovery and genuine billing remain separate gates. The historical candidate uses its historical prices; the independently committed current price fix must be preserved when adopting onto current main.
+
+## Temporary-authorization queue fairness
+
+A supplemental SQL regression passed after the 222-test run: with a frozen clock, 25 unauthorized but otherwise valid pending payments rotate behind an unattempted healthy payment on the next tick. None are retired merely for failed authorization. Restoring authorization drains all 25 and preserves exactly 26 receipts in total.
+
+Command: `node tests/track-b/current-company-payment-fixes/run.mjs --typecheck receipt-fairness`. Strict TypeScript and the one focused test passed, no skips. Exact output: `fairness-verification.log`. This adds evidence without changing the production correction or its pinned hashes.
