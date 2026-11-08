@@ -9,6 +9,7 @@ import {
   evalServices as trackBServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
 } from "@ae/core/integration/eval-services";
 import { FatalError, RetryableError } from "workflow";
+import { liteServices, LiteUnavailableError } from "@ae/core/lite/index";
 
 const MOCK = "[MOCK]";
 const MOCK_CLARIFY_MARKER = "[needs-clarification]";
@@ -155,8 +156,13 @@ export const mockServices: EvalServices = {
   },
 };
 
+export type EvalServicesMode = "mock" | "real" | "lite";
+export function evalServicesMode(): EvalServicesMode {
+  const v = process.env.EVAL_SERVICES;
+  return v === "real" || v === "lite" ? v : "mock";
+}
 export function isMockServices(): boolean {
-  return process.env.EVAL_SERVICES !== "real";
+  return evalServicesMode() === "mock";
 }
 
 let real: EvalServices | undefined;
@@ -164,7 +170,10 @@ let real: EvalServices | undefined;
 /** Maps Track B's typed errors onto Workflow semantics: pending -> RetryableError; blocked/unavailable/unconfigured -> FatalError. */
 export function toWorkflowError(error: unknown): unknown {
   if (error instanceof TrackBPendingError) return new RetryableError(error.message, { retryAfter: error.retryAfterMs });
-  if (error instanceof TrackBBlockedError || error instanceof EvalServiceUnavailableError || error instanceof EvalServiceConfigError) {
+  if (
+    error instanceof TrackBBlockedError || error instanceof EvalServiceUnavailableError
+    || error instanceof EvalServiceConfigError || error instanceof LiteUnavailableError
+  ) {
     return new FatalError(error.message);
   }
   return error;
@@ -185,9 +194,42 @@ function withWorkflowErrors(services: EvalServices): EvalServices {
   return wrapped as unknown as EvalServices;
 }
 
-/** EVAL_SERVICES=real -> Track B engine composed in @ae/core/integration/eval-services (lazy; no I/O until first call). */
+/**
+ * Hybrid: each Track B method runs first; if it throws EvalServiceUnavailableError (not yet built),
+ * the same call is served by the lite engine. Other errors (blocked, pending, config) propagate.
+ */
+export function withLiteFallback(primary: EvalServices, fallback: EvalServices): EvalServices {
+  const out: Record<string, unknown> = {};
+  for (const [name, fn] of Object.entries(primary)) {
+    if (typeof fn !== "function") continue;
+    const alt = (fallback as unknown as Record<string, unknown>)[name];
+    out[name] = async (...args: unknown[]) => {
+      try {
+        return await (fn as (...a: unknown[]) => Promise<unknown>).apply(primary, args);
+      } catch (error) {
+        if (!(error instanceof EvalServiceUnavailableError) || typeof alt !== "function") throw error;
+        return (alt as (...a: unknown[]) => Promise<unknown>).apply(fallback, args);
+      }
+    };
+  }
+  return out as unknown as EvalServices;
+}
+
+let lite: EvalServices | undefined;
+
+/**
+ * EVAL_SERVICES=mock (default) -> deterministic fixtures.
+ * EVAL_SERVICES=real -> Track B engine (@ae/core/integration/eval-services), lite engine for methods Track B marks unavailable.
+ * EVAL_SERVICES=lite -> lite engine only (@ae/core/lite: AI gateway + SSRF-safe target transport).
+ * All lazy; no I/O until first call.
+ */
 export async function getEvalServices(): Promise<EvalServices> {
-  if (isMockServices()) return mockServices;
-  real ??= withWorkflowErrors(trackBServices);
+  const mode = evalServicesMode();
+  if (mode === "mock") return mockServices;
+  if (mode === "lite") {
+    lite ??= withWorkflowErrors(liteServices());
+    return lite;
+  }
+  real ??= withWorkflowErrors(withLiteFallback(trackBServices, liteServices()));
   return real;
 }
