@@ -1,0 +1,61 @@
+{
+  "baseCommit": "9eb9e4c82a69be2ae9e997efdb747e8b6d658acd",
+  "files": [
+    {
+      "path": "apps/web/src/app/(app)/operator/expert-reviews/page.tsx",
+      "beforeSha256": null,
+      "afterSha256": "3d32cb5098ea5e0eae421a7542f4440d4bf3648f2635683524b608e138bcc29a",
+      "postimage": "source/apps/web/src/app/(app)/operator/expert-reviews/page.tsx"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "3fea5e821b7ad01c03cff4c6a2aea6a92db1f93398b11cd33a84fcb647854943",
+      "postimage": "source/apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-reviews/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "48100f34af3340933eb494714a7c1408b72b00724121a5b02819291bd4f0d391",
+      "postimage": "source/apps/web/src/app/api/operator/expert-reviews/route.ts"
+    },
+    {
+      "path": "apps/web/src/components/app/expert-review-queue.tsx",
+      "beforeSha256": null,
+      "afterSha256": "726da1167e0934c21c88206c7f0c4ac9d9aedd9c36d3ee251594807935a08891",
+      "postimage": "source/apps/web/src/components/app/expert-review-queue.tsx"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-console.tsx",
+      "beforeSha256": "6558c2bc81716453ab2c63dda07be587a43c1cc74db286a4fcf09c7d709080c7",
+      "afterSha256": "4f75ec09d7298a49c2f29bc22b7c2b3e1f355e52874d3ed9fff10ab013a5f83c",
+      "postimage": "source/apps/web/src/components/app/operator-console.tsx"
+    },
+    {
+      "path": "apps/web/src/lib/client/expert-review.ts",
+      "beforeSha256": null,
+      "afterSha256": "d6e5e9dc9fb885d08ca8a7b09c94f84582ba2d1e88b9eba65364a2eec9db4089",
+      "postimage": "source/apps/web/src/lib/client/expert-review.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-production.ts",
+      "beforeSha256": "66c20d0c042c0ded622cb0acd8c080af36f1d491afe41060964ef24bcf1db0ec",
+      "afterSha256": "d4097d3fa7c028472f51f6ee8290ed05f201f1476228994e945bda7589acb930",
+      "postimage": "source/apps/web/src/server/expert-data-production.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-review.ts",
+      "beforeSha256": null,
+      "afterSha256": "f29c3006306ec2c260e89c1d09a3612194c68b07e97cbdabe4d0d8249afb97d3",
+      "postimage": "source/apps/web/src/server/expert-review.ts"
+    }
+  ],
+  "patchSha256": "448afe530b3382240f334674f8de48985a7e1ec773a188443a7a7a46681efbc0",
+  "requires": [
+    "adopted canonical expert workflow/text consumer and coherent0023-0026 source",
+    "actual agent/text/data sidecar migrations plus owner registered application migrations",
+    "EVAL_SERVICES=real and current authenticated OPERATOR_EMAILS session",
+    "owner-provisioned canonical plans/policies/consent/qualification grants and genuine retained candidate snapshots"
+  ],
+  "activation": "Unapplied owner review artifact. No provider dispatch, sending, migration, deployment or automatic evidence approval."
+}

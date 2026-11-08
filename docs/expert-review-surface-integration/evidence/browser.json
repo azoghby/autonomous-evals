@@ -1,0 +1,19 @@
+{
+  "fixture": true,
+  "hosted": false,
+  "providerCalls": false,
+  "desktop": {
+    "width": 1440,
+    "height": 1000
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844
+  },
+  "receipts": [
+    "Desktop: no preselected approval; explicit consent/qualification/independence/exact answer/evidence submission recorded once.",
+    "Cursor pagination reaches a valid later snapshot after an empty omitted first page.",
+    "Mobile: 390px viewport has no horizontal overflow; revoked authorization removes private detail."
+  ],
+  "consoleErrors": []
+}

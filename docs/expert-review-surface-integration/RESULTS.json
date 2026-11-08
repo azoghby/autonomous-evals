@@ -1,0 +1,65 @@
+{
+  "baseCommit": "9eb9e4c82a69be2ae9e997efdb747e8b6d658acd",
+  "compatibleSourceCommit": "11d7ff2b18c8d6388ffe2d20ac329e8e5095792d",
+  "stage": "/tmp/expert-review-api-stage",
+  "postimages": 8,
+  "exactPatchApply": true,
+  "baseSourceFilesCompared": 1071,
+  "unexpectedBaseSourceDifferences": 0,
+  "typegen": 0,
+  "webTypecheck": 0,
+  "tests": {
+    "passed": 28,
+    "failed": 0,
+    "skipped": 0,
+    "files": 3,
+    "scope": "16 handler/Map plus native queueSQL,6 actualmigration-backed PostgreSQL review writes/rollback,6 UI model/static-render"
+  },
+  "browser": {
+    "fixtureOnly": true,
+    "desktop": [
+      1440,
+      1000
+    ],
+    "mobile": [
+      390,
+      844
+    ],
+    "screenshotsInspected": true,
+    "realOperatorSession": false,
+    "providerCalls": false
+  },
+  "manifestSha256": "8576bce505f921989b54a097fd45987faff867e84f70754602f483a3ae041501",
+  "supportPinsSha256": "47a698469199e9b6bef9d1719c38a27f03448cafcec2bad9136734c505cc3747",
+  "evidenceHashes": {
+    "tests.json": "288f8c165166a3a0c0e8f4e09c09609cfeef4c9562b7afd501f9377e7d41ef4b",
+    "desktop-contribution.png": "374ceef3ec438615a358ffcea9581a3064fd0775abc27c10b17de38bceb0ab63",
+    "typegen.log": "8a4774baa7a46bd660951ed2c21122485cd5bfa15a011e90e24c7c11c75c1aeb",
+    "tests.log": "33a3242a529d442d2382b24081e33009796953efacc3e9addb55d9a4ac6df349",
+    "web-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mobile-corpus.png": "ef9ecd56bb2c93e61d3b9e3c634647853dbc637826c78ae865eba40f3b3a7b32",
+    "browser.json": "e31eea20e459425139e39d9df7927fc20fb54a76b2a4da204ba35c51203cc965"
+  },
+  "dependencies": {
+    "next": "16.4.5",
+    "typescript": "5.9.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "vitest": "5.1.0",
+    "@electric-sql/pglite": "0.5.15"
+  },
+  "limitations": [
+    "retained dependency installation, not clean npm installation",
+    "browser uses local fixture and API interception, not hosted auth/live grants",
+    "PostgreSQL tests use PGlite and fake authenticated session/provider boundaries, not hosted concurrent processes",
+    "contribution surface records validated approvals only; no invented rejection receipt",
+    "No source adoption, provider dispatch, outreach, payment, live mutation, migration or deployment performed"
+  ],
+  "configurationPathsCompared": [
+    "package.json",
+    "apps/web/package.json",
+    "apps/web/tsconfig.json",
+    "apps/web/next.config.ts",
+    "packages/core/tsconfig.json"
+  ]
+}

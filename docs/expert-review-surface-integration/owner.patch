@@ -1,0 +1,605 @@
+diff --git a/apps/web/src/app/(app)/operator/expert-reviews/page.tsx b/apps/web/src/app/(app)/operator/expert-reviews/page.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/(app)/operator/expert-reviews/page.tsx
+@@ -0,0 +1,12 @@
++import { redirect } from 'next/navigation';
++import { getCurrentCustomer } from '@/server/session';
++import { ExpertReviewQueue } from '@/components/app/expert-review-queue';
++import { Empty } from '@/components/app/ui';
++
++export const metadata={title:'Evidence review · Operator · Standard Evals'};
++export default async function ExpertReviewsPage() {
++ const principal=await getCurrentCustomer();
++ if(!principal)redirect('/signin?next=/operator/expert-reviews');
++ if(!principal.isOperator)return <Empty title="Operators only" body="Independent evidence review requires an authenticated operator account."/>;
++ return <ExpertReviewQueue/>;
++}
+diff --git a/apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts b/apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts
+@@ -0,0 +1,5 @@
++import { getExpertReview, postExpertReview, type ExpertReviewParams } from '@/server/expert-review';
++export const dynamic = 'force-dynamic';
++type Context = { params: Promise<ExpertReviewParams> };
++export async function GET(_request: Request, context: Context) { return getExpertReview(await context.params); }
++export async function POST(request: Request, context: Context) { return postExpertReview(request, await context.params); }
+diff --git a/apps/web/src/app/api/operator/expert-reviews/route.ts b/apps/web/src/app/api/operator/expert-reviews/route.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/api/operator/expert-reviews/route.ts
+@@ -0,0 +1,3 @@
++import { getExpertReviewQueue } from '@/server/expert-review';
++export const dynamic = 'force-dynamic';
++export async function GET(request: Request) { return getExpertReviewQueue(request); }
+diff --git a/apps/web/src/components/app/expert-review-queue.tsx b/apps/web/src/components/app/expert-review-queue.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/components/app/expert-review-queue.tsx
+@@ -0,0 +1,58 @@
++'use client';
++import Link from 'next/link';
++import { useEffect,useRef,useState } from 'react';
++import { api,ApiError,errMsg } from '@/lib/client/api';
++import { buildExpertReviewSubmission,emptyReviewForm,expertReviewPath,type ExpertReviewItem,type ExpertReviewDetail,type ReviewForm } from '@/lib/client/expert-review';
++import type { DataSource,ReviewStatus } from '@ae/core/evals/data/types';
++import { Btn,Empty,ErrorBox,Field,Loading,Section,Textarea } from './ui';
++
++const selectClass='w-full rounded-[4px] border border-line-3 bg-bg px-3 py-2 text-sm text-fg focus-visible:outline-2 focus-visible:outline-accent';
++function Check({checked,onChange,children}:{checked:boolean;onChange:(value:boolean)=>void;children:React.ReactNode}) {
++ return <label className="flex items-start gap-3 text-sm leading-relaxed text-fg-2"><input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)} className="mt-1 shrink-0 accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"/>{children}</label>;
++}
++export function EvidenceSource({source}:{source:DataSource}) {
++ return <details className="rounded-[4px] border border-line-2 px-4 py-3"><summary className="cursor-pointer text-sm font-medium text-fg">Source {source.id} · permission {source.license.permission}</summary>
++  <dl className="mt-3 space-y-2 text-sm text-muted"><div><dt className="font-medium text-fg-2">Source URL</dt><dd className="break-all">{source.url}</dd></div><div><dt className="font-medium text-fg-2">License and permitted uses</dt><dd>{source.license.name} · {source.license.allowedUses.join(', ')||'No allowed uses recorded'}</dd><dd className="break-all">{source.license.url}</dd></div><div><dt className="font-medium text-fg-2">Provenance</dt><dd className="break-all">{source.provenance.origin} · producer {source.provenance.producerId} · {source.provenance.retrievedAt}</dd><dd className="break-all font-mono text-xs">{source.provenance.contentHash}</dd></div></dl>
++  <pre className="mt-4 max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-fg-2">{source.content}</pre>
++ </details>;
++}
++export function ExpertReviewForm({detail,onSubmit,busy=false}:{detail:ExpertReviewDetail;onSubmit:(value:ReturnType<typeof buildExpertReviewSubmission>)=>Promise<void>;busy?:boolean}) {
++ const [form,setForm]=useState<ReviewForm>(emptyReviewForm);
++ const [error,setError]=useState('');
++ const reviewedAt=useRef(new Date().toISOString());
++ const data=detail.kind==='contribution'?detail.snapshot.contribution:detail.snapshot.candidates;
++ function flag(key:'qualifications'|'consent'|'independent'|'attestation',value:boolean){setForm(current=>({...current,[key]:value}));}
++ const answer=(id:string)=>form.answers[id]??{status:'pending' as const,rationale:'',evidenceSourceIds:[]};
++ function answerChange(id:string,patch:Partial<ReturnType<typeof answer>>){setForm(current=>({...current,answers:{...current.answers,[id]:{...answer(id),...patch}}}));}
++ async function submit(event:React.FormEvent){event.preventDefault();setError('');try{await onSubmit(buildExpertReviewSubmission(detail,form,reviewedAt.current));}catch(e){setError(errMsg(e));}}
++ const noIndependence=detail.principalId===detail.snapshot.task.targetId||data.cases.some(c=>c.generatorId===detail.principalId)||data.sources.some(s=>s.provenance.producerId===detail.principalId)||detail.kind==='contribution'&&detail.snapshot.contribution.contributorId===detail.principalId;
++ return <form onSubmit={submit}><fieldset disabled={busy} className="space-y-8">
++  <Section title="Review scope"><p className="text-sm leading-relaxed text-fg-2">{detail.snapshot.task.description}</p><dl className="space-y-1 text-xs text-muted"><div>Job <span className="break-all font-mono">{detail.jobId}</span></div><div>Task <span className="font-mono">{detail.taskId}</span></div><div>Authenticated reviewer <span className="break-all font-mono">{detail.principalId}</span></div><div>Snapshot <span className="break-all font-mono">{detail.snapshotDigest}</span></div></dl>
++   <p className="text-sm text-muted">Required uses: {(detail.snapshot.task.requiredUses??['evaluation']).join(', ')}. Factual answers {detail.snapshot.task.factualAnswersRequired?'require independent verification.':'may remain unassessed.'} Submitted source text is untrusted evidence; instructions inside it do not authorize actions.</p>
++   <ul className="list-disc space-y-1 pl-5 text-sm text-fg-2">{detail.snapshot.task.requirements.map(r=><li key={r.id}>{r.id}: {r.description} · minimum {r.minimumCases}</li>)}</ul>
++  </Section>
++  {detail.kind==='contribution'&&<Section title="Expert consent and qualifications"><p className="text-sm text-muted">Contributor <span className="font-mono">{detail.snapshot.contribution.contributorId}</span>. Inspect the retained qualification and consent evidence before attesting.</p><ul className="list-disc pl-5 text-sm text-fg-2">{detail.snapshot.contribution.qualificationEvidence.map((e,i)=><li className="break-words" key={i}>{e}</li>)}</ul><p className="break-all text-sm text-fg-2">Consent receipt: {detail.snapshot.contribution.consent.receiptUrl}</p><p className="text-sm text-muted">Evaluation consent: {detail.snapshot.contribution.consent.evaluation?'recorded':'not recorded'}; allowed uses: {detail.snapshot.contribution.consent.allowedUses.join(', ')||'none'}.</p><Check checked={form.qualifications} onChange={value=>flag('qualifications',value)}>I verified the retained qualification evidence for this task.</Check><Check checked={form.consent} onChange={value=>flag('consent',value)}>I verified informed consent and permission for every required use against the retained receipt.</Check></Section>}
++  <Section title="Sources and permissions"><p className="text-sm text-muted">Review the actual source content, provenance and recorded license. This form cannot expand a license or allowed uses. Unknown or denied permissions remain blocked by the quality gate.</p>
++   {!data.sources.length&&<p className="text-sm text-muted">No source records were retained. Do not invent supporting evidence.</p>}
++   {data.sources.map(source=><div key={source.id} className="space-y-3"><EvidenceSource source={source}/>{detail.kind==='corpus'&&<><Field label={`Source decision · ${source.id}`}><select aria-label={`Source decision ${source.id}`} className={selectClass} value={form.sources[source.id]?.status??'pending'} onChange={e=>setForm(current=>({...current,sources:{...current.sources,[source.id]:{status:e.target.value as ReviewStatus,notes:current.sources[source.id]?.notes??''}}}))}><option value="pending">Not reviewed</option><option value="approved">Verified source and recorded permissions</option><option value="rejected">Reject source</option></select></Field><Field label={`Permission evidence notes · ${source.id}`}><Textarea maxLength={4000} value={form.sources[source.id]?.notes??''} onChange={e=>setForm(current=>({...current,sources:{...current.sources,[source.id]:{status:current.sources[source.id]?.status??'pending',notes:e.target.value}}}))}/></Field></>}</div>)}
++  </Section>
++  <Section title="Exact answer review">{data.cases.map(c=><fieldset key={c.id} className="space-y-4 rounded-[4px] border border-line-2 p-4"><legend className="px-1 font-mono text-xs text-fg-2">{c.id} · {c.synthetic?'synthetic case':'contributed case'}</legend><p className="whitespace-pre-wrap break-words text-sm text-fg-2">{c.input}</p><p className="text-xs text-muted">Requirements: {c.requirementIds.join(', ')}. Retained source IDs: {c.sourceIds.join(', ')||'none'}.</p>
++   {c.expectedAnswer===undefined?<p className="text-sm text-muted">No expected answer is retained. This review will not invent one.</p>:<><div><h3 className="mb-2 text-sm font-medium text-fg">Exact expected answer</h3><pre className="whitespace-pre-wrap break-words text-sm text-fg-2">{c.expectedAnswer}</pre></div><Field label={`Answer decision · ${c.id}`}><select aria-label={`Answer decision ${c.id}`} className={selectClass} value={answer(c.id).status} onChange={e=>answerChange(c.id,{status:e.target.value as ReviewStatus})}><option value="pending">Not reviewed</option><option value="approved">Approve this exact answer</option>{detail.kind==='corpus'&&<option value="rejected">Reject answer</option>}</select></Field><Field label={`Independent rationale · ${c.id}`} hint="Explain the exact evidence and uncertainty; a model claim alone is insufficient."><Textarea maxLength={4000} value={answer(c.id).rationale} onChange={e=>answerChange(c.id,{rationale:e.target.value})}/></Field><fieldset className="space-y-2"><legend className="mb-2 text-sm text-fg-2">Supporting retained sources · {c.id}</legend>{data.sources.map(source=><Check key={source.id} checked={answer(c.id).evidenceSourceIds.includes(source.id)} onChange={value=>answerChange(c.id,{evidenceSourceIds:value?[...answer(c.id).evidenceSourceIds,source.id]:answer(c.id).evidenceSourceIds.filter(id=>id!==source.id)})}>Source {source.id}</Check>)}{!data.sources.length&&<p className="text-sm text-muted">No retained sources available. Only an existing qualified expert attestation can support an expert-based answer.</p>}</fieldset></>}
++  </fieldset>)}</Section>
++  <Section title="Record your decision">{noIndependence&&<p role="alert" className="text-sm text-danger">This account produced the evidence or represents the target. An independent operator must review it.</p>}<Check checked={form.independent} onChange={value=>flag('independent',value)}>I am independent of the target, generator and contributor, and have checked conflicts of interest.</Check>{detail.kind==='corpus'&&<Field label="Corpus decision"><select aria-label="Corpus decision" className={selectClass} value={form.decision} onChange={e=>setForm(current=>({...current,decision:e.target.value as ReviewForm['decision']}))}><option value="">Choose a decision</option><option value="approved">Approve reviewed corpus for the quality gate</option><option value="rejected">Reject corpus</option></select></Field>}<Check checked={form.attestation} onChange={value=>flag('attestation',value)}>I reviewed this exact immutable snapshot. My authenticated identity and decision will be retained. This records evidence review; code still decides data quality and suite admission.</Check><p className="text-sm text-muted">Recording a review does not send a message, authorize an honorarium, or approve any other snapshot. Incomplete or rejected evidence stays pending for the existing Workflow.</p>{error&&<p role="alert" className="text-sm text-danger">{error}</p>}<Btn type="submit" loading={busy} disabled={noIndependence||!form.independent||!form.attestation||(detail.kind==='contribution'&&(!form.qualifications||!form.consent))}>Record {detail.kind==='contribution'?'contribution review':'corpus decision'}</Btn></Section>
++ </fieldset></form>;
++}
++
++export function ExpertReviewQueue() {
++ const [items,setItems]=useState<ExpertReviewItem[]>([]),[truncated,setTruncated]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[detail,setDetail]=useState<ExpertReviewDetail|null>(null),[detailLoading,setDetailLoading]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
++ const version=useRef(0);
++ const [cursor,setCursor]=useState(''),[nextCursor,setNextCursor]=useState<string|null>(null);
++ function failed(e:unknown){if(e instanceof ApiError&&(e.status===401||e.status===403)){version.current++;setDetail(null);setItems([]);setDetailLoading(false);setNextCursor(null);setCursor('');}setError(errMsg(e));}
++ async function reload(after=cursor){setLoading(true);setError('');try{const queue=await api<{items:ExpertReviewItem[];truncated:boolean;nextCursor?:string|null}>('/api/operator/expert-reviews'+(after?'?cursor='+encodeURIComponent(after):''),{cache:'no-store'});setItems(queue.items);setTruncated(queue.truncated);setCursor(after);setNextCursor(queue.nextCursor??null);}catch(e){failed(e);}finally{setLoading(false);}}
++ useEffect(()=>{void reload();return()=>{version.current++;};},[]);
++ async function select(item:ExpertReviewItem){const request=++version.current;setDetail(null);setMessage('');setError('');setDetailLoading(true);try{const next=await api<ExpertReviewDetail>(expertReviewPath(item),{cache:'no-store'});if(request===version.current)setDetail(next);}catch(e){if(request===version.current)failed(e);}finally{if(request===version.current)setDetailLoading(false);}}
++ async function submit(value:ReturnType<typeof buildExpertReviewSubmission>){if(!detail)return;setBusy(true);setMessage('');setError('');try{await api(expertReviewPath(detail),{method:'POST',json:value,cache:'no-store'});setDetail(null);setMessage('Review recorded for the exact snapshot. The existing Workflow will recheck quality on its next poll.');await reload();}catch(e){if(e instanceof ApiError&&(e.status===401||e.status===403||e.status===409)){setDetail(null);version.current++;}failed(e);throw e;}finally{setBusy(false);}}
++ return <div className="space-y-8"><header className="space-y-3"><Link href="/operator" className="text-sm text-accent underline underline-offset-4">Operator console</Link><h1 className="t-h1">Evidence review</h1><p className="max-w-2xl text-base leading-relaxed text-muted">Independently review private expert contributions and candidate corpora before they can inform an evaluation. No decision is preselected.</p></header>{message&&<p role="status" className="text-sm text-fg-2">{message}</p>}{error&&<ErrorBox message={error} onRetry={()=>void reload()}/>}
++  <div className="grid gap-8 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]"><aside className="space-y-4"><div className="flex items-center justify-between gap-4"><h2 className="text-sm font-medium text-fg">Pending snapshots</h2><Btn variant="ghost" size="sm" onClick={()=>{version.current++;setDetail(null);void reload('');}} disabled={busy||loading}>Refresh</Btn></div>{loading?<Loading label="Loading review queue"/>:items.length?<ul className="divide-y divide-line-2 rounded-[4px] border border-line-2">{items.map(item=><li key={`${item.jobId}:${item.kind}:${item.digest}`}><button type="button" disabled={busy} onClick={()=>void select(item)} aria-pressed={detail?.jobId===item.jobId&&detail?.kind===item.kind&&detail?.digest===item.digest} className="w-full space-y-2 p-4 text-left hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"><span className="block text-sm font-medium text-fg">{item.kind==='contribution'?'Expert contribution':'Candidate corpus'}</span><span className="block break-all font-mono text-xs text-muted">Task {item.taskId}</span><span className="block break-all font-mono text-xs text-subtle">Job {item.jobId}</span></button></li>)}</ul>:<Empty title={truncated?"No reviewable snapshots on this page":"No pending reviews"} body={truncated?"Continue to the next page to find remaining snapshots.":"Authorized snapshots will appear after the acquisition Workflow retains candidate evidence."}/>}{truncated&&<p className="text-sm text-muted">More snapshots are available. Each page rechecks current access and evidence safety.</p>}{nextCursor&&<Btn variant="ghost" disabled={busy||loading} onClick={()=>{version.current++;setDetail(null);void reload(nextCursor);}}>Load next page</Btn>}{cursor&&<p className="text-xs text-muted">Refresh restarts from the beginning to retry earlier pending snapshots.</p>}</aside><section aria-label="Selected evidence" className="min-w-0">{detailLoading?<Loading label="Loading immutable snapshot"/>:detail?<ExpertReviewForm key={`${detail.jobId}:${detail.kind}:${detail.digest}:${detail.snapshotDigest}`} detail={detail} onSubmit={submit} busy={busy}/>:<p className="border-t border-line-2 pt-6 text-sm text-muted">Select a snapshot to inspect its exact evidence and record an independent decision.</p>}</section></div>
++ </div>;
++}
+diff --git a/apps/web/src/components/app/operator-console.tsx b/apps/web/src/components/app/operator-console.tsx
+--- a/apps/web/src/components/app/operator-console.tsx
++++ b/apps/web/src/components/app/operator-console.tsx
+@@ -60,6 +60,7 @@
+         <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">Revenue, known costs, and unknown costs are kept separate on purpose. Nothing here is profit.</p>
+         {liveOp.mode === "live" && <div className="mt-4 flex items-center gap-4"><LiveChip /></div>}
+       </header>
++      <Link href="/operator/expert-reviews" className="mb-6 inline-flex text-sm text-accent underline underline-offset-4">Review expert evidence</Link>
+       <Tabs tab={tab} onChange={setTab} />
+       <AnimatePresence mode="wait" initial={false}>
+         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.24, ease: EASE }}>
+diff --git a/apps/web/src/lib/client/expert-review.ts b/apps/web/src/lib/client/expert-review.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/lib/client/expert-review.ts
+@@ -0,0 +1,62 @@
++import type { DataBatch } from '@ae/core/evals/data/acquisition';
++import type { DataTaskSpec, ReviewStatus } from '@ae/core/evals/data/types';
++import type { ExpertContribution } from '@ae/core/evals/data/expert';
++
++export interface ExpertReviewItem { jobId: string; kind: 'contribution'|'corpus'; digest: string; taskId: string }
++export type ExpertReviewDetail = ExpertReviewItem & {snapshotDigest:string;principalId:string} & (
++ {kind:'contribution';snapshot:{task:DataTaskSpec;contribution:ExpertContribution}} |
++ {kind:'corpus';snapshot:{task:DataTaskSpec;candidates:DataBatch}}
++);
++export interface AnswerDecision {status:ReviewStatus;rationale:string;evidenceSourceIds:string[]}
++export interface ReviewForm {
++ qualifications:boolean;consent:boolean;independent:boolean;attestation:boolean;
++ decision:''|'approved'|'rejected';
++ answers:Record<string,AnswerDecision>;
++ sources:Record<string,{status:ReviewStatus;notes:string}>;
++}
++export const emptyReviewForm = ():ReviewForm=>({qualifications:false,consent:false,independent:false,attestation:false,decision:'',answers:{},sources:{}});
++const invalid=(reason:string):never=>{throw new Error(reason);};
++/** Client validation supports deliberate review; server authorization/digest checks remain mandatory. */
++export function buildExpertReviewSubmission(detail:ExpertReviewDetail,form:ReviewForm,reviewedAt=new Date().toISOString()) {
++ if(!form.attestation)return invalid('Confirm that you reviewed this exact snapshot.');
++ if(!form.independent)return invalid('Confirm your independence from the target, generator and contributor.');
++ if(detail.principalId===detail.snapshot.task.targetId)return invalid('The target cannot review its own evidence.');
++ const data=detail.kind==='contribution'?detail.snapshot.contribution:detail.snapshot.candidates;
++ if(data.cases.some(c=>c.generatorId===detail.principalId)||data.sources.some(s=>s.provenance.producerId===detail.principalId)
++  ||detail.kind==='contribution'&&detail.snapshot.contribution.contributorId===detail.principalId)return invalid('The evidence producer cannot approve this snapshot.');
++ const answer=(id:string)=>form.answers[id]??{status:'pending' as const,rationale:'',evidenceSourceIds:[]};
++ function evidence(ids:string[]) {
++  if(ids.some(id=>!data.sources.some(s=>s.id===id)))return invalid('Select evidence from the retained sources.');
++  return [...new Set(ids)];
++ }
++ if(detail.kind==='contribution') {
++  if(!form.qualifications||!form.consent)return invalid('Verify qualifications and the retained data-use consent.');
++  const approvedAnswers=data.cases.filter(c=>c.expectedAnswer!==undefined).map(c=>{
++   const decision=answer(c.id);
++   if(decision.status!=='approved'||!decision.rationale.trim())return invalid(`Explicit answer approval and rationale required for ${c.id}.`);
++   return {caseId:c.id,exactAnswer:c.expectedAnswer!,rationale:decision.rationale.trim(),evidenceSourceIds:evidence(decision.evidenceSourceIds)};
++  });
++  return {snapshotDigest:detail.snapshotDigest,attestation:true as const,review:{contributionId:detail.snapshot.contribution.id,reviewedAt,
++   qualificationsVerified:true,consentVerified:true,conflictOfInterestCleared:true,approvedAnswers}};
++ }
++ if(!form.decision)return invalid('Choose a corpus decision.');
++ const reviewed:DataBatch=structuredClone(detail.snapshot.candidates);
++ reviewed.sources=reviewed.sources.map(s=>{
++  const decision=form.sources[s.id]??{status:'pending' as const,notes:''};
++  if(form.decision==='approved'&&(decision.status==='pending'||!decision.notes.trim()))return invalid(`Explicit source decision and permission evidence notes required for ${s.id}.`);
++  return {...s,review:{status:decision.status,notes:decision.notes.trim(),reviewerId:detail.principalId,reviewedAt}};
++ });
++ reviewed.cases=reviewed.cases.map(c=>{
++  if(c.expectedAnswer===undefined)return c;
++  const decision=answer(c.id);
++  if(form.decision==='approved'&&(decision.status==='pending'||!decision.rationale.trim()))return invalid(`Explicit answer decision and rationale required for ${c.id}.`);
++  // Expert qualification/consent attestations can only be retained, never fabricated by this form.
++  const verification={...c.verification,status:decision.status,method:c.verification?.method??'independent_evidence' as const,
++   verifierId:detail.principalId,independentOfTarget:form.independent,independentOfGenerator:form.independent,
++   reviewedAnswer:c.expectedAnswer,reviewedAt,rationale:decision.rationale.trim(),evidenceSourceIds:evidence(decision.evidenceSourceIds)};
++  delete verification.contextDigest; // Server binds its authenticated principal and final exact reviewed sources.
++  return {...c,verification};
++ });
++ return {snapshotDigest:detail.snapshotDigest,attestation:true as const,decision:form.decision,reviewed};
++}
++export const expertReviewPath=(item:ExpertReviewItem)=>`/api/operator/expert-reviews/${encodeURIComponent(item.jobId)}/${item.kind}/${encodeURIComponent(item.digest)}`;
+diff --git a/apps/web/src/server/expert-data-production.ts b/apps/web/src/server/expert-data-production.ts
+--- a/apps/web/src/server/expert-data-production.ts
++++ b/apps/web/src/server/expert-data-production.ts
+@@ -1,6 +1,6 @@
+ import { isOperator } from '@ae/core/auth/tokens';
+ import 'server-only';
+-import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
+ import { createHash } from 'node:crypto';
+ import { Pool } from '@neondatabase/serverless';
+ import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
+@@ -17,7 +17,8 @@
+ import { expertContributionContextDigest, reviewExpertContribution, type ExpertContributionReview } from '@ae/core/evals/data/expert';
+ import { createMediaWikiDiscovery } from '@ae/core/evals/data/discovery/index';
+ import { createPostgresDiscoveryOperations } from '@ae/core/evals/data/discovery/persistence/index';
+-import { reviewDigest } from '@ae/core/evals/data/binding';
++import { answerReviewContextDigest, casePayload, reviewDigest } from '@ae/core/evals/data/binding';
++import { dataReviewRequestDigest } from '@ae/core/evals/data/orchestration';
+ import { inspectDataSafety } from '@ae/core/evals/data/quality';
+ import { designTextSuite } from '@ae/core/evals/text/design';
+ import { verifyAdmittedFrozenSuite } from '@ae/core/evals/text/freeze';
+@@ -40,7 +41,7 @@
+ const identity = (value: string) => createHash('sha256').update(value).digest('hex');
+ 
+ /** Private server capability. Never export through a public route/action or accept customerId from a body. */
+-async function scoped(jobId: string, sql: AgentTransactionalSql = database()) {
++async function scoped(jobId: string, sql: AgentTransactionalSql = database(), checkPrincipal?: () => Promise<void>) {
+   if (!/^[0-9a-f-]{36}$/i.test(jobId)) throw new Error('data_job_invalid');
+   const rows = await sql.query<{ customer_id: string; package: string; environment: 'test' | 'live'; is_mock: boolean; retest_of_job_id: string | null }>(
+     'SELECT customer_id, package, environment, is_mock, retest_of_job_id FROM jobs WHERE id=$1', [jobId]);
+@@ -51,6 +52,7 @@
+   if (!secretMap || Object.values(secretMap).some(v => typeof v !== 'string')) throw new Error('data_credentials_invalid');
+   const secrets = [...Object.values(secretMap), ...Object.entries(process.env).filter(([k]) => /(?:KEY|TOKEN|SECRET|DATABASE_URL)$/.test(k)).map(([,v]) => v ?? '')].filter(Boolean);
+   async function assertCurrent(value?: unknown) {
++    await checkPrincipal?.();
+     if(process.env.EVAL_SERVICES !== 'real') throw new Error('expert_real_mode_not_active');
+     const current = await sql.query(`SELECT 1 FROM jobs j JOIN expert_workflow.plans p ON p.job_id=j.id
+       WHERE j.id=$1 AND j.customer_id=$2 AND j.environment=$3 AND j.package='text_eval' AND NOT j.is_mock
+@@ -63,6 +65,7 @@
+     if (fresh.some(v=>typeof v!=='string')) throw new Error('data_credentials_invalid');
+     secrets.splice(0,secrets.length,...fresh);
+     if (value !== undefined && !inspectDataSafety(value,secrets).safe) throw new Error('unsafe_current_data');
++    await checkPrincipal?.();
+     return secrets;
+   }
+   await assertCurrent();
+@@ -92,7 +95,9 @@
+     await recordCost({ ...entry, jobId });
+   }
+   const reviews = createAuthenticatedDataReviewLedger({ operations, knownSecrets: secrets, authenticateHuman: async task => {
++    await assertCurrent(task);
+     const human = await getCurrentCustomer();
++    await checkPrincipal?.();
+     // Existing operator allowlist + real session; read-only job share/customer access does not grant review authority.
+     if (!human?.isOperator || task.jobId !== jobId) return null;
+     return { principalId: human.id };
+@@ -210,44 +215,190 @@
+   return result;
+ }
+ 
+-/** Existing authenticated operator session is required. Candidates and exact source/answer judgments
+- * remain private; submitting this review never runs a provider or sends an invitation. */
++/** Resolve the real session repeatedly; an operator or session change fences all reads/writes. */
++async function reviewPrincipal(expected?: string) {
++  const human = await getCurrentCustomer();
++  if (!human?.isOperator || expected !== undefined && human.id !== expected) throw new Error('expert_review_unauthorized');
++  return human.id;
++}
++export type ExpertWorkflowReviewKind = 'contribution' | 'corpus';
++export type ExpertWorkflowReviewSnapshot = { task: DataTaskSpec; contribution: import('@ae/core/evals/data/expert').ExpertContribution }
++  | { task: DataTaskSpec; candidates: DataBatch };
++
++async function reviewScope(jobId: string, expectedPrincipal?: string) {
++  const principalId = await reviewPrincipal(expectedPrincipal);
++  const check = async () => { await reviewPrincipal(principalId); };
++  const raw = database();
++  let s: Awaited<ReturnType<typeof scoped>> | undefined;
++  const guard = (executor: AgentSqlExecutor): AgentSqlExecutor => ({ async query<T>(query: string, params?: unknown[]) {
++    await check();
++    const mutation = /^\s*(?:INSERT|UPDATE|DELETE)\b/i.test(query);
++    if (mutation) await s?.assertCurrent(params);
++    const result = await executor.query<T>(query, params);
++    await check();
++    if (mutation) await s?.assertCurrent(params);
++    return result;
++  } });
++  const sql: AgentTransactionalSql = { ...guard(raw), async transaction<T>(fn: (tx: AgentSqlExecutor) => Promise<T>) {
++    await check();
++    const result = await raw.transaction(async tx => {
++      const value = await fn(guard(tx));
++      await check(); // Inside the transaction: revocation after an awaited write rolls it back.
++      return value;
++    });
++    await check();
++    return result;
++  } };
++  s = await scoped(jobId, sql, check);
++  await check();
++  return { ...s, principalId, check };
++}
++async function exactReviewSnapshot(s: Awaited<ReturnType<typeof reviewScope>>, kind: ExpertWorkflowReviewKind, digest: string) {
++  if (!/^[a-f0-9]{64}$/.test(digest)) throw new Error('expert_review_unavailable');
++  await s.assertCurrent();
++  const record = await s.operations.get(`${kind === 'contribution' ? 'expert-review-candidate' : 'data-review-request'}:${digest}`);
++  await s.check();
++  if (record?.state !== 'complete') throw new Error('expert_review_unavailable');
++  const snapshot = record.result as ExpertWorkflowReviewSnapshot;
++  if (record.digest !== reviewDigest(snapshot) || snapshot.task.jobId !== s.job.jobId
++    || (kind === 'contribution' ? !('contribution' in snapshot) || expertContributionContextDigest(snapshot.task, snapshot.contribution) !== digest
++      : !('candidates' in snapshot) || dataReviewRequestDigest(snapshot.task, snapshot.candidates) !== digest)) throw new Error('expert_review_snapshot_mismatch');
++  const plan = (await s.sql.query<{input: ProductionDataInput; input_digest: string}>(`SELECT p.input,p.input_digest
++    FROM expert_workflow.plans p JOIN jobs j ON j.id=p.job_id AND j.customer_id=p.tenant_id
++    WHERE j.id=$1 AND j.customer_id=$2 AND p.enabled AND p.response_deadline>now()
++    AND j.package='text_eval' AND NOT j.is_mock AND j.state IN ('planning','running','investigating')`, [s.job.jobId,s.job.customerId])).rows[0];
++  await s.check();
++  if (!plan) throw new Error('expert_plan_revoked');
++  if (reviewDigest(plan.input) !== plan.input_digest || reviewDigest(plan.input.task) !== reviewDigest(snapshot.task)) throw new Error('expert_review_snapshot_mismatch');
++  await s.assertCurrent({ snapshot, plan: plan.input });
++  await s.check();
++  return structuredClone(snapshot);
++}
++
++/** All inventory reads join current canonical tenant/job/plan authorization before any snapshot is loaded. */
++function reviewCursor(value?: string): [string, string] | null {
++  if (value === undefined) return null;
++  if (!/^[A-Za-z0-9_-]{1,300}$/.test(value)) throw new Error('expert_review_invalid_cursor');
++  let decoded: unknown;
++  try { decoded = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')); } catch { throw new Error('expert_review_invalid_cursor'); }
++  if (!Array.isArray(decoded) || decoded.length !== 2 || typeof decoded[0] !== 'string' || typeof decoded[1] !== 'string'
++    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(decoded[0])
++    || !/^(?:expert-review-candidate|data-review-request):[a-f0-9]{64}$/.test(decoded[1])
++    || Buffer.from(JSON.stringify(decoded)).toString('base64url') !== value) throw new Error('expert_review_invalid_cursor');
++  return [decoded[0], decoded[1]];
++}
++export async function listExpertWorkflowReviews(expectedPrincipal?: string, cursor?: string) {
++  const principalId = await reviewPrincipal(expectedPrincipal);
++  const after = reviewCursor(cursor);
++  if (process.env.EVAL_SERVICES !== 'real') throw new Error('expert_real_mode_not_active');
++  const rows = await database().query<{job_id: string; operation_key: string}>(`SELECT o.job_id,o.operation_key
++    FROM evaluation_data_persistence.operations o JOIN jobs j ON j.id::text=o.job_id AND j.customer_id::text=o.tenant_id
++    JOIN expert_workflow.plans p ON p.job_id=j.id AND p.tenant_id=j.customer_id
++    WHERE j.package='text_eval' AND NOT j.is_mock AND j.state IN ('planning','running','investigating')
++    AND p.enabled AND p.response_deadline>now() AND o.state='complete'
++    AND ((o.operation_key ~ '^expert-review-candidate:[a-f0-9]{64}$' AND NOT EXISTS (
++      SELECT 1 FROM expert_workflow.contribution_reviews r WHERE r.job_id=j.id
++      AND r.contribution_digest=substring(o.operation_key from length('expert-review-candidate:')+1)))
++    OR (o.operation_key ~ '^data-review-request:[a-f0-9]{64}$' AND NOT EXISTS (
++      SELECT 1 FROM evaluation_data_persistence.operations decided WHERE decided.tenant_id=o.tenant_id AND decided.job_id=o.job_id
++      AND decided.operation_key='authenticated-data-review:'||substring(o.operation_key from length('data-review-request:')+1)
++      AND decided.state='complete')))
++    AND ($1::text IS NULL OR (o.job_id,o.operation_key)>($1::text,$2::text))
++    ORDER BY o.job_id,o.operation_key LIMIT 101`, [after?.[0] ?? null, after?.[1] ?? null]);
++  await reviewPrincipal(principalId);
++  const items: Array<{jobId: string; kind: ExpertWorkflowReviewKind; digest: string; taskId: string}> = [];
++  for (const row of rows.rows.slice(0, 100)) {
++    const kind = row.operation_key.startsWith('expert-review-candidate:') ? 'contribution' : 'corpus';
++    const digest = row.operation_key.split(':')[1];
++    // Each snapshot rechecks current plan, tenant, secrets and principal after the inventory await.
++    try {
++      const detail = await readExpertWorkflowReview(row.job_id, kind, digest, principalId);
++      items.push({ jobId: row.job_id, kind, digest, taskId: detail.snapshot.task.taskId });
++    } catch (error) {
++      await reviewPrincipal(principalId);
++      // Revoked/unsafe/missing records are never exposed by the inventory.
++      if (!(error instanceof Error)) throw error;
++    }
++  }
++  await reviewPrincipal(principalId);
++  const scanned = rows.rows.slice(0, 100), last = scanned.at(-1);
++  const truncated = rows.rows.length > 100;
++  // Advance past the last scanned identity even when every private snapshot was omitted.
++  return { items, truncated, scanned: scanned.length,
++    nextCursor: truncated && last ? Buffer.from(JSON.stringify([last.job_id,last.operation_key])).toString('base64url') : null };
++}
++
++export async function readExpertWorkflowReview(jobId: string, kind: ExpertWorkflowReviewKind, digest: string, expectedPrincipal?: string) {
++  const s = await reviewScope(jobId, expectedPrincipal);
++  const snapshot = await exactReviewSnapshot(s, kind, digest);
++  await s.assertCurrent(snapshot);
++  await s.check();
++  return { kind, jobId, digest, snapshotDigest: reviewDigest(snapshot), snapshot, principalId: s.principalId };
++}
++
++/** Source permissions/provenance and exact payloads cannot be broadened by a review. */
++function preserveReviewPayload(candidates: DataBatch, reviewed: DataBatch) {
++  if (reviewed.sources.length !== candidates.sources.length || reviewed.cases.length !== candidates.cases.length
++    || new Set(reviewed.sources.map(s => s.id)).size !== reviewed.sources.length
++    || new Set(reviewed.cases.map(c => c.id)).size !== reviewed.cases.length
++    || reviewed.sources.some(source => {
++      const original = candidates.sources.find(s => s.id === source.id);
++      return !original || reviewDigest({ ...source, review: original.review }) !== reviewDigest(original);
++    }) || reviewed.cases.some(c => {
++      const original = candidates.cases.find(v => v.id === c.id);
++      return !original || reviewDigest(casePayload(c)) !== reviewDigest(casePayload(original))
++        || reviewDigest(c.verification?.expertAttestation ?? null) !== reviewDigest(original.verification?.expertAttestation ?? null);
++    })) throw new Error('expert_review_snapshot_mismatch');
++}
++
++/** Existing authenticated operator session is required. No provider or invitation is invoked. */
+ export async function reviewExpertWorkflowData(jobId: string, digest: string, submission?: {
+   receiptId: string; decision: 'approved' | 'rejected'; reviewed: DataBatch;
+-}) {
+-  const human = await getCurrentCustomer();
+-  if (!human?.isOperator || !/^[a-f0-9]{64}$/.test(digest)) throw new Error('data_review_unavailable');
+-  const s = await scoped(jobId);
+-  const request = await s.operations.get(`data-review-request:${digest}`);
+-  if (request?.state !== 'complete') throw new Error('data_review_unavailable');
+-  const snapshot = request.result as { task: DataTaskSpec; candidates: DataBatch };
+-  if (snapshot.task.jobId !== jobId) throw new Error('data_review_scope');
++}, expectedPrincipal?: string, expectedSnapshotDigest?: string) {
++  const s = await reviewScope(jobId, expectedPrincipal);
++  const snapshot = await exactReviewSnapshot(s, 'corpus', digest);
++  if (!('candidates' in snapshot)) throw new Error('expert_review_snapshot_mismatch');
++  if (expectedSnapshotDigest !== undefined && expectedSnapshotDigest !== reviewDigest(snapshot)) throw new Error('expert_review_snapshot_mismatch');
+   if (!submission) return structuredClone(snapshot);
+   const reviewed = structuredClone(submission.reviewed);
+-  reviewed.sources = reviewed.sources.map(source => ({ ...source, review: { ...source.review, reviewerId: human.id } }));
+-  reviewed.cases = reviewed.cases.map(c => c.verification ? { ...c, verification: { ...c.verification, verifierId: human.id } } : c);
+-  await s.assertCurrent(reviewed);
++  preserveReviewPayload(snapshot.candidates, reviewed);
++  reviewed.sources = reviewed.sources.map(source => ({ ...source, review: { ...source.review, reviewerId: s.principalId } }));
++  reviewed.cases = reviewed.cases.map(c => c.verification ? { ...c, verification: { ...c.verification, verifierId: s.principalId } } : c);
++  reviewed.cases = reviewed.cases.map(c => c.verification ? { ...c, verification: { ...c.verification,
++    contextDigest: answerReviewContextDigest(snapshot.task, c, reviewed.sources) } } : c);
++  await s.assertCurrent({ snapshot, reviewed });
++  await s.check();
+   await s.reviews.submit({ ...submission, task: snapshot.task, candidates: snapshot.candidates, reviewed });
++  await s.assertCurrent({ snapshot, reviewed });
++  await s.check();
+   return { status: 'recorded' as const };
+ }
+ 
+ /** Authenticated exact-snapshot contribution review. Receipt identity is server derived. */
+-export async function reviewExpertWorkflowContribution(jobId: string, digest: string, review: ExpertContributionReview) {
+-  const human = await getCurrentCustomer();
+-  if (!human?.isOperator || !/^[a-f0-9]{64}$/.test(digest)) throw new Error('expert_review_unavailable');
+-  const s = await scoped(jobId);
+-  const record = await s.operations.get(`expert-review-candidate:${digest}`);
+-  if (record?.state !== 'complete') throw new Error('expert_review_unavailable');
+-  const snapshot = record.result as { task: DataTaskSpec; contribution: import('@ae/core/evals/data/expert').ExpertContribution };
+-  review = { ...structuredClone(review), reviewerId: human.id, contextDigest: digest };
+-  if (snapshot.task.jobId !== jobId || expertContributionContextDigest(snapshot.task,snapshot.contribution) !== digest
+-    || !reviewExpertContribution(snapshot.task,snapshot.contribution,review,s.secrets).accepted) throw new Error('expert_review_invalid');
++export async function reviewExpertWorkflowContribution(jobId: string, digest: string, review: ExpertContributionReview,
++  expectedPrincipal?: string, expectedSnapshotDigest?: string) {
++  const s = await reviewScope(jobId, expectedPrincipal);
++  const snapshot = await exactReviewSnapshot(s, 'contribution', digest);
++  if (!('contribution' in snapshot) || expectedSnapshotDigest !== undefined && expectedSnapshotDigest !== reviewDigest(snapshot)) throw new Error('expert_review_snapshot_mismatch');
++  review = { ...structuredClone(review), reviewerId: s.principalId, contextDigest: digest };
++  if (!reviewExpertContribution(snapshot.task,snapshot.contribution,review,s.secrets).accepted) throw new Error('expert_review_invalid');
+   await s.assertCurrent({ snapshot, review });
+-  const sql = s.sql;
+-  await sql.query(`INSERT INTO expert_workflow.contribution_reviews(job_id,task_id,contribution_digest,reviewer_id,review)
+-    VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT DO NOTHING`, [jobId,snapshot.task.taskId,digest,human.id,JSON.stringify(review)]);
+-  const retained = (await sql.query<{review:ExpertContributionReview}>(`SELECT review FROM expert_workflow.contribution_reviews
++  await s.check();
++  // Current canonical plan is checked in the write statement as well as before and after awaits.
++  await s.sql.transaction(async tx => {
++    await tx.query(`INSERT INTO expert_workflow.contribution_reviews(job_id,task_id,contribution_digest,reviewer_id,review)
++    SELECT j.id,$2,$3,$4,$5::jsonb FROM jobs j JOIN expert_workflow.plans p ON p.job_id=j.id AND p.tenant_id=j.customer_id
++    WHERE j.id=$1 AND j.customer_id=$6 AND j.package='text_eval' AND NOT j.is_mock
++    AND j.state IN ('planning','running','investigating') AND p.enabled AND p.response_deadline>now()
++    ON CONFLICT DO NOTHING`, [jobId,snapshot.task.taskId,digest,s.principalId,JSON.stringify(review),s.job.customerId]);
++    await s.assertCurrent({ snapshot, review });
++    await s.check();
++  });
++  await s.assertCurrent({ snapshot, review });
++  const retained = (await s.sql.query<{review:ExpertContributionReview}>(`SELECT review FROM expert_workflow.contribution_reviews
+     WHERE job_id=$1 AND task_id=$2 AND contribution_digest=$3`,[jobId,snapshot.task.taskId,digest])).rows[0];
++  await s.assertCurrent({ snapshot, review });
++  await s.check();
+   if (!retained || reviewDigest(retained.review) !== reviewDigest(review)) throw new Error('expert_review_conflict');
+   return { status: 'recorded' as const };
+ }
+diff --git a/apps/web/src/server/expert-review.ts b/apps/web/src/server/expert-review.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/expert-review.ts
+@@ -0,0 +1,150 @@
++import 'server-only';
++import { z } from 'zod';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { requireOperator } from './http';
++import { getCurrentCustomer } from './session';
++import { listExpertWorkflowReviews, readExpertWorkflowReview, reviewExpertWorkflowContribution,
++  reviewExpertWorkflowData, type ExpertWorkflowReviewKind } from './expert-data-production';
++
++export const expertReviewHeaders = { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie', 'X-Content-Type-Options': 'nosniff' };
++const response = (data: unknown, status = 200) => Response.json(data, { status, headers: expertReviewHeaders });
++const failure = (status: number, error: string) => response({ error }, status);
++const id = z.string().min(1).max(96);
++const digest = z.string().regex(/^[a-f0-9]{64}$/);
++const text = z.string().max(100_000);
++const date = z.string().max(64).refine(v => Number.isFinite(Date.parse(v)));
++const ids = z.array(id).max(500);
++const reviewStatus = z.enum(['pending', 'approved', 'rejected']);
++const verification = z.object({
++  contextDigest: digest.optional(), status: reviewStatus, method: z.enum(['independent_evidence', 'expert']),
++  verifierId: z.string().max(96), independentOfTarget: z.boolean(), independentOfGenerator: z.boolean(),
++  evidenceSourceIds: ids, reviewedAnswer: text, reviewedAt: date, rationale: text,
++  expertAttestation: z.object({ qualified: z.boolean(), consentToEvaluation: z.boolean(), contributionId: id,
++    contributionContextDigest: digest.optional() }).strict().optional(),
++}).strict();
++const dataBatch = z.object({
++  sources: z.array(z.object({ id, url: text, content: text,
++    license: z.object({ name: text, url: text, permission: z.enum(['allowed', 'denied', 'unknown', 'mixed']),
++      allowedUses: z.array(z.enum(['evaluation', 'generation', 'redistribution'])).max(3) }).strict(),
++    provenance: z.object({ origin: z.enum(['public', 'customer', 'expert', 'synthetic', 'evaluation_target']),
++      producerId: id, retrievedAt: date, contentHash: text }).strict(),
++    review: z.object({ status: reviewStatus, reviewerId: z.string().max(96), reviewedAt: date, notes: text }).strict(),
++  }).strict()).max(500),
++  cases: z.array(z.object({ id, input: text, requirementIds: ids, synthetic: z.boolean(), generatorId: id.optional(),
++    sourceIds: ids, expectedAnswer: text.optional(), verification: verification.optional() }).strict()).max(500),
++}).strict();
++const contributionSubmission = z.object({ snapshotDigest: digest, attestation: z.literal(true),
++  review: z.object({ contributionId: id, reviewedAt: date, qualificationsVerified: z.boolean(), consentVerified: z.boolean(),
++    conflictOfInterestCleared: z.boolean(), approvedAnswers: z.array(z.object({ caseId: id, exactAnswer: text,
++      rationale: text, evidenceSourceIds: ids }).strict()).max(500) }).strict(),
++}).strict();
++const corpusSubmission = z.object({ snapshotDigest: digest, attestation: z.literal(true), decision: z.enum(['approved', 'rejected']),
++  reviewed: dataBatch }).strict();
++const routeParams = z.object({ jobId: z.uuid(), kind: z.enum(['contribution', 'corpus']), digest }).strict();
++export type ExpertReviewParams = { jobId: string; kind: string; digest: string };
++
++async function authenticated() {
++  const auth = await requireOperator();
++  if (auth.res) return { res: response(await auth.res.json(), auth.res.status) };
++  return { principalId: auth.viewer.id };
++}
++async function recheck(principalId: string) {
++  const current = await getCurrentCustomer();
++  return current?.isOperator && current.id === principalId;
++}
++function knownError(error: unknown) {
++  const message = error instanceof Error ? error.message : '';
++  if (message === 'expert_review_invalid_cursor') return failure(400, 'Invalid review cursor');
++  if (message === 'expert_review_unauthorized') return failure(403, 'Operator authorization changed');
++  if (message === 'expert_review_snapshot_mismatch' || message === 'expert_review_conflict' || message === 'data_operation_immutable_conflict') return failure(409, 'Review snapshot changed or conflicts with a retained review');
++  if (message === 'expert_review_invalid' || message === 'Independent review snapshot mismatch'
++    || message === 'Independent human authorization required') return failure(422, 'Review does not satisfy independent review requirements');
++  return failure(404, 'Review unavailable');
++}
++
++/** Stream before JSON parsing: Content-Length alone is not a size boundary. */
++async function boundedJson(request: Request): Promise<unknown> {
++  const max = 450_000;
++  if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new Error('review_content_type');
++  const length = request.headers.get('content-length');
++  if (length && (!/^\d+$/.test(length) || Number(length) > max)) throw new Error('review_body_large');
++  const reader = request.body?.getReader();
++  if (!reader) throw new Error('review_body_invalid');
++  const chunks: Uint8Array[] = [];
++  let size = 0;
++  try {
++    for (;;) {
++      const chunk = await reader.read();
++      if (chunk.done) break;
++      size += chunk.value.byteLength;
++      if (size > max) { await reader.cancel(); throw new Error('review_body_large'); }
++      chunks.push(chunk.value);
++    }
++  } finally { reader.releaseLock(); }
++  const bytes = new Uint8Array(size);
++  let offset = 0;
++  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
++  try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
++  catch { throw new Error('review_body_invalid'); }
++}
++
++export async function getExpertReviewQueue(request?: Request) {
++  const auth = await authenticated();
++  if (auth.res) return auth.res;
++  try {
++    const params = request ? new URL(request.url).searchParams : new URLSearchParams();
++    if ([...params.keys()].some(key => key !== 'cursor') || params.getAll('cursor').length > 1) return failure(400, 'Invalid queue parameters');
++    const result = await listExpertWorkflowReviews(auth.principalId, params.get('cursor') ?? undefined);
++    if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++    return response(result);
++  } catch (error) {
++    if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++    return knownError(error);
++  }
++}
++export async function getExpertReview(params: ExpertReviewParams) {
++  const auth = await authenticated();
++  if (auth.res) return auth.res;
++  const parsed = routeParams.safeParse(params);
++  if (!parsed.success) return failure(400, 'Invalid review reference');
++  try {
++    const { jobId, kind, digest: key } = parsed.data;
++    const result = await readExpertWorkflowReview(jobId, kind, key, auth.principalId);
++    if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++    return response(result);
++  } catch (error) {
++    if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++    return knownError(error);
++  }
++}
++export async function postExpertReview(request: Request, params: ExpertReviewParams) {
++  const auth = await authenticated();
++  if (auth.res) return auth.res;
++  const parsed = routeParams.safeParse(params);
++  if (!parsed.success) return failure(400, 'Invalid review reference');
++  const origin = request.headers.get('origin');
++  if (origin && origin !== new URL(request.url).origin) return failure(403, 'Invalid request origin');
++  let body: unknown;
++  try { body = await boundedJson(request); }
++  catch (error) { return failure(error instanceof Error && error.message === 'review_body_large' ? 413 : 400, 'Invalid review request body'); }
++  if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++  const { jobId, kind, digest: key } = parsed.data;
++  try {
++    if (kind === 'contribution') {
++      const submission = contributionSubmission.safeParse(body);
++      if (!submission.success) return failure(400, 'Invalid contribution review');
++      await reviewExpertWorkflowContribution(jobId, key, { ...submission.data.review, reviewerId: auth.principalId }, auth.principalId, submission.data.snapshotDigest);
++    } else {
++      const submission = corpusSubmission.safeParse(body);
++      if (!submission.success) return failure(400, 'Invalid corpus review');
++      const { decision, reviewed, snapshotDigest } = submission.data;
++      const receiptId = reviewDigest({ principalId: auth.principalId, jobId, digest: key, snapshotDigest, decision, reviewed });
++      await reviewExpertWorkflowData(jobId, key, { receiptId, decision, reviewed }, auth.principalId, snapshotDigest);
++    }
++    if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++    return response({ status: 'recorded' });
++  } catch (error) {
++    if (!await recheck(auth.principalId)) return failure(403, 'Operator authorization changed');
++    return knownError(error);
++  }
++}
