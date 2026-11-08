@@ -1,0 +1,58 @@
+{
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "status": "candidate-only; not mounted or activated",
+  "dependencies": [
+    {
+      "artifact": "docs/naive-operator-current-integration",
+      "requiredBeforeThisPatch": true,
+      "overlap": "apps/web/src/server/expert-data-production.ts",
+      "requiredPreimageSha256": "d4097d3fa7c028472f51f6ee8290ed05f201f1476228994e945bda7589acb930",
+      "reason": "Preserve authenticated operator review mutation and transaction hardening before adding factual binding guard."
+    }
+  ],
+  "files": [
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.test.ts",
+      "preimageSha256": null,
+      "postimageSha256": "a4269904d2e99c21d6e16bd497eaea9f2a9f51347fcf454abaa4a1381f1856ec",
+      "preimageSource": "new",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan-binding.test.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.ts",
+      "preimageSha256": null,
+      "postimageSha256": "e97e93f7eca063461dd36c7fba873de3803004f7568a8e8e39f6e39efa23f9c5",
+      "preimageSource": "new",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan-binding.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.test.ts",
+      "preimageSha256": null,
+      "postimageSha256": "655732e79753e43d17fbdfd042fe23837e42dff771f3583248525f1ad8afd71c",
+      "preimageSource": "new",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan.test.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.ts",
+      "preimageSha256": null,
+      "postimageSha256": "b2bc020a1beda1b62363ace07aa4fb4ec428d403414d21578d413b0ac4eba808",
+      "preimageSource": "new",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-production.ts",
+      "preimageSha256": "d4097d3fa7c028472f51f6ee8290ed05f201f1476228994e945bda7589acb930",
+      "postimageSha256": "c97987e1bd1c6e494adedcc7f5db6121bd317c47d5d7de09d18e3e752756c8e4",
+      "preimageSource": "operator-current production postimage",
+      "postimage": "postimages/apps/web/src/server/expert-data-production.ts"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "preimageSha256": "312c732b6b4893a92da2018a7e84888876a526b532c76fc8eee623837371d23d",
+      "postimageSha256": "a5056eb957be2190a5a9eac85157143b936b9ca8c7467e34fdd5845394486518",
+      "preimageSource": "actual source at baseCommit",
+      "postimage": "postimages/apps/web/src/server/expert-text-runtime.ts"
+    }
+  ],
+  "patchSha256": "cc42a830f5a3a0c85714a8fb595a3cdf36bf2fe94994065c5506a20d1fef3872"
+}

@@ -1,0 +1,11 @@
+{
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "baselineFiles": 1184,
+  "operatorFiles": 10,
+  "entryFiles": 6,
+  "stage": "/tmp/naive-factual-gap-current-stage",
+  "operatorPreimages": "all matched exact base",
+  "patchApplyCheck": "passed",
+  "postimages": "all matched manifest",
+  "envFilesCopied": false
+}

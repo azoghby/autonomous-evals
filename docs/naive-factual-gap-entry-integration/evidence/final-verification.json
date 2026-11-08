@@ -1,0 +1,27 @@
+{
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "candidateTests": {
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "files": 2,
+    "receipt": "plan-entry.results.json"
+  },
+  "portableTypeScript": {
+    "status": "passed",
+    "includes": "all six consumer/helper/installer/test postimages"
+  },
+  "composedStage": {
+    "path": "/tmp/naive-factual-gap-current-stage",
+    "baselineFiles": 1184,
+    "operatorFiles": 10,
+    "entryFiles": 6,
+    "nextTypegen": "passed (57 steps, 4 workflows)",
+    "fullWebTypeScript": "passed",
+    "postTypegenSourceHashes": "all six matched",
+    "lockfileSha256": "20f30e1361d2bc727dda014c7a4ca0cf71386e8a6a04950ee9ae67162cda0f10"
+  },
+  "build": "not run",
+  "liveOperations": "none",
+  "historicalInstallerReceipt": "plan-entry.install-only.historical.results.json"
+}

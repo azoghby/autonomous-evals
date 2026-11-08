@@ -1,0 +1,14 @@
+{
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "parentTests": {
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0
+  },
+  "unchangedStageBlobsVerifiedAgainstGit": 1181,
+  "baselinePins": 1184,
+  "entryPostimages": 6,
+  "preservedOperatorPostimages": 9,
+  "independentOperatorThenEntryPatchApplication": "all expected postimages matched",
+  "fullBuild": "not run"
+}
