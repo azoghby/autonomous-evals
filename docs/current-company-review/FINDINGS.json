@@ -1,0 +1,34 @@
+{
+  "reviewedParentCommit": "17625a2",
+  "applicationParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "candidateSha256": "d191f8c984e7ae5616f4c5e1973fcb2bfa85c581ccaf57ece30e2c389981ca25",
+  "candidateFilesVerified": 2041,
+  "acceptance": "not_accepted",
+  "findings": [
+    {"id": "F1", "aliases": ["AP-1", "RV-1"], "severity": "medium", "status": "not_accepted", "fixOwner": "payment-startup artifact owner",
+     "source": ["docs/current-autonomy-payment-startup/sql/001-current-payment.sql:127", "apps/web/src/server/current-payment.ts:161-171", "apps/web/src/server/current-payment-startup.ts:69-72"],
+     "repro": ["tests/track-b/current-company-review/authorization-payment/findings.test.ts#AP-1", "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts#RV-1"]},
+    {"id": "F2", "aliases": ["AP-2"], "severity": "medium", "status": "not_accepted", "fixOwner": "Track B release guard with payment-startup artifact owner",
+     "source": ["apps/web/src/server/autonomy-release.ts:63-84", "apps/web/src/server/autonomous-paid.ts:104,118-120", "packages/core/src/agents/autonomy/company.ts:75-76"],
+     "repro": ["tests/track-b/current-company-review/authorization-payment/findings.test.ts#AP-2"]},
+    {"id": "F3", "aliases": ["RV-2"], "severity": "low", "status": "open", "fixOwner": "composition owner",
+     "source": ["docs/current-company-composition/stage.mjs", "docs/current-company-composition/RESULTS.json"], "repro": []},
+    {"id": "F4", "severity": "low", "status": "coverage_restored_by_review_adopt", "fixOwner": "composition owner",
+     "source": ["docs/current-company-composition/test-compatibility.patch"],
+     "coverage": ["tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts", "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts"]},
+    {"id": "RV-3", "severity": "info", "status": "info", "fixOwner": "payment-startup artifact owner", "source": ["tests/track-b/current-autonomy-payment-startup/bridge.test.ts:2"]},
+    {"id": "RV-4", "severity": "info", "status": "characterization", "fixOwner": "owner-loader integrator", "source": ["apps/web/src/server/current-payment-startup.ts:84-90"]}
+  ],
+  "verification": {
+    "command": "node tests/track-b/current-company-review/run.mjs --typecheck --baseline",
+    "typecheck": 0,
+    "testFiles": 35,
+    "tests": 221,
+    "passed": 218,
+    "failed": 3,
+    "failedAreIntendedRepros": ["AP-1", "AP-2", "RV-1"],
+    "parentSelectionAlone": {"testFiles": 23, "tests": 164, "passed": 164},
+    "liveCalls": false,
+    "hostedAcceptance": false
+  }
+}
