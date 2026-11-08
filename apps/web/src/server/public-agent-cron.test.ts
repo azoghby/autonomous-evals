@@ -32,6 +32,18 @@ describe("pickNextAgent", () => {
   });
 });
 
+describe("owner-autopilot fields", () => {
+  it("excludes non-active status and unverified owner-submitted agents; tolerates absent fields", () => {
+    const list = [
+      agent("paused", { status: "paused" }), agent("pending", { status: "pending_verification" }), agent("optout", { status: "opted_out" }),
+      agent("unverified", { status: "active", ownerEmail: "a@b.co", verifiedAt: null }),
+    ];
+    expect(pickNextAgent(list, sched({}), now, 24 * H)).toBeNull();
+    const ok = [...list, agent("owned", { status: "active", ownerEmail: "a@b.co", verifiedAt: ago(5) }), agent("legacy")];
+    expect(pickNextAgent(ok, sched({ legacy: ago(10) }), now, 24 * H)?.slug).toBe("owned");
+  });
+});
+
 describe("budget and config", () => {
   it("stops once today's spend reaches the cap", () => {
     expect(budgetAllows(2_999_999, 3_000_000)).toBe(true);

@@ -23,6 +23,8 @@ export const ADVISORY_LOCK_KEY = 0x7075626167656e74n;
 
 export interface CandidateAgent {
   slug: string; name: string; active: boolean; termsUrl?: string | null; authorizedNote?: string | null; authEnvVar?: string | null;
+  /** Optional owner-autopilot fields; absent on rows from a DB that has not been migrated yet. */
+  status?: string | null; ownerEmail?: string | null; verifiedAt?: Date | string | null;
 }
 export interface Schedule { lastRanAt: ReadonlyMap<string, Date>; lastFailedAt?: ReadonlyMap<string, Date> }
 
@@ -36,6 +38,8 @@ export function readConfig(env: Record<string, string | undefined> = process.env
 }
 
 function isAuthorized(a: CandidateAgent): boolean {
+  if (a.status != null && a.status !== "active") return false; // paused / pending_verification / opted_out
+  if (a.ownerEmail && !a.verifiedAt) return false; // owner-submitted agents must be verified
   try { assertAuthorizedToTest(a); return true; } catch { return false; }
 }
 
@@ -63,9 +67,24 @@ export type TickResult =
   | { status: "failed"; slug: string; error: string }
   | { status: "skipped"; reason: "locked" | "budget" | "nothing_due" | "no_agents" };
 
+const p = schema.publicAgents;
+const baseCols = {
+  id: p.id, slug: p.slug, name: p.name, vendor: p.vendor, kind: p.kind, endpointUrl: p.endpointUrl, model: p.model, authEnvVar: p.authEnvVar,
+  systemPrompt: p.systemPrompt, homepage: p.homepage, termsUrl: p.termsUrl, authorizedNote: p.authorizedNote, active: p.active,
+};
+
+/** Explicit columns (never `select *`) so this works before and after the owner-autopilot migration. */
+async function loadAgents() {
+  try {
+    return await db().select({ ...baseCols, status: p.status, ownerEmail: p.ownerEmail, verifiedAt: p.verifiedAt }).from(p);
+  } catch {
+    return await db().select(baseCols).from(p);
+  }
+}
+
 async function loadSchedule(now: Date) {
   const d = db();
-  const agents = await d.select().from(schema.publicAgents);
+  const agents = await loadAgents();
   const runs = await d.select({ slug: schema.publicAgents.slug, last: sql<Date>`max(${schema.publicAgentRuns.ranAt})` })
     .from(schema.publicAgentRuns).innerJoin(schema.publicAgents, eq(schema.publicAgents.id, schema.publicAgentRuns.agentId))
     .where(eq(schema.publicAgentRuns.suiteVersion, SUITE_VERSION)).groupBy(schema.publicAgents.slug);
@@ -107,7 +126,7 @@ export async function runNextPublicAgent(now = new Date(), log: (l: string) => v
       if (!next) return { status: "skipped", reason: "nothing_due" };
       try {
         const outcome = await runPublicAgent(PublicAgentInput.parse(next), {
-          suite: loadStandardSuite(), budgetMicroUsd: PER_RUN_BUDGET_MICRO_USD, timeoutMin: RUN_TIMEOUT_MIN, log,
+          suite: loadStandardSuite(), agentId: next.id, budgetMicroUsd: PER_RUN_BUDGET_MICRO_USD, timeoutMin: RUN_TIMEOUT_MIN, log,
         });
         return { status: "ran", outcome };
       } catch (e) {

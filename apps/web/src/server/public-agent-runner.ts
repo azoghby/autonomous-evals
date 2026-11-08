@@ -50,6 +50,8 @@ export interface RunOptions {
   dryRun?: boolean;
   investigate?: boolean;
   log?: (line: string) => void;
+  /** Existing public_agents.id: skips the upsert (cron path; avoids writing to public_agents). */
+  agentId?: string;
   /** Test seam; defaults to the lite engine. */
   services?: EvalServices;
 }
@@ -70,7 +72,7 @@ export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): P
 
   const services = opts.services ?? createLiteServices();
   const { upsertAgent, insertRun } = await import("./leaderboard-db");
-  const agent = await upsertAgent(PublicAgentInput.parse(row));
+  const agent = opts.agentId ? { id: opts.agentId } : await upsertAgent(PublicAgentInput.parse(row));
 
   let spent = 0;
   const ctx: ServiceContext = {
