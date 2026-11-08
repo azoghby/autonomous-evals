@@ -61,6 +61,8 @@ Current additional implementation:
 - Lossless rich-text/contract projection retains authorized immutable sidecars. Text design/run contract wrappers now exist with required owner authorization/admission/run-storage ports, but are not composed into the application. Boolean `RunResult` cannot represent rubric/inconclusive/infrastructure states and those projections fail closed. New remediation proposals use Ines with durable role pinning; incomplete unpinned legacy proposals block for reconciliation.
 - Cost adapter rejects unmeasured or unidentified receipts. Application sinks still require atomic keyed settlement; see `docs/naive-cost-settlement-handoff.md`.
 
+Further Phase 1 core work: investigation and rerun adapters now use retained rich evidence with current authorization, and `evals/naive-services.ts` composes the five concrete methods. They are not active in application routing. The current finding enum lacks dismissed/resolved, so a genuine resolved rerun is retained and blocked at public projection rather than mislabeled. `docs/naive-phase1-owner-composition.md` specifies the required owner integration and remaining contract/provider gates.
+
 Phase 0 is still open: full real conformance, remaining migrations, expanded-role resources/authorization, and staging/application acceptance remain gates. Production remains unchanged by this work.
 
 ---
@@ -490,11 +492,11 @@ MCP bearer values live **only** in the Naïve vault and as hashes on our side.
 Phase 0
 [ ] Rotate + set NAIVE_API_KEY (Preview, Prod)
 [ ] scripts/naive-provision.ts: agents, skills, outcomes, vault MCP creds, deployments (paused); dry-run first
-[ ] Extend provision attestation for tool-bearing roles
+[x] Extend provision attestation for tool-bearing roles (SDK-observed configuration; strict regression tests)
 [ ] Pin NAIVE_AGENT_* @version
 [ ] Neon naive-staging + sim-seed child; apply agent-persistence, branch-ownership, calendar (seed child)
-[ ] Budget-0 refusal in service-adapter.ts + test
-[ ] TASK_BUDGETS >= $0.30 floor (or cheaper model)
+[x] Budget-0 refusal in service-adapter.ts + test
+[x] TASK_BUDGETS defaults >= $0.30 (explicit lower authorized limits preserved)
 [ ] conformance --services real (skip-branching, full, --target-url): 0 FAIL
 [ ] runLiveDiagnostic: all roles completed; costs rows written
 Phase 1
