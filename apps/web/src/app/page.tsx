@@ -9,6 +9,9 @@ import { McpSection } from "@/components/marketing/McpSection";
 import { Experts } from "@/components/marketing/Experts";
 import { ClosingCta, Footer } from "@/components/marketing/Footer";
 
+/** ISR so the leaderboard teaser picks up new public-agent runs. */
+export const revalidate = 300;
+
 export default function Home() {
   return (
     <div className="bg-bg text-fg">

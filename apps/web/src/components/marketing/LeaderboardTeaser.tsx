@@ -3,7 +3,7 @@ import { getLeaderboard } from "@/server/leaderboard-db";
 import { percent } from "@/server/leaderboard";
 import { Button, NudgeArrow, Section, SectionHeader } from "../ui";
 
-/** Landing-page teaser for the public leaderboard (async server component; NOT mounted yet). Renders nothing until there are runs. */
+/** Landing-page teaser for the public leaderboard (async server component; page uses ISR). Renders nothing until there are runs. */
 export async function LeaderboardTeaser() {
   const { entries } = await getLeaderboard();
   if (entries.length === 0) return null;
