@@ -4,13 +4,13 @@ Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explici
 
 ## Latest repository checkpoint
 
-Track A main `d1ceaf0` is preserved in `track-a` merge `7118f3a`, including the security, feedback, billing/trial and subsequent review fixes. Required source web TypeScript passes; the original npm suite passes **3,869 tests, zero failures and two documented opt-in skips**. Earlier checkpoint counts and missing-executable statements below are historical.
+Track A main `61e46bc` is preserved in `track-a` merge `5d2dbd9`, including leaderboard/agent-shim changes and earlier security/billing work. Required merged source web TypeScript passes; the original npm suite passes **3,887 tests, zero failures and two documented opt-in skips** including the new receipt tests. Earlier checkpoint counts and missing-executable statements below are historical.
 
 The approved 15-file accounting/expert and 26-file expert text patches are actual source. Typed factual-gap proposals and optional judge-attempt recovery are core source at `35fbcab`. The current **39-file combined factual Workflow candidate** supersedes the earlier operator, generic, entry and selection-only patches; it connects those capabilities and preserves Feedback/Revenue, but is not adopted or deployed. Its staged suite passes **4,029 tests**, plus web/core types and the offline production build. See the latest section below for remaining gates.
 
 This orchestrator's isolated staging has 27 app migrations through 0026 plus four sidecars; later application migrations and the optional judge dispatch sidecar have not been applied there. Track A separately records its production `41bb78f` and migration 0031 in LEDGER. Those are their receipts, not a deployment by this work. Full Phase 0 and later acceptance gates remain open.
 
-Final fetch observed newer Track A `61e46bc` (leaderboard and open-source agent shims). It is not merged or covered by this full-suite/build receipt. All 39 candidate preimages are unchanged there; reconcile that batch before final source release.
+The 39-file owner candidate retains its explicit `7118f3a` composed-build baseline. Its preimages are unchanged by the merged `61e46bc` batch, but hosted/source adoption remains pending.
 
 ## Phase 0
 
@@ -251,3 +251,9 @@ Both patches pass applicability checks against `c24e341`; no active application 
 Parent verified39pre/postimages and independentpatchapplication,1296committed baselinepins with zero unowned post-build differences, plus reproducible assembly. Fullstagedsuite **4029passed/0failed/2skips**, web/coretypes and offline-font productionbuild **62steps/4workflows** pass. Actual application source remains unchanged; source adoption and hosted/provider acceptance remain open.
 
 Exact owner scope creation is still not automatic: new model-proposed coverage requires a preconfigured exact scope or a future deterministic owner-policy bridge. Consent, qualifications, independent review, cold-contact approval and budget gates are preserved. Do not claim fully automatic expert sourcing. Separate judge owner recovery/background accounting remains outside this patch. Full Naïve Phase0/roster and later phase gates remain open.
+
+## Phase 0 receipt export and sourcing authority design
+
+Actual CLI source now preserves operation names and exports a private, versioned receipt bundle through `--apply|--check PLAN JOURNAL --receipts OPTIONS OUTPUT`. Exact-plan preflight runs before provider access; successful attestation results enrich skills, outcomes, vaults, agents and credentials for the next stage. The terminal stage also retains deployment identities. Global merged ID uniqueness prevents a coordinator from aliasing a member. Thirteen local tests cover the five-stage progression and rejection cases; strict CLI types and offline inventory/resource-plan execution pass. See `naive-provision-receipt-handoff.md`. This is actual source functionality, not a claim that the whole roster has been provisioned or activated.
+
+`naive-expert-scope-authorization.md` specifies the missing authenticated customer consent, owner-selected sourcing envelope, exact scope derivation receipt and dispatch/revocation ordering. It is a design, not implemented authority. The 39-file app patch still awaits its explicit source ownership override; live credentials, migrations, provider/hosted acceptance and Phase 0 exit remain open.

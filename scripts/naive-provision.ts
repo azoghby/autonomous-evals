@@ -1,4 +1,6 @@
 /** Operator-only. Offline plan by default; --inspect performs bounded read-only discovery. */
+import { buildCompanyProvisionReceiptExport, validateCompanyProvisionReceiptPlan } from "./naive-provision-receipts";
+import type { CompanyProvisionPlanOptions, CompanyProvisionPlan } from "../packages/core/src/agents/company-provision-plan";
 import { readFile, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { buildAgentOperation, buildPausedDeploymentOperation, provisionResources } from "../packages/core/src/agents/naive-provisioning";
@@ -15,8 +17,8 @@ async function main() {
   if(args.length===1 && args[0]==='--resource-plan') {process.stdout.write(JSON.stringify({operations:[...COMPANY_SKILLS.map(body=>({kind:'skill',body})),...COMPANY_OUTCOMES.map(body=>({kind:'outcome',body}))]},null,2)+'\n');return;}
   const apply=args[0]==='--apply' || args[0]==='--check';
   if(apply) {
-    if(args.length!==3)throw Error('usage_apply_plan_journal');
-    await applyPlan(args[1]!,args[2]!,args[0]==='--check');return;
+    if(args.length!==3 && !(args.length===6 && args[3]==='--receipts'))throw Error('usage_apply_plan_journal');
+    await applyPlan(args[1]!,args[2]!,args[0]==='--check',args.length===6?{options:await readJson(args[4]!),output:args[5]!}:undefined);return;
   }
   if(args.some(a=>!['--dry-run','--inspect'].includes(a)) || args.length>1)throw Error("invalid_arguments");
   const definitions=Object.values(COMPANY_ROLE_DEFINITIONS);
@@ -39,12 +41,13 @@ async function main() {
   if(!complete)throw Error('incomplete_listing');
   process.stdout.write(JSON.stringify({mode:'read_only_inventory',agents:rows,configurationAttested:false},null,2)+'\n');
 }
-async function applyPlan(planPath:string,journalDir:string,dryRun=false) {
+async function applyPlan(planPath:string,journalDir:string,dryRun=false, receiptExport?: {options:CompanyProvisionPlanOptions;output:string}) {
   const plan=await readJson(planPath) as {operations:Array<{kind:string;name?:string;body:any;pin?:any;vaultId?:string;valueFile?:string;trusted?:any}>};
   if(!plan || typeof plan!=="object" || !Array.isArray(plan.operations) || !plan.operations.length || plan.operations.length>100)throw Error();
   for(const item of plan.operations) {
     if(!item || typeof item!=="object" || !item.body || typeof item.body!=="object" || Array.isArray(item.body) || Object.keys(item).some(k=>!["kind","name","body","pin","vaultId","valueFile","trusted"].includes(k)))throw Error();
   }
+  if(receiptExport) validateCompanyProvisionReceiptPlan(receiptExport.options,plan as unknown as CompanyProvisionPlan);
   const journal=createProvisionFileJournal(journalDir,{readOnly:dryRun});
   const apiKey=process.env.NAIVE_API_KEY_FILE ? (await readFile(process.env.NAIVE_API_KEY_FILE,'utf8')).trim() : process.env.NAIVE_API_KEY;
   if(!apiKey)throw Error();
@@ -71,7 +74,8 @@ async function applyPlan(planPath:string,journalDir:string,dryRun=false) {
     }
   }
   const result=await provisionResources(operations,journal,{dryRun});
-  process.stdout.write(JSON.stringify(result.map(r=>({kind:r.kind,status:r.status,...r.receipt})),null,2)+'\n');
+  if(receiptExport) await writePrivateProvisionPlan(receiptExport.output,buildCompanyProvisionReceiptExport(receiptExport.options,plan as unknown as CompanyProvisionPlan,result));
+  process.stdout.write(JSON.stringify(result.map(r=>({kind:r.kind,name:r.name,status:r.status,...r.receipt})),null,2)+'\n');
 }
 async function readJson(path:string):Promise<any> {
   const size=(await stat(path)).size;
