@@ -4,6 +4,8 @@ import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { SandboxShowcase } from "@/components/marketing/sandbox-showcase/SandboxShowcase";
 import { DemoTeaser } from "@/components/marketing/DemoTeaser";
 import { LeaderboardTeaser } from "@/components/marketing/LeaderboardTeaser";
+import { ProofStats } from "@/components/marketing/ProofStats";
+import { BuiltOnNaive } from "@/components/marketing/BuiltOnNaive";
 import { BuilderQuotes } from "@/components/marketing/BuilderQuotes";
 import { MeetTheTeam } from "@/components/marketing/team/MeetTheTeam";
 import { McpSection } from "@/components/marketing/McpSection";
@@ -22,7 +24,9 @@ export default function Home() {
         <HowItWorks />
         <SandboxShowcase />
         <DemoTeaser />
+        <ProofStats />
         <LeaderboardTeaser />
+        <BuiltOnNaive />
         <BuilderQuotes />
         <MeetTheTeam />
         <McpSection />
