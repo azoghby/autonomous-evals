@@ -3,7 +3,13 @@ import type { AgentCreate, VettaClient } from "@usenaive-sdk/managed-agents";
 import type { AgentDirectory, AgentRole } from "../evals/types";
 import { DEFAULT_AGENT_MODEL, ROLE_DEFINITIONS } from "./roles";
 
-export function buildAgentCreateBody(role: AgentRole, model: string = DEFAULT_AGENT_MODEL): AgentCreate {
+/** Explicit safety configuration; callers cannot attest omitted provider defaults. */
+export type ExpectedAgentConfiguration = Required<Pick<AgentCreate,
+  "model" | "window" | "system" | "description" | "budget" | "tools" |
+  "mcp_servers" | "skills" | "multiagent" | "handoffs" | "metadata"
+>> & Pick<AgentCreate, "model_selection">;
+
+export function buildAgentCreateBody(role: AgentRole, model: string = DEFAULT_AGENT_MODEL): AgentCreate & ExpectedAgentConfiguration {
   const def = ROLE_DEFINITIONS[role];
   return {
     name: def.agentName,
@@ -55,39 +61,66 @@ type Config = Awaited<ReturnType<VettaClient["agents"]["getVersion"]>>;
 const roles = Object.keys(ROLE_DEFINITIONS) as AgentRole[];
 const positiveVersion = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 
-function checkConfig(config: Omit<Config, "version" | "created_by" | "created_at">, role: AgentRole, model: string, phase: "existing" | "creation") {
-  const expected = buildAgentCreateBody(role, model);
-  const missing: string[] = [];
-  const changed: string[] = [];
-  const check = (field: string, actual: unknown, wanted: unknown) => {
-    if (actual === undefined) missing.push(field);
-    else if (actual !== wanted) changed.push(field);
+/** Compare JSON configuration without logging values or attacker-controlled key names. */
+function exactConfig(actual: unknown, expected: unknown): boolean {
+  if (actual === expected) return true;
+  if (actual === null || expected === null || typeof actual !== "object" || typeof expected !== "object") return false;
+  if (Array.isArray(actual) || Array.isArray(expected)) {
+    return Array.isArray(actual) && Array.isArray(expected) && actual.length === expected.length &&
+      actual.every((value, index) => exactConfig(value, expected[index]));
+  }
+  const a = actual as Record<string, unknown>, e = expected as Record<string, unknown>;
+  const keys = Object.keys(e);
+  return Object.keys(a).length === keys.length && keys.every((key) =>
+    Object.prototype.hasOwnProperty.call(a, key) && exactConfig(a[key], e[key]));
+}
+
+/**
+ * Attest an explicit expected role configuration against a provider's exact version.
+ * Provider identity/timestamps are deliberately ignored. Nested safety settings are
+ * exact, including unknown additions. Array order is significant. SDK 0.12.3's
+ * omitted tool `enabled` means true; null/absent model_selection means fixed model.
+ * Metadata may carry provider additions, but every expected metadata key is pinned.
+ * This checks configuration, not identity/version ownership or transport authenticity.
+ */
+export function attestAgentConfiguration(
+  config: unknown,
+  expected: ExpectedAgentConfiguration,
+  context: { phase: "existing" | "creation"; role?: AgentRole } = { phase: "existing" },
+): void {
+  const actual = config && typeof config === "object" ? config as Record<string, unknown> : {};
+  const missing: string[] = [], changed: string[] = [];
+  const check = (field: string, value: unknown, wanted: unknown) => {
+    if (value === undefined) missing.push(field);
+    else if (!exactConfig(value, wanted)) changed.push(field);
   };
-  check("metadata.ae_role", config.metadata?.ae_role, role);
-  check("metadata.ae_managed", config.metadata?.ae_managed, true);
-  check("model", config.model, model);
-  // Null/absent means no dynamic selection in SDK 0.12.3. A policy overrides the fixed model.
-  if (config.model_selection != null) changed.push("model_selection");
-  check("window", config.window, expected.window);
-  check("system", config.system, expected.system);
-  check("description", config.description, expected.description);
-  check("tools.default_config.permission", config.tools?.default_config?.permission, "deny");
-  if (!config.tools?.configs) missing.push("tools.configs");
-  else if (Object.keys(config.tools.configs).length) changed.push("tools.configs");
-  for (const field of ["mcp_servers", "skills"] as const) {
-    if (!Array.isArray(config[field])) missing.push(field);
-    else if (config[field].length) changed.push(field);
+  for (const field of ["model", "window", "system", "description", "budget", "mcp_servers", "skills", "multiagent", "handoffs"] as const) {
+    check(field, actual[field], expected[field]);
   }
-  check("multiagent", config.multiagent, false);
-  // Unlike model_selection, absence does NOT attest disabled handoffs on older versions.
-  check("handoffs", config.handoffs, false);
-  for (const field of ["cap_micro_usd", "max_task_micro_usd", "period"] as const) {
-    check(`budget.${field}`, config.budget?.[field], expected.budget[field]);
-  }
+  if (!exactConfig(actual.model_selection ?? null, expected.model_selection ?? null)) changed.push("model_selection");
+  // Normalize only the one documented SDK default, never permission/config options.
+  const normalizeTools = (value: unknown): unknown => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const tools = value as Record<string, unknown>;
+    if (!tools.configs || typeof tools.configs !== "object" || Array.isArray(tools.configs)) return value;
+    return { ...tools, configs: Object.fromEntries(Object.entries(tools.configs).map(([name, entry]) =>
+      [name, entry && typeof entry === "object" && !Array.isArray(entry)
+        ? { enabled: true, ...entry } : entry])) };
+  };
+  check("tools", normalizeTools(actual.tools), normalizeTools(expected.tools));
+  const metadata = actual.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) missing.push("metadata");
+  else if (Object.keys(expected.metadata).some((key) =>
+    !Object.prototype.hasOwnProperty.call(metadata, key) ||
+    !exactConfig((metadata as Record<string, unknown>)[key], expected.metadata[key]))) changed.push("metadata");
   if (missing.length || changed.length) throw new AgentProvisioningError({
     code: missing.length ? "attestation_unavailable" : "configuration_mismatch",
-    phase, role, fields: [...missing, ...changed],
+    ...context, fields: [...missing, ...changed],
   });
+}
+
+function checkConfig(config: Omit<Config, "version" | "created_by" | "created_at">, role: AgentRole, model: string, phase: "existing" | "creation") {
+  attestAgentConfiguration(config, buildAgentCreateBody(role, model), { phase, role });
 }
 
 export async function ensureAgents(

@@ -11,9 +11,14 @@ Implemented and checked locally:
 - Default qualify and outreachDraft budgets are 300,000 micro-USD ($0.30). Explicit lower authorized qualify budgets remain lower; no global/job/monthly cap is raised. Existing task identities with different requested budgets remain subject to the runner's input-change reconciliation gate. This is a default configuration change, not proof of a provider quote floor.
 - Strict TypeScript and 669 agents/evals tests across 40 files pass, none skipped. Seven new adapter budget/replay regressions plus commercial default/override coverage. Fakes/local SQL do not prove live Naïve acceptance.
 
+Provisioning attestation checkpoint:
+
+- Exported `attestAgentConfiguration` with explicit expected configuration, reused by existing four-role provisioning. Exact nested tool permissions/configuration, MCP, skills, handoffs/coordinator, model policy, instructions, budget and expected metadata checks; static safe diagnostic paths.
+- Strict agents harness passes 206 tests across nine files, including 33 new regressions, none skipped. SDK 0.12.3 may strip unknown schema fields before this helper sees them; attestation certifies observed configuration only.
+
 Still required before Phase 0 exit:
 
-- Dry-run/create-missing provisioning CLI, tool-bearing role attestation and the full plan's skills/outcomes/vault/deployment resources (deployments paused).
+- Dry-run/create-missing provisioning CLI, expanded role manifest using the attestation helper and the full plan's skills/outcomes/vault/deployment resources (deployments paused).
 - Fresh `NAIVE_API_KEY`, pinned role IDs/versions, owner-applied staging migrations, real conformance and bounded live role diagnostic.
 - The checklist's production NO-GO items are not cleared by these unit tests. No live keys, provider operations, cloud migrations or deployment were performed.
 
@@ -33,3 +38,5 @@ node tests/track-b/run-checks.mjs --components agents,evals \
 ```
 
 The command uses retained local dependencies, not a fresh install. Required current-root typecheck/test commands still cannot run without checkout TypeScript/Vitest executables. The separate Workflow artifact has its own exact-source full type/build evidence; that does not certify this whole migration or hosted app.
+
+Final parent checkpoint validation: strict combined agents/evals harness passed **702 tests across 41 files**, none skipped, against `5a56d05be5ecd6ce421e86996ac89d63a91a0efe`. All assigned worker results were collected; no handoff worker remains active.
