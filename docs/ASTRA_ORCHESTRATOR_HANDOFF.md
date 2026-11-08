@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Latest unified integration continuation (2026-11-08)
+
+Start with `docs/naive-unified-integration/README.md` and its validation receipt, then the latest LEDGER entry. Main `ef368fc` is preserved at `7f28e20`. The new increment combines factual39/sourcing26 with the 75-path cancellation chain: 64 incremental postimages, 133 composed source/test paths and 12 additional upstream overrides. It is **unapplied**, and supersedes conflicting separate factual/sourcing postimages only within this composed artifact. Earlier approved exact15/exact26 patches were already adopted and must not be reapplied.
+
+Shared generic/expert ledgers and stage decorators are preserved. Pending generic routing errors retain holds, while mixed callbacks remain nonrecoverable. The old broad engineer hold release is removed. Cancellation shares the dispatch job mutex, including legacy expert sends. No provider/native PostgreSQL/live acceptance is implied by local tests. Full verification belongs to the retained final receipt; remaining work includes exact source adoption, mixed child coverage, complete budgets, judge recovery, copilot turns/idle, roster and hosted phase gates. Preserve customer-recruitment files belonging to other work. Use private secret forms only when concrete live work requires credentials.
+
 ## Current source checkpoint (2026-11-08)
 
 This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on old “not implemented” statements. The latest reconciled origin/main is `61e46bc`, merged into `track-a` at `5d2dbd9`. Required merged source tests pass 3,887 / zero failures / two skips including the new receipt tests, and web types pass. This preserves Track A’s billing, Revenue tab, authentication and session-lock changes. The local `main` branch is older; use the fetched ref and merge evidence rather than assuming it is current. The latest supplied AGENTS instructions require commits on `track-a`.

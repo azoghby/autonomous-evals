@@ -1,0 +1,48 @@
+{
+  "reviewedRepositoryCommit": "7f28e20",
+  "preservedMain": "ef368fc",
+  "status": "unapplied_candidate_not_deployed",
+  "manifestSha256": "ed5187ae46031d557deb5e7addea32063c5d937f629290841aacf577487ca866",
+  "ownerPatchSha256": "b7564e288f9fd1341a596fde98434e1cdfdb26f729c8b57de0341114f845965a",
+  "candidateTests": {
+    "numPassedTests": 4449,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1064,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualSourceTests": {
+    "numPassedTests": 3956,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 987,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "candidateWebTypes": "pass",
+  "candidateCoreTypes": "pass",
+  "actualSourceWebTypes": "pass",
+  "offlineFontProductionBuild": {
+    "status": "pass",
+    "workflowSteps": 62,
+    "workflows": 4
+  },
+  "preservationReceipt": "verification.json",
+  "independentPatchReceipt": "patch-verification.json",
+  "parentVerifiedBaselineSourceFiles": 2350,
+  "integrationFixes": [
+    "Removed broad engineer hold release",
+    "Preserved shared budgets and stage decorators in factual routing",
+    "Retained translated generic pending errors",
+    "Ordered cancellation with derived and legacy expert dispatch; canonical UUID mutex identities",
+    "Publication fixture now loads real shared-budget SQL",
+    "Inherited authority test callbacks accept heterogeneous result types without casts"
+  ],
+  "limitations": [
+    "Native PostgreSQL contention and hosted acceptance unverified",
+    "Mixed callback automatic recovery remains disabled",
+    "Ambiguous design release acknowledgement remains held",
+    "No actual source adoption, migration, provider access, outreach, spend or deployment"
+  ]
+}

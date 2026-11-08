@@ -2,6 +2,16 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Unified factual sourcing and safety candidate (2026-11-08)
+
+`naive-unified-integration` combines the factual Workflow and standing-policy sourcing candidates with the shared-budget, stage-recovery and cancellation chain. Its 64 incremental source/test paths compose to 133 paths. Twelve exact upstream overrides preserve main `ef368fc`, merged at `7f28e20`; earlier candidate receipts remain historical, not instructions to apply both conflicting versions.
+
+Generic and expert runtimes now retain the shared budget ledger and stage runner/session guards alongside factual routing and current consent authority. Typed generic pending errors stay pending. Strict ordinary qualification/audit/report recovery remains enabled; mixed design/target/proxy callbacks deliberately retain holds without automatic takeover. Removed the older blanket engineer-reservation release: a lost design-release acknowledgement remains a reconciliation gate.
+
+Cancellation and expert dispatch now take the same canonical job advisory lock before row locks, including legacy expert scopes. An accepted cancellation therefore orders against the final sourcing authority check and send. Tests check lock identity, ordering and refusal on lock loss; they do not establish native PostgreSQL contention or cancel an already-dispatched external request.
+
+Final verification: **4,449 staged tests / zero failures / two documented skips**, web/core types and offline-font build (62 steps/four workflows) pass. Independent patch and two fresh assemblies match 2,366 source/SQL hashes. Actual-source web types and 3,956 tests pass. Details are in the artifact validation receipt and LEDGER. No actual app/core adoption, migration, provider invocation, outreach, spend or deployment occurred. Required next gates remain exact source adoption, mixed callback recovery and parent envelopes, combined daily budgets, judge recovery composition, conversation/idle integration, full roster/Phase 0 conformance, native PostgreSQL and hosted acceptance. The full Naïve plan remains unfinished.
+
 ## Latest cancellation and remediation continuation (2026-11-08)
 
 `naive-cancellation-integration` adds 28 source/test postimages and SQL (75 composed paths), preserving 19 current-main files through exact baseline overrides. Actual main `6793f48` is merged at `c4fcf0f`; Track A feedback/home/sample changes are included in the staged build rather than ignored. REST/MCP cancellation now atomically commits current authorization, retained intent/audit, terminal job state and one progress event. Independent Checkout/Workflow acknowledgements, strict expiry verification and fair oldest-attempt rotation drive automatic cron retry.

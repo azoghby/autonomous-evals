@@ -1,0 +1,501 @@
+{
+  "reviewedRepositoryCommit": "7f28e20",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-cancellation-integration",
+  "dependencyHashes": {
+    "manifest.json": "e015f2be107416fe8e8587f735d472817307bc21a0bcbfb9182e1d29f5461e77",
+    "assemble.py": "66c1cdfaea8d3b6389a298550d88cc8af7957ee261772fee70626e7345eeffc3"
+  },
+  "provenance": {
+    "naive-factual-workflow-integration": {
+      "manifestSha256": "b37c470ec1570337b1ae5967134bb393c9012aff7d95eb714c5e425af917b63a",
+      "files": 39
+    },
+    "naive-sourcing-authority-integration": {
+      "manifestSha256": "e9aeab92e37a4d58ebc63ab0c9ae7edc5a7810dbd81c51d486334adc6b0ff75d",
+      "files": 26
+    }
+  },
+  "baselineOverrides": [
+    {
+      "path": "apps/web/src/app/(app)/layout.tsx",
+      "beforeSha256": "2f626cd2e6b3236e3c4e258ef3a818202a91a60a92c43426f86f55dba56d4abb",
+      "afterSha256": "c23b2fa8992cb554cc132101ff5eacff089b3381ecf16a0046924ae6d49070d6",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/app/api/auth/logout/route.ts",
+      "beforeSha256": "53ee466146471dbefa81405c2dadb95bce4b4ad90dfb84f571f090f591ff6962",
+      "afterSha256": "8db2ae1ac9b41987f9621d9278c73b4352bb23fec3b8d5de557794affabd9676",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/app/api/auth/verify/route.ts",
+      "beforeSha256": "24cd531569a82deb8ad007b0626ad1267acb9b533ce46f7eba7bcc9d214a1639",
+      "afterSha256": "bb802fe7edb2d3369184b4d257d631064041f34186d22c9bb401d259e5ea36ed",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/app/globals.css",
+      "beforeSha256": "269466b25deb95e4dad583ba5604594f813642f921bbfd7241da226cddaafa03",
+      "afterSha256": "67970fd30b5636ffe29b5257faf9daf08692aff2f5b5f8a5a1a3e768e48e9c58",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/components/marketing/Hero.tsx",
+      "beforeSha256": "55e44bcab5921d843f0a8195ea10e00bb07567eec98d439e7ef69b7d5ba9c654",
+      "afterSha256": "d7146ced20240aabed4e268094b25e9008312b9f7797764bb5d446d2d48311c4",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/components/ui/CommandPalette.tsx",
+      "beforeSha256": "d57e9c647ae1b4072153cfc582c5fcaa9f69548b4c9867ca24c6ed4249001800",
+      "afterSha256": "46cc6d252aa300210b92b80e0f9a5e6adc47f4b69ce7b32ed6eba3fbdc047e7e",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/components/ui/SessionHint.tsx",
+      "beforeSha256": null,
+      "afterSha256": "cc7a429a440a23f1ffb89eb7be94c5bce3ba48447839d572e6b55f7e85441ea1",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/lib/palette.test.ts",
+      "beforeSha256": "d196d16ce53b50a2cc0d20a5d778d58586920216bf39051a375a7c191dcf5615",
+      "afterSha256": "98b59be4be579bf84cc257d8a38ffe34c5dc26d9027dbca5952b5ac7962c0d46",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/lib/palette.ts",
+      "beforeSha256": "4b15fc18fb2db1c30cd26ed354b494f6b85e3cd318c60d9e01c1d214f3f73faf",
+      "afterSha256": "7df76bc6134208f2cbe9969ce924cc171bb4f2283f3abb58ff91ea28c2713a70",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/lib/session-hint.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "1ffe98979ddfb96cf9ba344572a31cc412e973004bd6645a59a94245f70bf8a6",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/lib/session-hint.ts",
+      "beforeSha256": null,
+      "afterSha256": "9d048cfc316204ea6acb66bb949aa4b08a35ddf72a4a73b40102e45e7fe3cdb2",
+      "commit": "7f28e20"
+    },
+    {
+      "path": "apps/web/src/server/home-stats.ts",
+      "beforeSha256": "98bbd749b94633371b477a096d0fdd7f7e422981e2b360fa10996d08397f45ac",
+      "afterSha256": "811861acefba7b89dea5916ef2d2b9c4067ce79ac8660d341f39557313d0a888",
+      "commit": "7f28e20"
+    }
+  ],
+  "files": [
+    {
+      "path": "apps/web/src/app/(app)/jobs/[jobId]/page.tsx",
+      "postimage": "postimages/apps/web/src/app/(app)/jobs/[jobId]/page.tsx",
+      "beforeSha256": "5d1b8887a852969824e03b3752db34eb14b1f8c5b597e15ea291a10f47ad9e91",
+      "afterSha256": "c7a7edbc4cb1722b1f22e2f55db7bee9da0aecc48203f8754af70303561a5693"
+    },
+    {
+      "path": "apps/web/src/app/(app)/operator/expert-reviews/page.tsx",
+      "postimage": "postimages/apps/web/src/app/(app)/operator/expert-reviews/page.tsx",
+      "beforeSha256": null,
+      "afterSha256": "3d32cb5098ea5e0eae421a7542f4440d4bf3648f2635683524b608e138bcc29a"
+    },
+    {
+      "path": "apps/web/src/app/(app)/operator/expert-sourcing/page.tsx",
+      "postimage": "postimages/apps/web/src/app/(app)/operator/expert-sourcing/page.tsx",
+      "beforeSha256": null,
+      "afterSha256": "95bbc5eca990f5c79135f1a7813eb717db49fea9de6412df54508c12633a3dc0"
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/expert-sharing/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/jobs/[jobId]/expert-sharing/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "06da094655dd6de158460ea6672113610082d57c203b2e2540a68d0a0c61d350"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/operator/expert-reviews/[jobId]/[kind]/[digest]/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "3fea5e821b7ad01c03cff4c6a2aea6a92db1f93398b11cd33a84fcb647854943"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-reviews/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/operator/expert-reviews/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "48100f34af3340933eb494714a7c1408b72b00724121a5b02819291bd4f0d391"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-sourcing/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/operator/expert-sourcing/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "fe9b9947ac1dd4420ba2ed2fad1759cfdd52abc037745138be101ce8354da787"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/jobs/[id]/proxy-billing/reconcile/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/operator/jobs/[id]/proxy-billing/reconcile/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "02eb8dc1ec4e40ef3752a6920fc8f40bdaa263c77f711e93ea1bd722e54b231f"
+    },
+    {
+      "path": "apps/web/src/components/app/expert-review-queue.tsx",
+      "postimage": "postimages/apps/web/src/components/app/expert-review-queue.tsx",
+      "beforeSha256": null,
+      "afterSha256": "726da1167e0934c21c88206c7f0c4ac9d9aedd9c36d3ee251594807935a08891"
+    },
+    {
+      "path": "apps/web/src/components/app/expert-sharing-consent.tsx",
+      "postimage": "postimages/apps/web/src/components/app/expert-sharing-consent.tsx",
+      "beforeSha256": null,
+      "afterSha256": "834241a0dfcd6048d47a7222cd577d3dcdb2cc823c9b4aad5c98ae6b01f4aad4"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-console.tsx",
+      "postimage": "postimages/apps/web/src/components/app/operator-console.tsx",
+      "beforeSha256": "0a7925eb7bebb146f02194b5c6ad63f2d39b2960c27d87f743201cc01f7b5802",
+      "afterSha256": "e6ccf78ebf26f15a52fc47c8d1287830ef301462ce1fe26758f014f3f8abb8e1"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-expert-sourcing.tsx",
+      "postimage": "postimages/apps/web/src/components/app/operator-expert-sourcing.tsx",
+      "beforeSha256": null,
+      "afterSha256": "3639229118b7437644f36ce75ef83ecf732c0c400e016bdc0a59900b9960aaf5"
+    },
+    {
+      "path": "apps/web/src/lib/client/expert-review.ts",
+      "postimage": "postimages/apps/web/src/lib/client/expert-review.ts",
+      "beforeSha256": null,
+      "afterSha256": "d6e5e9dc9fb885d08ca8a7b09c94f84582ba2d1e88b9eba65364a2eec9db4089"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-owner.test.ts",
+      "postimage": "postimages/apps/web/src/server/automated-expert-owner.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "e973d3b6b17625536202f26552241d194218d0cfe9ea0dbef37378894c61b726"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-owner.ts",
+      "postimage": "postimages/apps/web/src/server/automated-expert-owner.ts",
+      "beforeSha256": "788c8b2ac7a4644ace0cf4733888fd46a9f46c5851ed1e362b07d5b11ede199d",
+      "afterSha256": "b8e3e5bbb05119a392fb51f7a358617bd29e69d1d315ee0148ece23ff0282db1"
+    },
+    {
+      "path": "apps/web/src/server/create-job.ts",
+      "postimage": "postimages/apps/web/src/server/create-job.ts",
+      "beforeSha256": "6cb4d1c8b50e383cc93a7a25479020e09f5f0911b9c56d8681734c2e8fe18a04",
+      "afterSha256": "4340e0d3e1d95131fd66086a345ca0fc3dbfa0b38349d7119d4198be72829a34"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan-binding.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "2dabe20d9ab443b31e20814d01ad9ec31319293eced3b49d4ae3c7564210964d"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan-binding.ts",
+      "beforeSha256": null,
+      "afterSha256": "8f7ad5d1a39bde3696641384a580980d82e3fed2a9c5fe7632543cc665048151"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "f9f175a9e8d34b65c3097604827ed0ffa598eedbfee1014eafddfce7fc1ab620"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan.ts",
+      "beforeSha256": null,
+      "afterSha256": "59803011a497a87fd37cd7ad240d4ae2a22bde0a89e0f8a989d3a9ccf625cc04"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-production.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-production.ts",
+      "beforeSha256": "66c20d0c042c0ded622cb0acd8c080af36f1d491afe41060964ef24bcf1db0ec",
+      "afterSha256": "c97987e1bd1c6e494adedcc7f5db6121bd317c47d5d7de09d18e3e752756c8e4"
+    },
+    {
+      "path": "apps/web/src/server/expert-review.ts",
+      "postimage": "postimages/apps/web/src/server/expert-review.ts",
+      "beforeSha256": null,
+      "afterSha256": "f29c3006306ec2c260e89c1d09a3612194c68b07e97cbdabe4d0d8249afb97d3"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-api.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-api.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "eb6381eb53242cabbf6b926cdbcf00cf9df7d292b0d5d0f638fd8b5e596716e4"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-api.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-api.ts",
+      "beforeSha256": null,
+      "afterSha256": "13d993d45cb5f467b54f4cab7c266179ccc265d73255afe5a42a63bce13e5f8c"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-bridge.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-bridge.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "a219eb3ecb580e37e5b95420f845e7b4f45a69b835ddb0d70ad5f184a4eb114b"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-bridge.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-bridge.ts",
+      "beforeSha256": null,
+      "afterSha256": "1899babe3c181455e6a487d1672d158837926d681ef052e11d9cce95e2833475"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-dispatch.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-dispatch.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "ce900b32efe8dbe60f75aa4764c30f329d1727cc53cd81cd24a3d45da2c15eb3"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-installer.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-installer.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "58b0230c2d9dba558be914768342f75935b360d00a91feb36bc13c2b7348d755"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-locks.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-locks.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "86e78ef36a46ffa23831ebbff9ae29cc8ee2bf8ca188380a3607643a78c11f95"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-locks.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-locks.ts",
+      "beforeSha256": null,
+      "afterSha256": "db058032c4b01002bf85c05481413224db02c48596d6442c314c5a1281745fca"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-runtime-dependencies.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-runtime-dependencies.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "4a7a54ebb845a6da70ec215cbe5adce9bb227592c1d5d64b0c99440a345d7797"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-runtime-dependencies.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-runtime-dependencies.ts",
+      "beforeSha256": null,
+      "afterSha256": "a38b446029fcbe89f6ccb2a4bf605569e8841be31db3930ba6362c6239b3c0eb"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-store.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-store.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "e209bb108ed44b6c2162ece6a380be79b093fa96c2ced62feb92715dbdef0d3f"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-store.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-store.ts",
+      "beforeSha256": null,
+      "afterSha256": "3215115eee96cf56dec24643ff0e528f6e735b98ca6a95ea6966c14995992e99"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-test-fixture.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-test-fixture.ts",
+      "beforeSha256": null,
+      "afterSha256": "1d67994115093f6a8e72e4a8178b50d83d1e519a7d7b2a877c758c8a37a3d1f9"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/expert-text-runtime.ts",
+      "beforeSha256": "81dba9bfe18e3c104383a0a955e46a3ea4fae28b977f9154376b55110710628f",
+      "afterSha256": "ac6de5209c4af2fb254e619c803a4454cbe301e16ddccb07220c4bf40735fa30"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-unified-runtime.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-text-unified-runtime.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "c040bdcfb622a06ce89e595563b9ee84f60fc1b67dff6bf14ebdec36c94dce38"
+    },
+    {
+      "path": "apps/web/src/server/job-cancellation-sourcing.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-cancellation-sourcing.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "8992e5dc30adfbec46af6c4736ec26b31888013ee3f74373acb7b3c26aeb118e"
+    },
+    {
+      "path": "apps/web/src/server/job-cancellation.ts",
+      "postimage": "postimages/apps/web/src/server/job-cancellation.ts",
+      "beforeSha256": "7c2889ca2d51885aeabde2d690f6ef08d7a80f7259547b090f649650bb1a3bfd",
+      "afterSha256": "689b5c37c864687b9b9bc803e36dee91c5efd367e680ea037b4d54e74e25de70"
+    },
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-engine-admission-policy.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "a40dc5559d3734808fed33e2f617d207d4be06fa725bd6b4f6f31ae69031a3a4"
+    },
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.ts",
+      "postimage": "postimages/apps/web/src/server/naive-engine-admission-policy.ts",
+      "beforeSha256": null,
+      "afterSha256": "b9eb70d8f04e2f5246b11128e4c2b28b8f9dbf1ef5928089f0f199cb6e69922b"
+    },
+    {
+      "path": "apps/web/src/server/naive-factual-gap-workflow.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-factual-gap-workflow.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "8882abd75e4054841f7eece872b13bf4d0abc0e763485a203b01645486468262"
+    },
+    {
+      "path": "apps/web/src/server/naive-factual-gap-workflow.ts",
+      "postimage": "postimages/apps/web/src/server/naive-factual-gap-workflow.ts",
+      "beforeSha256": null,
+      "afterSha256": "65a05b175424ada4cc2f51efda20f6fbe76ee02999a49b1379c30b9751386ace"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-method-authority.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "5c0a37600dea402e8c0898f5f2c1667723fd864bd7c2477ec8dfcc87d31cd68d"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.ts",
+      "postimage": "postimages/apps/web/src/server/naive-method-authority.ts",
+      "beforeSha256": null,
+      "afterSha256": "99f7dfaa0755f55d4c2a729b1829c2d9bdee7025ec8b0eb4f8dc2e36530b0171"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-method-routing.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "659c70a9e6fc7868337da6f3a193349a36a1ca0298f39594566834e658e6c31e"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.ts",
+      "postimage": "postimages/apps/web/src/server/naive-method-routing.ts",
+      "beforeSha256": null,
+      "afterSha256": "5089ecebd59638e64cb84b5113ce139d2ff3f4e203bb0ed6ab045b179f790fd5"
+    },
+    {
+      "path": "apps/web/src/server/naive-new-job.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-new-job.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "9b51ceb4c9d5df73419bf639cd74aa96e3399ddf0bef14930f12064cfa496e34"
+    },
+    {
+      "path": "apps/web/src/server/naive-new-job.ts",
+      "postimage": "postimages/apps/web/src/server/naive-new-job.ts",
+      "beforeSha256": null,
+      "afterSha256": "68eec2e8060f2c56ffe62756ac601cb97914301ea3c9c17ced4f9f76b0d8b2b4"
+    },
+    {
+      "path": "apps/web/src/server/naive-proxy-recovery.ts",
+      "postimage": "postimages/apps/web/src/server/naive-proxy-recovery.ts",
+      "beforeSha256": null,
+      "afterSha256": "85a9ec2db62ca0a8ed367f9222d73fa42d48d69097ab889adae27e4c2d58ca10"
+    },
+    {
+      "path": "apps/web/src/server/naive-services-registration.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-services-registration.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "a515818350a915638e03460e153d83a8a3a049ac80221cd5f2fe19a46cc13828"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-execution-runtime.ts",
+      "beforeSha256": null,
+      "afterSha256": "4bd178f2fe607d9815ff5e186972902d662357f9ef3ae46c48dd4efbabe95646"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-execution-selection.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "641b3e71ffbcbc6fe33fa25e0581a5650006df3d457138affc4bc10fdff48578"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-execution-selection.ts",
+      "beforeSha256": null,
+      "afterSha256": "80f532c0f8f805ceab275ff413edb825e3da57aab8a11f3cd36d8e7f129528b8"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-methods.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "cceda6032bcdbf50c1553a4b0c388b33ead289335e8e1fe3b2233074e698fe51"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-methods.ts",
+      "beforeSha256": null,
+      "afterSha256": "90bb22a421d5491f9f561470143487853a25adc7d9d2f0a1a76fa25df2ca75ca"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-publication.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "ccf447b2e73c028e0e356e0b36df4b46cf1363b473b7d2299e727d55e9451906"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.ts",
+      "postimage": "postimages/apps/web/src/server/naive-text-publication.ts",
+      "beforeSha256": null,
+      "afterSha256": "9db56b8a74aa21a677bbde39642fac3b7f665c305ea4f285a5a2829728004005"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "postimage": "postimages/apps/web/src/server/services.ts",
+      "beforeSha256": "905ed9a22cf73f8676bd72c97b21982757945d0eb7aa865b1285bc9db0b021ef",
+      "afterSha256": "fe1d1eefd0bb6b5af86f7ca4f8a8cddf619778715d6b000f6d2f1b6b05f17443"
+    },
+    {
+      "path": "apps/web/src/workflows/job-naive-routing.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/job-naive-routing.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "171940597a117ba3074b3520f67915b70ed07c792045ffe4140e70e5d1d30cbc"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "postimage": "postimages/apps/web/src/workflows/job.ts",
+      "beforeSha256": "f3d7aa7c8ebabdf12245ff18a5842a33700916642b90b16daeb497c94766ce32",
+      "afterSha256": "96b7ab503b1f50282e5e2cab79b0036e4c17e0996a4436c1aed8ae51459d9ae9"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "b0342fe296f3d32bd74d009b0f878e287fc17f87f45f312d56d731cf896a54af"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/evaluate.ts",
+      "beforeSha256": "236658ee197ed1829f1596d5cdbfc0063c821c5e22370fc6c8ddcb996b8fcf2e",
+      "afterSha256": "2f73dd07e4608e73edf517dd472cb35b1be39f3911cc3fbaf481c18f7c3fc522"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.test.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.test.ts",
+      "beforeSha256": "89d29631cdd93eb833855f14c7867c0f9eba3cd9173ebc1d2b3022631dc39da1",
+      "afterSha256": "10ac9acd423ddfe5aa9c94d248fdd6788fa30957e3b75b08bcc1897ae9ab300b"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-expert-sourcing-authority.sql",
+      "sha256": "38d312f9d18a85cc6cd65b79c3045c87a75c6ffa27347dd046a1b9b653758741",
+      "origin": "docs/naive-sourcing-authority-integration/sql/001-expert-sourcing-authority.sql"
+    },
+    {
+      "path": "sql/0024_expert_automation.sql",
+      "sha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+      "origin": "docs/expert-adoption-integration/postimages/packages/core/src/db/migrations/0024_expert_automation.sql"
+    },
+    {
+      "path": "sql/0025_expert_workflow.sql",
+      "sha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+      "origin": "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0025_expert_workflow.sql"
+    },
+    {
+      "path": "sql/0026_expert_text_runtime.sql",
+      "sha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+      "origin": "docs/naive-text-adoption-integration/postimages/packages/core/src/db/migrations/0026_expert_text_runtime.sql"
+    }
+  ]
+}

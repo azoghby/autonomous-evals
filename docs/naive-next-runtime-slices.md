@@ -2,6 +2,12 @@
 
 Read-only source audit at `7c61008`, which preserves Track A main `8637532`. The generic three-method and operator surfaces remain candidate artifacts. This is implementation guidance, not a deployment receipt or authorization to contact anyone.
 
+## Unified continuation at `7f28e20`
+
+The factual/sourcing rebase described as missing below is now implemented in the unapplied `naive-unified-integration` artifact. Continue from its retained manifest and final validation receipt. It includes shared generic/expert ledgers and stage decorators, pending propagation, cancellation/dispatch ordering and current main preservation. Historical separate candidate postimages must not overwrite it.
+
+The next independent runtime slices remain current-authority remediation, complete mixed provider/target/proxy child protocols and parent budget envelopes, combined daily admission, optional judge recovery wiring, and copilot turns/idle. Full roster provisioning and Phase 0 hosted conformance remain separate from these offline implementations. Source adoption and live evidence are not inferred from tests.
+
 ## Current audit after `0ff262c`
 
 The typed factual gap is now actual core source, and the factual Workflow plus standing-policy sourcing bridge are verified but unapplied candidates. Do not implement the historical gap description below again. The next missing evaluation method is a current-authority remediation owner runtime, reusing the core engine, transport and accounting plus the historical `workflow-remediation-integration` architecture. Its old frozen12 assumptions and authority are not current acceptance.

@@ -1,0 +1,15 @@
+{
+  "ownerPatchApplied": true,
+  "postimagesVerified": 64,
+  "upstreamOverridesVerified": 12,
+  "composedUniqueSourceTestPaths": 133,
+  "manifestSha256": "ed5187ae46031d557deb5e7addea32063c5d937f629290841aacf577487ca866",
+  "ownerPatchSha256": "b7564e288f9fd1341a596fde98434e1cdfdb26f729c8b57de0341114f845965a",
+  "freshAssembly": {
+    "destination": "/tmp/naive-unified-final-v3",
+    "postimagesVerified": 64,
+    "upstreamOverridesVerified": 12,
+    "sqlFilesVerified": 4,
+    "originalSqlNamespacesVerified": true
+  }
+}

@@ -1,5 +1,9 @@
 # Automated expert data acquisition
 
+## Latest unified candidate
+
+The latest reviewable composition is `docs/naive-unified-integration`, which incorporates factual routing and standing-policy sourcing with current shared budgets, stage guards and cancellation. Qualified opted-in contacts remain automatic under the configured policy and customer consent; cold contacts require approval. Cancellation now shares the expert dispatch mutex, including legacy scopes. The source is staged only: no live expert pool, automatic emails, reviewed response acceptance or hosted resumption is claimed. See its validation receipt and the Naïve progress tracker for remaining gates.
+
 ## Owner policy selected in this session
 
 Alex requested end-to-end expert acquisition automation and selected automatic contact for opted-in experts, with approval for new cold contacts. He delegated the honorarium limit choice. Pilot policy: $25 per evaluation and $50 company-wide per day, reserved before any promise or invitation. These are expert-honorarium limits, separate from Naïve model budgets. Actual payouts remain manual until a payment integration exists. No invitations, commitments or payments have been made by this implementation work.

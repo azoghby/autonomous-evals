@@ -1,0 +1,34 @@
+{
+  "baselinePinCount": 2234,
+  "orderedLayers": [
+    "naive-internal-mcp-integration",
+    "naive-copilot-dispatch-integration",
+    "naive-shared-budget-integration",
+    "naive-proxy-budget-integration",
+    "naive-stage-ownership-integration",
+    "naive-stage-recovery-integration",
+    "naive-cancellation-integration",
+    "naive-unified-integration"
+  ],
+  "composedUniqueSourceTestPaths": 133,
+  "upstreamOverrideEntries": 31,
+  "uniqueUpstreamOverridePaths": 29,
+  "expectedSourceAndBaselineFiles": 2350,
+  "checks": [
+    {
+      "destination": "/tmp/naive-unified-final-v3",
+      "expectedSourceAndBaselineFiles": 2350,
+      "expectedSqlPaths": 16,
+      "checkedFiles": 2366,
+      "mismatches": []
+    },
+    {
+      "destination": "/tmp/naive-unified-reproduced-v3",
+      "expectedSourceAndBaselineFiles": 2350,
+      "expectedSqlPaths": 16,
+      "checkedFiles": 2366,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true
+}
