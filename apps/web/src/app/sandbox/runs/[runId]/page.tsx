@@ -11,6 +11,7 @@ import { TrialReplay } from "@/components/sandbox/report/TrialReplay";
 import { VerifiedFixPanel } from "@/components/sandbox/report/VerifiedFixPanel";
 import { RunErrorNotice, RunProgress } from "@/components/sandbox/report/RunStatusPanels";
 import { VersionsPanel } from "@/components/sandbox/report/VersionsPanel";
+import { EvalCopilot, EvalCopilotLayout } from "@/components/eval-chat/EvalCopilot";
 
 export const metadata: Metadata = { title: "Sandbox report · Standard Evals" };
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function SandboxRunPage({ params }: { params: Promise<{ run
 
   return (
     <SandboxShell active={runId === "sample" ? "/sandbox/runs/sample" : undefined}>
+    <EvalCopilotLayout copilot={<EvalCopilot evalRef={{ kind: "sandbox_run", id: runId }} title={report.name} />}>
     <div className="min-w-0 pb-24 pt-10">
       <ReportHeader report={report} />
       <RunProgress report={report} />
@@ -45,6 +47,7 @@ export default async function SandboxRunPage({ params }: { params: Promise<{ run
       <VersionsPanel report={report} />
       <VerifiedFixPanel report={report} />
     </div>
+    </EvalCopilotLayout>
     </SandboxShell>
   );
 }
