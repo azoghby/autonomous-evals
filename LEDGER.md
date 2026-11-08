@@ -299,3 +299,13 @@ Times are PT, as recorded.
 ## 2026-11-08 orchestrator deploy notes (cont.)
 - 03:35 PT: deployed main d1ceaf0 (autonomous-evals-r9d4wqnpj ● Ready): review-2 fixes. Overage dedupe + hourly retries (both crons registered), public /status trimmed to levels only, idempotent outreach approval, error.tsx. No migrations.
 - 04:00 PT: deployed main 61e46bc (autonomous-evals-83zwwu464 ● Ready): leaderboard grows to 10 open-source agents with a sortable agent x model table. AI Gateway key hit its $50 budget at 11:45 UTC, so 4 cells are not run.
+- 06:40 PT: deployed main 5ade364 (autonomous-evals-boictveh5 ● Ready). The homepage gets a proof-stats strip, read live from the DB: 10 open-source agents, 34 agent×model pairings, 1,440 graded scenarios and the median cost per scenario. It also gets a "Built on Naïve" section with honest status: production runs the lite engine today; on staging, Naïve runs qualify, trace audit and report; the judge proxy is built.
+- ~07:00 PT: applied 0032_feedback_quote_approval to prod (additive: feedback_responses.quote_approved_at). Deployed main 6793f48 (autonomous-evals-6d0qrljej ● Ready). Changes:
+  - Feedback invite sends are at-most-once: rows are claimed as 'sending', and 'sending'/'failed' rows are never auto-retried.
+  - Builder quotes need operator approval, which is cleared on resubmit. The org shown comes from the invite.
+  - /sandbox/runs/sample is now public. Before this, signed-out visitors were redirected to /signin; the browser QA pass found it.
+- ~07:05 PT: feedback outreach sent, as the founder authorized ("just send them without my issue"):
+  - 17 recipients, all publicly listed contacts of open-source agent projects, with source URLs in the outreach recipients file.
+  - Each email is at most 120 words, with reply-to the founder, a one-click opt-out and no localhost links.
+  - feedback_invites: 17 rows with status 'sent', each with an AgentMail message_id.
+  - The 6 old SDR drafts were not touched.
