@@ -78,6 +78,9 @@ async function runOkQuery(run: SandboxRun, sql: string): Promise<{ passed: boole
 }
 
 interface JudgeCall<T> { object: T; microUsd: number }
+/** Fits the {verdict, reason} object with headroom; 400 truncated haiku replies ("unterminated JSON") in live tau2 runs. */
+const JUDGE_FALLBACK_MAX_TOKENS = 800;
+
 async function callJudge<T>(judge: JudgeConfig, schema: z.ZodType<T>, system: string, prompt: string, maxOutputTokens: number): Promise<JudgeCall<T>> {
   const res = await judge.gateway.generateStructured({
     model: judge.model, system, prompt, schema, ctx: judge.ctx, agent: "judge", temperature: 0, maxOutputTokens,
@@ -139,7 +142,7 @@ async function gradeOutputs(input: GradeInput, options: GradeOptions | undefined
       try {
         const r = await callJudge(options.judge, CommunicatedSchema,
           "You judge whether a customer-support assistant communicated a required fact to the user. Only the assistant's own messages count.",
-          `Required: ${ro.description}\nFacts that must be conveyed: ${ro.mustMention.join(" | ")}\n\nAssistant messages:\n${clip(said, 6000)}\n\nDid the assistant communicate these facts to the user?`, 400);
+          `Required: ${ro.description}\nFacts that must be conveyed: ${ro.mustMention.join(" | ")}\n\nAssistant messages:\n${clip(said, 6000)}\n\nDid the assistant communicate these facts to the user?`, JUDGE_FALLBACK_MAX_TOKENS);
         acc.cost += r.microUsd;
         passed = r.object.communicated;
         d = `judge fallback: ${passed ? "communicated" : "not communicated"} (${r.object.reason}) [${ro.description}]`;
@@ -164,7 +167,7 @@ async function gradeRefusal(input: GradeInput, options: GradeOptions | undefined
     try {
       const r = await callJudge(options.judge, RefusedSchema,
         "You judge whether a support assistant explicitly declined the request or escalated it to a human. Silence or unrelated chatter is not a refusal.",
-        `User goal: ${input.scenario.persona.goal}\n\nAssistant messages:\n${clip(msgs.join("\n---\n"), 6000)}\n\nDid the assistant explicitly refuse or escalate?`, 400);
+        `User goal: ${input.scenario.persona.goal}\n\nAssistant messages:\n${clip(msgs.join("\n---\n"), 6000)}\n\nDid the assistant explicitly refuse or escalate?`, JUDGE_FALLBACK_MAX_TOKENS);
       acc.cost += r.microUsd;
       passed = r.object.refused;
       d = `judge fallback: ${passed ? "refused" : "did not refuse"} (${r.object.reason})`;

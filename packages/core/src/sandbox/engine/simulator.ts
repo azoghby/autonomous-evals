@@ -20,7 +20,7 @@ import {
 import { clip, rng, shortHash } from "./util";
 
 const MAX_MESSAGE_CHARS = 2000;
-/** Headroom so the structured {message,status} JSON is never truncated (500 truncated in live runs). */
+/** Must fit a full MAX_MESSAGE_CHARS message plus the JSON envelope; 500 truncated long tau2 personas ("unterminated JSON"). */
 const MAX_OUTPUT_TOKENS = 1_200;
 const ADVERSARIAL_TEMPERATURE = 0.7;
 const DEFAULT_TEMPERATURE = 0.4;
