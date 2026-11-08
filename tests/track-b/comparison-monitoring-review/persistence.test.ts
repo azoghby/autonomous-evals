@@ -85,22 +85,19 @@ describe('persistence acceptance: actual disk SQL checkpoint adapter', () => {
   }), 30_000);
 });
 
-describe('defect characterization: mutable retained-baseline authority', () => {
-  it('silently replays old baseline after resolver selects a different retained run under the same operation identity', async () => disk(async path => {
+describe('Regression: immutable retained-baseline authority', () => {
+  it.each(['replacement-baseline', 'original-baseline'])('rejects changed retained artifact %s under the same operation identity', async replacementId => disk(async path => {
     let db = await open(path);
     const first = binding(db.checkpoints); await first.service.compare(ctx, request);
     await db.engine.close(); db = await open(path);
     try {
       const changed = binding(db.checkpoints);
-      changed.authorized.baseline.adapter = createRetainedComparisonAdapter(artifact('replacement-baseline', true));
-      const result = await changed.service.compare(ctx, request);
-      // Characterizes current defect, NOT desired acceptance: replacement should conflict before replay.
-      expect(result.baseline.artifact.run.runId).toBe('original-baseline');
-      expect(result.comparison.regressions).toHaveLength(12);
+      changed.authorized.baseline.adapter = createRetainedComparisonAdapter(artifact(replacementId, true));
+      await expect(changed.service.compare(ctx, request)).rejects.toThrow();
       expect(changed.current).not.toHaveBeenCalled();
       // A fresh tick uses the replacement and observes zero regressions; same authority, different result.
       const next = await changed.service.compare(ctx, { ...request, operationId: 'review-next-tick' });
-      expect(next.baseline.artifact.run.runId).toBe('replacement-baseline');
+      expect(next.baseline.artifact.run.runId).toBe(replacementId);
       expect(next.comparison.regressions).toHaveLength(0);
     } finally { await db.engine.close(); }
   }), 30_000);

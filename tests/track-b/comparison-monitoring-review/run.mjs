@@ -63,7 +63,7 @@ try {
   }
   const result = JSON.parse(await readFile(join(stage, 'results.json'), 'utf8'));
   const assertions = result.testResults.flatMap(f => f.assertionResults);
-  if (result.testResults.length !== tests.length || assertions.length !== 59 || assertions.some(t => t.status !== 'passed')) throw new Error('Missing, failed, skipped or todo review tests');
+  if (result.testResults.length !== tests.length || assertions.length !== 60 || assertions.some(t => t.status !== 'passed')) throw new Error('Missing, failed, skipped or todo review tests');
   console.log('Includes 5 defect characterizations; green does not mean those defects are fixed.');
   console.log(`Strict review: ${tests.length} files, ${assertions.length} passed, none skipped. Local fixtures only; no provider, cloud, or message sends. Application deployment remains a separate gate.`);
 } finally { await rm(stage, { recursive: true, force: true }); }

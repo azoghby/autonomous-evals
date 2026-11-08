@@ -1,3 +1,15 @@
+## Parent resolution
+
+R1 and R2 are fixed in the integrated implementation. Calendar outcomes/reasons must agree with retained execution stops, exact ordered frozen SQL checks, aggregate grade booleans, and required claim assessment. Contradictory definitive artifacts are rejected. Legitimate infrastructure and inconclusive results remain distinct.
+
+Read-only adapters now require `retainedIdentity` with the run ID and SHA-256 canonical full-artifact digest. The retained adapter constructs it automatically; composition binds it before dispatch and verifies returned evidence. Replacement under an existing tick rejects, including changed content with the same run ID. Intentional updates require a new tick. Existing persisted operation bindings without this field require reconciliation; they are not silently rewritten.
+
+Validation after fixes: strict TypeScript and **60 tests across 10 files passed**, none skipped, including actual calendar SQL fixtures and separate-process restart.
+
+The five original defect characterizations are now rejection regressions, with an additional same-run-ID changed-content case. The process-restart fixture now reloads the actual retained baseline from disk rather than regenerating it with new timestamps on replay. Original review evidence below describes the pre-fix implementation.
+
+---
+
 # Independent comparison/monitoring review
 
 Disposition: **request changes at two artifact authority boundaries**. This is an offline review of original `2d7928a748d14164ba176bdd5788baf57804f404`, cherry-picked alone as `f132855239004e275217ed3bb0cf524067e71e24` on the review branch. The implementation cherry-pick is separate from the artifact-only review commit. No production files were changed by this review. ECC disabled. Independent children owned arithmetic and persistence test files; the reviewer integrated and ran all checks.

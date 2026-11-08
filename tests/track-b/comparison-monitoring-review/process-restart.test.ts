@@ -1,5 +1,5 @@
 /** Offline process restart: two separate Node/Vitest processes share only local disk SQL. */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,7 +36,9 @@ it('Acceptance: completed composition survives separate Node processes without r
     const db: AgentTransactionalSql = { query: <T>(sql: string, params?: unknown[]) => pg.query<T>(sql, params), transaction: fn => pg.transaction(tx => fn({ query: <T>(sql: string, params?: unknown[]) => tx.query<T>(sql, params) })) };
     const suite = makeSuite();
     const execution = { target: { send: async () => ({ ok: true as const, text: 'READY', latencyMs: 1 }) }, judge: null, evaluateObjective: evaluateObjectiveCheck };
-    const original = { kind: 'text' as const, suite, run: await executeSuite(suite, 'process-fixture-original', execution), investigation: { fixture: true }, limitations: ['Local fixture only'], costs: [], unknownCosts: ['No billable fixture provider'] };
+    const originalPath = join(process.env.COMPARISON_REVIEW_SQL_PATH!, 'retained-baseline.json');
+    const original = phase === 'replay' ? JSON.parse(readFileSync(originalPath, 'utf8')) : { kind: 'text' as const, suite, run: await executeSuite(suite, 'process-fixture-original', execution), investigation: { fixture: true }, limitations: ['Local fixture only'], costs: [], unknownCosts: ['No billable fixture provider'] };
+    if (phase === 'seed') writeFileSync(originalPath, JSON.stringify(original));
     let dispatches = 0;
     const current = { getSuite: async () => suite, execute: async ({ operationId }: { operationId: string }) => {
       dispatches++; if (phase === 'replay') throw new Error('Redispatch forbidden after process restart');

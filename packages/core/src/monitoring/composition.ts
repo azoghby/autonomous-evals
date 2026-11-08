@@ -18,6 +18,8 @@ export type RichRunArtifact = ArtifactBase & ({ kind: 'text'; suite: FrozenTextS
 export interface RichEvaluationAdapter {
   /** Monitoring baselines must read retained evidence without external dispatch. */
   readonly readOnly?: boolean;
+  /** Canonical retained evidence identity, required for read-only replay. */
+  readonly retainedIdentity?: { runId: string; digest: string };
   /** Read the already reviewed frozen artifact, without generating tests or sending target calls. */
   getSuite(): Promise<ComparisonSuite>;
   execute(input: { operationId: string; version: string }): Promise<RichRunArtifact>;
@@ -85,8 +87,40 @@ export function richChecks(artifact: RichRunArtifact): RichCheck[] {
       || e.scope.jobId !== r.jobId || e.scope.version !== r.versionLabel || !id.safeParse(e.scope.runId).success || scopeIds.has(e.scope.runId)) reject();
     scopeIds.add(e.scope.runId);
     if (e.execution) { same(e.execution.scope, e.scope); if (e.execution.scenarioId !== e.scenarioId) reject(); }
-    // A definite calendar verdict requires retained execution and a state grade.
-    if ((e.outcome === 'passed' || e.outcome === 'product_failure') && (!e.execution || !e.stateGrade)) reject();
+    const scenario = frozen.scenarios.find(s => s.id === e.scenarioId)!;
+    const validateGrade = (grade: typeof e.stateGrade, expected: typeof scenario.checks) => {
+      if (!grade || typeof grade.passed !== 'boolean' || !Array.isArray(grade.results)
+        || grade.results.some(g => typeof g.passed !== 'boolean')) return reject();
+      same(grade.results.map(g => g.check), expected);
+      if (grade.passed !== grade.results.every(g => g.passed)) reject();
+    };
+    if (e.stateGrade) validateGrade(e.stateGrade, scenario.checks);
+    if (e.claimGrade) {
+      if (!scenario.claimRequiredState) reject();
+      validateGrade(e.claimGrade, scenario.claimRequiredState!);
+    }
+    let outcome: string; let reason: string;
+    if (!e.execution) {
+      if (e.stateGrade || e.claimGrade || e.claim) reject();
+      outcome = 'infrastructure_error'; reason = 'execution_unavailable';
+    }
+    else if (e.execution.stopped !== 'complete') {
+      if (!['round_limit', 'invalid_response', 'target_error', 'simulator_error'].includes(e.execution.stopped)) reject();
+      outcome = ['round_limit', 'invalid_response'].includes(e.execution.stopped) ? 'inconclusive' : 'infrastructure_error';
+      reason = e.execution.stopped;
+      if (e.stateGrade || e.claimGrade) reject();
+    } else if (!e.stateGrade) { outcome = 'infrastructure_error'; reason = 'sql_grading_unavailable'; }
+    else {
+      if (scenario.claimRequiredState && !e.claimGrade) reject();
+      const claim = e.claim ?? 'unknown';
+      if (!['success', 'no_success', 'unknown'].includes(claim)) reject();
+      if (claim !== 'unknown' && (!scenario.claimRequiredState || !e.execution.messages.filter(m => m.role === 'assistant').at(-1)?.content?.trim())) reject();
+      if (!e.stateGrade.passed) { outcome = 'product_failure'; reason = 'state_mismatch'; }
+      else if (scenario.claimRequiredState && claim === 'unknown') { outcome = 'inconclusive'; reason = 'claim_not_assessed'; }
+      else if (claim === 'success' && e.claimGrade && !e.claimGrade.passed) { outcome = 'product_failure'; reason = 'false_success'; }
+      else { outcome = 'passed'; reason = 'sql_checks_passed'; }
+    }
+    if (e.outcome !== outcome || e.reason !== reason) reject();
     return { scenarioId: e.scenarioId, checkId: 'calendar_workflow', outcome: e.outcome === 'product_failure' ? 'failed' : e.outcome,
       evidenceIds: [`calendar:${r.runId}:${e.scope.runId}`] };
   });
@@ -131,7 +165,8 @@ export function createComparisonMonitoringService(deps: ComparisonMonitoringDeps
         try { bound = suite(await b.adapter.getSuite()); } catch { return reject(); }
         same(frozen, bound);
       }
-      const identity = (b: VersionBinding) => ({ tenantId: a.tenantId, jobId: a.jobId, environment: a.environment, version: b.version, targetId: b.targetId, branchId: b.branchId });
+      for (const b of [a.baseline, a.current]) if (b.adapter.readOnly === true && !z.object({ runId: id, digest: z.string().regex(/^[a-f0-9]{64}$/) }).strict().safeParse(b.adapter.retainedIdentity).success) reject();
+      const identity = (b: VersionBinding) => ({ retainedIdentity: b.adapter.readOnly === true ? b.adapter.retainedIdentity : null, tenantId: a.tenantId, jobId: a.jobId, environment: a.environment, version: b.version, targetId: b.targetId, branchId: b.branchId });
       const binding = safe({ request, suite: frozen, scenarioIds: a.scenarioIds, isFixture: a.isFixture, baseline: identity(a.baseline), current: identity(a.current) });
       const base: CheckpointKey = { jobId: a.jobId, kind: 'rich_comparison_identity', id: request.operationId, inputDigest: hash(binding) };
       const phase = async <T>(k: CheckpointKey, action: () => Promise<T>): Promise<T> => {
@@ -153,6 +188,7 @@ export function createComparisonMonitoringService(deps: ComparisonMonitoringDeps
         const operationId = hash([a.tenantId, a.jobId, request.operationId, side]);
         const artifact = safe(await b.adapter.execute({ operationId, version: b.version }));
         same(artifact.suite, frozen);
+        if (b.adapter.readOnly === true) same({ runId: artifact.run.runId, digest: hash(artifact) }, b.adapter.retainedIdentity);
         if (artifact.kind === 'calendar' && (artifact.run.branchId !== b.branchId || artifact.run.versionLabel !== b.version)) reject();
         if (artifact.kind === 'text' && b.adapter.readOnly !== true && artifact.run.runId !== operationId) reject();
         const checks = richChecks(artifact);

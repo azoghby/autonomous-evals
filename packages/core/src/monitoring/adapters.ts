@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { canonicalJson } from '../evals/text';
 import type { ServiceContext } from '../contracts/services';
 import type { createTextEvaluationServices } from '../evals/integration/services';
 import type { createCalendarEvaluationServices } from '../evals/calendar-integration';
@@ -59,6 +61,6 @@ export function createCalendarComparisonAdapter(input: {
  * Caller must resolve tenant/job/target/branch association before constructing this adapter. */
 export function createRetainedComparisonAdapter(artifact: RichRunArtifact): RichEvaluationAdapter {
   const retained = structuredClone(artifact);
-  return { readOnly: true, getSuite: async () => structuredClone(retained.suite),
+  return { readOnly: true, retainedIdentity: Object.freeze({ runId: retained.run.runId, digest: createHash('sha256').update(canonicalJson(retained)).digest('hex') }), getSuite: async () => structuredClone(retained.suite),
     execute: async () => structuredClone(retained) };
 }

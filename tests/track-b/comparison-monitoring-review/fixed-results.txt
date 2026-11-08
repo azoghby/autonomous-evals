@@ -1,0 +1,47 @@
+Review source HEAD: 2b08ae977e841df43d05ea10a936ba3d9eab6f2a; local contracts: f0068733ca49c37f40fd7de279325f21a4b5fbbb
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/comparison-monitoring-review-KHYwVv
+
+ ✓ review/acceptance.test.ts (11 tests) 11428ms
+   ✓ Track B rich composition acceptance — local fixtures and real PostgreSQL storage (8)
+     ✓ retains rich outcomes, measured and unknown costs, paired arithmetic, grounded alert and immutable baseline 1964ms
+     ✓ reopens disk PostgreSQL and replays complete results without a second execution 1301ms
+     ✓ rejects job conflicts before dispatch/replay 1068ms
+     ✓ rejects tenant conflicts before dispatch/replay 1006ms
+     ✓ rejects target conflicts before dispatch/replay 819ms
+     ✓ rejects appended_inventory conflicts before dispatch/replay 903ms
+     ✓ rejects changed_suite conflicts before dispatch/replay 987ms
+     ✓ persists ambiguous dispatch and never automatically retries either version 1213ms
+   ✓ paired comparison arithmetic and monitor-only alert drafts (3)
+     ✓ drafts a monitoring alert for observed changes while never sending a message 735ms
+     ✓ rejects a monitor with a dispatching baseline before either call 1426ms
+ ✓ review/persistence.test.ts (4 tests) 8650ms
+   ✓ persistence acceptance: actual disk SQL checkpoint adapter (2)
+     ✓ retains committed current artifact after lost completion acknowledgement and close/reopen 2889ms
+     ✓ fences ambiguous current dispatch across close/reopen while retaining completed baseline 2112ms
+   ✓ Regression: immutable retained-baseline authority (2)
+     ✓ rejects changed retained artifact replacement-baseline under the same operation identity 1973ms
+     ✓ rejects changed retained artifact original-baseline under the same operation identity 1672ms
+ ✓ review/process-restart.test.ts (1 test) 3696ms
+   ✓ Acceptance: completed composition survives separate Node processes without redispatch 3695ms
+ ✓ src/simulator/workflow/workflow.test.ts (14 tests) 4460ms
+   ✓ isolates repeated runs and versions, and compares only one frozen scenario suite 372ms
+   ✓ grades false success against the claimed action and keeps unknown classification inconclusive 506ms
+   ✓ retains invalid output and round exhaustion as inconclusive without product findings 446ms
+ ✓ review/calendar.test.ts (1 test) 3348ms
+   ✓ composes actual calendar fixture runs on one reviewed suite with isolated version state and restart replay 3342ms
+ ✓ review/adapters.test.ts (1 test) 2525ms
+   ✓ Acceptance: production text wrapper preserves cost unknowns, replays and fences an ambiguous target result 2524ms
+ ✓ src/evals/text/__tests__/design-investigate.test.ts (10 tests) 215ms
+ ✓ review/arithmetic.test.ts (7 tests) 142ms
+ ✓ src/evals/text/__tests__/safety-monitoring.test.ts (3 tests) 73ms
+ ✓ src/monitoring/index.test.ts (8 tests) 26ms
+
+ Test Files  10 passed (10)
+      Tests  60 passed (60)
+   Start at  16:55:31
+   Duration  38.69s (tests 93%, import 5%, transform 2%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/comparison-monitoring-review-KHYwVv/results.json
+Includes 5 defect characterizations; green does not mean those defects are fixed.
+Strict review: 10 files, 60 passed, none skipped. Local fixtures only; no provider, cloud, or message sends. Application deployment remains a separate gate.

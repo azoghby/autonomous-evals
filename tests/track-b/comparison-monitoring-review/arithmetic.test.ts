@@ -51,27 +51,23 @@ function calendarArtifact(): Extract<RichRunArtifact, { kind: 'calendar' }> {
       }) } };
 }
 
-describe('Defect characterization: contradictory calendar evidence is accepted (not acceptance)', () => {
-  it('reports all checks passed even when retained SQL grades all failed', () => {
+describe('Regression: contradictory calendar evidence is rejected', () => {
+  it('rejects passes when retained SQL grades failed', () => {
     const a = calendarArtifact();
     for (const r of a.run.results) { r.stateGrade!.passed = false; r.stateGrade!.results.forEach(c => { c.passed = false; }); }
-    const checks = richChecks(a);
-    expect(checks.every(c => c.outcome === 'passed')).toBe(true);
-    const clean = compareRichChecks(checks, checks);
-    expect(clean.currentCounts.passed).toBe(12); expect(clean.unresolved).toHaveLength(0);
+    expect(() => richChecks(a)).toThrow();
   });
-  it('promotes target infrastructure stops to assessed passes when supplied a stale grade', () => {
+  it('rejects target infrastructure stops labeled as passes with stale grades', () => {
     const a = calendarArtifact(); a.run.results.forEach(r => { r.execution!.stopped = 'target_error'; });
-    expect(richChecks(a).every(c => c.outcome === 'passed')).toBe(true);
+    expect(() => richChecks(a)).toThrow();
   });
-  it('allows definitive calendar passes without any expected SQL check evidence', () => {
+  it('rejects definitive calendar passes without expected SQL check evidence', () => {
     const a = calendarArtifact(); a.run.results.forEach(r => { r.stateGrade!.results = []; });
-    expect(richChecks(a).every(c => c.outcome === 'passed')).toBe(true);
+    expect(() => richChecks(a)).toThrow();
   });
-  it('labels an unsupported product_failure with passing grades as an objective regression', () => {
+  it('rejects unsupported product failures with passing grades', () => {
     const a = calendarArtifact(); const before = richChecks(a);
     a.run.results[0].outcome = 'product_failure'; a.run.results[0].reason = 'sql_checks_passed';
-    const r = compareRichChecks(before, richChecks(a));
-    expect(r.regressions).toHaveLength(1); expect(r.unresolved).toHaveLength(0);
+    expect(() => compareRichChecks(before, richChecks(a))).toThrow();
   });
 });
