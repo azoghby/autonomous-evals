@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button, Container, NudgeArrow, Wordmark } from "../ui";
 
 const COLS = [
-  ["Product", [["Get an eval", "/start"], ["Sandbox evals", "/sandbox"], ["Sample report", "/sample"], ["Sandbox sample", "/sandbox/runs/sample"], ["Pricing", "/#pricing"]]],
+  ["Product", [["Start an eval", "/start"], ["Demo", "/demo"], ["Sandbox evals", "/sandbox"], ["Sample report", "/sample"], ["Sandbox sample", "/sandbox/runs/sample"], ["Pricing", "/#pricing"]]],
   ["Agents", [["MCP", "/#mcp"], ["API keys", "/settings/keys"]]],
   ["Network", [["Experts", "/experts"], ["Leaderboard", "/leaderboard"], ["Submit your agent", "/leaderboard/submit"]]],
   ["Account", [["Dashboard", "/jobs"]]],
@@ -16,15 +16,15 @@ export function ClosingCta() {
       <Container className="relative flex flex-col gap-12 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 id="cta-h" className="text-balance text-[clamp(44px,7vw,104px)] leading-[0.98] tracking-[-0.045em] text-fg">
-            Hand us your agent.<br /><span className="text-muted">Get findings back.</span>
+            Hand us your agent.<br /><span className="text-muted">See what it does.</span>
           </h2>
           <div className="cta-line" aria-hidden="true"><span className="cta-sweep" /></div>
         </div>
         <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
           <span className="cta-cta">
-            <Button href="/start" size="lg" className="bolt-sweep relative">Get an eval <NudgeArrow size={18} /></Button>
+            <Button href="/start" size="lg" className="bolt-sweep relative">Start an eval <NudgeArrow size={18} /></Button>
           </span>
-          <Button href="/sample" variant="quiet" className="group">See a sample report <NudgeArrow /></Button>
+          <Button href="/demo" variant="quiet" className="group">Watch a real run <NudgeArrow /></Button>
         </div>
       </Container>
     </section>

@@ -8,3 +8,4 @@ export * from "./policies";
 export * from "./validate";
 export * from "./build";
 export * from "./acme";
+export * from "./tau2-retail";

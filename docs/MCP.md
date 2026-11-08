@@ -125,17 +125,30 @@ An `endpoint` object has: `url` (HTTPS only), `model`, optional `apiKey`, `syste
 
 ### Sandbox eval tools
 
-Evaluate your agent inside a sandbox copy of its own world (fake database, your tools, your policies). Flow: `sandbox_create_environment` -> `sandbox_generate_suite` (review the preview) -> `sandbox_run` -> poll `sandbox_status` -> `sandbox_report`. Your coding agent should read the relevant files from your repo and send their **contents** (not paths): `openapi.yaml`/`openapi.json`/`swagger.*`; tool/function definitions (`tools.ts`, `*.tools.json`, your MCP server's tool list); DB schema (`*.sql`, migrations, `prisma/schema.prisma`, Drizzle schema, converted to DDL); seed files; and policies (`docs/policies/*.md`, `POLICY*.md`, support playbooks). Never send real secrets; `apiKeyRef` is a reference name, not a key. In Claude Code the plugin's `/sandbox-eval` command does this for you.
+Evaluate your agent inside a sandbox copy of its own world (fake database, your tools, your policies). Flow:
+
+1. `sandbox_create_environment` with your files (or `prebuilt: "acme-support"` for a bundled demo world). Returns `environmentId`.
+2. `sandbox_generate_suite`. Generation is asynchronous (minutes) and returns `suiteId` immediately.
+3. Poll `sandbox_status` with `suiteId` every 20-30 s until `status` is `ready` (or `failed`). The result includes a scenario preview (title, category, persona goal, `validated`, first gate reasons). The user reviews it.
+4. `sandbox_run` with `environmentId`, `suiteId`, `k` (1-10, default 5). By default it runs the validated scenarios; pass `scenarioIds` (max 12) to run specific ones, including unvalidated.
+5. Poll `sandbox_status` with `runId` every 20-30 s until `complete` or `failed`.
+6. `sandbox_report` with `runId` (only once finished): pass@1, pass^k, 95% CI, per-workflow and per-scenario pass rates, failed checks with the policy clause, failure clusters, cost, and a link to the full report.
+
+Your coding agent should read the relevant files from your repo and send their **contents** (not paths): `openapi.yaml`/`openapi.json`/`swagger.*`; tool/function definitions (`tools.ts`, `*.tools.json`, your MCP server's tool list); DB schema (`*.sql`, migrations, `prisma/schema.prisma`, Drizzle schema, converted to DDL); seed files (fake data only); and policies (`docs/policies/*.md`, `POLICY*.md`, support playbooks). Never send real secrets. In Claude Code the plugin's `/sandbox-eval` command does this for you.
 
 | Tool | Arguments | Returns |
 |------|-----------|---------|
-| `sandbox_create_environment` | `name`; at least one of `openapi` (<= 500 KB), `functions`, `mcpTools`; optional `ddl`, `seedSql`, `policies` (markdown strings or `{title, markdown}`), `workflows`; `agent` `{endpointUrl (https), model, apiKeyRef?}` | `environmentId` |
-| `sandbox_generate_suite` | `environmentId` | `suiteId` and a scenario preview to confirm |
-| `sandbox_run` | `environmentId`, `suiteId`, `k` (1-10, default 5 trials per scenario) | `runId` |
-| `sandbox_status` | `runId` | Progress; poll every 15-30 s |
-| `sandbox_report` | `runId` | Per-workflow pass rates and pass^k, failures, state diffs, fixes |
+| `sandbox_create_environment` | `name`; either `prebuilt` (`acme-support`) or at least one of `openapi` (<= 500 KB), `functions`, `mcpTools` (JSON strings or arrays); optional `ddl`, `seedSql`, `policies` (markdown strings or `{title, markdown}`), `workflows`; `agent` `{endpointUrl (https), model, systemPrompt?}` | `environmentId`, counts of tools/tables/policies, workflows, warnings |
+| `sandbox_generate_suite` | `environmentId` | `suiteId`, `status` |
+| `sandbox_status` | exactly one of `suiteId` or `runId` | Suite: status, cost, preview when ready. Run: state, scenarios/trials completed, cost vs budget |
+| `sandbox_run` | `environmentId`, `suiteId`, `k` (1-10, default 5), optional `scenarioIds` | `runId`, `status: "queued"` |
+| `sandbox_report` | `runId` | Compact report. Errors with "Run not finished" until the run completes or fails |
 
-Until the sandbox engine is live these tools validate your input and return `{"status":"coming_soon", ...}` with no ids and no results. Treat that as "not available yet", not as an error.
+Foreign and missing ids look identical ("Not found"); every call is scoped to your account.
+
+**Agent under test.** Only `tool_loop` mode runs today: an HTTPS OpenAI-compatible chat completions endpoint that returns `tool_calls` and needs no key (it is called without credentials). Alternatively use the AI Gateway target: `endpointUrl` `https://ai-gateway.vercel.sh/v1/chat/completions` with `model` one of `openai/gpt-5-mini`, `openai/gpt-5-nano`, `openai/gpt-4.1-mini`, `anthropic/claude-haiku-5.5`, `google/gemini-2.5-flash`. We pay for those tokens, metered into the run budget. Stored credentials (`apiKeyRef`) are not supported yet and are rejected. Other connect modes (sandbox API, repo, voice, staging) cannot run yet. Endpoint URLs must be public; private hosts are rejected.
+
+**Budgets and limits.** Per run: `SANDBOX_RUN_BUDGET_USD` (default $3); the run stops with partial results if hit. Per suite generation: `SANDBOX_SUITE_BUDGET_USD` (default $1.50). Per account: at most 2 active suites and 2 active runs at a time (extra requests get a tool error), at most 12 scenarios per run, and k up to 10.
 
 Also exposed over MCP:
 

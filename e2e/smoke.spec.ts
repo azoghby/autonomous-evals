@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 test("landing page loads", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("h1")).toContainText("Agents build your evals");
+  await expect(page.locator("h1")).toContainText("See what your agent really does");
 });
 
 test("/start is reachable (or redirects to sign-in)", async ({ page }) => {

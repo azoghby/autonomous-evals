@@ -105,11 +105,26 @@ export const SandboxWorldInput = z
   });
 export type SandboxWorldInput = z.infer<typeof SandboxWorldInput>;
 
+/** Prebuilt sandbox worlds (bundled from data/envs; see packages/core/src/sandbox/ingest/prebuilt.ts). */
+export const PREBUILT_ENVS = [
+  { id: "acme-support", name: "Acme Support", summary: "E-commerce support: customers, orders, refunds, tickets and email, with refund/escalation policies and 5 workflows." },
+] as const;
+export const PrebuiltEnvId = z.enum(["acme-support"]);
+export type PrebuiltEnvId = z.infer<typeof PrebuiltEnvId>;
+
+/** The AI Gateway chat endpoint: when used as the target, we call it with our key (allowlisted models, metered into the run budget). */
+export const GATEWAY_TARGET_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
+export const GATEWAY_TARGET_MODELS = ["openai/gpt-5-mini", "openai/gpt-5-nano", "openai/gpt-4.1-mini", "anthropic/claude-haiku-5.5", "google/gemini-2.5-flash"] as const;
+
 export const SandboxIntakeInput = z.object({
   name: z.string().trim().min(1, "Name your agent").max(200),
   domain: z.string().trim().max(200).default(""),
   integration: IntegrationMode,
-  world: SandboxWorldInput,
+  /** Use a prebuilt world instead of describing one (world is then ignored). */
+  prebuilt: PrebuiltEnvId.optional(),
+  world: SandboxWorldInput.optional(),
+}).superRefine((v, ctx) => {
+  if (!v.prebuilt && !v.world) ctx.addIssue({ code: "custom", path: ["world"], message: "Describe the world or pick a prebuilt environment" });
 });
 export type SandboxIntakeInput = z.infer<typeof SandboxIntakeInput>;
 export type SandboxIntakeRequest = z.input<typeof SandboxIntakeInput>;
@@ -130,7 +145,9 @@ export const ScenarioReviewInput = z.object({
 });
 export type ScenarioReviewInput = z.infer<typeof ScenarioReviewInput>;
 
-export const StartRunInput = z.object({ k: z.number().int().min(1).max(8).default(5) });
+export const StartRunInput = z.object({ k: z.number().int().min(1).max(10).default(5) });
+
+export type SuiteStatus = "generating" | "gating" | "ready" | "failed";
 export type StartRunInput = z.infer<typeof StartRunInput>;
 
 /* ---------------- view-models ---------------- */
@@ -139,6 +156,10 @@ export interface DraftScenario {
   scenario: SandboxScenario;
   decision: ScenarioDecision;
   edited: boolean;
+  /** Engine drafts: passed the automatic gates (oracle solves it, null agents fail it, graders catch mutations). */
+  validated?: boolean;
+  /** Engine drafts: why the gates rejected it (empty when validated). */
+  gateReasons?: string[];
 }
 
 export interface EnvironmentSummary {
@@ -156,6 +177,12 @@ export interface SandboxDraft {
   createdAt: string;
   /** True when the scenarios are fixture sample data, not generated from the customer's inputs. Always label "Sample". */
   sample: boolean;
+  /** Engine drafts are generated asynchronously; fixture drafts are always "ready". */
+  status: SuiteStatus;
+  error?: string;
+  environmentId?: string;
+  /** Model spend so far on generating + gating this suite (micro-USD). */
+  costMicroUsd?: number;
   environment: EnvironmentSummary;
   scenarios: DraftScenario[];
 }
@@ -217,6 +244,13 @@ export interface SandboxRunReport {
   clusters: FailureCluster[];
   verifiedFix: VerifiedFix | null;
   media: MediaPreview[];
+  /** Engine runs: honest failure reason when status is "failed" (or a partial-run note). */
+  error?: string;
+  errorKind?: "fatal" | "retryable" | "budget";
+  /** Engine runs: our model spend (simulator, judge, attribution, and AI Gateway target tokens), micro-USD. */
+  costMicroUsd?: number;
+  budgetMicroUsd?: number;
+  progress?: { trialsDone: number; trialsTotal: number };
 }
 
 /** Public id of the sample report every signed-in user can open. */

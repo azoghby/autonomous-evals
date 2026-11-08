@@ -1,4 +1,4 @@
-import { Chip, EmptyState } from "@/components/ui";
+import { Chip } from "@/components/ui";
 import type { SandboxRunReport } from "../contract";
 
 function DiffView({ diff }: { diff: string }) {
@@ -15,13 +15,11 @@ function DiffView({ diff }: { diff: string }) {
 
 export function VerifiedFixPanel({ report }: { report: SandboxRunReport }) {
   const fix = report.verifiedFix;
+  if (!fix) return null;
   return (
     <section aria-labelledby="fix-h" className="mt-12 min-w-0">
       <h2 id="fix-h" className="t-eyebrow mb-4 text-muted">Verified fix</h2>
-      {!fix ? (
-        <EmptyState title="No verified fix yet" description="When a failure cluster has a patch that passes on re-run without regressions, it appears here." />
-      ) : (
-        <div className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-4">
           <h3 className="break-words text-[18px] text-fg">{fix.title}</h3>
           <p className="text-[14px] text-fg-2">{fix.summary}</p>
           <div className="flex flex-wrap items-center gap-3 font-mono text-[14px] tabular-nums">
@@ -37,8 +35,7 @@ export function VerifiedFixPanel({ report }: { report: SandboxRunReport }) {
               View pull request
             </a>
           )}
-        </div>
-      )}
+      </div>
     </section>
   );
 }

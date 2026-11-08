@@ -9,12 +9,10 @@ import { Wordmark } from "./Wordmark";
 export type NavItem = { label: string; href: string };
 
 export const DEFAULT_NAV: NavItem[] = [
-  { label: "Services", href: "/#services" },
-  { label: "How it works", href: "/#how" },
+  { label: "Demo", href: "/demo" },
   { label: "Sandbox", href: "/sandbox" },
-  { label: "Sample report", href: "/sample" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "MCP", href: "/#mcp" },
 ];
 
 export type TopBarProps = {
@@ -34,10 +32,10 @@ export function TopBar({
   nav = DEFAULT_NAV,
   active,
   secondary = { label: "Dashboard", href: "/jobs" },
-  cta = { label: "Get an eval", href: "/start" },
+  cta = { label: "Start an eval", href: "/start" },
 }: TopBarProps) {
   const pathname = usePathname();
-  const current = active ?? nav.find((n) => n.href === pathname)?.href ?? (pathname === "/" ? nav[0]?.href : undefined);
+  const current = active ?? nav.find((n) => n.href === pathname)?.href ;
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const panelId = useId();

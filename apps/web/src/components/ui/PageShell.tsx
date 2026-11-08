@@ -1,21 +1,12 @@
 import type { ReactNode } from "react";
 import { cn } from "./cn";
-import { TopBar, type NavItem } from "./TopBar";
-
-const APP_NAV: NavItem[] = [
-  { label: "How it works", href: "/#how" },
-  { label: "Sandbox", href: "/sandbox" },
-  { label: "Sample report", href: "/sample" },
-  { label: "Leaderboard", href: "/leaderboard" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Experts", href: "/experts" },
-];
+import { DEFAULT_NAV, TopBar, type NavItem } from "./TopBar";
 
 /** App-page frame: black page, sticky TopBar, and <main id="main"> on the shared container (left-aligned; `narrow` caps width at ~760px). */
 export function PageShell({
   children,
   active,
-  nav = APP_NAV,
+  nav = DEFAULT_NAV,
   narrow,
   className,
 }: {

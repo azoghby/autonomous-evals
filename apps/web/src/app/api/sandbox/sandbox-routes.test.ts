@@ -9,6 +9,18 @@ vi.mock("@/server/target-url", () => ({
   assertPublicTarget: vi.fn(async (url: string) => (url.startsWith("https://") ? null : "only https is allowed")),
 }));
 
+const stub = vi.hoisted(() => ({ current: null as null | { createDraft?: (...a: unknown[]) => Promise<unknown>; startRun?: (...a: unknown[]) => Promise<unknown> } }));
+vi.mock("@/server/sandbox-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/sandbox-service")>();
+  return {
+    ...actual,
+    getSandboxService: () => {
+      const fixture = actual.getFixtureSandboxService();
+      return stub.current ? { ...fixture, ...stub.current } : fixture;
+    },
+  };
+});
+
 import { POST as createDraft } from "./drafts/route";
 import { GET as getDraft } from "./drafts/[draftId]/route";
 import { PATCH as reviewScenario } from "./drafts/[draftId]/scenarios/[scenarioId]/route";
@@ -16,6 +28,7 @@ import { POST as startRun } from "./drafts/[draftId]/runs/route";
 import { GET as getRun } from "./runs/[runId]/route";
 import { rateLimit } from "@/server/rate-limit";
 import { assertPublicTarget } from "@/server/target-url";
+import { SandboxInputError } from "@/server/sandbox/target";
 import { SAMPLE_SCENARIOS } from "@/components/sandbox/sample-data";
 
 const A = { id: "user-a" }, B = { id: "user-b" };
@@ -44,6 +57,7 @@ const review = (draftId: string, scenarioId: string, body: unknown) =>
 
 beforeEach(() => {
   viewer.current = A;
+  stub.current = null;
   (globalThis as { __aeSandboxFixtureStore?: unknown }).__aeSandboxFixtureStore = undefined;
   vi.mocked(rateLimit).mockResolvedValue({ ok: true, retryAfter: 0 });
   vi.mocked(assertPublicTarget).mockClear();
@@ -205,5 +219,26 @@ describe("POST runs + GET report", () => {
     const report = (await (await getRun(new Request("http://x/api"), params({ runId }))).json()).report;
     expect(report.k).toBe(5);
     expect((await startRun(post({ k: 99 }), params({ draftId }))).status).toBe(400);
+  });
+});
+
+describe("SandboxInputError mapping", () => {
+  it("maps a 422 with field on draft creation", async () => {
+    stub.current = { createDraft: async () => { throw new SandboxInputError("bad tools", 422, "world.tools.content"); } };
+    const res = await createDraft(post(intake()));
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({ error: "bad tools", field: "world.tools.content" });
+  });
+  it("maps a 429 on draft creation", async () => {
+    stub.current = { createDraft: async () => { throw new SandboxInputError("too many suites", 429); } };
+    const res = await createDraft(post(intake()));
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toBe("too many suites");
+  });
+  it("passes a 429 from startRun through", async () => {
+    stub.current = { startRun: async () => ({ ok: false, status: 429, error: "2 runs in progress" }) };
+    const res = await startRun(post({}), params({ draftId: "drf_" + "0".repeat(36) }));
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toBe("2 runs in progress");
   });
 });

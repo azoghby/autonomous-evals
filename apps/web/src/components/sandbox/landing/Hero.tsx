@@ -15,6 +15,7 @@ export function Hero() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button href="/sandbox/new" variant="primary" size="lg">Start a sandbox eval</Button>
         <Button href="/sandbox/runs/sample" variant="outline" size="lg">See a sample report</Button>
+        <Button href="/demo" variant="quiet" size="lg">Watch a real run</Button>
       </div>
       <SandboxDiagram className="mt-8 md:mt-12" />
     </header>

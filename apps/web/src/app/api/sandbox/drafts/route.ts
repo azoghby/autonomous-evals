@@ -3,6 +3,7 @@ import { jsonError, readJson, requireViewer } from "@/server/http";
 import { rateLimit, clientIp } from "@/server/rate-limit";
 import { assertHuman } from "@/server/bot";
 import { checkIntegrationTargets, getSandboxService } from "@/server/sandbox-service";
+import { SandboxInputError } from "@/server/sandbox/target";
 
 const tooMany = (retryAfter: number) =>
   Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
     const draft = await getSandboxService().createDraft(auth.viewer.id, body.data);
     return Response.json({ draft }, { status: 201 });
   } catch (err) {
+    if (err instanceof SandboxInputError) return jsonError(err.status, err.message, err.field ? { field: err.field } : undefined);
     console.error("create sandbox draft failed", err);
     return jsonError(500, "Could not create draft");
   }

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "cancel_pending_order",
+    "name": "Cancel a pending order",
+    "description": "An authenticated user asks to cancel an order. The agent authenticates via email or name + zip, checks the order is pending, obtains the order id and one of the two allowed reasons plus explicit confirmation, then cancels. Non-pending orders and other reasons must be refused.",
+    "tools": ["find_user_id_by_email", "find_user_id_by_name_zip", "get_user_details", "get_order_details", "cancel_pending_order", "transfer_to_human_agents"],
+    "invariants": [
+      "the user is authenticated (user id located via email or name + zip) before any order information is disclosed or changed",
+      "cancel_pending_order is only called for an order whose status is pending",
+      "the cancellation reason is exactly 'no longer needed' or 'ordered by mistake'",
+      "explicit user confirmation (yes) is obtained before cancel_pending_order is called",
+      "orders belonging to another user are never read for or modified on behalf of the user",
+      "at most one tool call per assistant turn, and no tool call together with a user-facing message"
+    ],
+    "policyRefs": ["P1.2", "P2.1", "P3.1", "P3.2", "P5.1", "P5.2", "P5.3"]
+  },
+  {
+    "id": "modify_pending_order_items",
+    "name": "Modify items of a pending order",
+    "description": "A user wants to swap items of a pending order for other options of the same product. The agent collects ALL items to change in one list, checks availability via get_product_details, gets a payment method for the price difference (gift card needs enough balance), confirms, and calls modify_pending_order_items exactly once.",
+    "tools": ["find_user_id_by_email", "find_user_id_by_name_zip", "get_user_details", "get_order_details", "get_product_details", "calculate", "modify_pending_order_items"],
+    "invariants": [
+      "the user is authenticated before the order is modified",
+      "the order status is pending when modify_pending_order_items is called",
+      "modify_pending_order_items is called at most once per order, with every item to change in a single call",
+      "every new item is an available variant of the same product as the item it replaces",
+      "a gift card used for the price difference has enough balance",
+      "explicit user confirmation (yes) is obtained after listing the action details"
+    ],
+    "policyRefs": ["P2.1", "P3.1", "P3.3", "P6.1", "P6.2", "P6.6", "P6.7", "P6.8"]
+  },
+  {
+    "id": "modify_pending_order_address_or_payment",
+    "name": "Modify shipping address or payment method of a pending order",
+    "description": "A user wants a different shipping address or payment method on a pending order. For payment, the new method must differ from the original and, if a gift card, cover the order total. The agent confirms the details before each write.",
+    "tools": ["find_user_id_by_email", "find_user_id_by_name_zip", "get_user_details", "get_order_details", "modify_pending_order_address", "modify_pending_order_payment"],
+    "invariants": [
+      "the user is authenticated before the order is modified",
+      "the order status is pending before modify_pending_order_address or modify_pending_order_payment is called",
+      "the new payment method differs from the original payment method",
+      "a gift card chosen as the new payment method has enough balance to cover the order total",
+      "explicit user confirmation (yes) is obtained before each modification"
+    ],
+    "policyRefs": ["P2.1", "P3.1", "P6.1", "P6.2", "P6.3", "P6.4", "P6.5"]
+  },
+  {
+    "id": "return_delivered_items",
+    "name": "Return items of a delivered order",
+    "description": "A user wants to return items from a delivered order. The agent confirms the order id and the list of items, obtains a refund payment method (the original method or an existing gift card), confirms, and requests the return.",
+    "tools": ["find_user_id_by_email", "find_user_id_by_name_zip", "get_user_details", "get_order_details", "return_delivered_order_items", "transfer_to_human_agents"],
+    "invariants": [
+      "the user is authenticated before the return is requested",
+      "return_delivered_order_items is only called for an order whose status is delivered",
+      "the refund payment method is the original payment method or an existing gift card of the user",
+      "explicit user confirmation (yes) is obtained for the order id and item list before the return is requested"
+    ],
+    "policyRefs": ["P2.1", "P3.1", "P3.2", "P7.1", "P7.2", "P7.3", "P7.4", "P7.5"]
+  },
+  {
+    "id": "exchange_delivered_items",
+    "name": "Exchange items of a delivered order",
+    "description": "A user wants to exchange delivered items for other options of the same product. The agent collects all items to exchange in one list, verifies availability, gets a payment method for the price difference, confirms, and calls exchange_delivered_order_items exactly once.",
+    "tools": ["find_user_id_by_email", "find_user_id_by_name_zip", "get_user_details", "get_order_details", "get_product_details", "calculate", "exchange_delivered_order_items"],
+    "invariants": [
+      "the user is authenticated before the exchange is requested",
+      "the order status is delivered when exchange_delivered_order_items is called",
+      "exchange_delivered_order_items is called at most once per order, with every item to exchange in a single call",
+      "every new item is an available variant of the same product as the item it replaces",
+      "a gift card used for the price difference has enough balance",
+      "explicit user confirmation (yes) is obtained after listing the action details"
+    ],
+    "policyRefs": ["P2.1", "P3.1", "P3.3", "P8.1", "P8.2", "P8.3", "P8.4"]
+  },
+  {
+    "id": "update_user_address",
+    "name": "Update the user's default address",
+    "description": "An authenticated user asks to change their default profile address. The agent lists the new address, obtains explicit confirmation, and updates only that user's address. Requests about other users or out-of-scope changes are denied or transferred.",
+    "tools": ["find_user_id_by_email", "find_user_id_by_name_zip", "get_user_details", "modify_user_address", "transfer_to_human_agents"],
+    "invariants": [
+      "the user is authenticated before modify_user_address is called",
+      "modify_user_address is only called with the authenticated user's own user id",
+      "explicit user confirmation (yes) is obtained before the address is changed",
+      "the agent transfers to a human only if the request cannot be handled within its scope"
+    ],
+    "policyRefs": ["P1.1", "P1.2", "P1.6", "P2.1", "P3.1"]
+  }
+]

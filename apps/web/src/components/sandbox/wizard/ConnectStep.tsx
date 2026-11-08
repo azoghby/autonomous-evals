@@ -1,11 +1,14 @@
 "use client";
 import { useId } from "react";
-import { Field } from "@/components/ui";
-import { CONNECT_MODES, type ConnectMode } from "../contract";
-import type { WizardForm } from "./form";
+import { Chip, Field } from "@/components/ui";
+import { CONNECT_MODES, GATEWAY_TARGET_MODELS, type ConnectMode } from "../contract";
+import { targetPatch, type WizardForm } from "./form";
 import { SelectField, type Errors } from "./controls";
 
 type Props = { form: WizardForm; set: (patch: Partial<WizardForm>) => void; errors: Errors };
+
+/** Only the Endpoint mode can run today; the API rejects the rest with a 422. */
+const RUNNABLE_MODES: readonly ConnectMode[] = ["tool_loop"];
 
 const PROTOCOLS = [
   { value: "openai_realtime", label: "OpenAI Realtime" },
@@ -22,19 +25,24 @@ export function ConnectStep({ form, set, errors }: Props) {
   return (
     <div className="space-y-8">
       <fieldset className="min-w-0">
-        <legend className="t-eyebrow mb-3 text-fg-2">How should we reach your agent?</legend>
+        <legend className="t-eyebrow mb-1 text-fg-2">How should we reach your agent?</legend>
+        <p className="mb-3 text-sm text-muted">Endpoint is available now. The other connection modes are coming later.</p>
         <div className="grid gap-px border border-line-2 bg-line-2 md:grid-cols-2">
-          {CONNECT_MODES.map((m) => (
-            <label key={m.mode} className="group relative flex min-w-0 cursor-pointer flex-col gap-1 bg-bg p-4 transition-colors hover:bg-bg-raised has-checked:bg-accent-soft has-focus-visible:outline-2 has-focus-visible:outline-offset-[-2px] has-focus-visible:outline-accent">
-              <input type="radio" name={`${uid}-mode`} value={m.mode} checked={form.mode === m.mode} onChange={() => set({ mode: m.mode as ConnectMode })} className="sr-only" />
+          {CONNECT_MODES.map((m) => {
+            const available = RUNNABLE_MODES.includes(m.mode);
+            return (
+            <label key={m.mode} className={`group relative flex min-w-0 flex-col gap-1 bg-bg p-4 transition-colors has-checked:bg-accent-soft has-focus-visible:outline-2 has-focus-visible:outline-offset-[-2px] has-focus-visible:outline-accent ${available ? "cursor-pointer hover:bg-bg-raised" : "cursor-not-allowed opacity-60"}`}>
+              <input type="radio" name={`${uid}-mode`} value={m.mode} checked={form.mode === m.mode} disabled={!available} onChange={() => set({ mode: m.mode as ConnectMode })} className="sr-only" />
               <span className="flex items-center gap-2 text-[15px] text-fg">
                 <span aria-hidden className="size-2.5 shrink-0 rounded-full border border-line-3 group-has-checked:border-accent group-has-checked:bg-accent" />
                 {m.label}
+                {!available && <Chip tone="muted">Coming later</Chip>}
               </span>
               <span className="text-sm text-muted break-words">{m.summary}</span>
               <span className="mt-1 text-xs text-subtle">{m.loop} · {m.effort}</span>
             </label>
-          ))}
+            );
+          })}
         </div>
       </fieldset>
 
@@ -46,8 +54,27 @@ export function ConnectStep({ form, set, errors }: Props) {
       <fieldset className="min-w-0 space-y-5">
         <legend className="t-eyebrow mb-4 text-fg-2">{CONNECT_MODES.find((m) => m.mode === form.mode)?.label} details</legend>
         {form.mode === "tool_loop" && (<>
-          <Field id={`${uid}-ep`} label="Endpoint URL" type="url" inputMode="url" hint="OpenAI-compatible chat completions URL that returns tool_calls. HTTPS only." error={e("integration.endpointUrl")} value={form.endpointUrl} onChange={f("endpointUrl")} placeholder="https://api.example.com/v1/chat/completions" />
-          <Field id={`${uid}-model`} label="Model" error={e("integration.model")} value={form.model} onChange={f("model")} placeholder="gpt-4o-mini" />
+          <div role="radiogroup" aria-label="Which model should we test?" className="grid gap-px border border-line-2 bg-line-2 sm:grid-cols-2">
+            {([
+              { value: "gateway", title: "Test a model on AI Gateway", text: "Pick a model and we call it for you. We pay for these tokens; they count toward the run budget." },
+              { value: "custom", title: "Use my own endpoint", text: "Your OpenAI-compatible URL that returns tool_calls." },
+            ] as const).map((o) => (
+              <label key={o.value} className="group flex min-w-0 cursor-pointer flex-col gap-1 bg-bg p-4 transition-colors hover:bg-bg-raised has-checked:bg-accent-soft has-focus-visible:outline-2 has-focus-visible:outline-offset-[-2px] has-focus-visible:outline-accent">
+                <input type="radio" name={`${uid}-target`} value={o.value} checked={form.target === o.value} onChange={() => set(targetPatch(form, o.value))} className="sr-only" />
+                <span className="flex items-center gap-2 text-[15px] text-fg">
+                  <span aria-hidden className="size-2.5 shrink-0 rounded-full border border-line-3 group-has-checked:border-accent group-has-checked:bg-accent" />
+                  {o.title}
+                </span>
+                <span className="text-sm text-muted break-words">{o.text}</span>
+              </label>
+            ))}
+          </div>
+          {form.target === "gateway" ? (
+            <SelectField id={`${uid}-gmodel`} label="Model" value={form.model} onChange={(v) => set({ model: v })} options={GATEWAY_TARGET_MODELS.map((m) => ({ value: m, label: m }))} hint="Metered into the run budget." />
+          ) : (<>
+            <Field id={`${uid}-ep`} label="Endpoint URL" type="url" inputMode="url" hint="OpenAI-compatible chat completions URL that returns tool_calls. HTTPS only." error={e("integration.endpointUrl")} value={form.endpointUrl} onChange={f("endpointUrl")} placeholder="https://api.example.com/v1/chat/completions" />
+            <Field id={`${uid}-model`} label="Model" error={e("integration.model")} value={form.model} onChange={f("model")} placeholder="gpt-4o-mini" />
+          </>)}
           <Field id={`${uid}-sys`} multiline rows={5} label="System prompt (optional)" error={e("integration.systemPrompt")} value={form.systemPrompt} onChange={f("systemPrompt")} />
         </>)}
         {(form.mode === "sandbox_api" || form.mode === "staging") && (

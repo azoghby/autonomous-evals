@@ -1,4 +1,4 @@
-import type { ConnectMode, DataFormat, SandboxIntakeRequest, ToolsFormat } from "../contract";
+import { GATEWAY_TARGET_MODELS, GATEWAY_TARGET_URL, PREBUILT_ENVS, type ConnectMode, type DataFormat, type PrebuiltEnvId, type SandboxIntakeRequest, type ToolsFormat } from "../contract";
 
 export interface PolicyRow { title: string; text: string }
 
@@ -7,7 +7,8 @@ export interface WizardForm {
   mode: ConnectMode;
   name: string;
   domain: string;
-  // tool_loop
+  // tool_loop. "gateway": we call the model on AI Gateway (metered into the run budget); "custom": the user's own endpoint.
+  target: "gateway" | "custom";
   endpointUrl: string; model: string; systemPrompt: string;
   // sandbox_api / staging
   chatEndpointUrl: string;
@@ -16,6 +17,8 @@ export interface WizardForm {
   // voice
   wsUrl: string; protocol: "openai_realtime" | "gemini_live" | "pipecat" | "livekit" | "custom_pcm"; sampleRateHz: string;
   // world
+  worldSource: "prebuilt" | "custom";
+  prebuilt: PrebuiltEnvId;
   toolsFormat: ToolsFormat; toolsContent: string;
   dataFormat: DataFormat; dataContent: string;
   policies: PolicyRow[];
@@ -26,10 +29,11 @@ export const MAX_POLICIES = 20;
 
 export const initialForm = (): WizardForm => ({
   mode: "tool_loop", name: "", domain: "",
-  endpointUrl: "", model: "", systemPrompt: "",
+  target: "custom", endpointUrl: "", model: "", systemPrompt: "",
   chatEndpointUrl: "",
   repoUrl: "", ref: "main", installCommand: "npm install", startCommand: "npm start", chatPath: "/v1/chat/completions", port: "3000",
   wsUrl: "", protocol: "openai_realtime", sampleRateHz: "16000",
+  worldSource: "custom", prebuilt: PREBUILT_ENVS[0].id,
   toolsFormat: "function_json", toolsContent: "", dataFormat: "infer", dataContent: "", policies: [], workflowNotes: "",
 });
 
@@ -51,11 +55,21 @@ function integration(f: WizardForm): SandboxIntakeRequest["integration"] {
   }
 }
 
+/** Patch applied when the user switches the Endpoint target between AI Gateway and their own URL. */
+export function targetPatch(f: WizardForm, target: WizardForm["target"]): Partial<WizardForm> {
+  if (target === "gateway") {
+    const known = (GATEWAY_TARGET_MODELS as readonly string[]).includes(f.model);
+    return { target, endpointUrl: GATEWAY_TARGET_URL, model: known ? f.model : GATEWAY_TARGET_MODELS[0] };
+  }
+  const wasGateway = f.endpointUrl === GATEWAY_TARGET_URL;
+  return { target, endpointUrl: wasGateway ? "" : f.endpointUrl, model: wasGateway ? "" : f.model };
+}
+
 export function buildRequest(f: WizardForm): SandboxIntakeRequest {
+  const base = { name: f.name, domain: f.domain, integration: integration(f) };
+  if (f.worldSource === "prebuilt") return { ...base, prebuilt: f.prebuilt };
   return {
-    name: f.name,
-    domain: f.domain,
-    integration: integration(f),
+    ...base,
     world: {
       tools: { format: f.toolsFormat, content: f.toolsContent },
       data: { format: f.dataFormat, content: f.dataFormat === "infer" ? "" : f.dataContent },
@@ -81,6 +95,7 @@ const EXAMPLE_TOOLS = JSON.stringify(
 
 export const withExample = (f: WizardForm): WizardForm => ({
   ...f,
+  worldSource: "custom",
   name: f.name || "Support agent",
   domain: f.domain || "E-commerce support",
   toolsFormat: "function_json",
