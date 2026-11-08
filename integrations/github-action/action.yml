@@ -1,0 +1,57 @@
+name: "Standard Evals regression check"
+description: "Re-run your frozen Standard Evals suite against your agent endpoint and fail the build on regressions."
+branding:
+  icon: shield
+  color: blue
+inputs:
+  api-key:
+    description: "Standard Evals API key (store as a secret)."
+    required: true
+  job-id:
+    description: "The delivered job whose frozen suite to re-run."
+    required: true
+  target-url:
+    description: "HTTPS endpoint to test. Defaults to the endpoint used in the original job."
+    required: false
+    default: ""
+  target-authorization:
+    description: "API key for your endpoint, sent as X-Target-Authorization. Never stored or logged."
+    required: false
+    default: ""
+  model:
+    description: "Model name to request from the target. Defaults to the original job's model."
+    required: false
+    default: ""
+  fail-on:
+    description: "'any' fails on any failing scenario; 'regressions' fails only when a previously fixed scenario fails again."
+    required: false
+    default: "any"
+  api-base-url:
+    description: "Override for self-hosted or preview deployments."
+    required: false
+    default: "https://autonomous-evals.vercel.app"
+  timeout-seconds:
+    description: "How long to poll for a long-running run."
+    required: false
+    default: "600"
+outputs:
+  passed:
+    description: "Number of passing scenarios."
+  total:
+    description: "Number of scenarios run."
+  failed:
+    description: "Number of failing scenarios."
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: node "${{ github.action_path }}/run.mjs"
+      env:
+        SE_API_KEY: ${{ inputs.api-key }}
+        SE_JOB_ID: ${{ inputs.job-id }}
+        SE_TARGET_URL: ${{ inputs.target-url }}
+        SE_TARGET_AUTH: ${{ inputs.target-authorization }}
+        SE_MODEL: ${{ inputs.model }}
+        SE_FAIL_ON: ${{ inputs.fail-on }}
+        SE_API_BASE: ${{ inputs.api-base-url }}
+        SE_TIMEOUT_S: ${{ inputs.timeout-seconds }}

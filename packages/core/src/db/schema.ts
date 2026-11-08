@@ -394,3 +394,14 @@ export const githubPrs = pgTable("github_prs", {
   prUrl: text("pr_url").notNull(),
   createdAt,
 }, (t) => [uniqueIndex("github_prs_remediation_uq").on(t.remediationId), index("github_prs_job_idx").on(t.jobId)]);
+
+/** CI regression re-runs of a job's frozen suite (POST /api/v1/regression-runs). */
+export const regressionRuns = pgTable("regression_runs", {
+  id: uuid("id").primaryKey(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  status: text("status").notNull(),
+  result: jsonb("result"),
+  error: text("error"),
+  createdAt,
+}, (t) => [index("regression_runs_customer_idx").on(t.customerId, t.createdAt)]);
