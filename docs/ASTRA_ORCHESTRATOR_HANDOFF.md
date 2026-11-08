@@ -19,6 +19,12 @@ The combined candidate connects atomic enrollment, policy propagation, retained 
 
 The 39-file candidate build receipt stays pinned to7118f3a; newer61e46bc is merged and its39preimages are unchanged. Actual CLI receipt handoff now removes manual metadata reconstruction across provisioning stages; see `docs/naive-provision-receipt-handoff.md`. The exact expert scope/consent bridge is specified in `docs/naive-expert-scope-authorization.md` but unimplemented.
 
+## Latest sourcing continuation (2026-11-08)
+
+Read the new `docs/naive-sourcing-authority-integration/README.md` and manifest before resuming. It is a **26-file incremental source layer plus additive SQL**, requiring the earlier 39-file candidate first; 60 unique source/test paths combined. It implements the previously missing standing-policy/explicit-consent/exact-scope bridge, runtime checks and dispatch revocation locks, plus customer/operator controls in staged source only. Full composed verification: 4,128 passed / zero failed / two skipped, web/core types, production build (62 steps/four workflows), independent patch/2,228 pins/reproducible assembly. The earlier statements that this bridge is unimplemented now describe historical state; adoption and activation remain open.
+
+Current main 5da0635 is preserved at merge 842f8b5; its only change is LEDGER's separate Track A deployment receipts. Candidate source tests pin 768ec87 (identical app/core source after this merge). Actual source passes 3,887 / zero failed / two skipped and web types. No source ownership override for the 39-file candidate has arrived, and the 26-file increment has not been authorized for actual-source adoption. Do not mistake these candidates for the older already-approved 26-file text adoption. No migration, provider call, outreach, spend or deployment occurred. All native workers are finished; browser/native-PostgreSQL/hosted acceptance and full Naïve plan remain unfinished.
+
 ## Assignment and governing plan
 
 Continue implementing Track B of Standard Evals / autonomous-evals. **The user explicitly selected `docs/NAIVE_PLAN.md` as the source of truth** after it was pushed in `0c8342a`. Implement its full phase sequence; do not substitute the older autonomy-supervisor artifacts for this migration. Start with unfinished Phase 0, then all eval methods, company roles/coordinator/deployments, simulator/judge/media and approval integration. Deterministic pricing, authorization, payments, budgets, target transport, SQL graders and lifecycle controls stay code-owned.

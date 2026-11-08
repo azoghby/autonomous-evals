@@ -1,0 +1,173 @@
+{
+  "baseCommit": "768ec873a8975d43cfe91f6e92ececb7e885efa8",
+  "status": "unapplied_candidate",
+  "requires": {
+    "directory": "docs/naive-factual-workflow-integration",
+    "manifestSha256": "b37c470ec1570337b1ae5967134bb393c9012aff7d95eb714c5e425af917b63a",
+    "files": 39
+  },
+  "files": [
+    {
+      "path": "apps/web/src/app/(app)/jobs/[jobId]/page.tsx",
+      "postimage": "postimages/apps/web/src/app/(app)/jobs/[jobId]/page.tsx",
+      "beforeSha256": "5d1b8887a852969824e03b3752db34eb14b1f8c5b597e15ea291a10f47ad9e91",
+      "afterSha256": "c7a7edbc4cb1722b1f22e2f55db7bee9da0aecc48203f8754af70303561a5693"
+    },
+    {
+      "path": "apps/web/src/app/(app)/operator/expert-sourcing/page.tsx",
+      "postimage": "postimages/apps/web/src/app/(app)/operator/expert-sourcing/page.tsx",
+      "beforeSha256": null,
+      "afterSha256": "95bbc5eca990f5c79135f1a7813eb717db49fea9de6412df54508c12633a3dc0"
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/expert-sharing/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/jobs/[jobId]/expert-sharing/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "06da094655dd6de158460ea6672113610082d57c203b2e2540a68d0a0c61d350"
+    },
+    {
+      "path": "apps/web/src/app/api/operator/expert-sourcing/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/operator/expert-sourcing/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "fe9b9947ac1dd4420ba2ed2fad1759cfdd52abc037745138be101ce8354da787"
+    },
+    {
+      "path": "apps/web/src/components/app/expert-sharing-consent.tsx",
+      "postimage": "postimages/apps/web/src/components/app/expert-sharing-consent.tsx",
+      "beforeSha256": null,
+      "afterSha256": "834241a0dfcd6048d47a7222cd577d3dcdb2cc823c9b4aad5c98ae6b01f4aad4"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-console.tsx",
+      "postimage": "postimages/apps/web/src/components/app/operator-console.tsx",
+      "beforeSha256": "c24fe58b86c58993ac4970ede1ca85f7ec95ad21bc5cfb66799d8d4940654f7d",
+      "afterSha256": "e6ccf78ebf26f15a52fc47c8d1287830ef301462ce1fe26758f014f3f8abb8e1"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-expert-sourcing.tsx",
+      "postimage": "postimages/apps/web/src/components/app/operator-expert-sourcing.tsx",
+      "beforeSha256": null,
+      "afterSha256": "3639229118b7437644f36ce75ef83ecf732c0c400e016bdc0a59900b9960aaf5"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-owner.test.ts",
+      "postimage": "postimages/apps/web/src/server/automated-expert-owner.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "21cff7134867ac73346c7c47743b1fe8d886775a31a494a96de2e601a8cad03c"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-owner.ts",
+      "postimage": "postimages/apps/web/src/server/automated-expert-owner.ts",
+      "beforeSha256": "788c8b2ac7a4644ace0cf4733888fd46a9f46c5851ed1e362b07d5b11ede199d",
+      "afterSha256": "c190ec2b8b544baed7d5cb0082c622ab4615986bfbf45d67a502bfb8af0bcf9c"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan-binding.test.ts",
+      "beforeSha256": "a4269904d2e99c21d6e16bd497eaea9f2a9f51347fcf454abaa4a1381f1856ec",
+      "afterSha256": "2dabe20d9ab443b31e20814d01ad9ec31319293eced3b49d4ae3c7564210964d"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan-binding.ts",
+      "beforeSha256": "e97e93f7eca063461dd36c7fba873de3803004f7568a8e8e39f6e39efa23f9c5",
+      "afterSha256": "8f7ad5d1a39bde3696641384a580980d82e3fed2a9c5fe7632543cc665048151"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan.test.ts",
+      "beforeSha256": "f001e675cf99dd93037c46343bdfa5c05e3a8d978d2bacb5ae17a1d1fdd10608",
+      "afterSha256": "f9f175a9e8d34b65c3097604827ed0ffa598eedbfee1014eafddfce7fc1ab620"
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.ts",
+      "postimage": "postimages/apps/web/src/server/expert-data-plan.ts",
+      "beforeSha256": "0338ac04dd37b635c0d15c7b8836446ce5ac50a77df315a5937d4c6dc0a71c86",
+      "afterSha256": "59803011a497a87fd37cd7ad240d4ae2a22bde0a89e0f8a989d3a9ccf625cc04"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-api.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-api.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "eb6381eb53242cabbf6b926cdbcf00cf9df7d292b0d5d0f638fd8b5e596716e4"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-api.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-api.ts",
+      "beforeSha256": null,
+      "afterSha256": "13d993d45cb5f467b54f4cab7c266179ccc265d73255afe5a42a63bce13e5f8c"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-bridge.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-bridge.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "a219eb3ecb580e37e5b95420f845e7b4f45a69b835ddb0d70ad5f184a4eb114b"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-bridge.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-bridge.ts",
+      "beforeSha256": null,
+      "afterSha256": "1899babe3c181455e6a487d1672d158837926d681ef052e11d9cce95e2833475"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-dispatch.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-dispatch.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "73e326a471d37b84a7beaa12f40ed4b74f3aeec3405260c941456392293bd800"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-installer.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-installer.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "58b0230c2d9dba558be914768342f75935b360d00a91feb36bc13c2b7348d755"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-locks.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-locks.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "86e78ef36a46ffa23831ebbff9ae29cc8ee2bf8ca188380a3607643a78c11f95"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-locks.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-locks.ts",
+      "beforeSha256": null,
+      "afterSha256": "63dca174e91c9ffefe19de3ac8c4dbe125f0f6f5489a9a36f4770701ce34b633"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-runtime-dependencies.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-runtime-dependencies.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "4a7a54ebb845a6da70ec215cbe5adce9bb227592c1d5d64b0c99440a345d7797"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-runtime-dependencies.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-runtime-dependencies.ts",
+      "beforeSha256": null,
+      "afterSha256": "a38b446029fcbe89f6ccb2a4bf605569e8841be31db3930ba6362c6239b3c0eb"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-store.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-store.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "e209bb108ed44b6c2162ece6a380be79b093fa96c2ced62feb92715dbdef0d3f"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-store.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-store.ts",
+      "beforeSha256": null,
+      "afterSha256": "3215115eee96cf56dec24643ff0e528f6e735b98ca6a95ea6966c14995992e99"
+    },
+    {
+      "path": "apps/web/src/server/expert-sourcing-test-fixture.ts",
+      "postimage": "postimages/apps/web/src/server/expert-sourcing-test-fixture.ts",
+      "beforeSha256": null,
+      "afterSha256": "1d67994115093f6a8e72e4a8178b50d83d1e519a7d7b2a877c758c8a37a3d1f9"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-expert-sourcing-authority.sql",
+      "sha256": "38d312f9d18a85cc6cd65b79c3045c87a75c6ffa27347dd046a1b9b653758741"
+    }
+  ]
+}

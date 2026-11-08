@@ -1,0 +1,64 @@
+{
+  "status": "verified_unapplied_candidate",
+  "baseCommit": "768ec873a8975d43cfe91f6e92ececb7e885efa8",
+  "reconciledMain": "5da0635",
+  "mainMerge": "842f8b5",
+  "mainDelta": "LEDGER.md only; no tested source changed",
+  "sourceFiles": 26,
+  "combinedSourceFiles": 60,
+  "sqlArtifacts": 1,
+  "baselinePins": 2228,
+  "postimagesVerified": true,
+  "independentPatchAppliedAndVerified": true,
+  "reproducibleAssemblyVerified": true,
+  "unownedStageDifferences": [],
+  "candidateTests": {
+    "numPassedTests": 4128,
+    "numFailedTests": 0,
+    "numPendingTests": 2
+  },
+  "actualSourceTests": {
+    "passed": 3887,
+    "failed": 0,
+    "skipped": 2
+  },
+  "types": {
+    "actualWeb": "passed",
+    "candidateWeb": "passed",
+    "candidateCore": "passed"
+  },
+  "build": {
+    "status": "passed",
+    "command": "next build --webpack",
+    "steps": 62,
+    "workflows": 4,
+    "fonts": "stage-only offline Google CSS fixture; installed dependencies retained"
+  },
+  "reviewFixes": [
+    "policy-before-cap row lock order removes inversion",
+    "new immutable policy after explicit predecessor revocation",
+    "canonical and retained-selection eligibility before offering consent",
+    "explicit legacy discrimination",
+    "no stale enabled status after confirmed revocation",
+    "direct ID revocation beyond 100-row policy list"
+  ],
+  "reviewClarifications": [
+    "one consent per job enforced by SQL UNIQUE(job_id); >100 same-job renewal finding does not apply",
+    "same-job consent renewal is intentionally forbidden; new evaluation required"
+  ],
+  "notVerified": [
+    "browser interaction/screenshots",
+    "native PostgreSQL two-connection contention",
+    "hosted Workflow restart/cancellation",
+    "provider delivery/accounting acceptance",
+    "migration application/deployment",
+    "full Naive Phase 0/full roster acceptance"
+  ],
+  "sideEffects": {
+    "actualAppSourceChanged": false,
+    "liveProviderCalls": 0,
+    "migrationsApplied": 0,
+    "deployments": 0,
+    "outreachSent": 0
+  }
+}

@@ -1,6 +1,6 @@
 # Proposed deterministic expert scope authorization bridge
 
-Status: **design only; unimplemented and unadopted**. This document does not grant authority, record consent, approve a contact, apply migrations or authorize live provider use. Actual adoption of the 39-file owner candidate requires explicit owner approval; continuing a goal is not that approval.
+Status: **implemented as an unapplied integration candidate** in [naive-sourcing-authority-integration](naive-sourcing-authority-integration/README.md), layered after the 39-file factual Workflow candidate. Combined verification passes 4,128 tests, web/core types and a production build; no source adoption or live activation is claimed. This document does not grant authority, record consent, approve a contact, apply migrations or authorize live provider use. Actual adoption of the 39-file owner candidate requires explicit owner approval; continuing a goal is not that approval.
 
 ## Baseline and evidence
 

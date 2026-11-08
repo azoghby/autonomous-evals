@@ -12,6 +12,14 @@ This orchestrator's isolated staging has 27 app migrations through 0026 plus fou
 
 The 39-file owner candidate retains its explicit `7118f3a` composed-build baseline. Its preimages are unchanged by the merged `61e46bc` batch, but hosted/source adoption remains pending.
 
+## Standing-policy sourcing candidate (2026-11-08)
+
+`docs/naive-sourcing-authority-integration` adds a verified 26-file layer and additive SQL over the earlier 39-file candidate (60 unique source/test paths combined). Immutable operator envelopes, explicit authenticated customer disclosure consent, retained-proposal exact scope/grant derivation, atomic plan installation, runtime revalidation and policy→job dispatch/revocation locks are connected in staged source. Customer sharing controls and operator configuration/revocation are included. Qualified opted-in experts can be selected automatically within existing $25/job and $50/day caps; cold contacts still need founder approval. This does not provision an expert pool or prove live delivery.
+
+Parent verified 26 postimages, independent incremental patch application, 2,228 exact baseline pins, zero unowned stage differences and reproducible assembly. Full composed suite: **4,128 passed / zero failed / two documented skips**; web/core types and offline-font production build pass (62 steps/four workflows). Native Sol workers split storage, endpoints, bridge, adapter, installer, dispatch and review; parent fixed lock-order, policy renewal and stale UI findings. Same-job consent remains immutable and cannot be renewed. The SQL enforces one receipt per job.
+
+The tested source baseline is `768ec87`. Latest main `5da0635` was merged at `842f8b5`; only LEDGER changed, preserving Track A's separate deployment receipts for d1ceaf0 and61e46bc. Actual app source remains unchanged and passes 3,887 tests plus web types. Neither candidate is adopted or deployed. Browser checks, native PostgreSQL contention, sidecar migration, hosted Workflow/provider acceptance, exact-source ownership response, judge recovery wiring, roster authorization and the remaining Naïve phases remain open.
+
 ## Phase 0
 
 Implemented and checked locally:
