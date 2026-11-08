@@ -62,7 +62,45 @@ export interface ArtifactStore {
 }
 
 export interface TraceAuditResult { findings: Finding[]; claimsChecked: number }
-export interface RunResult { runId: string; versionLabel: string; results: Array<{ scenarioId: string; passed: boolean; detail: string }> }
+export interface RunCheckAssessment {
+  checkId: string;
+  kind: "objective" | "rubric";
+  status: "pass" | "fail" | "concern" | "inconclusive" | "not_assessed" | "error";
+  detail: string;
+  evidenceQuotes: string[];
+  reason: "target_error" | "judge_unavailable" | "judge_not_configured" | "no_reference" | "judge_inconclusive" | "check_error" | null;
+}
+export interface RunAssessment {
+  kind: "objective" | "rubric" | "inconclusive" | "infrastructure";
+  outcome: "completed" | "infrastructure_error";
+  checks: RunCheckAssessment[];
+}
+type ScenarioResultBase = { scenarioId: string; detail: string };
+/** Legacy booleans remain readable. Rich subjective and unavailable results never carry a boolean. */
+export type RunScenarioResult = ScenarioResultBase & (
+  | { passed: boolean; assessment?: undefined }
+  | { passed: boolean; assessment: RunAssessment & { kind: "objective" } }
+  | { passed?: never; assessment: RunAssessment & { kind: "rubric" | "inconclusive" | "infrastructure" } }
+);
+export interface RunResult { runId: string; versionLabel: string; results: RunScenarioResult[] }
+/** Only complete objective evidence (or a legacy boolean) participates in binary scoring. */
+export function objectivePassed(result: { passed?: boolean; assessment?: RunAssessment }): boolean | undefined {
+  if (!result.assessment) return result.passed;
+  const a = result.assessment;
+  if (a.kind !== "objective" || a.outcome !== "completed" || !a.checks.length || a.checks.some(c => c.kind !== "objective" || (c.status !== "pass" && c.status !== "fail"))) return undefined;
+  return a.checks.every(c => c.status === "pass");
+}
+export function summarizeRunResults(results: readonly RunScenarioResult[]) {
+  const counts = { passed: 0, failed: 0, rubric: 0, inconclusive: 0, infrastructure: 0 };
+  for (const result of results) {
+    const passed = objectivePassed(result);
+    if (passed !== undefined) counts[passed ? "passed" : "failed"]++;
+    else if (result.assessment?.kind === "rubric") counts.rubric++;
+    else if (result.assessment?.kind === "infrastructure") counts.infrastructure++;
+    else counts.inconclusive++;
+  }
+  return counts;
+}
 
 export interface EvalServices {
   qualify(ctx: ServiceContext, intake: IntakeInput, clarifications: string[]): Promise<QualifyResult>;

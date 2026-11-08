@@ -1,3 +1,4 @@
+import { objectivePassed, type RunScenarioResult } from "@ae/core/contracts/services";
 /**
  * Reusable core of a public-agent leaderboard run. Shared by scripts/public-agents.ts and /api/cron/public-agents.
  * No "server-only" import so the tsx script can use it. API keys are read from the env var NAMED on the agent row and never logged.
@@ -28,9 +29,9 @@ export function loadStandardSuite(): Suite {
 }
 
 /** Findings from failed scenarios: deterministic, no extra model spend. Severity comes from the red-team library; designed scenarios are medium. */
-export function derivedFindings(suite: Suite, results: Array<{ scenarioId: string; passed: boolean; detail: string }>): StoredFinding[] {
+export function derivedFindings(suite: Suite, results: RunScenarioResult[]): StoredFinding[] {
   const byId = new Map(suite.scenarios.map((s) => [s.id, s]));
-  const failed = results.filter((r) => !r.passed);
+  const failed = results.filter((r) => objectivePassed(r) === false);
   return toStoredFindings(failed.map((r) => {
     const sc = byId.get(r.scenarioId);
     const rt = redTeamById(r.scenarioId);
@@ -99,6 +100,7 @@ export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): P
   try {
     const target = { url: row.endpointUrl, model: row.model, ...(apiKey ? { apiKey } : {}), systemPrompt: row.systemPrompt ?? "" };
     const run = await Promise.race([services.runSuite(ctx, suite, target), timeout]);
+    if (run.results.some(r => objectivePassed(r) === undefined)) throw new Error("Public leaderboard requires complete objective results; rich assessments retained by evaluator.");
     const score = scoreRun(suite.scenarios, run.results);
     let findings = derivedFindings(suite, run.results);
     if (opts.investigate) {

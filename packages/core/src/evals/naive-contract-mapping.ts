@@ -4,14 +4,14 @@
  */
 import { z } from "zod";
 import { Suite as ContractSuiteSchema, type Suite } from "../contracts";
-import type { RunResult } from "../contracts/services";
+import type { RunResult, RunScenarioResult } from "../contracts/services";
 import { containsSecret } from "../agents/redact";
 import { TrackBBlockedError } from "./service-adapter";
 import { canonicalJson, verifyAdmittedFrozenSuite } from "./text/freeze";
 import { SuiteRunSchema, type FrozenTextSuite, type SuiteRun } from "./text/schema";
 import { assertRunMatches } from "./text/investigate";
 import { assertValidRunId } from "./text/execute";
-import { toLegacyRunResult } from "./integration/services";
+
 
 const Scope = z.object({ jobId: z.uuid(), customerId: z.string().min(1).max(200), environment: z.enum(["live", "test"]),
   suiteDigest: z.string().regex(/^[a-f0-9]{64}$/), approvalArtifactId: z.string().min(1).max(200) }).strict();
@@ -22,7 +22,6 @@ export interface TextSuiteProjection { suite: Suite; retained: RetainedTextSuite
 export interface RetainedTextRun { schemaVersion: "naive_contract_run.v1"; scope: TextContractScope; run: SuiteRun }
 export interface TextRunProjection { result: RunResult; retained: RetainedTextRun }
 const reject = (): never => { throw new TrackBBlockedError("rejected_input", "Text contract artifact, authority or projection mismatch."); };
-const unsupported = (): never => { throw new TrackBBlockedError("needs_operator", "EvalServices RunResult cannot represent this rich text run without losing assessment states."); };
 const safe = (input: unknown, secrets: readonly string[]) => { if (containsSecret(JSON.stringify(input), secrets)) reject(); };
 function scoped(input: unknown, scope: TextContractScope, knownSecrets: readonly string[]): { frozen: FrozenTextSuite; scope: TextContractScope } {
   try {
@@ -59,6 +58,10 @@ export function restoreFrozenTextSuite(projection: unknown, retained: RetainedTe
 function checkedRun(input: unknown, frozen: FrozenTextSuite, secrets: readonly string[]): SuiteRun {
   try {
     const run = SuiteRunSchema.parse(input); assertValidRunId(run.runId); assertRunMatches(frozen, run);
+    // Outcome/target inconsistencies and impossible objective verdicts are malformed evidence.
+    if (run.executions.some(e => e.outcome === "completed" && (!e.target.ok || e.target.errorCode !== null || e.responseText === null)
+      || e.outcome === "infrastructure_error" && e.target.ok
+      || e.checks.some(c => c.kind === "objective" && c.status === "concern"))) return reject();
     // Contract runSuite means the whole suite. Partial reruns need a separate explicit contract.
     if (run.executions.length !== frozen.scenarios.length) return reject();
     if (run.executions.some(e => e.attempt !== "initial" && e.attempt !== "rerun")) return reject();
@@ -66,13 +69,23 @@ function checkedRun(input: unknown, frozen: FrozenTextSuite, secrets: readonly s
     return run;
   } catch { return reject(); }
 }
-/** A boolean projection is permitted only for complete, purely objective runs. */
+/** Preserve all assessment states; only complete objective assessments publish booleans. */
 export function projectTextSuiteRun(input: unknown, suite: TextSuiteProjection, scope: TextContractScope, knownSecrets: readonly string[] = []): TextRunProjection {
   const frozen = restoreFrozenTextSuite(suite.suite, suite.retained, scope, knownSecrets);
   const run = checkedRun(input, frozen, knownSecrets);
-  if (run.executions.some(e => !e.target.ok || e.target.errorCode !== null || e.outcome !== "completed" || e.responseText === null || e.checks.some(c => c.reason !== null))) return unsupported();
-  let result: RunResult;
-  try { result = toLegacyRunResult(run); } catch { return unsupported(); }
+  const result: RunResult = { runId: run.runId, versionLabel: run.versionLabel,
+    results: run.executions.map((e): RunScenarioResult => {
+      const base = { scenarioId: e.scenarioId, detail: e.checks.map(c => c.detail).join("\n") };
+      const checks = structuredClone(e.checks);
+      if (e.outcome !== "completed" || !e.target.ok || e.target.errorCode !== null || e.responseText === null)
+        return { ...base, assessment: { kind: "infrastructure", outcome: e.outcome, checks } };
+      if (!checks.length || checks.some(c => c.reason !== null || ["inconclusive", "not_assessed", "error"].includes(c.status)))
+        return { ...base, assessment: { kind: "inconclusive", outcome: e.outcome, checks } };
+      if (checks.some(c => c.kind === "rubric"))
+        return { ...base, assessment: { kind: "rubric", outcome: e.outcome, checks } };
+      if (!checks.every(c => c.kind === "objective" && ["pass", "fail"].includes(c.status))) return reject();
+      return { ...base, passed: checks.every(c => c.status === "pass"), assessment: { kind: "objective", outcome: e.outcome, checks } };
+    }) };
   return { result, retained: { schemaVersion: "naive_contract_run.v1", scope: Scope.parse(scope), run } };
 }
 export function restoreTextSuiteRun(projection: unknown, retained: RetainedTextRun, suite: TextSuiteProjection, scope: TextContractScope, knownSecrets: readonly string[] = []): SuiteRun {

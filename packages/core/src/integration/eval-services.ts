@@ -99,7 +99,7 @@ async function resolveJob(ctx: ServiceContext) {
   return { customerId: job.customerId, package: job.package, isFixture: false, linkedRetestOf: job.retestOfJobId ?? null, quoteVersion: null };
 }
 
-async function buildAgentDeps(): Promise<TrackBServiceDeps> {
+export async function buildAgentDeps(): Promise<TrackBServiceDeps> {
   const env = requireEnv("agents", AGENT_ENV);
   const sql = pooledCalendarDatabase(sqlPool());
   const naive = createNaiveSessionsPort(createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined }));

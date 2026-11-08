@@ -56,8 +56,11 @@ describe("Naive contract run service", () => {
     await expect(f.service.runSuite({ ...f.ctx, budgetMicroUsd: 0 }, f.projection.suite, f.canonicalTarget)).rejects.toThrow("positive authorized budget");
     expect(f.send).not.toHaveBeenCalled();
   });
-  it("retains nonboolean rubric states then refuses lossy public projection", async () => {
-    const f = setup(true); await expect(f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget)).rejects.toThrow("cannot represent");
+  it("retains nonboolean rubric states and projects their explicit assessment", async () => {
+    const f = setup(true); const result = await f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget);
+    expect(result.results[0]!.assessment?.kind).toBe("inconclusive");
+    expect(result.results[0]!.assessment?.checks.some(c => c.kind === "rubric" && c.reason === "judge_not_configured")).toBe(true);
+    expect(result.results[0]).not.toHaveProperty("passed");
     expect(f.saved).toHaveLength(1); expect(f.saved[0]!.run.executions[0]!.checks.some(c => c.kind === "rubric")).toBe(true);
   });
   it("current authority revocation during a run prevents further target dispatch", async () => {
@@ -72,7 +75,11 @@ describe("Naive contract run service", () => {
   });
   it("screens the canonical target key even when owner knownSecrets omits it", async () => {
     const f = setup(); f.send.mockResolvedValue({ ok: true, text: f.canonicalTarget.apiKey, latencyMs: 1 });
-    await expect(f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget)).rejects.toThrow();
+    const result = await f.service.runSuite(f.ctx, f.projection.suite, f.canonicalTarget);
+    expect(result.results.every(r => r.assessment?.kind === "infrastructure")).toBe(true);
+    expect(result.results.every(r => !("passed" in r))).toBe(true);
+    expect(f.saved[0]!.run.executions.every(e => e.responseText === null && e.target.errorCode === "credential_in_response")).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(f.canonicalTarget.apiKey);
     expect(JSON.stringify(f.saved)).not.toContain(f.canonicalTarget.apiKey);
   });
   it("rejects malformed or too-short known secret configuration before dispatch", async () => {

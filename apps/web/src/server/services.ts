@@ -1,3 +1,4 @@
+import { objectivePassed } from "@ae/core/contracts/services";
 import "server-only";
 import {
   Finding, QualifyResult, Remediation, Report, Suite, type IntakeInput,
@@ -134,7 +135,7 @@ export const mockServices: EvalServices = {
     return { runId: "mock-run", versionLabel: suite.versionLabel, results: [base, ...mockRedTeamResults(suite.scenarios)] };
   },
   async investigate(_ctx, suite, runs) {
-    const failed = new Set(runs.flatMap((r) => r.results.filter((x) => !x.passed).map((x) => x.scenarioId)));
+    const failed = new Set(runs.flatMap((r) => r.results.filter((x) => objectivePassed(x) === false).map((x) => x.scenarioId)));
     return [mockFinding("mock-f1", "mock-s1"), ...mockRedTeamFindings(suite.scenarios, failed)];
   },
   async proposeAndVerifyFix(_ctx, input) { return mockRemediation(input.finding); },

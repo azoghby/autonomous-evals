@@ -58,11 +58,20 @@ describe("Naive text contract mapping", () => {
     const wrong = structuredClone(f.run); wrong.suiteDigest = "a".repeat(64); expect(() => projectTextSuiteRun(wrong, f.suite, f.scope)).toThrow();
     const check = structuredClone(f.run); check.executions[0]!.checks[0]!.checkId = "S02.o1"; expect(() => projectTextSuiteRun(check, f.suite, f.scope)).toThrow();
   });
-  it.each(["inconclusive", "not_assessed", "error", "concern"] as const)("never silently maps %s to a boolean", status => {
+  it.each(["inconclusive", "not_assessed", "error"] as const)("never silently maps %s to a boolean", status => {
     const f = fixture(); f.run.executions[0]!.checks[0]!.status = status;
-    expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("cannot represent");
+    const projection = projectTextSuiteRun(f.run, f.suite, f.scope);
+    expect(projection.result.results[0]!.assessment?.kind).toBe("inconclusive");
+    expect(projection.result.results[0]).not.toHaveProperty("passed");
+    expect(projection.result.results[0]!.assessment?.checks[0]!.status).toBe(status);
+    expect(restoreTextSuiteRun(projection.result, projection.retained, f.suite, f.scope)).toEqual(f.run);
+    expect(() => restoreTextSuiteRun(projection.result, projection.retained, f.suite, { ...f.scope, approvalArtifactId: "substituted" })).toThrow();
   });
-  it("preserves rubric definitions but refuses even a passing rubric as an objective boolean", () => {
+  it("rejects an impossible objective concern rather than publishing an objective failure", () => {
+    const f = fixture(); f.run.executions[0]!.checks[0]!.status = "concern";
+    expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("mismatch");
+  });
+  it("preserves passing and concerned rubric assessments without objective booleans", () => {
     const f = fixture(); const { digest: _, ...body } = structuredClone(f.frozen);
     body.referenceText = "The reference says the required response is READY.";
     body.scenarios[0]!.rubricChecks.push({ id: "S01.r1", kind: "rubric", description: "Reference grounding", rubric: "Assess grounding against the supplied reference.", assessesFactualCorrectness: true, requiresReference: true });
@@ -71,10 +80,28 @@ describe("Naive text contract mapping", () => {
     expect(restoreFrozenTextSuite(suite.suite, suite.retained, scope)).toEqual(frozen);
     f.run.suiteDigest = frozen.digest;
     f.run.executions[0]!.checks.push({ checkId: "S01.r1", kind: "rubric", status: "pass", detail: "Grounded", evidenceQuotes: ["READY"], reason: null });
-    expect(() => projectTextSuiteRun(f.run, suite, scope)).toThrow("cannot represent");
+    for (const status of ["pass", "concern"] as const) {
+      f.run.executions[0]!.checks.at(-1)!.status = status;
+      const projection = projectTextSuiteRun(f.run, suite, scope);
+      expect(projection.result.results[0]!.assessment?.kind).toBe("rubric");
+      expect(projection.result.results[0]).not.toHaveProperty("passed");
+      expect(projection.result.results[0]!.assessment?.checks.at(-1)!.status).toBe(status);
+      expect(restoreTextSuiteRun(projection.result, projection.retained, suite, scope)).toEqual(f.run);
+    }
+  });
+  it("preserves actual infrastructure outcomes without objective booleans", () => {
+    const f = fixture(), execution = f.run.executions[0]!;
+    execution.outcome = "infrastructure_error";
+    execution.target = { ok: false, errorCode: "target_error", latencyMs: 1 };
+    execution.responseText = null;
+    execution.checks.forEach(c => { c.status = "not_assessed"; c.reason = "target_error"; });
+    const projection = projectTextSuiteRun(f.run, f.suite, f.scope);
+    expect(projection.result.results[0]!.assessment?.kind).toBe("infrastructure");
+    expect(projection.result.results[0]).not.toHaveProperty("passed");
+    expect(restoreTextSuiteRun(projection.result, projection.retained, f.suite, f.scope)).toEqual(f.run);
   });
   it("rejects infrastructure inconsistencies and currently known secrets", () => {
-    const f = fixture(); f.run.executions[0]!.target.ok = false; expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("cannot represent");
+    const f = fixture(); f.run.executions[0]!.target.ok = false; expect(() => projectTextSuiteRun(f.run, f.suite, f.scope)).toThrow("mismatch");
     const next = fixture(); expect(() => projectFrozenTextSuite(next.frozen, next.scope, ["Follow the explicit user constraints."])).toThrow();
     expect(() => projectTextSuiteRun(next.run, next.suite, next.scope, ["READY"])).toThrow();
   });

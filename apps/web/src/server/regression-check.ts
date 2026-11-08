@@ -1,3 +1,4 @@
+import { objectivePassed } from "@ae/core/contracts/services";
 import type { RunResult } from "@ae/core/contracts/services";
 
 /** Pure regression-check logic (no I/O): turns a suite run into the CI-facing verdict. */
@@ -10,6 +11,7 @@ export interface RegressionVerdict {
   passed: number;
   total: number;
   failed: RegressionFailure[];
+  unassessed: number;
   /** Failing scenarios that were tied to a verified remediation: a previously fixed issue came back. */
   previouslyFixedRegressed: FixedRegression[];
 }
@@ -45,13 +47,13 @@ export function evaluateRegression(input: RegressionInputs): RegressionVerdict {
   const failed: RegressionFailure[] = [];
   const previouslyFixedRegressed: FixedRegression[] = [];
   for (const r of input.results) {
-    if (r.passed) continue;
+    if (objectivePassed(r) !== false) continue;
     const entry = { scenarioId: r.scenarioId, title: titles.get(r.scenarioId) ?? r.scenarioId, detail: truncate(r.detail ?? "", DETAIL_MAX) };
     failed.push(entry);
     const link = fixed.get(r.scenarioId);
     if (link) previouslyFixedRegressed.push({ ...entry, ...link });
   }
-  return { passed: input.results.length - failed.length, total: input.results.length, failed, previouslyFixedRegressed };
+  return { passed: input.results.filter(r => objectivePassed(r) === true).length, unassessed: input.results.filter(r => objectivePassed(r) === undefined).length, total: input.results.length, failed, previouslyFixedRegressed };
 }
 
 /** Removes the caller's target secret (and its bearer-less form) from any text we might return or log. */

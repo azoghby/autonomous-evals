@@ -1,3 +1,4 @@
+import { objectivePassed } from "./services";
 /**
  * Conformance harness for EvalServices implementations (Track B -> Track A handoff gate).
  * Pure: takes a services object, returns a list of checks. No app tables, no network of its own.
@@ -191,7 +192,7 @@ export async function runConformance(services: EvalServices, opts: ConformanceOp
         const run = await services.runSuite(r.ctx, s, opts.runSuiteTarget!);
         const ids = new Set(s.scenarios.map((x) => x.id));
         assert(typeof run.runId === "string" && run.runId.length > 0, "runId missing");
-        assert(run.results.every((x) => ids.has(x.scenarioId) && typeof x.passed === "boolean"), "result references unknown scenario or non-boolean passed");
+        assert(run.results.every((x) => ids.has(x.scenarioId) && (objectivePassed(x) !== undefined || (x.assessment !== undefined && x.assessment.kind !== "objective"))), "result references unknown scenario or invalid assessment");
         runs = [run];
         costsValid(r);
       });

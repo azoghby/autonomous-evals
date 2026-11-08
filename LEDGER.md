@@ -104,7 +104,7 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 | Durable jobWorkflow, resumable runs, stale-job recovery | live | workflows/job.ts, workflows/events.ts, api/cron/stale-jobs |
 | Monitoring subscription ($49/mo) and follow-ups | live, test mode | api/cron/monitoring, api/cron/follow-ups, server/follow-ups.ts |
 | Eval engine (Track B) | mock by default; real wired behind EVAL_SERVICES=real (not enabled) | packages/core/src/integration/, server/services.ts |
-| Naïve Phase 0 provisioning | Current core/CLI implemented and locally tested; no provider creation or activation | agents/company-roles.ts, company-resources.ts, naive-provisioning.ts, naive-resources.ts; scripts/naive-provision.ts |
+| Naïve Phase 0 provisioning | Core/CLI implemented; bounded four-role diagnostics recorded below; expanded roster and live exit gates incomplete | agents/company-roles.ts, company-resources.ts, naive-provisioning.ts, naive-resources.ts; scripts/naive-provision.ts |
 | Track B rich-service integration and private chat artifacts | Offline validated; owner adoption/deployment remains pending | docs/current-company-payment-fixes, docs/current-company-main-adoption, docs/current-company-composition |
 | Fix, not just find (remediations, before/after verification) | mock-only (Track B proposeAndVerifyFix not implemented) | workflows, remediations table, report page |
 | Fix as GitHub PR (migration 0012) | merged; end-to-end not verified in this ledger | server/github-service.ts, server/github-pr.ts |
@@ -120,6 +120,7 @@ Status: live (deployed and working), merged (on track-a, deploy not recorded or 
 | Operator alert emails (failed, paused, stale, payment-review; deduped) | merged; sends via AgentMail | commit 516e574, packages/core/src/email/ |
 | Email transport and inbound webhook | live | packages/core/src/email/, api/webhooks/agentmail |
 | Expert network MVP: /experts opt-in, /expert/r/[token] questionnaire, opt-out, operator tab | live; outreach approval-gated | app/experts, app/expert, api/experts, server/experts.ts |
+| Expert data → real text evaluation | Source adopted with explicit 26-file override; migrations/configuration/hosted activation pending | server/expert-data-production.ts, expert-text-runtime.ts, workflows/steps/expert-text.ts; docs/naive-text-adoption-integration |
 | Expert call booking (slots, Jitsi, .ics) | live | server/expert-calls.ts, /expert/book/[token] |
 | Expert contact research via Monid | not started (key set, pipeline not built) | docs/EXPERT_NETWORK.md |
 | Expert Google Calendar booking (phase 2) | not started | docs/EXPERT_NETWORK.md |
@@ -179,7 +180,7 @@ Security and compliance
 
 ## Next steps (hackathon)
 
-- Naïve migration: follow `docs/NAIVE_PLAN.md` and `docs/naive-phase0-acceptance.md`; finish staged provider provisioning and Track A staging/conformance gates. A private-key read-only inventory attempt returned HTTP 429; no remote resources changed.
+- Naïve migration: follow `docs/NAIVE_PLAN.md` and current `docs/naive-plan-progress.md`. Finish expanded provisioning and real conformance; prepare staged migration/configuration and hosted acceptance for the source-adopted expert text path. Resolve independent proxy crash/revocation reconciliation and authenticated review surfaces; general method routing and later phases remain open.
 
 - Track B handoff: preserve the refund/receipt-queue corrections in `docs/current-company-payment-fixes` when adopting the current company composition. Reviewed app patches and SQL are not applied merely by merging their documentation. Production setup and hosted acceptance remain explicit gates.
 
@@ -258,3 +259,5 @@ Times are PT, as recorded.
 - 2026-11-08 Jude receipt recovery: actual core proxy judge now retains minimal request identity/usage when publication authority is revoked after provider completion, reconciles billed trace/cost without returning a revoked verdict, and refuses new revoked dispatch. Invalid immediate usage retains the request ID for authoritative trace reconciliation. Parent independently passed strict judges checks: 49 tests / 3 files, none skipped. Runtime-level reconciliation after revocation prevents factory construction still needs an independent drain; this change does not claim that app gate complete. No provider request or deployment.
 
 - 2026-11-08 Rich text candidate review: Sol workers completed rich-result contracts, canonical expert text run/investigation/report routing and coherent Drizzle0025/26 artifacts. Parent assembled one26-file review patch in docs/naive-text-adoption-integration, verified all final staged source hashes and direct apply check; source remains unapplied pending separate Track A approval. Parent schema no-drift preserved64 existing tables and added3. Candidate verification:38 focused tests/no skips, original npm3579passed/0failed/2 documented live-regeneration skips, full core/web types, typegen and retained-dependency webpack build. Includes explicit analytics substitution, cached exact-source archive provenance and prior failed receipts. Review fixed false objective concern projection, all-unassessed reports, prompt binding, cost-ack fencing and malformed patch EOF handling. Source06d8a15 CI fully green. Independent proxy recovery after crash+revocation, full method routing, review surfaces and hosted acceptance remain open; no live operations.
+
+- 2026-11-08 Owner-approved expert text adoption: Alex explicitly approved the reviewed26-file combined source patch after verification. Parent applied it on75b0446 and verified every actual file against the exact approved postimage. This adopts Workflow acquisition/run/investigation/report routing, rich result contracts and Drizzle0025/26 source; it does not activate plans or apply migrations. Prior final candidate tests/types/build cover the identical bytes; root tsc/npm commands again lack installed executables. Source CI follows the adoption commit. No provider call, outreach, payment, live migration or deployment.

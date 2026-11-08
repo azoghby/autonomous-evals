@@ -1,0 +1,12 @@
+{
+  "parentCommit": "75b0446",
+  "authorization": "Alex explicitly approved the reviewed 26-file source patch in this thread.",
+  "sourceAdopted": true,
+  "verifiedPostimages": 26,
+  "manifestSha256": "7cf963439d6d64dbe04691a9ac0bb9e310e1fcf4d2530b86fd492ec91f0e5df9",
+  "testReceiptSha256": "21f73048c1c61cc9d00acb5aadd984a1a29feeed068c51d9e65734033cd91bf3",
+  "liveMigration": false,
+  "deployed": false,
+  "outreachSent": false,
+  "spending": false
+}

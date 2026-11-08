@@ -1,4 +1,6 @@
-import { createHook, FatalError } from "workflow";
+import { expertTextEvaluationStep, expertTextReportStep } from "./steps/expert-text";
+import { expertDataGateStep, expertDataHoldStep } from "./steps/expert-data";
+import { createHook, FatalError, sleep } from "workflow";
 import { jobHookToken, type JobEvent, type Package, type QualifyResult } from "@ae/core/contracts/index";
 import type { Remediation } from "@ae/core/contracts/index";
 import type { RunResult } from "@ae/core/contracts/services";
@@ -114,9 +116,78 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
 
     // 4. Execute by package. A restart first drops findings/fixes a dead run stored without finishing its report.
     if (stage === "execute") {
+      // Owner-provisioned text data plan is checked before discarding any retained evaluation state.
+      // Bounded durable timers retain one Workflow and canonical expert operation identity.
+      let expertHandled = false;
+      if (pkg === 'text_eval') {
+        let gate = await expertDataGateStep(jobId);
+        if (gate === 'pending') await expertDataHoldStep(jobId, false);
+        // Retain exactly one event read and one timer across each race. Other events
+        // do not create competing iterator reads or extend the canonical deadline.
+        let incoming: Promise<JobEvent> | undefined;
+        let timer: Promise<void> | undefined;
+        let polls = 0;
+        while (gate === 'pending' && polls < 336) {
+          incoming ??= nextEvent();
+          timer ??= sleep('30m');
+          const wake = await Promise.race([
+            timer.then(() => ({ type: 'timer' as const })),
+            incoming.then(event => ({ type: 'event' as const, event })),
+          ]);
+          if (wake.type === 'event') {
+            incoming = undefined;
+            if (wake.event.type === 'cancel') {
+              await cancelStep(jobId, wake.event.reason);
+              return { jobId, status: 'cancelled' };
+            }
+            continue;
+          }
+          timer = undefined;
+          polls++;
+          gate = await expertDataGateStep(jobId);
+        }
+        if (gate === 'ready') {
+          let evaluation = await expertTextEvaluationStep(jobId);
+          let executionPolls = 0;
+          while (evaluation.status === 'pending' && executionPolls++ < 336) {
+            incoming ??= nextEvent();
+            timer ??= sleep('30m');
+            const wake = await Promise.race([
+              timer.then(() => ({ type: 'timer' as const })),
+              incoming.then(event => ({ type: 'event' as const, event })),
+            ]);
+            if (wake.type === 'event') {
+              incoming = undefined;
+              if (wake.event.type === 'cancel') {
+                await cancelStep(jobId, wake.event.reason);
+                return { jobId, status: 'cancelled' };
+              }
+              continue;
+            }
+            timer = undefined;
+            evaluation = await expertTextEvaluationStep(jobId);
+          }
+          if (evaluation.status === 'pending') return { jobId, status: 'on_hold' };
+          if (evaluation.status === 'budget_exceeded') {
+            await pauseBudgetStep(jobId, evaluation.message);
+            return { jobId, status: 'paused_budget' };
+          }
+          const reported = await expertTextReportStep(jobId,evaluation.data.findings,evaluation.data.suite);
+          if (reported.status === 'budget_exceeded') {
+            await pauseBudgetStep(jobId,reported.message);
+            return {jobId,status:'paused_budget'};
+          }
+          expertHandled = true;
+        } else if (gate !== 'legacy') {
+          await expertDataHoldStep(jobId, false);
+          return { jobId, status: 'on_hold' };
+        }
+      }
+      if (!expertHandled) {
       if (plan.phase === "execute" && plan.discardPartialResults) await discardPartialEvaluationStep(jobId);
       const stopped = pkg === "trace_audit" ? await runTraceAudit() : await runEndpointEval(pkg);
       if (stopped) return { jobId, status: stopped.stopped };
+      }
     }
 
     // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.

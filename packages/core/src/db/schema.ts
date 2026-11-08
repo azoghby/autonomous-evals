@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  pgTable, uuid, text, timestamp, integer, bigint, jsonb, boolean, uniqueIndex, index, pgEnum, doublePrecision, serial, primaryKey, date, check,
+  pgSchema, pgTable, uuid, text, timestamp, integer, bigint, jsonb, boolean, uniqueIndex, index, pgEnum, doublePrecision, serial, primaryKey, date, check,
 } from "drizzle-orm/pg-core";
 import { JOB_STATES, PACKAGES } from "../contracts/index";
 
@@ -902,3 +902,48 @@ export const expertAutomationResponseBindings = pgTable("expert_automation_respo
   response_id: uuid("response_id").notNull().references(() => expertResponses.id),
   response_digest: text("response_digest").notNull(),
 }, (t) => [primaryKey({ columns: [t.operation_id, t.engagement_id] })]);
+
+/** Trusted owner-provisioned expert acquisition authority; never a model/public write surface. */
+export const expertWorkflow = pgSchema("expert_workflow");
+export const expertWorkflowPlans = expertWorkflow.table("plans", {
+  jobId: uuid("job_id").primaryKey().references(() => jobs.id),
+  tenantId: uuid("tenant_id").notNull().references(() => customers.id),
+  input: jsonb("input").notNull(),
+  inputDigest: text("input_digest").notNull(),
+  topic: text("topic").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  responseDeadline: timestamp("response_deadline", {withTimezone: true}).notNull().default(sql`now()+interval '7 days'`),
+  lastResult: jsonb("last_result"),
+  lastCheckedAt: timestamp("last_checked_at", {withTimezone: true}),
+}, t => [
+  check("plans_input_check", sql`jsonb_typeof(${t.input})='object'`),
+  check("plans_input_digest_check", sql`${t.inputDigest} ~ '^[a-f0-9]{64}$'`),
+  check("plans_topic_check", sql`length(${t.topic}) BETWEEN 1 AND 160`),
+  check("plans_check", sql`${t.input}->'task'->>'jobId'=${t.jobId}::text`),
+  check("plans_input_check1", sql`octet_length(${t.input}::text)<=1000000`),
+]);
+export const expertWorkflowContributionReviews = expertWorkflow.table("contribution_reviews", {
+  jobId: uuid("job_id").notNull().references(() => expertWorkflowPlans.jobId),
+  taskId: text("task_id").notNull(),
+  contributionDigest: text("contribution_digest").notNull(),
+  reviewerId: uuid("reviewer_id").notNull().references(() => customers.id),
+  review: jsonb("review").notNull(),
+}, t => [
+  primaryKey({columns:[t.jobId,t.taskId,t.contributionDigest]}),
+  check("contribution_reviews_contribution_digest_check", sql`${t.contributionDigest} ~ '^[a-f0-9]{64}$'`),
+  check("contribution_reviews_check", sql`${t.review}->>'reviewerId'=${t.reviewerId}::text`),
+  check("contribution_reviews_check1", sql`${t.review}->>'contextDigest'=${t.contributionDigest}`),
+  check("contribution_reviews_review_check", sql`octet_length(${t.review}::text)<=500000`),
+]);
+export const expertWorkflowTextBindings = expertWorkflow.table("text_bindings", {
+  jobId: uuid("job_id").primaryKey().references(() => expertWorkflowPlans.jobId),
+  scope: jsonb("scope").notNull(),
+  targetVersion: text("target_version").notNull(),
+  runId: text("run_id").notNull(),
+}, t => [
+  check("text_bindings_scope_check", sql`jsonb_typeof(${t.scope})='object'`),
+  check("text_bindings_target_version_check", sql`${t.targetVersion} ~ '^[a-f0-9]{64}$'`),
+  check("text_bindings_run_id_check", sql`${t.runId} ~ '^expert-[a-f0-9]{24}$'`),
+  check("text_bindings_check", sql`${t.scope}->>'jobId'=${t.jobId}::text`),
+  check("text_bindings_scope_check1", sql`octet_length(${t.scope}::text)<4096`),
+]);

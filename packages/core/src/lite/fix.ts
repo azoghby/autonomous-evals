@@ -1,3 +1,4 @@
+import { objectivePassed } from "../contracts/services";
 import { z } from "zod";
 import { Remediation, type Finding, type IntakeInput, type Scenario, type Suite } from "../contracts/index";
 import type { EvalServices, ServiceContext } from "../contracts/services";
@@ -109,6 +110,7 @@ export function createFixService(deps: LiteDeps, registry: TargetRegistry, runSu
     try {
       const before = await runSuite(ctx, subset, target);
       const after = await runSuite(ctx, subset, patchedTarget);
+      if ([...before.results, ...after.results].some(r => objectivePassed(r) === undefined)) throw new Error("Fix verification requires complete objective results.");
       const pick = (r: typeof before) => new Map(r.results.map((x) => [x.scenarioId, x]));
       const b = pick(before), a = pick(after);
       const ids = subset.scenarios.map((s) => s.id);

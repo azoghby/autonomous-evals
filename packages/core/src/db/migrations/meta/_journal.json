@@ -176,6 +176,20 @@
       "when": 1794117812954,
       "tag": "0024_expert_automation",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794127349072,
+      "tag": "0025_expert_workflow",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794127377712,
+      "tag": "0026_expert_text_runtime",
+      "breakpoints": true
     }
   ]
 }

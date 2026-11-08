@@ -1,3 +1,4 @@
+import { objectivePassed, type RunAssessment } from "@ae/core/contracts/services";
 /**
  * Public-agent leaderboard: pure scoring + ranking. No I/O, no server-only imports (also used by scripts/public-agents.ts).
  */
@@ -28,24 +29,26 @@ export interface RunScore {
 }
 
 interface ScenarioLike { id: string; category: string }
-interface ResultLike { scenarioId: string; passed: boolean }
+interface ResultLike { scenarioId: string; passed?: boolean; assessment?: RunAssessment }
 interface FindingLike {
   title: string; severity: string; category: string; scenarioId?: string;
   evidence?: Array<{ excerpt: string }>;
 }
 
-/** Scores run results against the frozen suite. Scenarios without a result count as failed; unknown results are ignored. */
+/** Scores run results against the frozen suite. Legacy missing results count as failed; rich nonobjective results are excluded from binary scoring. */
 export function scoreRun(scenarios: readonly ScenarioLike[], results: readonly ResultLike[]): RunScore {
-  const byId = new Map(results.map((r) => [r.scenarioId, r.passed]));
+  const byId = new Map(results.map((r) => [r.scenarioId, objectivePassed(r)]));
   const byCategory: ByCategory = {};
-  let passed = 0;
+  let passed = 0, total = 0;
   for (const s of scenarios) {
+    if (byId.has(s.id) && byId.get(s.id) === undefined) continue;
+    total++;
     const ok = byId.get(s.id) === true;
     const cur = byCategory[s.category] ?? { passed: 0, total: 0 };
     byCategory[s.category] = { passed: cur.passed + (ok ? 1 : 0), total: cur.total + 1 };
     if (ok) passed += 1;
   }
-  return { passed, total: scenarios.length, byCategory };
+  return { passed, total, byCategory };
 }
 
 export const rate = (passed: number, total: number): number => (total > 0 ? passed / total : 0);

@@ -1,3 +1,4 @@
+import { summarizeRunResults } from "@ae/core/contracts/services";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { FatalError } from "workflow";
@@ -91,8 +92,8 @@ export async function runSuiteStep(
     return services.runSuite(ctx, { ...suite, versionLabel }, target, branchConnectionString);
   });
   if (result.status === "ok") {
-    const failed = result.data.results.filter((r) => !r.passed).length;
-    await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${failed} of ${result.data.results.length} scenario(s) failed.`);
+    const counts = summarizeRunResults(result.data.results);
+    await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${counts.passed} objective passed, ${counts.failed} objective failed, ${counts.rubric} rubric, ${counts.inconclusive} inconclusive, ${counts.infrastructure} infrastructure.`);
   }
   return result;
 }

@@ -1,3 +1,4 @@
+import { objectivePassed } from "../contracts/services";
 import { z } from "zod";
 import { Finding, type Scenario, type Suite } from "../contracts/index";
 import type { EvalServices, RunResult } from "../contracts/services";
@@ -49,7 +50,7 @@ function collectFailures(suite: Suite, runs: RunResult[]): Failure[] {
   const byId = new Map(suite.scenarios.map((s) => [s.id, s]));
   const seen = new Map<string, Failure>();
   for (const run of runs) for (const r of run.results) {
-    if (r.passed) continue;
+    if (objectivePassed(r) !== false) continue;
     const scenario = byId.get(r.scenarioId);
     const detail = decodeDetail(r.detail);
     if (!scenario || detail?.grader === "error") continue;
@@ -110,7 +111,7 @@ async function reproduce(ctx: Parameters<EvalServices["investigate"]>[0], suite:
       const res = await runSuite(ctx, { ...suite, scenarios: pending }, target);
       const reproduced = new Set<string>();
       for (const r of res.results) {
-        if (r.passed || decodeDetail(r.detail)?.grader === "error") continue;
+        if (objectivePassed(r) !== false || decodeDetail(r.detail)?.grader === "error") continue;
         counts.set(r.scenarioId, (counts.get(r.scenarioId) ?? 0) + 1);
         reproduced.add(r.scenarioId);
       }

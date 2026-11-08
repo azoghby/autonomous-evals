@@ -1,3 +1,4 @@
+import { objectivePassed } from "@ae/core/contracts/services";
 import "server-only";
 import { assertPublicTarget } from "./target-url";
 import { and, desc, eq, ne } from "drizzle-orm";
@@ -38,8 +39,8 @@ type Outcome = { kind: "processed"; sent: boolean; emailSkipReason?: string } | 
 /** Scenarios that passed in `prev` and fail in `curr`. No previous run (baseline) means no regressions. */
 export function detectRegressions(prev: ScenarioResult[] | null | undefined, curr: ScenarioResult[]): ScenarioResult[] {
   if (!prev || prev.length === 0) return [];
-  const passedBefore = new Set(prev.filter((r) => r.passed).map((r) => r.scenarioId));
-  return curr.filter((r) => !r.passed && passedBefore.has(r.scenarioId));
+  const passedBefore = new Set(prev.filter((r) => objectivePassed(r) === true).map((r) => r.scenarioId));
+  return curr.filter((r) => objectivePassed(r) === false && passedBefore.has(r.scenarioId));
 }
 
 export const utcDay = (d: Date) => d.toISOString().slice(0, 10);
