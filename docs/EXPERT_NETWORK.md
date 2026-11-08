@@ -89,3 +89,7 @@ Rules: work emails only, never personal ones. Search for at most 10 candidates p
 - Honorarium amounts: suggested $25 for an async questionnaire and $75 for a 15-minute call. Paid how? Manual Stripe/PayPal for the pilot.
 - Which domains to seed the pool with at the hackathon? The people in the room are a natural first pool.
 - Should we run outreach through Mercor's own platform if they offer a partner or API route? None is known; for now this is "Mercor-style" and built in-house.
+
+## Current automation policy update
+
+Alex selected automatic contact for opted-in experts and approval for new cold contacts. This supersedes the blanket first-contact rule above only for opted-in experts. Pilot honorarium caps are $25 per evaluation and $50 company-wide per day, with durable reservation before commitment; payouts remain manual. The connection between acquisition, invitations, independently reviewed contributions and evaluation resumption is tracked in [expert-automation-progress.md](expert-automation-progress.md). Do not treat the older interface inventory or the new core adapter as deployed end-to-end acceptance.

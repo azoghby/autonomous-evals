@@ -194,6 +194,8 @@ export interface NaiveSessionCreateBody {
   agent_id: string;
   message: string;
   agent_version?: number;
+  /** Exact provisioned advisory outcome ID; never an authorization or grading gate. */
+  outcome?: string;
   budget_micro_usd: number;
   output_schema: Record<string, unknown>;
   structured_output_required: true;

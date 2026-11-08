@@ -531,3 +531,7 @@ Phase 4
   - **Chat**: the per-eval copilot streams answers live (`client.stream`) with a "verified against job data" tick.
   - **Reports**: "Written by Wren (Naïve session …), reviewed by code checks."
   - **Demo moment**: submit a trace. Cora qualifies, Ines confirms a false success with exact citations, Wren writes the summary. Meanwhile Cass's morning plan cards and Otto's parked "send" waiting on the founder's Telegram YES are visible, with session IDs and cents of cost appearing in real time.
+
+## Expert acquisition automation owner update
+
+Alex explicitly requested the missing data-gap → expert → reviewed data → resumed evaluation loop. Selected policy: automatically contact opted-in experts; new cold contacts require approval. Pilot honorarium limits selected under his delegated discretion: $25/evaluation and $50/company/day, atomically reserved before commitment. This does not authorize customer-data sharing without consent or make unreviewed answers ground truth. Implementation/adoption checklist: [expert-automation-progress.md](expert-automation-progress.md). Core work and existing app infrastructure are not yet a deployed connected loop.

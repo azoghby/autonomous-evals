@@ -1,0 +1,53 @@
+{
+  "baseCommit": "4d9842b10ae13e7bc721394687aec54b9010dc01",
+  "files": [
+    {
+      "path": "apps/web/src/server/cost-settlement.ts",
+      "beforeSha256": null,
+      "afterSha256": "1c6097d8c7a9ee0b109491294c7c569894fb05d42f724d49d9dee76780ec361b"
+    },
+    {
+      "path": "apps/web/src/server/job-store.ts",
+      "beforeSha256": "0f6d9ea1d597335b9701e18a3f55e355592bb81b5f14268f688d6127ebee7a0a",
+      "afterSha256": "a758d267c6a0c134fede3d31f0a377d73b8d78c30d2f04a2b4d80f72c4efb0a3"
+    },
+    {
+      "path": "apps/web/src/server/sandbox/store.ts",
+      "beforeSha256": "d782a48e9eec486f8700dd23f17efb0370bebeead14d05104ffc1c47c6d7bdce",
+      "afterSha256": "da7bc1dbc8c47eadd6f70c0ce0c50814f4c198e47060c24e1b6e87f00908d6b0"
+    },
+    {
+      "path": "packages/core/src/contracts/index.ts",
+      "beforeSha256": "611bac023ce00aa2a3e02c2bfb22a2c356a7c33c06a7510caab26c17f2d9def9",
+      "afterSha256": "03c9ba4a7bac844094cfb5d3b54406002b111e025ff09a17899240843bb72f9f"
+    },
+    {
+      "path": "packages/core/src/db/cost-settlement.ts",
+      "beforeSha256": null,
+      "afterSha256": "6601e712b210294f6a6e9ba30c1928ec3e753f81341f43eb8b4a5fb51ea91dca"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0023_cost_receipts.sql",
+      "beforeSha256": null,
+      "afterSha256": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0023_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "dfbb611c63e11334868240336393a9dce3e65e94fafb69b6edc315f0f6a11c8c"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/_journal.json",
+      "beforeSha256": "0bd47147bb335643f2f806c1cb8ee5f91a3e11fb368d3fc5ca3c434731a4c702",
+      "afterSha256": "ac92a0785a8421d7f999ce648c1ef51cded80aacadd05007cf76b3c8426c296f"
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "beforeSha256": "6d7922da1cb753de370368b0acbaa4e29ed1802253d2a5cdffa310aeca2eff19",
+      "afterSha256": "6264cb3f68d4a72d2e1b1bd2c3274ba0aa1e06be41d701bee51eb93c35117bf0"
+    }
+  ],
+  "patchSha256": "e1295eeac923801f03d3f3e4c8a609ca1c815da70576a29f3823a30fff293a7c",
+  "actualApplicationModified": false,
+  "productionActivated": false
+}

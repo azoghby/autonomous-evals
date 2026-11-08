@@ -1,0 +1,9 @@
+# Applied owner cost settlement verification
+
+Run `node tests/track-b/naive-cost-settlement-integration/run.mjs` from the repository root. The runner archives the artifact's exact base into a fresh temporary directory, verifies every preimage/postimage SHA-256, applies `owner.patch` with Git, runs strict TypeScript and tests against those applied bytes, and verifies postimages again. It leaves logs in the reported temporary stage and writes `RESULTS.json` here.
+
+The SQL tests import the real applied `packages/core/src/db/cost-settlement.ts`. They replay the complete application migration journal into a private local PGlite database, then exercise actual SQL settlement and aggregates. They cover concurrent delivery, database reopen after a lost acknowledgement, receipt conflicts, current owner/environment changes, transaction rollback between insert and aggregate, measured zero, invalid usage/identity, historical receipt reconciliation, distinct proxy IDs, and unkeyed gateway compatibility. The actual job/sandbox sink functions and sandbox step budget are also executed through the real settlement helper; their pool transport is redirected to the same local PGlite database and unrelated modules are mocked.
+
+PGlite uses PostgreSQL semantics and serializes its connection. Concurrent Promise delivery is covered; independent server connections/process contention and live Neon acceptance are **not** established by this harness. The reopen case reconstructs the client and database handle in one process. These are applied owner artifact tests, not a whole application build, actual Track A source changes, a production migration or hosted acceptance.
+
+Dependencies default to the retained `/tmp/sandbox-generation-deps.cBCEai/node_modules` and `/tmp/workflow-bootstrap.JpxCTM/node_modules`. Override with `NAIVE_COST_DEPS` and `NAIVE_COST_FALLBACK`; no credentials or network are used.

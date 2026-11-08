@@ -106,8 +106,12 @@ function request(req: BudgetReservationRequest): BudgetReservationRequest {
   if (!Array.isArray(req.scopes) || req.scopes.length < 1 || req.scopes.length > 64) invalid();
   const scopes = req.scopes.map(s => { string(s.key); integer(s.capMicroUsd); return { key: s.key, capMicroUsd: s.capMicroUsd }; }).sort((a,b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
   if (new Set(scopes.map(s => s.key)).size !== scopes.length) invalid();
-  // A reservation must count against its job and at least one role-period scope.
-  if (!scopes.some(s => s.key === `job:${req.jobId}`) || !scopes.some(s => { const match = /^agent:([a-z_]+):[A-Za-z0-9_-]+$/.exec(s.key); return !!match && Object.prototype.hasOwnProperty.call(COMPANY_ROLE_DEFINITIONS, match[1]!); })) invalid();
+  // Expert promises have separate job/day caps; they must never raise model-spend caps.
+  const expertScopes = scopes.some(s => s.key.startsWith('expert-'));
+  if (expertScopes) {
+    if (scopes.length !== 2 || !scopes.some(s => s.key === `expert-job:${req.jobId}`)
+      || !scopes.some(s => /^expert-company-day:\d{4}-\d{2}-\d{2}$/.test(s.key))) invalid();
+  } else if (!scopes.some(s => s.key === `job:${req.jobId}`) || !scopes.some(s => { const match = /^agent:([a-z_]+):[A-Za-z0-9_-]+$/.exec(s.key); return !!match && Object.prototype.hasOwnProperty.call(COMPANY_ROLE_DEFINITIONS, match[1]!); })) invalid();
   return { ...req, scopes };
 }
 async function lockScopes(tx: AgentSqlExecutor, scopes: BudgetReservationRequest['scopes']) {

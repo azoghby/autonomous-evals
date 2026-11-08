@@ -56,3 +56,7 @@ Run against PostgreSQL using the real owner sink and migration, not only a Map o
 - A real service replay preserves `naive:<sessionId>`, recorded usage and remaining-budget arithmetic, with no additional provider session creation.
 
 Capture applied migration identity, exact source commit, test database scope and results in `docs/naive-plan-progress.md`. Until then, label the sink requirement **unimplemented in the current app** and preserve lite/real evidence boundaries.
+
+## Current-base adoption artifact
+
+A concrete owner patch now exists at [naive-cost-settlement-integration/README.md](naive-cost-settlement-integration/README.md), pinned to `4d9842b`. It extends the contract, schema/migration and both actual sink implementations in an isolated candidate. Parent reproduction passes strict focused types and 13 applied-source SQL tests, with nine postimage hashes verified. Full core types also passed; retained full web types lack `@ai-sdk/react`. This is still not adopted app source or a live migration. Existing historical unkeyed receipts require reconciliation before activation.

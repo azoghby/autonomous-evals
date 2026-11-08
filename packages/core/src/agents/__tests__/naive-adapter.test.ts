@@ -63,6 +63,14 @@ describe("Naïve adapter over the real SDK client", () => {
     expect(snap).toMatchObject({ id: "ses_0abcdefghjkmnpqrstvwxyz123", status: "idle", stopReason: "end_turn", consumedMicroUsd: 4_321, structuredOutput: { ok: true } });
   });
 
+  it("forwards an exact advisory outcome ID through SDK 0.12.3", async () => {
+    const seen: Array<{ url: string; init: RequestInit }> = [];
+    const client = createClient({ apiKey: "test-key-not-real", baseUrl: "https://naive.invalid", fetch: fetchReturning(200, session(), seen) });
+    const request = { ...body, outcome: "ocm_00000000000000000000000000" };
+    await createNaiveSessionsPort(client).createSession(request, "outcome-request");
+    expect(JSON.parse(String(seen[0]!.init.body))).toEqual(request);
+  });
+
   it("classifies API errors by what they mean for creation", async () => {
     const err = (status: number, code: string) => new ApiError(status, { type: "x", code, message: code, request_id: "r" });
     expect(classifyNaiveError(err(400, "validation_failed")).kind).toBe("definitive");

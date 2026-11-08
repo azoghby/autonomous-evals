@@ -1,0 +1,24 @@
+{
+  "base": "4d9842b10ae13e7bc721394687aec54b9010dc01",
+  "stage": "/tmp/naive-cost-owner-rbC7gA",
+  "verifiedPostimages": 9,
+  "nextTypegen": {
+    "cwd": "apps/web",
+    "exit": 0,
+    "steps": 53,
+    "workflows": 4
+  },
+  "coreTypecheck": {
+    "exit": 0
+  },
+  "webTypecheck": {
+    "exit": 2,
+    "diagnostics": [
+      "apps/web/src/components/eval-chat/EvalChat.tsx(2,25): error TS2307: Cannot find module '@ai-sdk/react' or its corresponding type declarations."
+    ]
+  },
+  "rootPositionalTypegen": {
+    "exit": 1,
+    "diagnostic": "Could not find Next.js app or pages directory"
+  }
+}

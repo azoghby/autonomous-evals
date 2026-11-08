@@ -86,6 +86,10 @@ export interface AgentSessionServiceDeps {
   store: AgentTaskStore;
   ledger: BudgetLedger;
   directory: AgentDirectory;
+  /** Provisioned immutable outcome IDs by role. Revision is provider-side and advisory only.
+   * Changing/removing a pin requires a new attempt for any existing task of that role.
+   * SDK 0.12.3 accepts an ocm_ ID, not a version/name reference. */
+  advisoryOutcomes?: Partial<Record<AgentRole, string>>;
   /** Budget period label for role caps, e.g. `2026-11-hackathon`. */
   budgetPeriodId: string;
   /** Separates idempotency keys per deployment/org use, e.g. `prod`, `test`. Keys never expire server-side. */
@@ -155,6 +159,7 @@ const zodIssues = (error: z.ZodError): string[] =>
 
 export class AgentSessionService {
   private readonly directory: AgentDirectory;
+  private readonly advisoryOutcomes: Readonly<Partial<Record<AgentRole, string>>>;
   private readonly clock: Clock;
   private readonly log: Logger;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -182,6 +187,13 @@ export class AgentSessionService {
       Object.freeze(agent);
     }
     Object.freeze(this.directory);
+    const outcomes = { ...deps.advisoryOutcomes };
+    for (const [role, id] of Object.entries(outcomes)) {
+      if (!Object.hasOwn(ROLE_DEFINITIONS, role) || typeof id !== "string" || !/^ocm_[0-9a-hjkmnp-tv-z]{26}$/.test(id)) {
+        throw new Error("invalid advisory outcome pin");
+      }
+    }
+    this.advisoryOutcomes = Object.freeze(outcomes);
     this.clock = deps.clock ?? systemClock;
     this.log = redactingLogger(deps.logger ?? silentLogger);
     this.sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
@@ -280,6 +292,7 @@ export class AgentSessionService {
     return {
       agent_id: agent.agentId,
       message: spec.message,
+      ...(this.advisoryOutcomes[spec.role] ? { outcome: this.advisoryOutcomes[spec.role] } : {}),
       ...(agent.agentVersion !== undefined ? { agent_version: agent.agentVersion } : {}),
       budget_micro_usd: spec.budgetMicroUsd,
       output_schema: outputJsonSchema(spec.output.schema),

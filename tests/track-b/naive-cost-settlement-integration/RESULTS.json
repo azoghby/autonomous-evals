@@ -1,0 +1,11 @@
+{
+  "base": "4d9842b10ae13e7bc721394687aec54b9010dc01",
+  "stage": "/tmp/naive-cost-owner-trQL0g",
+  "patchSha256": "e1295eeac923801f03d3f3e4c8a609ca1c815da70576a29f3823a30fff293a7c",
+  "verifiedPostimages": 9,
+  "typecheck": 0,
+  "tests": 0,
+  "passed": 13,
+  "failed": 0,
+  "pending": 0
+}
