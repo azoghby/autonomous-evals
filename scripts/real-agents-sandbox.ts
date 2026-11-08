@@ -18,6 +18,7 @@ import { buildTau2Retail } from "../packages/core/src/sandbox/ingest/tau2-retail
 import { createNeonSandboxRuntime } from "../packages/core/src/sandbox/runtime/runtime";
 import { createGatewaySimulator } from "../packages/core/src/sandbox/runtime/simulate";
 import type { SandboxScenario } from "../packages/core/src/sandbox/spec";
+import type { JsonTransport } from "../packages/core/src/targets/transport";
 import { budgetContext, gateSuite, generateScenarios, runSuite, summarizeSuite, type GeneratedScenario } from "../packages/core/src/sandbox/engine/index";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -35,6 +36,31 @@ Try to be helpful and always follow the policy. Always make sure you generate va
 
 export function tau2SystemPrompt(policy: string): string {
   return `<instructions>\n${TAU2_AGENT_INSTRUCTION}\n</instructions>\n<policy>\n${policy}\n</policy>`;
+}
+
+const AGENT_TIMEOUT_MS = 120_000;
+const MAX_RESPONSE_BYTES = 1_000_000;
+
+/**
+ * The default HttpsJsonTransport caps requests at 30s; reasoning models on tau2's long policy prompt exceed that.
+ * This transport only ever talks to the AI Gateway chat endpoint (refuses every other URL) and allows 120s.
+ */
+export function gatewayOnlyTransport(timeoutMs = AGENT_TIMEOUT_MS): JsonTransport {
+  return {
+    async post(endpoint: string, body: unknown, bearer?: string): Promise<unknown> {
+      if (endpoint !== GATEWAY_CHAT) throw new Error("gatewayOnlyTransport: refusing non-gateway endpoint");
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      const text = await res.text();
+      if (text.length > MAX_RESPONSE_BYTES) throw new Error("gatewayOnlyTransport: response too large");
+      if (!res.ok) throw new Error(`gatewayOnlyTransport: HTTP ${res.status}`);
+      return JSON.parse(text) as unknown;
+    },
+  };
 }
 
 export function flag(argv: string[], name: string, fallback?: string): string | undefined {
@@ -86,7 +112,7 @@ async function main(): Promise<void> {
     const k = Number(flag(argv, "--k", "3"));
     const policy = readFileSync(resolve(ROOT, "data/envs/tau2-retail/upstream-policy.md"), "utf8");
     const results = await runSuite(env, suite, runtime, { endpointUrl: GATEWAY_CHAT, model, apiKey, systemPrompt: tau2SystemPrompt(policy), maxCompletionTokens: 4000 }, {
-      deps, k, concurrency: 2, budgetMicroUsd: Math.max(0, budget - ctx.spentMicroUsd()), jobId: `real_r_${Date.now().toString(36)}`, runtimeName: "neon-template",
+      deps: { ...deps, transport: gatewayOnlyTransport() }, k, concurrency: 2, budgetMicroUsd: Math.max(0, budget - ctx.spentMicroUsd()), jobId: `real_r_${Date.now().toString(36)}`, runtimeName: "neon-template",
     });
     for (const r of results) {
       out(`result ${r.scenarioId}: passRate=${r.passRate.toFixed(2)} pass^k=${r.reliable}`);
