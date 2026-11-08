@@ -9,7 +9,7 @@ import {
   evalServices as trackBServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
 } from "@ae/core/integration/eval-services";
 import { FatalError, RetryableError } from "workflow";
-import { createLiteServices, LiteUnavailableError } from "@ae/core/lite/index";
+import { createLiteServices, LiteJudgeOutageError, LiteUnavailableError } from "@ae/core/lite/index";
 import { resolveJobTarget } from "./lite-target";
 
 const MOCK = "[MOCK]";
@@ -171,6 +171,8 @@ let real: EvalServices | undefined;
 /** Maps Track B's typed errors onto Workflow semantics: pending -> RetryableError; blocked/unavailable/unconfigured -> FatalError. */
 export function toWorkflowError(error: unknown): unknown {
   if (error instanceof TrackBPendingError) return new RetryableError(error.message, { retryAfter: error.retryAfterMs });
+  // Judge outage: never deliver an empty report; retry the step (bounded by workflow step retries, then operator alert).
+  if (error instanceof LiteJudgeOutageError) return new RetryableError(error.message, { retryAfter: 60_000 });
   if (
     error instanceof TrackBBlockedError || error instanceof EvalServiceUnavailableError
     || error instanceof EvalServiceConfigError || error instanceof LiteUnavailableError

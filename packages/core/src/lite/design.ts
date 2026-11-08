@@ -3,7 +3,7 @@ import { QualifyResult, Scenario, Suite, type IntakeInput } from "../contracts/i
 import type { EvalServices, ServiceContext } from "../contracts/services";
 import { assertNoCredentials } from "../ai/gateway";
 import { appendRedTeamToSuite } from "../redteam/select";
-import { MIN_CALL_BUDGET_MICRO_USD, JUDGE_MODEL, SMART_MODEL, trackingContext, type LiteDeps } from "./deps";
+import { MIN_CALL_BUDGET_MICRO_USD, JUDGE_MODEL, SMART_MODEL, logLiteFallback, trackingContext, type LiteDeps } from "./deps";
 import { createAuditService } from "./audit";
 import { createReportService } from "./report";
 
@@ -100,7 +100,8 @@ export function createQualifyService(deps: LiteDeps): EvalServices["qualify"] {
         deliverables: o.deliverables.slice(0, 10).map((d) => clean(d, 500)),
         declineReason: o.decision === "decline" && o.declineReason ? clean(o.declineReason, 1_000) : undefined,
       });
-    } catch {
+    } catch (e) {
+      logLiteFallback("qualify", e);
       return fallbackQualify(intake);
     }
   };
@@ -161,7 +162,7 @@ export function createDesignSuiteService(deps: LiteDeps): EvalServices["designSu
           assertNoCredentials(prompt);
           const res = await deps.generateStructured({ model: SMART_MODEL, system: DESIGN_SYSTEM, prompt, ctx: tracked, agent: "engineer", schema: DesignLlm, maxOutputTokens: 6_000, temperature: 0 });
           designed = validScenarios(res.object.scenarios);
-        } catch { designed = []; }
+        } catch (e) { logLiteFallback("designSuite", e); designed = []; }
       }
     }
     if (designed.length < 3) designed = templateScenarios(intake);

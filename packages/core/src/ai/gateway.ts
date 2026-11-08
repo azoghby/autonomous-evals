@@ -88,7 +88,8 @@ export function assertNoCredentials(...texts: Array<string | undefined>): void {
 /* ---------------- provider plumbing ---------------- */
 
 function vercelConfigured(): boolean {
-  return Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN);
+  // On Vercel the OIDC token arrives per request (read by @vercel/oidc), so VERCEL=1 counts as configured.
+  return Boolean(process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === "1");
 }
 function neonConfigured(): boolean {
   return Boolean(process.env.NEON_AI_GATEWAY_URL && process.env.NEON_AI_GATEWAY_KEY);

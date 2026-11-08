@@ -11,7 +11,7 @@ import { ChatCompletionsClient, type AssistantMessage, type ChatMessage } from "
 import { TargetError, resolvePublic, targetUrl } from "../targets/transport";
 import { gradeRedTeamResponse, isRedTeamScenarioId, plantedSystemPrompt, renderRedTeamTurns } from "../redteam/select";
 import {
-  JUDGE_MODEL, SMART_MODEL, resolveLiteTarget, MIN_CALL_BUDGET_MICRO_USD, designedTurns, encodeDetail, trackingContext,
+  JUDGE_MODEL, SMART_MODEL, resolveLiteTarget, MIN_CALL_BUDGET_MICRO_USD, designedTurns, encodeDetail, trackingContext, LiteJudgeOutageError, logLiteFallback,
   type LiteDeps, type LiteTarget, type ScenarioDetail, type TargetRegistry,
 } from "./deps";
 
@@ -126,6 +126,7 @@ async function runOne(
     return finish(res.object.passed, res.object.reason, "judge", convo.turns);
   } catch (e) {
     if (e instanceof GatewayError && e.code === "budget_exhausted") return finish(false, "budget_exhausted", "error", convo.turns);
+    logLiteFallback("judge", e);
     return finish(false, e instanceof GatewayError ? `judge_${e.code}` : "judge_error", "error", convo.turns);
   }
 }
@@ -170,7 +171,17 @@ export async function runScenarios(
     if (done === total || done % 3 === 0) await safeProgress(ctx, `scenario ${done}/${total}`);
     return result;
   });
+  assertJudgeAvailable(outcomes);
   return outcomes.map((o) => ({ scenarioId: o.scenarioId, passed: o.passed, detail: o.detail }));
+}
+
+/** If the judge failed on every scenario that needed it, the run says nothing about the target: fail retryably. */
+export function assertJudgeAvailable(outcomes: Array<Pick<ScenarioOutcome, "grader" | "reason">>): void {
+  const judgeErrors = outcomes.filter((o) => o.grader === "error" && o.reason.startsWith("judge_"));
+  const judged = outcomes.filter((o) => o.grader === "judge").length;
+  if (judgeErrors.length > 0 && judged === 0) {
+    throw new LiteJudgeOutageError(judgeErrors.length, [...new Set(judgeErrors.map((o) => o.reason))]);
+  }
 }
 
 export function createRunServices(

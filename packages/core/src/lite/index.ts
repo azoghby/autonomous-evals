@@ -8,7 +8,7 @@ import { createRunServices } from "./run";
 import { createDesignServices } from "./design";
 import { createInvestigateServices } from "./investigate";
 
-export { LiteUnavailableError, TargetRegistry, defaultLiteDeps, resolveLiteTarget } from "./deps";
+export { LiteJudgeOutageError, LiteUnavailableError, TargetRegistry, defaultLiteDeps, resolveLiteTarget } from "./deps";
 export type { LiteDeps, LiteTarget } from "./deps";
 
 /** Branch ids the lite engine hands out; it has no isolated database, so they are inert placeholders. */

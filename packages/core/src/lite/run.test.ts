@@ -264,3 +264,22 @@ describe("rerunFinding target resolution (serverless memory miss)", () => {
     expect(JSON.stringify(out)).not.toContain(KEY);
   });
 });
+
+describe("assertJudgeAvailable", () => {
+  it("throws a retryable outage error when every judged scenario errored", async () => {
+    const { assertJudgeAvailable } = await import("./run");
+    const { LiteJudgeOutageError } = await import("./deps");
+    const outcomes = [
+      { grader: "redteam" as const, reason: "red-team checks passed" },
+      { grader: "error" as const, reason: "judge_unconfigured" },
+      { grader: "error" as const, reason: "judge_unconfigured" },
+    ];
+    expect(() => assertJudgeAvailable(outcomes)).toThrow(LiteJudgeOutageError);
+  });
+
+  it("does not throw when at least one scenario was judged or none needed the judge", async () => {
+    const { assertJudgeAvailable } = await import("./run");
+    expect(() => assertJudgeAvailable([{ grader: "judge", reason: "ok" }, { grader: "error", reason: "judge_error" }])).not.toThrow();
+    expect(() => assertJudgeAvailable([{ grader: "redteam", reason: "ok" }, { grader: "error", reason: "timeout" }])).not.toThrow();
+  });
+});

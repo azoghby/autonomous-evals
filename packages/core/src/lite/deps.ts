@@ -58,6 +58,22 @@ export function trackingContext(ctx: ServiceContext): ServiceContext & { spentMi
   return tracked;
 }
 
+/** Every LLM-judged scenario errored (gateway outage/misconfig): retry instead of delivering an empty report. */
+export class LiteJudgeOutageError extends Error {
+  readonly retryable = true;
+  constructor(readonly failed: number, readonly reasons: string[]) {
+    super(`EVAL_SERVICES=lite: judge unavailable for all ${failed} judged scenarios (${reasons.slice(0, 3).join(", ")})`);
+    this.name = "LiteJudgeOutageError";
+  }
+}
+
+/** Surface swallowed LLM failures in logs (message/code only; never prompts or credentials). */
+export function logLiteFallback(stage: string, e: unknown): void {
+  const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "unknown";
+  const msg = e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300);
+  console.warn(`[lite] ${stage} fell back: ${code}: ${msg}`);
+}
+
 export class LiteUnavailableError extends Error {
   readonly retryable = false;
   constructor(method: string, reason: string) {
