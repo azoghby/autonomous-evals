@@ -1,0 +1,22 @@
+import {execFileSync as exec} from 'node:child_process';
+import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {stageJudged,root} from '../../../docs/track-b-judged-release/stage.mjs';
+import {prepareComparison} from '../release-extensions/comparison/prepare.mjs';
+const result=stageJudged(),{stage}=result,out=join(root,'tests/track-b/judged-release/evidence');
+mkdirSync(out,{recursive:true});writeFileSync(join(out,'STAGE.json'),JSON.stringify(result,null,2)+'\n');
+const deps=join(process.env.WORKFLOW_INSTALLED_WORKSPACE??'/tmp/workflow-bootstrap.JpxCTM','node_modules');
+const env={...process.env,JUDGED_STAGE:stage,EXTENSION_STAGE:stage,EXTENSION_BUILD_OUTPUT:join(out,'build'),WORKFLOW_STAGE:stage,RERUN_STAGE:stage,ACCEPTANCE_DEPENDENCIES:deps};
+function run(label,args,cwd=root){console.log('Running '+label);try{const log=exec(process.execPath,args,{cwd,env,encoding:'utf8',maxBuffer:64*1024*1024});writeFileSync(join(out,label+'.log'),log);console.log(log.slice(-3500));}catch(e){writeFileSync(join(out,label+'.log'),(e.stdout??'')+(e.stderr??''));throw e;}}
+run('migration-contract',['tests/track-b/judged-release/migrations.mjs']);
+run('judging',['tests/track-b/judged-release/judging.mjs']);
+run('rerun',['tests/track-b/judged-release/rerun.mjs']);
+const config=prepareComparison(stage,root),file=join(stage,'comparison-tests/app.test.ts');
+writeFileSync(file,readFileSync(file,'utf8')+'\n'+readFileSync(join(root,'tests/track-b/comparison-cost-delivery-fix/regressions.ts'),'utf8'));
+run('comparison-typecheck',['tests/track-b/workflow-comparison-integration/typecheck.mjs',stage]);
+run('comparison',[join(deps,'vitest/vitest.mjs'),'run','--root',stage,'--config',join(stage,config),'--reporter=json','--outputFile.json='+join(out,'comparison.json')],stage);
+const comparison=JSON.parse(readFileSync(join(out,'comparison.json')));if(comparison.numPassedTests!==18||comparison.numFailedTests||comparison.numPendingTests)throw Error('Comparison assertion inventory');
+run('controlled-remediation',['tests/track-b/controlled-remediation-targets/run.mjs']);
+run('full-build',['tests/track-b/release-extensions/comparison/build.mjs']);
+run('summary',['tests/track-b/judged-release/summarize.mjs']);
+console.log(JSON.stringify({stage,releaseAccepted:false,offline:true}));

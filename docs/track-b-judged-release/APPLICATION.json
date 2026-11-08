@@ -1,0 +1,21 @@
+{
+  "pins": {
+    "trackA": "aa94505fd535f5c0f586cc6325b49b71a1683761",
+    "trackB": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+    "applicationBaseline": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "historicalCore": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b",
+    "acceptanceIntegration": "449c05df550afa0ac1f8b6030cc9fc8bbadbf52e"
+  },
+  "coreDeltas": [
+    {
+      "commit": "8e648e6ba53cc9a104511b797c789593fd7d432d",
+      "patch": "docs/track-b-judged-release/core-report-snapshot.patch"
+    }
+  ],
+  "patch": "application.patch",
+  "sha256": "a2c1efefd81b89408561ca773a982d8ff24f214dc26bea45663faef979aaa548",
+  "bytes": 962185,
+  "applicationInventorySha256": "9064060a8d51b52555ddc6f301fc04325669c57ef96014143624be68b1901d0a",
+  "verified": "Fresh pinned A archive git apply --check/apply and every delivered source byte compared",
+  "noDeployment": true
+}

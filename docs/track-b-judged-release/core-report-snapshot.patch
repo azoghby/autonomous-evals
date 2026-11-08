@@ -1,0 +1,67 @@
+diff --git a/packages/core/src/reporting/__tests__/render.test.ts b/packages/core/src/reporting/__tests__/render.test.ts
+index 781b4a9..0c967f7 100644
+--- a/packages/core/src/reporting/__tests__/render.test.ts
++++ b/packages/core/src/reporting/__tests__/render.test.ts
+@@ -2,7 +2,7 @@
+ import { describe, expect, it } from "vitest";
+ import { fixtureJob } from "../../agents/__tests__/fakes";
+ import type { Finding } from "../../evals/types";
+-import { escapeHtml, mdFence, renderReport } from "../render";
++import { type ReportInput, escapeHtml, mdFence, renderReport } from "../render";
+ 
+ const evil: Finding = {
+   id: "F1",
+@@ -19,6 +19,31 @@ const evil: Finding = {
+ };
+ 
+ describe("renderReport", () => {
++  it('keeps nested report evidence and metadata detached from later caller mutations', () => {
++    const finding = structuredClone(evil);
++    const details = { provenance: { digest: 'original-digest' }, trialIds: ['trial-one'] };
++    const input: ReportInput = {
++      job: fixtureJob(), generatedAt: '2026-11-07T21:00:00Z', findings: [finding],
++      limitations: ['Original limitation'], costs: null, details, includeHtml: true,
++      operatorSummary: { executive_summary: 'Original summary', finding_notes: [],
++        recommended_next_steps: ['Original next step'], retest_recommended: false, authorship: 'agent_written' },
++    };
++    const report = renderReport(input);
++    const snapshot = structuredClone(report);
++    finding.label = 'inconclusive';
++    const evidence = finding.evidence[0]!;
++    if (!('quote' in evidence)) throw new Error('Expected quote fixture');
++    evidence.quote = 'Replacement evidence';
++    input.findings.length = 0;
++    input.limitations[0] = 'Replacement limitation';
++    input.operatorSummary!.recommended_next_steps[0] = 'Replacement next step';
++    details.provenance.digest = 'replacement-digest';
++    details.trialIds.push('trial-two');
++    expect(report).toEqual(snapshot);
++    expect(report.json.summary.counts.confirmed).toBe(1);
++    expect(report.json.findings[0]!.label).toBe('confirmed');
++    expect(report.json.findings[0]!.evidence).toEqual(evil.evidence);
++  });
+   it('does not call an empty unresolved evaluation clean, even if an operator summary does', () => {
+     const report = renderReport({ job: fixtureJob(), generatedAt: '2026-11-07T21:00:00Z', findings: [],
+       limitations: ['Execution unavailable.'], costs: null, evaluationStatus: 'unresolved',
+diff --git a/packages/core/src/reporting/render.ts b/packages/core/src/reporting/render.ts
+index c528691..201b9c7 100644
+--- a/packages/core/src/reporting/render.ts
++++ b/packages/core/src/reporting/render.ts
+@@ -106,13 +106,13 @@ export function renderReport(input: ReportInput): RenderedReport {
+     job: { jobId: input.job.jobId, package: input.job.package, environment: input.job.environment, isFixture: input.job.isFixture, linkedRetestOf: input.job.linkedRetestOf },
+     package: { name: offer.name, price: priceLabel(offer) },
+     summary: { text: summaryText, authorship: input.operatorSummary && !incomplete ? "agent_written" : "generated_from_findings", counts: counts(input.findings) },
+-    findings: input.findings,
++    findings: structuredClone(input.findings),
+     operatorNotes: (input.operatorSummary?.finding_notes ?? []).map((n) => ({ findingId: n.finding_id, note: n.note })),
+-    nextSteps: input.operatorSummary?.recommended_next_steps ?? [],
+-    limitations: input.limitations,
++    nextSteps: [...(input.operatorSummary?.recommended_next_steps ?? [])],
++    limitations: [...input.limitations],
+     costs: { knownMicroUsd, entries: structuredClone(input.costs ?? []), unknown },
+     monitoringPitch: pitch,
+-    details: input.details ?? {},
++    details: structuredClone(input.details ?? {}),
+     evaluationStatus: input.evaluationStatus ?? null,
+   };
+ 

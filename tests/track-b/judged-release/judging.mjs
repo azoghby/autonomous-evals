@@ -1,0 +1,25 @@
+import {execFileSync as exec} from 'node:child_process';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,existsSync,symlinkSync,cpSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {stageJudged,root} from '../../../docs/track-b-judged-release/stage.mjs';
+const result=process.env.JUDGED_STAGE ? JSON.parse(readFileSync(join(process.env.JUDGED_STAGE,'FINAL-COMPOSITION.json'))) : stageJudged(),{stage}=result;
+const deps=join(resolve(process.env.WORKFLOW_INSTALLED_WORKSPACE??'/tmp/workflow-bootstrap.JpxCTM'),'node_modules');
+mkdirSync(join(stage,'node_modules/@ae'),{recursive:true});
+for(const name of readdirSync(deps))if(name!=='@ae'&&!existsSync(join(stage,'node_modules',name)))symlinkSync(join(deps,name),join(stage,'node_modules',name));
+if(!existsSync(join(stage,'node_modules/@ae/core')))symlinkSync(join(stage,'packages/core'),join(stage,'node_modules/@ae/core'));
+for(const sub of ['apps/web','packages/core'])if(!existsSync(join(stage,sub,'node_modules')))symlinkSync(join(resolve(deps,'..'),sub,'node_modules'),join(stage,sub,'node_modules'));
+cpSync(join(root,'tests/track-b/workflow-judging-integration'),join(stage,'judging-verification'),{recursive:true});
+writeFileSync(join(stage,'judging-verification/judge.test.ts'),readFileSync(join(stage,'judging-verification/judge.test.ts'),'utf8')+'\n'+readFileSync(join(root,'tests/track-b/judged-release/retained-production.fixture.ts'),'utf8'));
+cpSync(join(root,'tests/track-b/judged-release/production-runtime.test.ts'),join(stage,'judging-verification/production-runtime.test.ts'));
+cpSync(join(root,'docs/workflow-remediation-integration/app/tests'),join(stage,'remediation-verification'),{recursive:true});
+writeFileSync(join(stage,'judging-verification/empty.ts'),'export {};\n');
+const aliases=[{find:'server-only',replacement:join(stage,'judging-verification/empty.ts')},{find:'@/',replacement:join(stage,'apps/web/src/')}];
+writeFileSync(join(stage,'vitest.judging.config.mjs'),`export default {resolve:{alias:[...${JSON.stringify(aliases)},{find:/^@ae\\/core\\/(.*)$/,replacement:${JSON.stringify(join(stage,'packages/core/src/$1'))}}]},test:{include:['judging-verification/*.test.ts','remediation-verification/*.test.ts','packages/core/src/reporting/**/*.test.ts','packages/core/src/judges/**/*.test.ts','packages/core/src/evals/text/**/*.test.ts','packages/core/src/evals/remediation/**/*.test.ts'],maxWorkers:1}};`);
+const out=join(root,'tests/track-b/judged-release/evidence/judging');mkdirSync(out,{recursive:true});
+function run(label,args,cwd=stage){try{const log=exec(process.execPath,args,{cwd,encoding:'utf8',env:{...process.env,WORKFLOW_STAGE:stage},maxBuffer:32*1024*1024});writeFileSync(join(out,label+'.log'),log);console.log(log);}catch(e){writeFileSync(join(out,label+'.log'),(e.stdout??'')+(e.stderr??''));throw e;}}
+writeFileSync(join(stage,'judging-ambient.d.ts'),"declare module 'server-only';\n");
+writeFileSync(join(stage,'tsconfig.judging.json'),JSON.stringify({compilerOptions:{target:'ES2022',module:'ESNext',moduleResolution:'Bundler',strict:true,noEmit:true,skipLibCheck:true,jsx:'react-jsx',esModuleInterop:true,resolveJsonModule:true,types:['node'],paths:{'@ae/core/*':[join(stage,'packages/core/src/*')],'@/*':[join(stage,'apps/web/src/*')]}},files:['judging-ambient.d.ts',...['rich-judge','judge-accounting','rich-services','rich-remediation','rich-comparison','comparison-production'].map(n=>'apps/web/src/server/'+n+'.ts')]}));
+run('typecheck',[join(deps,'typescript/bin/tsc'),'-p','tsconfig.judging.json']);
+run('tests',[join(deps,'vitest/vitest.mjs'),'run','--config','vitest.judging.config.mjs','--reporter=default','--reporter=json','--outputFile.json='+join(out,'tests.json')]);
+const report=JSON.parse(readFileSync(join(out,'tests.json')));if(report.numFailedTests||report.numPendingTests||report.numPassedTests!==314)throw Error('Failed/skipped tests');
+writeFileSync(join(out,'RESULTS.json'),JSON.stringify({...result,passed:report.numPassedTests,strictAppliedAppTypecheck:'passed',live:false},null,2)+'\n');

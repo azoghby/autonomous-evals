@@ -1,0 +1,18 @@
+✔ exact artifact, all12 scenarios and criteria retained; additive patch applies to pinned latest A (1014.359125ms)
+✔ SAME endpoint/model: exactly one baseline objective failure, replacement passes every objective; literal reference answers (11.235916ms)
+✔ actual core trial all12 concurrent receipts derive from posted system, not host echoes; usage unknown (10.584167ms)
+✔ current secrets refreshed immediately before dispatch; refused runs have no outbound (25.11525ms)
+✔ server-only authority: missing/invalid/equal baseline digest disabled, owner digest rotation changes byte admission (0.543083ms)
+✔ private bounds, auth before body, no arbitrary tools/messages/claims/tenant/branch mutation authority (1.996875ms)
+✔ concurrent baseline/replacement requests remain isolated and route makes no outbound calls (1.578875ms)
+✔ response secret filtering and concurrent duplicate fence never manufacture a second receipt (6.472209ms)
+✔ streamed byte cap cancels input and server bearer rotation revokes old token (0.497542ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1152.646542
+INTERNAL FIXTURE ONLY: strict route TS, frozen all12 objective checks, core payload-derived receipts; no live Naive proposal, hosted HTTP, remote LLM or attestation.

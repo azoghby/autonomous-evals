@@ -1,0 +1,12 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-GbHh8P
+
+ ✓ rerun-tests/rerun.test.ts (9 tests) 1331ms
+ ✓ rerun-tests/transports.test.ts (3 tests) 6ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  18:09:27
+   Duration  2.39s (tests 59%, import 31%, transform 10%)
+
+JSON report written to /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-GbHh8P/rerun-results.json

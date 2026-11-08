@@ -1,0 +1,63 @@
+
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-GbHh8P
+
+ ✓ judging-verification/judge.test.ts (12 tests) 10194ms
+   ✓ applied trusted app Gateway judge with serialized SQL (11)
+     ✓ reserves both scopes before actual adapter dispatch, binds meter, and replays across restart without cost fabrication 1561ms
+     ✓ settles only authenticated measured money through the shared keyed protocol and replays a lost acknowledgement once 1063ms
+     ✓ denies exhausted global budget before any outbound call 856ms
+     ✓ fences concurrent claims and refuses same identity with changed input 687ms
+     ✓ rechecks current secret guards after token resolution and before dispatch 853ms
+     ✓ holds ambiguous transport results and never repeats them on restart 695ms
+     ✓ rejects fabricated citations while retaining measured usage and unknown monetary hold 737ms
+     ✓ refuses a rejected parent meter and secret-bearing prompt/reference before network 679ms
+     ✓ aborts before dispatch and leaves factual checks without reference unassessed 619ms
+     ✓ retains all twelve original scenarios/objectives while actual judges assess valid reference rubrics 820ms
+     ✓ executes the immutable accepted live-designed base12 with every original rubric and objective retained 802ms
+   ✓ production runtime executes all24 immutable rubric checks with real SQL reservations and offline Gateway replies 819ms
+ ✓ packages/core/src/reporting/chat/postgres-conversations.test.ts (12 tests) 8831ms
+   ✓ PostgreSQL conversations: real PGlite SQL, single session (11)
+     ✓ partitions every operation by both subject and job, with independent sequences 1358ms
+     ✓ keeps the first digest, reply, freshness and sequence across adapter recreation 743ms
+     ✓ integrates with the service and replays without reading current progress 684ms
+     ✓ rejects cross-scope, wrong-ID, unsafe bigint and malformed rows returned by a driver 587ms
+     ✓ paginates an exclusive ascending cursor with bounded pages 780ms
+     ✓ serializes concurrent PGlite transaction callbacks and preserves first-write replay 773ms
+     ✓ uses bound parameters for SQL-looking subjects and never queries outside both scope keys 623ms
+     ✓ rolls back allocator and exchange together after an insert failure 609ms
+     ✓ fails closed with fixed errors for malformed inputs and database failures 610ms
+     ✓ validates persisted replies on lookup, replay and history 633ms
+     ✓ rejects unsafe persisted allocator integers without consuming another sequence 544ms
+   ✓ replays after closing and reopening a persistent PGlite database 886ms
+ ✓ remediation-verification/app-remediation.test.ts (5 tests) 3318ms
+   ✓ app saved-baseline remediation composition (5)
+     ✓ retains all twelve actual serialized payload receipts, durable unknown usage, and replay without dispatch 1082ms
+     ✓ keeps unsupported isolation unverified with no target dispatch or usage fabrication 585ms
+     ✓ keeps tool-schema proposals unverified and refuses Trace-only canonical jobs 561ms
+     ✓ refuses request finding substitution and target revision drift before proposal/dispatch 524ms
+     ✓ uses global cost keys and rejects cross-job/changed monetary facts atomically 565ms
+ ✓ packages/core/src/evals/remediation/remediation.test.ts (23 tests) 1584ms
+ ✓ packages/core/src/evals/remediation/accounting/accounting.test.ts (6 tests) 1425ms
+ ✓ packages/core/src/reporting/chat/file-conversations.test.ts (5 tests) 238ms
+ ✓ packages/core/src/evals/text/__tests__/behavioral-gateway.test.ts (17 tests) 282ms
+ ✓ packages/core/src/evals/text/__tests__/admission.test.ts (50 tests) 159ms
+ ✓ packages/core/src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 115ms
+ ✓ packages/core/src/evals/text/__tests__/design-investigate.test.ts (10 tests) 92ms
+ ✓ packages/core/src/evals/text/__tests__/objective-execution.test.ts (29 tests) 77ms
+ ✓ packages/core/src/reporting/chat/projection/projection.test.ts (43 tests) 45ms
+ ✓ packages/core/src/judges/gateway.test.ts (15 tests) 34ms
+ ✓ packages/core/src/evals/text/__tests__/safety-monitoring.test.ts (3 tests) 24ms
+ ✓ packages/core/src/evals/text/__tests__/live-v3.test.ts (16 tests) 15ms
+ ✓ packages/core/src/reporting/chat/service.test.ts (10 tests) 14ms
+ ✓ packages/core/src/reporting/chat/projection/negative.test.ts (22 tests) 11ms
+ ✓ packages/core/src/reporting/__tests__/render.test.ts (8 tests) 4ms
+ ✓ packages/core/src/reporting/chat/answers.test.ts (8 tests) 4ms
+ ✓ judging-verification/production-runtime.test.ts (5 tests) 3ms
+
+ Test Files  20 passed (20)
+      Tests  314 passed (314)
+   Start at  18:08:53
+   Duration  29.97s (tests 93%, import 4%, transform 2%)
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-29bc0bd2/tests/track-b/judged-release/evidence/judging/tests.json

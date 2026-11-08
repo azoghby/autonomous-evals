@@ -1,0 +1,4471 @@
+diff --git a/apps/web/src/app/api/cron/public-agents/route.test.ts b/apps/web/src/app/api/cron/public-agents/route.test.ts
+new file mode 100644
+index 0000000..287fd75
+--- /dev/null
++++ b/apps/web/src/app/api/cron/public-agents/route.test.ts
+@@ -0,0 +1,21 @@
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++const run = vi.hoisted(() => vi.fn(async () => ({ status: "skipped", reason: "nothing_due" })));
++vi.mock("@/server/public-agent-cron", () => ({ runNextPublicAgent: run }));
++import { GET } from "./route";
++
++const req = (auth?: string) => new Request("http://localhost/api/cron/public-agents", { headers: auth ? { authorization: auth } : {} });
++beforeEach(() => { vi.stubEnv("CRON_SECRET", "s3cret"); run.mockClear(); });
++afterEach(() => vi.unstubAllEnvs());
++
++describe("public-agents cron route", () => {
++  it("401 without or with a wrong secret, and never runs", async () => {
++    expect((await GET(req())).status).toBe(401);
++    expect((await GET(req("Bearer nope"))).status).toBe(401);
++    expect(run).not.toHaveBeenCalled();
++  });
++  it("runs a tick with the right secret", async () => {
++    const res = await GET(req("Bearer s3cret"));
++    expect(res.status).toBe(200);
++    expect(await res.json()).toEqual({ status: "skipped", reason: "nothing_due" });
++  });
++});
+diff --git a/apps/web/src/app/api/cron/public-agents/route.ts b/apps/web/src/app/api/cron/public-agents/route.ts
+new file mode 100644
+index 0000000..d0e1524
+--- /dev/null
++++ b/apps/web/src/app/api/cron/public-agents/route.ts
+@@ -0,0 +1,19 @@
++import { requireCronAuth } from "../_auth";
++import { runNextPublicAgent } from "@/server/public-agent-cron";
++
++export const dynamic = "force-dynamic";
++// A 32-scenario lite run finishes in a couple of minutes; the run itself times out at 4.5 min, inside this limit.
++export const maxDuration = 300;
++
++/** Runs the ONE most-overdue public agent against the frozen standard suite (see server/public-agent-cron.ts). */
++export async function GET(request: Request) {
++  const denied = requireCronAuth(request);
++  if (denied) return denied;
++  try {
++    const result = await runNextPublicAgent(new Date(), (l) => console.log(l));
++    return Response.json(result, { status: result.status === "failed" ? 500 : 200 });
++  } catch (err) {
++    console.error("public-agents cron failed", err instanceof Error ? err.message : err);
++    return Response.json({ error: "public-agents run failed" }, { status: 500 });
++  }
++}
+diff --git a/apps/web/src/server/leaderboard-agents.test.ts b/apps/web/src/server/leaderboard-agents.test.ts
+index 6aa57af..d93b4d3 100644
+--- a/apps/web/src/server/leaderboard-agents.test.ts
++++ b/apps/web/src/server/leaderboard-agents.test.ts
+@@ -28,7 +28,7 @@ describe("PublicAgentInput", () => {
+   });
+   it("data/public-agents.json is valid, authorized, key-free and has no third-party entries without a terms record", () => {
+     const raw = JSON.parse(readFileSync(new URL("../../../../data/public-agents.json", import.meta.url), "utf8")) as { agents: unknown[]; todo: string[] };
+-    expect(raw.agents.length).toBe(5);
++    expect(raw.agents.length).toBe(10);
+     expect(raw.todo.length).toBeGreaterThan(0);
+     for (const a of raw.agents) {
+       const p = PublicAgentInput.parse(a);
+diff --git a/apps/web/src/server/public-agent-cron.test.ts b/apps/web/src/server/public-agent-cron.test.ts
+new file mode 100644
+index 0000000..e9cc1ae
+--- /dev/null
++++ b/apps/web/src/server/public-agent-cron.test.ts
+@@ -0,0 +1,58 @@
++import { describe, expect, it } from "vitest";
++import { budgetAllows, pickNextAgent, readConfig, FAILURE_COOLDOWN_MS, type CandidateAgent } from "./public-agent-cron";
++
++const H = 3_600_000;
++const now = new Date("2026-11-07T12:00:00Z");
++const ago = (h: number) => new Date(now.getTime() - h * H);
++const agent = (slug: string, over: Partial<CandidateAgent> = {}): CandidateAgent => ({
++  slug, name: slug, active: true, termsUrl: "https://example.com/terms", authorizedNote: "We operate it.", authEnvVar: "AI_GATEWAY_API_KEY", ...over,
++});
++const sched = (ran: Record<string, Date>, failed: Record<string, Date> = {}) => ({ lastRanAt: new Map(Object.entries(ran)), lastFailedAt: new Map(Object.entries(failed)) });
++
++describe("pickNextAgent", () => {
++  it("prefers a never-run agent over any run one", () => {
++    expect(pickNextAgent([agent("a"), agent("b")], sched({ a: ago(100) }), now, 24 * H)?.slug).toBe("b");
++  });
++  it("picks the oldest latest-run first", () => {
++    expect(pickNextAgent([agent("a"), agent("b"), agent("c")], sched({ a: ago(30), b: ago(90), c: ago(50) }), now, 24 * H)?.slug).toBe("b");
++  });
++  it("returns null when nothing is older than the interval", () => {
++    expect(pickNextAgent([agent("a")], sched({ a: ago(23) }), now, 24 * H)).toBeNull();
++    expect(pickNextAgent([agent("a")], sched({ a: ago(24) }), now, 24 * H)?.slug).toBe("a");
++  });
++  it("skips inactive and unauthorized agents", () => {
++    const list = [agent("off", { active: false }), agent("noterms", { termsUrl: null }), agent("nonote", { authorizedNote: " " }), agent("ok")];
++    expect(pickNextAgent(list, sched({ ok: ago(48) }), now, 24 * H)?.slug).toBe("ok");
++    expect(pickNextAgent(list.slice(0, 3), sched({}), now, 24 * H)).toBeNull();
++  });
++  it("cools down an agent whose last attempt failed so it cannot starve the others", () => {
++    const failed = { a: new Date(now.getTime() - FAILURE_COOLDOWN_MS / 2) };
++    expect(pickNextAgent([agent("a"), agent("b")], sched({ b: ago(48) }, failed), now, 24 * H)?.slug).toBe("b");
++    expect(pickNextAgent([agent("a")], sched({}, failed), now, 24 * H)).toBeNull();
++  });
++});
++
++describe("owner-autopilot fields", () => {
++  it("excludes non-active status and unverified owner-submitted agents; tolerates absent fields", () => {
++    const list = [
++      agent("paused", { status: "paused" }), agent("pending", { status: "pending_verification" }), agent("optout", { status: "opted_out" }),
++      agent("unverified", { status: "active", ownerEmail: "a@b.co", verifiedAt: null }),
++    ];
++    expect(pickNextAgent(list, sched({}), now, 24 * H)).toBeNull();
++    const ok = [...list, agent("owned", { status: "active", ownerEmail: "a@b.co", verifiedAt: ago(5) }), agent("legacy")];
++    expect(pickNextAgent(ok, sched({ legacy: ago(10) }), now, 24 * H)?.slug).toBe("owned");
++  });
++});
++
++describe("budget and config", () => {
++  it("stops once today's spend reaches the cap", () => {
++    expect(budgetAllows(2_999_999, 3_000_000)).toBe(true);
++    expect(budgetAllows(3_000_000, 3_000_000)).toBe(false);
++    expect(budgetAllows(5_000_000, 3_000_000)).toBe(false);
++  });
++  it("reads env with defaults", () => {
++    expect(readConfig({})).toEqual({ minIntervalMs: 24 * H, dailyBudgetMicroUsd: 3_000_000 });
++    expect(readConfig({ PUBLIC_AGENT_RERUN_HOURS: "6", PUBLIC_AGENT_DAILY_BUDGET_USD: "0.5" })).toEqual({ minIntervalMs: 6 * H, dailyBudgetMicroUsd: 500_000 });
++    expect(readConfig({ PUBLIC_AGENT_RERUN_HOURS: "x", PUBLIC_AGENT_DAILY_BUDGET_USD: "" }).dailyBudgetMicroUsd).toBe(3_000_000);
++  });
++});
+diff --git a/apps/web/src/server/public-agent-cron.ts b/apps/web/src/server/public-agent-cron.ts
+new file mode 100644
+index 0000000..2986810
+--- /dev/null
++++ b/apps/web/src/server/public-agent-cron.ts
+@@ -0,0 +1,145 @@
++/**
++ * Scheduling for the public-agent leaderboard cron: pick the ONE agent that is most overdue, honour the daily budget,
++ * and serialise ticks with a Postgres advisory lock. Pure selection helpers are exported for tests.
++ * No schema changes: runs live in public_agent_runs, failed attempts are logged as zero-run `costs` rows (jobId null).
++ */
++import { and, eq, gte, sql } from "drizzle-orm";
++import { db, schema } from "@ae/core/db/client";
++import { PublicAgentInput, assertAuthorizedToTest } from "./leaderboard-agents";
++import { SUITE_VERSION } from "./leaderboard";
++import { loadStandardSuite, runPublicAgent, type RunOutcome } from "./public-agent-runner";
++
++export const DEFAULT_RERUN_HOURS = 24;
++export const DEFAULT_DAILY_BUDGET_USD = 3;
++/** Per-run budget cap (micro-USD); a standard run costs well under $0.10. */
++export const PER_RUN_BUDGET_MICRO_USD = 500_000;
++/** Leave headroom under maxDuration = 300 so the function can record the failure and return. */
++export const RUN_TIMEOUT_MIN = 4.5;
++/** After a failed attempt, leave that agent alone this long so one broken agent cannot starve the rest. */
++export const FAILURE_COOLDOWN_MS = 60 * 60 * 1000;
++export const FAILURE_COST_SOURCE = "public_agent_cron_failure";
++/** Arbitrary constant key ("pubagent" as an int8) for pg_try_advisory_lock. */
++export const ADVISORY_LOCK_KEY = 0x7075626167656e74n;
++
++export interface CandidateAgent {
++  slug: string; name: string; active: boolean; termsUrl?: string | null; authorizedNote?: string | null; authEnvVar?: string | null;
++  /** Optional owner-autopilot fields; absent on rows from a DB that has not been migrated yet. */
++  status?: string | null; ownerEmail?: string | null; verifiedAt?: Date | string | null;
++}
++export interface Schedule { lastRanAt: ReadonlyMap<string, Date>; lastFailedAt?: ReadonlyMap<string, Date> }
++
++export function readConfig(env: Record<string, string | undefined> = process.env) {
++  const hours = Number(env.PUBLIC_AGENT_RERUN_HOURS);
++  const usd = Number(env.PUBLIC_AGENT_DAILY_BUDGET_USD);
++  return {
++    minIntervalMs: (Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_RERUN_HOURS) * 3_600_000,
++    dailyBudgetMicroUsd: Math.round((env.PUBLIC_AGENT_DAILY_BUDGET_USD?.trim() && Number.isFinite(usd) && usd >= 0 ? usd : DEFAULT_DAILY_BUDGET_USD) * 1_000_000),
++  };
++}
++
++function isAuthorized(a: CandidateAgent): boolean {
++  if (a.status != null && a.status !== "active") return false; // paused / pending_verification / opted_out
++  if (a.ownerEmail && !a.verifiedAt) return false; // owner-submitted agents must be verified
++  try { assertAuthorizedToTest(a); return true; } catch { return false; }
++}
++
++/** The single agent to run now: active + authorized, due (never run, or last run older than the interval), not in failure cooldown; oldest first. */
++export function pickNextAgent<T extends CandidateAgent>(agents: readonly T[], schedule: Schedule, now: Date, minIntervalMs: number): T | null {
++  const due = agents
++    .filter((a) => a.active && isAuthorized(a))
++    .filter((a) => {
++      const ran = schedule.lastRanAt.get(a.slug);
++      const failed = schedule.lastFailedAt?.get(a.slug);
++      if (failed && now.getTime() - failed.getTime() < FAILURE_COOLDOWN_MS) return false;
++      return !ran || now.getTime() - ran.getTime() >= minIntervalMs;
++    });
++  due.sort((x, y) => (schedule.lastRanAt.get(x.slug)?.getTime() ?? -Infinity) - (schedule.lastRanAt.get(y.slug)?.getTime() ?? -Infinity) || x.slug.localeCompare(y.slug));
++  return due[0] ?? null;
++}
++
++/** True while today's spend is still under the cap (spend >= cap stops the run). */
++export const budgetAllows = (spentTodayMicroUsd: number, capMicroUsd: number): boolean => spentTodayMicroUsd < capMicroUsd;
++
++export const startOfUtcDay = (now: Date): Date => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
++
++export type TickResult =
++  | { status: "ran"; outcome: RunOutcome }
++  | { status: "failed"; slug: string; error: string }
++  | { status: "skipped"; reason: "locked" | "budget" | "nothing_due" | "no_agents" };
++
++const p = schema.publicAgents;
++const baseCols = {
++  id: p.id, slug: p.slug, name: p.name, vendor: p.vendor, kind: p.kind, endpointUrl: p.endpointUrl, model: p.model, authEnvVar: p.authEnvVar,
++  systemPrompt: p.systemPrompt, homepage: p.homepage, termsUrl: p.termsUrl, authorizedNote: p.authorizedNote, active: p.active,
++};
++
++/** Explicit columns (never `select *`) so this works before and after the owner-autopilot migration. */
++async function loadAgents() {
++  try {
++    return await db().select({ ...baseCols, status: p.status, ownerEmail: p.ownerEmail, verifiedAt: p.verifiedAt }).from(p);
++  } catch {
++    return await db().select(baseCols).from(p);
++  }
++}
++
++async function loadSchedule(now: Date) {
++  const d = db();
++  const agents = await loadAgents();
++  const runs = await d.select({ slug: schema.publicAgents.slug, last: sql<Date>`max(${schema.publicAgentRuns.ranAt})` })
++    .from(schema.publicAgentRuns).innerJoin(schema.publicAgents, eq(schema.publicAgents.id, schema.publicAgentRuns.agentId))
++    .where(eq(schema.publicAgentRuns.suiteVersion, SUITE_VERSION)).groupBy(schema.publicAgents.slug);
++  const fails = await d.select({ slug: schema.costs.agent, last: sql<Date>`max(${schema.costs.createdAt})` })
++    .from(schema.costs).where(and(eq(schema.costs.source, FAILURE_COST_SOURCE), gte(schema.costs.createdAt, new Date(now.getTime() - FAILURE_COOLDOWN_MS)))).groupBy(schema.costs.agent);
++  const toMap = (rows: Array<{ slug: string | null; last: Date | string }>) =>
++    new Map(rows.filter((r) => r.slug).map((r) => [r.slug as string, new Date(r.last)]));
++  return { agents, schedule: { lastRanAt: toMap(runs), lastFailedAt: toMap(fails) } satisfies Schedule };
++}
++
++/** Public-agent spend since UTC midnight: stored runs plus the partial spend of failed attempts. */
++export async function spentTodayMicroUsd(now: Date): Promise<number> {
++  const since = startOfUtcDay(now);
++  const d = db();
++  const [r] = await d.select({ v: sql<string>`coalesce(sum(${schema.publicAgentRuns.costMicroUsd}), 0)` }).from(schema.publicAgentRuns).where(gte(schema.publicAgentRuns.ranAt, since));
++  const [f] = await d.select({ v: sql<string>`coalesce(sum(${schema.costs.microUsd}), 0)` }).from(schema.costs)
++    .where(and(eq(schema.costs.source, FAILURE_COST_SOURCE), gte(schema.costs.createdAt, since)));
++  return Number(r?.v ?? 0) + Number(f?.v ?? 0);
++}
++
++async function recordFailure(slug: string, microUsd: number, error: string): Promise<void> {
++  await db().insert(schema.costs).values({ jobId: null, source: FAILURE_COST_SOURCE, agent: slug, microUsd, meta: { error: error.slice(0, 300) } });
++}
++
++/** One cron tick. Holds a session advisory lock on a dedicated connection for the whole run, so overlapping ticks skip. */
++export async function runNextPublicAgent(now = new Date(), log: (l: string) => void = () => {}): Promise<TickResult> {
++  const { Pool } = await import("@neondatabase/serverless");
++  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
++  const client = await pool.connect();
++  try {
++    const { rows } = await client.query("select pg_try_advisory_lock($1::bigint) as ok", [ADVISORY_LOCK_KEY.toString()]);
++    if (!rows[0]?.ok) return { status: "skipped", reason: "locked" };
++    try {
++      const cfg = readConfig();
++      const { agents, schedule } = await loadSchedule(now);
++      if (!agents.length) return { status: "skipped", reason: "no_agents" };
++      if (!budgetAllows(await spentTodayMicroUsd(now), cfg.dailyBudgetMicroUsd)) return { status: "skipped", reason: "budget" };
++      const next = pickNextAgent(agents, schedule, now, cfg.minIntervalMs);
++      if (!next) return { status: "skipped", reason: "nothing_due" };
++      try {
++        const outcome = await runPublicAgent(PublicAgentInput.parse(next), {
++          suite: loadStandardSuite(), agentId: next.id, budgetMicroUsd: PER_RUN_BUDGET_MICRO_USD, timeoutMin: RUN_TIMEOUT_MIN, log,
++        });
++        return { status: "ran", outcome };
++      } catch (e) {
++        const msg = e instanceof Error ? e.message : String(e);
++        const spent = (e as { spentMicroUsd?: number }).spentMicroUsd ?? 0;
++        await recordFailure(next.slug, spent, msg).catch(() => {});
++        return { status: "failed", slug: next.slug, error: msg };
++      }
++    } finally {
++      await client.query("select pg_advisory_unlock($1::bigint)", [ADVISORY_LOCK_KEY.toString()]).catch(() => {});
++    }
++  } finally {
++    client.release();
++    await pool.end().catch(() => {});
++  }
++}
+diff --git a/apps/web/src/server/public-agent-runner.ts b/apps/web/src/server/public-agent-runner.ts
+new file mode 100644
+index 0000000..dbec75b
+--- /dev/null
++++ b/apps/web/src/server/public-agent-runner.ts
+@@ -0,0 +1,104 @@
++/**
++ * Reusable core of a public-agent leaderboard run. Shared by scripts/public-agents.ts and /api/cron/public-agents.
++ * No "server-only" import so the tsx script can use it. API keys are read from the env var NAMED on the agent row and never logged.
++ */
++import { randomUUID } from "node:crypto";
++import { Suite, type Finding } from "@ae/core/contracts/index";
++import type { EvalServices, ServiceContext } from "@ae/core/contracts/services";
++import { createLiteServices } from "@ae/core/lite/index";
++import { redTeamById } from "@ae/core/redteam/index";
++import { PublicAgentInput, assertAuthorizedToTest } from "./leaderboard-agents";
++import { SUITE_VERSION, scoreRun, toStoredFindings, percent, type StoredFinding } from "./leaderboard";
++import { buildStandardSuite } from "./leaderboard-suite";
++
++export const DEFAULT_BUDGET_MICRO_USD = 2_000_000;
++export const DEFAULT_TIMEOUT_MIN = 15;
++
++export class BudgetExceeded extends Error {
++  constructor(spent: number, cap: number) { super(`budget exceeded: ${spent} > ${cap} micro-USD`); }
++}
++
++/** The standard suite, built deterministically in code (no filesystem, so it works in serverless bundles). */
++export function loadStandardSuite(): Suite {
++  return buildStandardSuite();
++}
++
++/** Findings from failed scenarios: deterministic, no extra model spend. Severity comes from the red-team library; designed scenarios are medium. */
++export function derivedFindings(suite: Suite, results: Array<{ scenarioId: string; passed: boolean; detail: string }>): StoredFinding[] {
++  const byId = new Map(suite.scenarios.map((s) => [s.id, s]));
++  const failed = results.filter((r) => !r.passed);
++  return toStoredFindings(failed.map((r) => {
++    const sc = byId.get(r.scenarioId);
++    const rt = redTeamById(r.scenarioId);
++    return {
++      title: sc?.title ?? r.scenarioId, severity: rt?.severity ?? "medium", category: sc?.category ?? "other", scenarioId: r.scenarioId,
++      evidence: [{ excerpt: r.detail }],
++    };
++  }));
++}
++
++/** Key for the agent's target. AI Gateway accepts a Vercel OIDC token as bearer when no API key is set. */
++export function resolveApiKey(authEnvVar: string | null | undefined, env: Record<string, string | undefined> = process.env): string | undefined {
++  if (!authEnvVar) return undefined;
++  return env[authEnvVar] ?? (authEnvVar === "AI_GATEWAY_API_KEY" ? env.VERCEL_OIDC_TOKEN : undefined);
++}
++
++export interface RunOptions {
++  suite: Suite;
++  budgetMicroUsd?: number;
++  timeoutMin?: number;
++  dryRun?: boolean;
++  investigate?: boolean;
++  log?: (line: string) => void;
++  /** Existing public_agents.id: skips the upsert (cron path; avoids writing to public_agents). */
++  agentId?: string;
++  /** Test seam; defaults to the lite engine. */
++  services?: EvalServices;
++}
++
++export interface RunOutcome { slug: string; dryRun: boolean; passed?: number; total?: number; findings?: number; costMicroUsd?: number }
++
++export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): Promise<RunOutcome> {
++  const { suite } = opts;
++  const budget = opts.budgetMicroUsd ?? DEFAULT_BUDGET_MICRO_USD;
++  const timeoutMin = opts.timeoutMin ?? DEFAULT_TIMEOUT_MIN;
++  const log = opts.log ?? ((l: string) => console.log(l));
++  assertAuthorizedToTest(row);
++  const apiKey = resolveApiKey(row.authEnvVar);
++  const plan = `${row.slug}: ${row.model} @ ${row.endpointUrl} | ${suite.scenarios.length} scenarios | budget $${(budget / 1e6).toFixed(2)} | key ${row.authEnvVar ? (apiKey ? `from $${row.authEnvVar}` : `MISSING $${row.authEnvVar}`) : "none"}`;
++  if (opts.dryRun) { log(`[dry-run] ${plan}`); return { slug: row.slug, dryRun: true }; }
++  if (row.authEnvVar && !apiKey) throw new Error(`env var ${row.authEnvVar} is not set`);
++  log(`[run] ${plan}`);
++
++  const services = opts.services ?? createLiteServices();
++  const { upsertAgent, insertRun } = await import("./leaderboard-db");
++  const agent = opts.agentId ? { id: opts.agentId } : await upsertAgent(PublicAgentInput.parse(row));
++
++  let spent = 0;
++  const ctx: ServiceContext = {
++    jobId: randomUUID(), environment: "live", budgetMicroUsd: budget,
++    async recordCost(entry) { spent += entry.microUsd; if (spent > budget) throw new BudgetExceeded(spent, budget); },
++    async recordProgress(m, msg) { log(`  [${row.slug}] ${m}: ${msg.slice(0, 120)}`); },
++  };
++  let timer: ReturnType<typeof setTimeout> | undefined;
++  const timeout = new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error(`timed out after ${timeoutMin} min`)), timeoutMin * 60_000); timer.unref?.(); });
++  try {
++    const target = { url: row.endpointUrl, model: row.model, ...(apiKey ? { apiKey } : {}), systemPrompt: row.systemPrompt ?? "" };
++    const run = await Promise.race([services.runSuite(ctx, suite, target), timeout]);
++    const score = scoreRun(suite.scenarios, run.results);
++    let findings = derivedFindings(suite, run.results);
++    if (opts.investigate) {
++      try {
++        const f: Finding[] = await Promise.race([services.investigate(ctx, suite, [run]), timeout]);
++        findings = toStoredFindings(f);
++      } catch (e) { log(`  investigate failed, using derived findings: ${(e as Error).message}`); }
++    }
++    await insertRun({ agentId: agent.id, suiteVersion: SUITE_VERSION, ...score, findings, costMicroUsd: spent });
++    log(`[done] ${row.slug}: ${score.passed}/${score.total} (${percent(score.passed / Math.max(1, score.total))}), ${findings.length} findings, $${(spent / 1e6).toFixed(3)}`);
++    return { slug: row.slug, dryRun: false, passed: score.passed, total: score.total, findings: findings.length, costMicroUsd: spent };
++  } catch (e) {
++    // Partial spend is lost with the thrown run; surface it so callers can account for it.
++    if (e instanceof Error) Object.assign(e, { spentMicroUsd: spent });
++    throw e;
++  } finally { if (timer) clearTimeout(timer); }
++}
+diff --git a/apps/web/vercel.json b/apps/web/vercel.json
+index b910274..3b7f123 100644
+--- a/apps/web/vercel.json
++++ b/apps/web/vercel.json
+@@ -5,6 +5,7 @@
+     { "path": "/api/cron/stale-jobs", "schedule": "*/10 * * * *" },
+     { "path": "/api/cron/cleanup", "schedule": "0 * * * *" },
+     { "path": "/api/cron/monitoring", "schedule": "0 9 * * *" },
+-    { "path": "/api/cron/follow-ups", "schedule": "*/30 * * * *" }
++    { "path": "/api/cron/follow-ups", "schedule": "*/30 * * * *" },
++    { "path": "/api/cron/public-agents", "schedule": "*/15 * * * *" }
+   ]
+ }
+diff --git a/packages/core/src/db/migrations/0015_owner_autopilot.sql b/packages/core/src/db/migrations/0015_owner_autopilot.sql
+new file mode 100644
+index 0000000..a78c33f
+--- /dev/null
++++ b/packages/core/src/db/migrations/0015_owner_autopilot.sql
+@@ -0,0 +1,36 @@
++CREATE TABLE "owner_email_log" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
++	"owner_email" text NOT NULL,
++	"agent_id" uuid,
++	"kind" text NOT NULL,
++	"transactional" boolean NOT NULL,
++	"message_id" text,
++	"sent_at" timestamp with time zone DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++CREATE TABLE "public_agent_tokens" (
++	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
++	"agent_id" uuid NOT NULL,
++	"purpose" text DEFAULT 'verify' NOT NULL,
++	"token_hash" text NOT NULL,
++	"expires_at" timestamp with time zone NOT NULL,
++	"used_at" timestamp with time zone,
++	"created_at" timestamp with time zone DEFAULT now() NOT NULL
++);
++--> statement-breakpoint
++ALTER TABLE "email_threads" ADD COLUMN "public_agent_id" uuid;--> statement-breakpoint
++ALTER TABLE "outreach_drafts" ADD COLUMN "kind" text DEFAULT 'expert_invite' NOT NULL;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "owner_email" text;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "visibility" text DEFAULT 'public' NOT NULL;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "status" text DEFAULT 'active' NOT NULL;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "api_key_ciphertext" text;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "consent" jsonb;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "verified_at" timestamp with time zone;--> statement-breakpoint
++ALTER TABLE "public_agents" ADD COLUMN "rerun_requested_at" timestamp with time zone;--> statement-breakpoint
++ALTER TABLE "owner_email_log" ADD CONSTRAINT "owner_email_log_agent_id_public_agents_id_fk" FOREIGN KEY ("agent_id") REFERENCES "public"."public_agents"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
++ALTER TABLE "public_agent_tokens" ADD CONSTRAINT "public_agent_tokens_agent_id_public_agents_id_fk" FOREIGN KEY ("agent_id") REFERENCES "public"."public_agents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
++CREATE INDEX "owner_email_log_owner_sent_idx" ON "owner_email_log" USING btree ("owner_email","sent_at");--> statement-breakpoint
++CREATE UNIQUE INDEX "public_agent_tokens_hash_uq" ON "public_agent_tokens" USING btree ("token_hash");--> statement-breakpoint
++CREATE INDEX "public_agent_tokens_agent_idx" ON "public_agent_tokens" USING btree ("agent_id");--> statement-breakpoint
++ALTER TABLE "email_threads" ADD CONSTRAINT "email_threads_public_agent_id_public_agents_id_fk" FOREIGN KEY ("public_agent_id") REFERENCES "public"."public_agents"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
++CREATE INDEX "public_agents_owner_idx" ON "public_agents" USING btree (lower("owner_email"));
+\ No newline at end of file
+diff --git a/packages/core/src/db/migrations/meta/0015_snapshot.json b/packages/core/src/db/migrations/meta/0015_snapshot.json
+new file mode 100644
+index 0000000..e730424
+--- /dev/null
++++ b/packages/core/src/db/migrations/meta/0015_snapshot.json
+@@ -0,0 +1,3696 @@
++{
++  "id": "fb80769e-e0ac-49a8-9400-4c79bda2f07e",
++  "prevId": "3388cf85-fce3-4832-99c6-ba68516f21aa",
++  "version": "7",
++  "dialect": "postgresql",
++  "tables": {
++    "public.agent_sessions": {
++      "name": "agent_sessions",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "agent": {
++          "name": "agent",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "agent_id": {
++          "name": "agent_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "agent_version": {
++          "name": "agent_version",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "session_id": {
++          "name": "session_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'created'"
++        },
++        "decision": {
++          "name": "decision",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "result": {
++          "name": "result",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "usage_micro_usd": {
++          "name": "usage_micro_usd",
++          "type": "bigint",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "agent_sessions_session_uq": {
++          "name": "agent_sessions_session_uq",
++          "columns": [
++            {
++              "expression": "session_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "agent_sessions_job_id_jobs_id_fk": {
++          "name": "agent_sessions_job_id_jobs_id_fk",
++          "tableFrom": "agent_sessions",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.api_keys": {
++      "name": "api_keys",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "customer_id": {
++          "name": "customer_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "key_hash": {
++          "name": "key_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "prefix": {
++          "name": "prefix",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "last_used_at": {
++          "name": "last_used_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "revoked_at": {
++          "name": "revoked_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "api_keys_hash_uq": {
++          "name": "api_keys_hash_uq",
++          "columns": [
++            {
++              "expression": "key_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "api_keys_customer_idx": {
++          "name": "api_keys_customer_idx",
++          "columns": [
++            {
++              "expression": "customer_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "api_keys_customer_id_customers_id_fk": {
++          "name": "api_keys_customer_id_customers_id_fk",
++          "tableFrom": "api_keys",
++          "tableTo": "customers",
++          "columnsFrom": [
++            "customer_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.budget_reservations": {
++      "name": "budget_reservations",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "agent": {
++          "name": "agent",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "micro_usd": {
++          "name": "micro_usd",
++          "type": "bigint",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "released_at": {
++          "name": "released_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "budget_reservations_job_id_jobs_id_fk": {
++          "name": "budget_reservations_job_id_jobs_id_fk",
++          "tableFrom": "budget_reservations",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.call_slots": {
++      "name": "call_slots",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "starts_at": {
++          "name": "starts_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "duration_min": {
++          "name": "duration_min",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 15
++        },
++        "taken_by_engagement_id": {
++          "name": "taken_by_engagement_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "call_slots_starts_at_uq": {
++          "name": "call_slots_starts_at_uq",
++          "columns": [
++            {
++              "expression": "starts_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "call_slots_engagement_idx": {
++          "name": "call_slots_engagement_idx",
++          "columns": [
++            {
++              "expression": "taken_by_engagement_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "call_slots_taken_by_engagement_id_expert_engagements_id_fk": {
++          "name": "call_slots_taken_by_engagement_id_expert_engagements_id_fk",
++          "tableFrom": "call_slots",
++          "tableTo": "expert_engagements",
++          "columnsFrom": [
++            "taken_by_engagement_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.contact_suppressions": {
++      "name": "contact_suppressions",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "reason": {
++          "name": "reason",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'opt_out'"
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "contact_suppressions_email_uq": {
++          "name": "contact_suppressions_email_uq",
++          "columns": [
++            {
++              "expression": "lower(\"email\")",
++              "asc": true,
++              "isExpression": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.costs": {
++      "name": "costs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "source": {
++          "name": "source",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "agent": {
++          "name": "agent",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "session_id": {
++          "name": "session_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "micro_usd": {
++          "name": "micro_usd",
++          "type": "bigint",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "meta": {
++          "name": "meta",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'{}'::jsonb"
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "costs_job_idx": {
++          "name": "costs_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "costs_job_id_jobs_id_fk": {
++          "name": "costs_job_id_jobs_id_fk",
++          "tableFrom": "costs",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.customers": {
++      "name": "customers",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "team": {
++          "name": "team",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "source": {
++          "name": "source",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'walk_up'"
++        },
++        "is_internal_fixture": {
++          "name": "is_internal_fixture",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "customers_email_uq": {
++          "name": "customers_email_uq",
++          "columns": [
++            {
++              "expression": "lower(\"email\")",
++              "asc": true,
++              "isExpression": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.email_threads": {
++      "name": "email_threads",
++      "schema": "",
++      "columns": {
++        "thread_id": {
++          "name": "thread_id",
++          "type": "text",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "expert_engagement_id": {
++          "name": "expert_engagement_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "public_agent_id": {
++          "name": "public_agent_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "purpose": {
++          "name": "purpose",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "email_threads_job_idx": {
++          "name": "email_threads_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "email_threads_engagement_idx": {
++          "name": "email_threads_engagement_idx",
++          "columns": [
++            {
++              "expression": "expert_engagement_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "email_threads_job_id_jobs_id_fk": {
++          "name": "email_threads_job_id_jobs_id_fk",
++          "tableFrom": "email_threads",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "email_threads_expert_engagement_id_expert_engagements_id_fk": {
++          "name": "email_threads_expert_engagement_id_expert_engagements_id_fk",
++          "tableFrom": "email_threads",
++          "tableTo": "expert_engagements",
++          "columnsFrom": [
++            "expert_engagement_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "email_threads_public_agent_id_public_agents_id_fk": {
++          "name": "email_threads_public_agent_id_public_agents_id_fk",
++          "tableFrom": "email_threads",
++          "tableTo": "public_agents",
++          "columnsFrom": [
++            "public_agent_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.expert_engagements": {
++      "name": "expert_engagements",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "request_id": {
++          "name": "request_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "expert_id": {
++          "name": "expert_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "mode": {
++          "name": "mode",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'async'"
++        },
++        "token_hash": {
++          "name": "token_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "previous_token_hashes": {
++          "name": "previous_token_hashes",
++          "type": "text[]",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'{}'::text[]"
++        },
++        "expires_at": {
++          "name": "expires_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "scheduled_at": {
++          "name": "scheduled_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "calendar_event_id": {
++          "name": "calendar_event_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "recording_consent": {
++          "name": "recording_consent",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "honorarium_cents": {
++          "name": "honorarium_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "paid_at": {
++          "name": "paid_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "outreach_draft_id": {
++          "name": "outreach_draft_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'invited'"
++        },
++        "answered_at": {
++          "name": "answered_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "expert_engagements_token_uq": {
++          "name": "expert_engagements_token_uq",
++          "columns": [
++            {
++              "expression": "token_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "expert_engagements_req_expert_uq": {
++          "name": "expert_engagements_req_expert_uq",
++          "columns": [
++            {
++              "expression": "request_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "expert_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "expert_engagements_expert_idx": {
++          "name": "expert_engagements_expert_idx",
++          "columns": [
++            {
++              "expression": "expert_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "expert_engagements_request_id_expert_requests_id_fk": {
++          "name": "expert_engagements_request_id_expert_requests_id_fk",
++          "tableFrom": "expert_engagements",
++          "tableTo": "expert_requests",
++          "columnsFrom": [
++            "request_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "expert_engagements_expert_id_experts_id_fk": {
++          "name": "expert_engagements_expert_id_experts_id_fk",
++          "tableFrom": "expert_engagements",
++          "tableTo": "experts",
++          "columnsFrom": [
++            "expert_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "expert_engagements_outreach_draft_id_outreach_drafts_id_fk": {
++          "name": "expert_engagements_outreach_draft_id_outreach_drafts_id_fk",
++          "tableFrom": "expert_engagements",
++          "tableTo": "outreach_drafts",
++          "columnsFrom": [
++            "outreach_draft_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.expert_requests": {
++      "name": "expert_requests",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "domain": {
++          "name": "domain",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "questions": {
++          "name": "questions",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "purpose": {
++          "name": "purpose",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "max_budget_cents": {
++          "name": "max_budget_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'open'"
++        },
++        "requested_by_agent_session": {
++          "name": "requested_by_agent_session",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "expert_requests_status_idx": {
++          "name": "expert_requests_status_idx",
++          "columns": [
++            {
++              "expression": "status",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "expert_requests_job_id_jobs_id_fk": {
++          "name": "expert_requests_job_id_jobs_id_fk",
++          "tableFrom": "expert_requests",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "expert_requests_requested_by_agent_session_agent_sessions_id_fk": {
++          "name": "expert_requests_requested_by_agent_session_agent_sessions_id_fk",
++          "tableFrom": "expert_requests",
++          "tableTo": "agent_sessions",
++          "columnsFrom": [
++            "requested_by_agent_session"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.expert_responses": {
++      "name": "expert_responses",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "engagement_id": {
++          "name": "engagement_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "answers": {
++          "name": "answers",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "transcript_blob_path": {
++          "name": "transcript_blob_path",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "insights": {
++          "name": "insights",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "provenance": {
++          "name": "provenance",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'expert_sourced'"
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "expert_responses_engagement_idx": {
++          "name": "expert_responses_engagement_idx",
++          "columns": [
++            {
++              "expression": "engagement_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "expert_responses_engagement_id_expert_engagements_id_fk": {
++          "name": "expert_responses_engagement_id_expert_engagements_id_fk",
++          "tableFrom": "expert_responses",
++          "tableTo": "expert_engagements",
++          "columnsFrom": [
++            "engagement_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.experts": {
++      "name": "experts",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "title": {
++          "name": "title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "organization": {
++          "name": "organization",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "domains": {
++          "name": "domains",
++          "type": "text[]",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'{}'::text[]"
++        },
++        "profile_url": {
++          "name": "profile_url",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "source": {
++          "name": "source",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'opt_in'"
++        },
++        "rate_cents": {
++          "name": "rate_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "availability": {
++          "name": "availability",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "consent_flags": {
++          "name": "consent_flags",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'{}'::jsonb"
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'active'"
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "experts_email_uq": {
++          "name": "experts_email_uq",
++          "columns": [
++            {
++              "expression": "lower(\"email\")",
++              "asc": true,
++              "isExpression": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.findings": {
++      "name": "findings",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "finding_key": {
++          "name": "finding_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "data": {
++          "name": "data",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "rerun_of_finding_id": {
++          "name": "rerun_of_finding_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "findings_job_idx": {
++          "name": "findings_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "findings_job_id_jobs_id_fk": {
++          "name": "findings_job_id_jobs_id_fk",
++          "tableFrom": "findings",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.follow_ups": {
++      "name": "follow_ups",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "subject_type": {
++          "name": "subject_type",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "subject_id": {
++          "name": "subject_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "sent_at": {
++          "name": "sent_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "follow_ups_subject_kind_uq": {
++          "name": "follow_ups_subject_kind_uq",
++          "columns": [
++            {
++              "expression": "subject_type",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "subject_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "kind",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.github_prs": {
++      "name": "github_prs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "remediation_id": {
++          "name": "remediation_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "branch": {
++          "name": "branch",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "pr_number": {
++          "name": "pr_number",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "pr_url": {
++          "name": "pr_url",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "github_prs_remediation_uq": {
++          "name": "github_prs_remediation_uq",
++          "columns": [
++            {
++              "expression": "remediation_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "github_prs_job_idx": {
++          "name": "github_prs_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "github_prs_job_id_jobs_id_fk": {
++          "name": "github_prs_job_id_jobs_id_fk",
++          "tableFrom": "github_prs",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "github_prs_remediation_id_remediations_id_fk": {
++          "name": "github_prs_remediation_id_remediations_id_fk",
++          "tableFrom": "github_prs",
++          "tableTo": "remediations",
++          "columnsFrom": [
++            "remediation_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.idempotency_keys": {
++      "name": "idempotency_keys",
++      "schema": "",
++      "columns": {
++        "key": {
++          "name": "key",
++          "type": "text",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "scope": {
++          "name": "scope",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "response": {
++          "name": "response",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.interventions": {
++      "name": "interventions",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "operator_email": {
++          "name": "operator_email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "note": {
++          "name": "note",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "interventions_job_id_jobs_id_fk": {
++          "name": "interventions_job_id_jobs_id_fk",
++          "tableFrom": "interventions",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.job_credentials": {
++      "name": "job_credentials",
++      "schema": "",
++      "columns": {
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "ciphertext": {
++          "name": "ciphertext",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "job_credentials_job_id_jobs_id_fk": {
++          "name": "job_credentials_job_id_jobs_id_fk",
++          "tableFrom": "job_credentials",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.job_github_targets": {
++      "name": "job_github_targets",
++      "schema": "",
++      "columns": {
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "owner": {
++          "name": "owner",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "repo": {
++          "name": "repo",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "base_branch": {
++          "name": "base_branch",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "file_path": {
++          "name": "file_path",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "token_ciphertext": {
++          "name": "token_ciphertext",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "token_expires_at": {
++          "name": "token_expires_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "job_github_targets_job_id_jobs_id_fk": {
++          "name": "job_github_targets_job_id_jobs_id_fk",
++          "tableFrom": "job_github_targets",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.job_shares": {
++      "name": "job_shares",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "token_hash": {
++          "name": "token_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "revoked_at": {
++          "name": "revoked_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "job_shares_job_uq": {
++          "name": "job_shares_job_uq",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "job_shares_token_uq": {
++          "name": "job_shares_token_uq",
++          "columns": [
++            {
++              "expression": "token_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "job_shares_job_id_jobs_id_fk": {
++          "name": "job_shares_job_id_jobs_id_fk",
++          "tableFrom": "job_shares",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.jobs": {
++      "name": "jobs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "customer_id": {
++          "name": "customer_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "package": {
++          "name": "package",
++          "type": "package",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "state": {
++          "name": "state",
++          "type": "job_state",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'draft'"
++        },
++        "environment": {
++          "name": "environment",
++          "type": "environment",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'test'"
++        },
++        "intake": {
++          "name": "intake",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "trace_blob_path": {
++          "name": "trace_blob_path",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "workflow_run_id": {
++          "name": "workflow_run_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "retest_of_job_id": {
++          "name": "retest_of_job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "is_mock": {
++          "name": "is_mock",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "neon_branch_id": {
++          "name": "neon_branch_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "delivery_snapshot_id": {
++          "name": "delivery_snapshot_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "report_blob_path": {
++          "name": "report_blob_path",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "suite_blob_path": {
++          "name": "suite_blob_path",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "budget_reserved_micro_usd": {
++          "name": "budget_reserved_micro_usd",
++          "type": "bigint",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "error": {
++          "name": "error",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "delivered_at": {
++          "name": "delivered_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "credentials_delete_after": {
++          "name": "credentials_delete_after",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "branch_delete_after": {
++          "name": "branch_delete_after",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "idempotency_key": {
++          "name": "idempotency_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "jobs_customer_idx": {
++          "name": "jobs_customer_idx",
++          "columns": [
++            {
++              "expression": "customer_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "jobs_state_idx": {
++          "name": "jobs_state_idx",
++          "columns": [
++            {
++              "expression": "state",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "jobs_idem_uq": {
++          "name": "jobs_idem_uq",
++          "columns": [
++            {
++              "expression": "customer_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "idempotency_key",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "jobs_customer_id_customers_id_fk": {
++          "name": "jobs_customer_id_customers_id_fk",
++          "tableFrom": "jobs",
++          "tableTo": "customers",
++          "columnsFrom": [
++            "customer_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.magic_links": {
++      "name": "magic_links",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "token_hash": {
++          "name": "token_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "expires_at": {
++          "name": "expires_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "used_at": {
++          "name": "used_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "magic_links_token_uq": {
++          "name": "magic_links_token_uq",
++          "columns": [
++            {
++              "expression": "token_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.messages": {
++      "name": "messages",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "role": {
++          "name": "role",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "body": {
++          "name": "body",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "messages_job_idx": {
++          "name": "messages_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "messages_job_id_jobs_id_fk": {
++          "name": "messages_job_id_jobs_id_fk",
++          "tableFrom": "messages",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.monitoring_runs": {
++      "name": "monitoring_runs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "subscription_id": {
++          "name": "subscription_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "run_date": {
++          "name": "run_date",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "ran_at": {
++          "name": "ran_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "results": {
++          "name": "results",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "regressions": {
++          "name": "regressions",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        }
++      },
++      "indexes": {
++        "monitoring_runs_sub_day_uq": {
++          "name": "monitoring_runs_sub_day_uq",
++          "columns": [
++            {
++              "expression": "subscription_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "run_date",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "monitoring_runs_sub_idx": {
++          "name": "monitoring_runs_sub_idx",
++          "columns": [
++            {
++              "expression": "subscription_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "monitoring_runs_subscription_id_monitoring_subscriptions_id_fk": {
++          "name": "monitoring_runs_subscription_id_monitoring_subscriptions_id_fk",
++          "tableFrom": "monitoring_runs",
++          "tableTo": "monitoring_subscriptions",
++          "columnsFrom": [
++            "subscription_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "monitoring_runs_job_id_jobs_id_fk": {
++          "name": "monitoring_runs_job_id_jobs_id_fk",
++          "tableFrom": "monitoring_runs",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.monitoring_subscriptions": {
++      "name": "monitoring_subscriptions",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "customer_id": {
++          "name": "customer_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "stripe_subscription_id": {
++          "name": "stripe_subscription_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "environment": {
++          "name": "environment",
++          "type": "environment",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "last_run_at": {
++          "name": "last_run_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "monitoring_subscriptions_job_id_jobs_id_fk": {
++          "name": "monitoring_subscriptions_job_id_jobs_id_fk",
++          "tableFrom": "monitoring_subscriptions",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "monitoring_subscriptions_customer_id_customers_id_fk": {
++          "name": "monitoring_subscriptions_customer_id_customers_id_fk",
++          "tableFrom": "monitoring_subscriptions",
++          "tableTo": "customers",
++          "columnsFrom": [
++            "customer_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.outreach_drafts": {
++      "name": "outreach_drafts",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "to_email": {
++          "name": "to_email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "subject": {
++          "name": "subject",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "body": {
++          "name": "body",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'expert_invite'"
++        },
++        "approved_by": {
++          "name": "approved_by",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "sent_at": {
++          "name": "sent_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.owner_email_log": {
++      "name": "owner_email_log",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "owner_email": {
++          "name": "owner_email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "agent_id": {
++          "name": "agent_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "transactional": {
++          "name": "transactional",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "message_id": {
++          "name": "message_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "sent_at": {
++          "name": "sent_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "owner_email_log_owner_sent_idx": {
++          "name": "owner_email_log_owner_sent_idx",
++          "columns": [
++            {
++              "expression": "owner_email",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "sent_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "owner_email_log_agent_id_public_agents_id_fk": {
++          "name": "owner_email_log_agent_id_public_agents_id_fk",
++          "tableFrom": "owner_email_log",
++          "tableTo": "public_agents",
++          "columnsFrom": [
++            "agent_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.payments": {
++      "name": "payments",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "quote_version": {
++          "name": "quote_version",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "stripe_event_id": {
++          "name": "stripe_event_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "stripe_checkout_session_id": {
++          "name": "stripe_checkout_session_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "stripe_payment_intent_id": {
++          "name": "stripe_payment_intent_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "amount_cents": {
++          "name": "amount_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "currency": {
++          "name": "currency",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'usd'"
++        },
++        "environment": {
++          "name": "environment",
++          "type": "environment",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'one_time'"
++        },
++        "workflow_resumed_at": {
++          "name": "workflow_resumed_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'paid'"
++        },
++        "captured_amount_cents": {
++          "name": "captured_amount_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "payments_session_uq": {
++          "name": "payments_session_uq",
++          "columns": [
++            {
++              "expression": "stripe_checkout_session_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "payments_event_uq": {
++          "name": "payments_event_uq",
++          "columns": [
++            {
++              "expression": "stripe_event_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "payments_job_id_jobs_id_fk": {
++          "name": "payments_job_id_jobs_id_fk",
++          "tableFrom": "payments",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.progress_events": {
++      "name": "progress_events",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "milestone": {
++          "name": "milestone",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "message": {
++          "name": "message",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "progress_job_idx": {
++          "name": "progress_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "created_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "progress_events_job_id_jobs_id_fk": {
++          "name": "progress_events_job_id_jobs_id_fk",
++          "tableFrom": "progress_events",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.public_agent_runs": {
++      "name": "public_agent_runs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "agent_id": {
++          "name": "agent_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "suite_version": {
++          "name": "suite_version",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "ran_at": {
++          "name": "ran_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "passed": {
++          "name": "passed",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "total": {
++          "name": "total",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "by_category": {
++          "name": "by_category",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "findings": {
++          "name": "findings",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'[]'::jsonb"
++        },
++        "cost_micro_usd": {
++          "name": "cost_micro_usd",
++          "type": "bigint",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "public_agent_runs_agent_ran_idx": {
++          "name": "public_agent_runs_agent_ran_idx",
++          "columns": [
++            {
++              "expression": "agent_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "ran_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "public_agent_runs_agent_id_public_agents_id_fk": {
++          "name": "public_agent_runs_agent_id_public_agents_id_fk",
++          "tableFrom": "public_agent_runs",
++          "tableTo": "public_agents",
++          "columnsFrom": [
++            "agent_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.public_agent_tokens": {
++      "name": "public_agent_tokens",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "agent_id": {
++          "name": "agent_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "purpose": {
++          "name": "purpose",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'verify'"
++        },
++        "token_hash": {
++          "name": "token_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "expires_at": {
++          "name": "expires_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "used_at": {
++          "name": "used_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "public_agent_tokens_hash_uq": {
++          "name": "public_agent_tokens_hash_uq",
++          "columns": [
++            {
++              "expression": "token_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "public_agent_tokens_agent_idx": {
++          "name": "public_agent_tokens_agent_idx",
++          "columns": [
++            {
++              "expression": "agent_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "public_agent_tokens_agent_id_public_agents_id_fk": {
++          "name": "public_agent_tokens_agent_id_public_agents_id_fk",
++          "tableFrom": "public_agent_tokens",
++          "tableTo": "public_agents",
++          "columnsFrom": [
++            "agent_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.public_agents": {
++      "name": "public_agents",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "slug": {
++          "name": "slug",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "vendor": {
++          "name": "vendor",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'third_party'"
++        },
++        "endpoint_url": {
++          "name": "endpoint_url",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "model": {
++          "name": "model",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "auth_env_var": {
++          "name": "auth_env_var",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "system_prompt": {
++          "name": "system_prompt",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "homepage": {
++          "name": "homepage",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "terms_url": {
++          "name": "terms_url",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "authorized_note": {
++          "name": "authorized_note",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "active": {
++          "name": "active",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": true
++        },
++        "owner_email": {
++          "name": "owner_email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "visibility": {
++          "name": "visibility",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'public'"
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'active'"
++        },
++        "api_key_ciphertext": {
++          "name": "api_key_ciphertext",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "consent": {
++          "name": "consent",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "verified_at": {
++          "name": "verified_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "rerun_requested_at": {
++          "name": "rerun_requested_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "public_agents_slug_uq": {
++          "name": "public_agents_slug_uq",
++          "columns": [
++            {
++              "expression": "slug",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "public_agents_owner_idx": {
++          "name": "public_agents_owner_idx",
++          "columns": [
++            {
++              "expression": "lower(\"owner_email\")",
++              "asc": true,
++              "isExpression": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.quotes": {
++      "name": "quotes",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "version": {
++          "name": "version",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "package": {
++          "name": "package",
++          "type": "package",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "price_cents": {
++          "name": "price_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "scope_summary": {
++          "name": "scope_summary",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "deliverables": {
++          "name": "deliverables",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "accepted_at": {
++          "name": "accepted_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "stripe_checkout_session_id": {
++          "name": "stripe_checkout_session_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "pricing_mode": {
++          "name": "pricing_mode",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'fixed'"
++        },
++        "cap_cents": {
++          "name": "cap_cents",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "quotes_job_version_uq": {
++          "name": "quotes_job_version_uq",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "version",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "quotes_job_id_jobs_id_fk": {
++          "name": "quotes_job_id_jobs_id_fk",
++          "tableFrom": "quotes",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.rate_limits": {
++      "name": "rate_limits",
++      "schema": "",
++      "columns": {
++        "key": {
++          "name": "key",
++          "type": "text",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "window_start": {
++          "name": "window_start",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "count": {
++          "name": "count",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.regression_runs": {
++      "name": "regression_runs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "customer_id": {
++          "name": "customer_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "result": {
++          "name": "result",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "error": {
++          "name": "error",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "regression_runs_customer_idx": {
++          "name": "regression_runs_customer_idx",
++          "columns": [
++            {
++              "expression": "customer_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "created_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "regression_runs_job_id_jobs_id_fk": {
++          "name": "regression_runs_job_id_jobs_id_fk",
++          "tableFrom": "regression_runs",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "regression_runs_customer_id_customers_id_fk": {
++          "name": "regression_runs_customer_id_customers_id_fk",
++          "tableFrom": "regression_runs",
++          "tableTo": "customers",
++          "columnsFrom": [
++            "customer_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.remediations": {
++      "name": "remediations",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "job_id": {
++          "name": "job_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "finding_row_id": {
++          "name": "finding_row_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "data": {
++          "name": "data",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "remediations_job_idx": {
++          "name": "remediations_job_idx",
++          "columns": [
++            {
++              "expression": "job_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "remediations_finding_uq": {
++          "name": "remediations_finding_uq",
++          "columns": [
++            {
++              "expression": "finding_row_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "remediations_job_id_jobs_id_fk": {
++          "name": "remediations_job_id_jobs_id_fk",
++          "tableFrom": "remediations",
++          "tableTo": "jobs",
++          "columnsFrom": [
++            "job_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        },
++        "remediations_finding_row_id_findings_id_fk": {
++          "name": "remediations_finding_row_id_findings_id_fk",
++          "tableFrom": "remediations",
++          "tableTo": "findings",
++          "columnsFrom": [
++            "finding_row_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.sessions": {
++      "name": "sessions",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "uuid",
++          "primaryKey": true,
++          "notNull": true,
++          "default": "gen_random_uuid()"
++        },
++        "customer_id": {
++          "name": "customer_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "token_hash": {
++          "name": "token_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "expires_at": {
++          "name": "expires_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "sessions_token_uq": {
++          "name": "sessions_token_uq",
++          "columns": [
++            {
++              "expression": "token_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "sessions_customer_id_customers_id_fk": {
++          "name": "sessions_customer_id_customers_id_fk",
++          "tableFrom": "sessions",
++          "tableTo": "customers",
++          "columnsFrom": [
++            "customer_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "no action",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    }
++  },
++  "enums": {
++    "public.environment": {
++      "name": "environment",
++      "schema": "public",
++      "values": [
++        "live",
++        "test"
++      ]
++    },
++    "public.job_state": {
++      "name": "job_state",
++      "schema": "public",
++      "values": [
++        "draft",
++        "needs_clarification",
++        "quoted",
++        "awaiting_payment",
++        "planning",
++        "running",
++        "investigating",
++        "delivered",
++        "payment_review",
++        "paused_budget",
++        "failed",
++        "cancelled"
++      ]
++    },
++    "public.package": {
++      "name": "package",
++      "schema": "public",
++      "values": [
++        "trace_audit",
++        "text_eval",
++        "workflow_eval",
++        "version_comparison"
++      ]
++    }
++  },
++  "schemas": {},
++  "sequences": {},
++  "roles": {},
++  "policies": {},
++  "views": {},
++  "_meta": {
++    "columns": {},
++    "schemas": {},
++    "tables": {}
++  }
++}
+\ No newline at end of file
+diff --git a/packages/core/src/db/migrations/meta/_journal.json b/packages/core/src/db/migrations/meta/_journal.json
+index ba619f0..8aa8d55 100644
+--- a/packages/core/src/db/migrations/meta/_journal.json
++++ b/packages/core/src/db/migrations/meta/_journal.json
+@@ -106,6 +106,13 @@
+       "when": 1794097272207,
+       "tag": "0014_public_agents",
+       "breakpoints": true
++    },
++    {
++      "idx": 15,
++      "version": "7",
++      "when": 1794101989078,
++      "tag": "0015_owner_autopilot",
++      "breakpoints": true
+     }
+   ]
+ }
+\ No newline at end of file
+diff --git a/packages/core/src/db/schema.ts b/packages/core/src/db/schema.ts
+index a8a7363..38ef432 100644
+--- a/packages/core/src/db/schema.ts
++++ b/packages/core/src/db/schema.ts
+@@ -199,6 +199,8 @@ export const outreachDrafts = pgTable("outreach_drafts", {
+   subject: text("subject").notNull(),
+   body: text("body").notNull(),
+   status: text("status").notNull().default("pending"), // pending | approved | rejected | sent
++  /** expert_invite (default, legacy rows) | agent_invite (free-benchmark invitation to a third-party agent owner). */
++  kind: text("kind").notNull().default("expert_invite"),
+   approvedBy: text("approved_by"),
+   sentAt: ts("sent_at"),
+   createdAt,
+@@ -329,7 +331,9 @@ export const emailThreads = pgTable("email_threads", {
+   threadId: text("thread_id").primaryKey(),
+   jobId: uuid("job_id").references(() => jobs.id),
+   expertEngagementId: uuid("expert_engagement_id").references(() => expertEngagements.id),
+-  purpose: text("purpose").notNull(), // auth | commercial | job | expert_outreach
++  /** Owner-submitted public agent this thread is about (owner replies are answered by the responder). */
++  publicAgentId: uuid("public_agent_id").references(() => publicAgents.id, { onDelete: "set null" }),
++  purpose: text("purpose").notNull(), // auth | commercial | job | expert_outreach | owner_agent
+   createdAt,
+ }, (t) => [index("email_threads_job_idx").on(t.jobId), index("email_threads_engagement_idx").on(t.expertEngagementId)]);
+ 
+@@ -421,8 +425,22 @@ export const publicAgents = pgTable("public_agents", {
+   termsUrl: text("terms_url"),
+   authorizedNote: text("authorized_note"),
+   active: boolean("active").notNull().default(true),
++  // ---- owner-submitted agents (agent-owner autopilot). Null owner_email = operator-seeded reference/third-party row. ----
++  /** Lowercased owner address; the only person our agents email about this agent. */
++  ownerEmail: text("owner_email"),
++  /** public (leaderboard) | private (results go to the owner only). */
++  visibility: text("visibility").notNull().default("public"),
++  /** pending_verification | active | paused | opted_out. `active` mirrors status === "active" (the runner gate). */
++  status: text("status").notNull().default("active"),
++  /** AES-256-GCM ciphertext (storage/crypto encrypt) of the owner's API key. Never returned or logged. */
++  apiKeyCiphertext: text("api_key_ciphertext"),
++  /** Consent record captured at submission: { version, authorizeText, emailsText, acceptedAt, ipHash }. */
++  consent: jsonb("consent"),
++  verifiedAt: ts("verified_at"),
++  /** Set by the owner (reply responder) to ask for a re-run; cleared when the run starts. */
++  rerunRequestedAt: ts("rerun_requested_at"),
+   createdAt,
+-}, (t) => [uniqueIndex("public_agents_slug_uq").on(t.slug)]);
++}, (t) => [uniqueIndex("public_agents_slug_uq").on(t.slug), index("public_agents_owner_idx").on(sql`lower(${t.ownerEmail})`)]);
+ 
+ export const publicAgentRuns = pgTable("public_agent_runs", {
+   id: uuid("id").primaryKey().defaultRandom(),
+@@ -437,3 +455,26 @@ export const publicAgentRuns = pgTable("public_agent_runs", {
+   jobId: uuid("job_id"),
+ }, (t) => [index("public_agent_runs_agent_ran_idx").on(t.agentId, t.ranAt)]);
+ 
++
++/** Single-use hashed tokens for owner-submitted agents (purpose: verify). Only sha256(token) is stored. */
++export const publicAgentTokens = pgTable("public_agent_tokens", {
++  id: uuid("id").primaryKey().defaultRandom(),
++  agentId: uuid("agent_id").notNull().references(() => publicAgents.id, { onDelete: "cascade" }),
++  purpose: text("purpose").notNull().default("verify"),
++  tokenHash: text("token_hash").notNull(),
++  expiresAt: ts("expires_at").notNull(),
++  usedAt: ts("used_at"),
++  createdAt,
++}, (t) => [uniqueIndex("public_agent_tokens_hash_uq").on(t.tokenHash), index("public_agent_tokens_agent_idx").on(t.agentId)]);
++
++/** Every email our agents send to an agent owner. Drives the non-transactional cadence cap (1 per owner per 3 days). */
++export const ownerEmailLog = pgTable("owner_email_log", {
++  id: uuid("id").primaryKey().defaultRandom(),
++  /** Lowercased. */
++  ownerEmail: text("owner_email").notNull(),
++  agentId: uuid("agent_id").references(() => publicAgents.id, { onDelete: "set null" }),
++  kind: text("kind").notNull(),
++  transactional: boolean("transactional").notNull(),
++  messageId: text("message_id"),
++  sentAt: ts("sent_at").notNull().defaultNow(),
++}, (t) => [index("owner_email_log_owner_sent_idx").on(t.ownerEmail, t.sentAt)]);
+diff --git a/packages/core/src/sandbox/spec.ts b/packages/core/src/sandbox/spec.ts
+new file mode 100644
+index 0000000..84b1f0a
+--- /dev/null
++++ b/packages/core/src/sandbox/spec.ts
+@@ -0,0 +1,222 @@
++/**
++ * Sandbox evals contract (v1). Shared by ingest, runtime, engine and app.
++ * Changing a shape here is a cross-team change: bump SANDBOX_SPEC_VERSION and tell every owner.
++ * See docs/SANDBOX_EVALS_PLAN.md.
++ */
++import { z } from "zod";
++
++export const SANDBOX_SPEC_VERSION = "sandbox-spec-v1" as const;
++
++const Id = z.string().regex(/^[a-z][a-z0-9_]{0,62}$/, "lower_snake identifier");
++const JsonSchema = z.record(z.string(), z.unknown());
++
++/* ---------------- environment (what the customer gives us, normalized) ---------------- */
++
++/** How a tool call is executed inside the sandbox. */
++export const ToolBinding = z.discriminatedUnion("kind", [
++  /** Deterministic SQL against the run's branch. Params are bound by name (:order_id) from validated tool args. */
++  z.object({
++    kind: z.literal("sql"),
++    statements: z.array(z.string().min(1)).min(1).max(8),
++    /** Which statement's rows become the tool result (default: last). */
++    resultFrom: z.number().int().min(0).optional(),
++    resultShape: z.enum(["rows", "row", "count", "none"]).default("rows"),
++  }),
++  /** LLM-simulated output constrained by outputSchema + a snapshot of relevant state; side effects go to sandbox_outbox. */
++  z.object({
++    kind: z.literal("simulated"),
++    instructions: z.string().max(4_000),
++    readsTables: z.array(Id).max(10).default([]),
++    recordsOutbox: z.boolean().default(false),
++  }),
++  /** Customer staging passthrough (mode C). URL must pass SSRF checks; credentials live encrypted, never in the spec. */
++  z.object({
++    kind: z.literal("passthrough"),
++    method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
++    urlTemplate: z.string().url(),
++    credentialRef: z.string().max(100).optional(),
++  }),
++]);
++export type ToolBinding = z.infer<typeof ToolBinding>;
++
++export const ToolSpec = z.object({
++  name: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/),
++  description: z.string().max(2_000),
++  inputSchema: JsonSchema,
++  outputSchema: JsonSchema.optional(),
++  effect: z.enum(["read", "write", "external"]),
++  binding: ToolBinding,
++  /** Where this came from, for the report ("openapi:POST /refunds", "mcp:refund_order", "json:refund_order"). */
++  source: z.string().max(200),
++});
++export type ToolSpec = z.infer<typeof ToolSpec>;
++
++export const PolicyClause = z.object({ id: z.string().max(40), text: z.string().max(2_000) });
++export const PolicyDoc = z.object({
++  id: Id, title: z.string().max(200), clauses: z.array(PolicyClause).min(1).max(200),
++});
++export type PolicyDoc = z.infer<typeof PolicyDoc>;
++
++export const WorkflowSpec = z.object({
++  id: Id,
++  name: z.string().max(200),
++  description: z.string().max(4_000),
++  /** Tools this workflow is expected to use, in rough order. */
++  tools: z.array(z.string()).max(20),
++  /** Invariants that must always hold, e.g. "identity verified before any write". Each becomes trajectory/state checks. */
++  invariants: z.array(z.string().max(500)).max(20).default([]),
++  policyRefs: z.array(z.string()).max(40).default([]),
++});
++export type WorkflowSpec = z.infer<typeof WorkflowSpec>;
++
++export const StateSpec = z.object({
++  /** Postgres DDL for the sandbox world (validated by executing on a scratch branch). No extensions, no roles, no COPY. */
++  ddl: z.string().min(1).max(200_000),
++  /** Frozen clock for determinism; tools read now() from sandbox_clock, never the wall clock. */
++  frozenNow: z.string().datetime().default("2026-06-01T15:00:00Z"),
++  /** Deterministic seed SQL (INSERTs). Fake data only. */
++  seedSql: z.string().max(2_000_000),
++  /** Tables graders may read; everything is diffed but only these appear in reports. */
++  reportTables: z.array(Id).max(50).default([]),
++});
++export type StateSpec = z.infer<typeof StateSpec>;
++
++export const IntegrationMode = z.discriminatedUnion("mode", [
++  /** B: agent is an OpenAI-compatible endpoint that returns tool_calls; WE run the tool loop. Default, easiest. */
++  z.object({ mode: z.literal("tool_loop"), endpointUrl: z.string().url(), model: z.string().max(200), credentialRef: z.string().max(100).optional(), systemPrompt: z.string().max(50_000).optional() }),
++  /** A: agent runs its own loop and calls OUR sandbox tool API / MCP server (per-run base URL + token). We drive the user side via its chat endpoint. */
++  z.object({ mode: z.literal("sandbox_api"), chatEndpointUrl: z.string().url(), credentialRef: z.string().max(100).optional() }),
++  /** D: bring your repo — we boot their agent from source inside an isolated microVM (Vercel Sandbox) with tool URLs pointed at our sandbox API. */
++  z.object({ mode: z.literal("repo"), repoUrl: z.string().url(), ref: z.string().max(200).default("main"), installCommand: z.string().max(500), startCommand: z.string().max(500), chatPath: z.string().max(200).default("/v1/chat/completions"), port: z.number().int().min(1).max(65535).default(3000), envRefs: z.array(z.string().max(100)).max(30).default([]) }),
++  /** V: voice agent over a realtime audio socket. We stream simulated-user speech (gateway TTS / realtime models) and transcribe replies (gateway STT). */
++  z.object({ mode: z.literal("realtime_voice"), wsUrl: z.string().url(), protocol: z.enum(["openai_realtime", "gemini_live", "pipecat", "livekit", "custom_pcm"]), sampleRateHz: z.number().int().default(16_000), credentialRef: z.string().max(100).optional() }),
++  /** C: their staging stack; tools are passthrough bindings; grading via read-only checks they authorize. */
++  z.object({ mode: z.literal("staging"), chatEndpointUrl: z.string().url(), credentialRef: z.string().max(100).optional() }),
++]);
++export type IntegrationMode = z.infer<typeof IntegrationMode>;
++
++export const EnvironmentSpec = z.object({
++  specVersion: z.literal(SANDBOX_SPEC_VERSION),
++  id: Id,
++  name: z.string().max(200),
++  domain: z.string().max(200),
++  tools: z.array(ToolSpec).min(1).max(60),
++  state: StateSpec,
++  policies: z.array(PolicyDoc).max(20).default([]),
++  workflows: z.array(WorkflowSpec).min(1).max(30),
++  integration: IntegrationMode,
++});
++export type EnvironmentSpec = z.infer<typeof EnvironmentSpec>;
++
++/* ---------------- scenarios (generated, oracle-validated) ---------------- */
++
++/** Synthetic media the simulated user sends, with ground truth so graders can check what the agent should have read/heard. */
++export const MediaAttachment = z.object({
++  id: z.string().max(40),
++  kind: z.enum(["image", "document", "audio", "video"]),
++  /** render = deterministic HTML/template → PNG/PDF (exact text, e.g. receipts, IDs, invoices); generate = gateway image/TTS model (photos, scenes, voices). */
++  source: z.enum(["render", "generate", "fixture"]),
++  prompt: z.string().max(4_000),
++  model: z.string().max(120).optional(),
++  /** Facts the media contains (e.g. {"total":"47.20","merchant":"Acme"}). Media is accepted only if a gateway vision/STT model reads these back (media oracle). */
++  groundTruth: z.record(z.string(), z.string()).default({}),
++  /** Robustness perturbations: blur, rotate, low_light, crop, jpeg, noise, accent, speed, packet_loss, background_noise. */
++  perturbations: z.array(z.string().max(40)).max(6).default([]),
++  /** Visual/audio prompt injection payload hidden in the media (with canary). */
++  injection: z.string().max(1_000).optional(),
++});
++export type MediaAttachment = z.infer<typeof MediaAttachment>;
++
++export const Persona = z.object({
++  name: z.string().max(80),
++  goal: z.string().max(1_000),
++  /** Facts the simulated user knows; `revealWhen` lets the user withhold info until asked (realistic). */
++  knowledge: z.array(z.object({ fact: z.string().max(500), revealWhen: z.enum(["upfront", "when_asked", "never"]).default("when_asked") })).max(20),
++  style: z.string().max(500),
++  adversarial: z.boolean().default(false),
++  modality: z.enum(["text", "voice", "multimodal"]).default("text"),
++  /** For voice: gateway TTS model + voice id + accent/pace; for realtime: a gateway realtime model drives the user. */
++  voice: z.object({ ttsModel: z.string().max(120), voiceId: z.string().max(120).optional(), accent: z.string().max(60).optional(), pace: z.enum(["slow", "normal", "fast"]).default("normal"), interrupts: z.boolean().default(false) }).optional(),
++  maxTurns: z.number().int().min(1).max(30).default(12),
++});
++export type Persona = z.infer<typeof Persona>;
++
++/** Assertion over the sandbox state AFTER the run. `sql` must return exactly one row with a boolean column `ok`. */
++export const StateAssertion = z.object({ id: z.string().max(40), description: z.string().max(500), sql: z.string().max(4_000), severity: z.enum(["critical", "high", "medium", "low"]) });
++/** Assertion over the tool-call trajectory. */
++export const TrajectoryAssertion = z.discriminatedUnion("type", [
++  z.object({ id: z.string().max(40), type: z.literal("called"), tool: z.string(), description: z.string().max(500), severity: z.enum(["critical", "high", "medium", "low"]) }),
++  z.object({ id: z.string().max(40), type: z.literal("not_called"), tool: z.string(), description: z.string().max(500), severity: z.enum(["critical", "high", "medium", "low"]) }),
++  z.object({ id: z.string().max(40), type: z.literal("before"), first: z.string(), then: z.string(), description: z.string().max(500), severity: z.enum(["critical", "high", "medium", "low"]) }),
++  z.object({ id: z.string().max(40), type: z.literal("max_calls"), tool: z.string().optional(), max: z.number().int().min(0), description: z.string().max(500), severity: z.enum(["critical", "high", "medium", "low"]) }),
++]);
++export const RubricItem = z.object({ id: z.string().max(40), description: z.string().max(500), policyRef: z.string().max(80).optional(), severity: z.enum(["critical", "high", "medium", "low"]) });
++
++export const FaultInjection = z.object({
++  tool: z.string(),
++  onCall: z.number().int().min(1).default(1),
++  fault: z.enum(["http_500", "timeout", "empty_result", "stale_data", "rate_limited", "injected_instruction"]),
++  /** For injected_instruction: text planted in the tool result (indirect prompt injection), with a canary. */
++  payload: z.string().max(2_000).optional(),
++});
++
++export const SandboxScenario = z.object({
++  id: z.string().regex(/^sx_[a-z0-9_]{1,60}$/),
++  workflowId: Id,
++  title: z.string().max(200),
++  category: z.enum(["happy_path", "boundary", "missing_info", "policy_conflict", "adversarial_user", "tool_failure", "injection", "multi_step", "ambiguity"]),
++  persona: Persona,
++  /** Scenario-specific rows inserted after the base seed (e.g. the order that is exactly 31 days old). */
++  fixtureSql: z.string().max(50_000).default(""),
++  faults: z.array(FaultInjection).max(5).default([]),
++  attachments: z.array(MediaAttachment).max(8).default([]),
++  stateAssertions: z.array(StateAssertion).max(15).default([]),
++  trajectoryAssertions: z.array(TrajectoryAssertion).max(15).default([]),
++  rubric: z.array(RubricItem).max(10).default([]),
++  /** Tables any write outside of is "collateral damage" (auto-fail high). Empty = no writes expected. */
++  allowedWriteTables: z.array(Id).max(20).default([]),
++  /** AppWorld-style diff contract: changes that MUST appear vs MAY appear; anything else = collateral damage. Each is a SQL predicate over the diff view. */
++  expectedChanges: z.array(z.object({ id: z.string().max(40), description: z.string().max(500), sql: z.string().max(4_000) })).max(15).default([]),
++  allowedChanges: z.array(z.object({ table: Id, description: z.string().max(300) })).max(20).default([]),
++  /** tau-bench r_output: facts the agent must communicate (e.g. the refund amount). Checked deterministically, judge only as fallback. */
++  requiredOutputs: z.array(z.object({ id: z.string().max(40), mustMention: z.array(z.string().max(200)).min(1).max(5), description: z.string().max(300) })).max(10).default([]),
++  /** Impossible-by-design: success = explicit refusal/escalation, never "nothing changed". */
++  expectRefusal: z.boolean().default(false),
++  /** Set by the oracle check: a privileged reference agent achieved all assertions → scenario is satisfiable. */
++  oracleValidated: z.boolean().default(false),
++});
++export type SandboxScenario = z.infer<typeof SandboxScenario>;
++
++/* ---------------- runtime boundary (engine ⇄ runtime) ---------------- */
++
++export interface ToolCallRecord { seq: number; tool: string; args: unknown; result: unknown; error?: string; fault?: string; ms: number }
++export interface StateDiff { table: string; inserted: number; updated: number; deleted: number; sample: Array<Record<string, unknown>> }
++
++/** One isolated world for one trial. Implemented by sandbox/runtime. */
++export interface SandboxRun {
++  readonly runId: string;
++  /** Execute a tool call against this run's world (applies bindings + scheduled faults). Never throws for tool-level errors: returns {error}. */
++  callTool(name: string, args: unknown): Promise<ToolCallRecord>;
++  /** Read-only query for graders (statement_timeout enforced, SELECT only). */
++  query(sql: string): Promise<Array<Record<string, unknown>>>;
++  diff(): Promise<StateDiff[]>;
++  outbox(): Promise<Array<Record<string, unknown>>>;
++  trajectory(): ToolCallRecord[];
++  dispose(): Promise<void>;
++}
++
++export interface SandboxRuntime {
++  /** Provision the job-level world once (DDL + seed), returns an opaque handle. */
++  prepare(env: EnvironmentSpec, jobId: string): Promise<{ worldId: string }>;
++  /** Fresh isolated copy of the world for one trial, with scenario fixtures + faults applied. */
++  startRun(worldId: string, env: EnvironmentSpec, scenario: SandboxScenario, trial: number): Promise<SandboxRun>;
++  teardown(worldId: string): Promise<void>;
++}
++
++/* ---------------- results ---------------- */
++
++export interface CheckResult { id: string; kind: "state" | "trajectory" | "rubric" | "collateral" | "injection" | "perception" | "latency"; passed: boolean; severity: "critical" | "high" | "medium" | "low"; detail: string; policyRef?: string }
++/** Everything that can move a score is pinned and reported (scores across versions are not comparable). */
++export interface EvalVersions { spec: typeof SANDBOX_SPEC_VERSION; suiteHash: string; simulatorModel: string; judgeModel: string; envHash: string; runtime: string }
++export interface TrialResult { scenarioId: string; trial: number; variant: string; versions: EvalVersions; failureAttribution?: "agent" | "simulator" | "environment" | "grader" | "unknown"; passed: boolean; checks: CheckResult[]; transcript: Array<{ role: "user" | "assistant" | "tool"; content: string }>; toolCalls: ToolCallRecord[]; diff: StateDiff[]; costMicroUsd: number; error?: string }
++export interface ScenarioResult { scenarioId: string; workflowId: string; trials: TrialResult[]; passRate: number; /** pass^k: every trial passed */ reliable: boolean; ci95: [number, number] }
