@@ -35,7 +35,7 @@ try {
     noEmit: true, skipLibCheck: true, esModuleInterop: true, resolveJsonModule: true,
     isolatedModules: true, types: ['node'],
   }, include: ['src/**/*.ts'] }));
-  console.log('EXPECTED-FAIL CHARACTERIZATIONS: R1 budget checkpoint poisoning; secured-adapter receipt attestation integration gap. These are unresolved, not acceptance passes.');
+  console.log('R1 budget recovery is an acceptance regression. EXPECTED-FAIL CHARACTERIZATION: secured-adapter receipt attestation integration gap remains unresolved, not an acceptance pass.');
   console.log(`Reviewed HEAD ${git(['rev-parse', 'HEAD']).trim()}; local Track A ${sha}; strict types + original evals/judges tests + independent review`);
   for (const args of [
     [join(dependencies, 'typescript/bin/tsc'), '-p', join(stage, 'tsconfig.json')],

@@ -31,7 +31,14 @@ I verified these catch drift by running against unreferenced commits with mutate
 
 ## Runtime checks
 
-Baseline checks cover pilot prices, job budget caps, finding statuses, a scenario with a state check, suite size at most twelve, ASCII trace cap, `checkTarget` result schema, secret-free failure details, branch result shape, PostgreSQL-only branch URIs, ownership-based deletion, mapping of all twelve calendar acceptance scenarios into a valid `Suite`, and round-tripping their state specs through the grader's closed schema.
+Baseline checks cover pilot prices, job budget caps, finding statuses, a scenario with a state check, the shared suite cap, ASCII trace cap, `checkTarget` result schema, secret-free failure details, branch result shape, PostgreSQL-only branch URIs, ownership-based deletion, mapping of all twelve calendar acceptance scenarios into a valid `Suite`, and round-tripping their state specs through the grader's closed schema.
+
+Contract update at `eee9939b290190886fa9aa11fd32ff84442f05f2`: Track A permits up
+to 32 scenarios for 12 designed cases plus its red-team pack. The boundary check
+now accepts 32 and rejects 33. Track B's frozen text engine still requires exactly
+12 designed scenarios; this compatibility check does not establish execution,
+remediation or reporting support for Track A's appended red-team cases. That
+composition requires separate integration acceptance.
 
 ### Pinned gaps
 
@@ -40,7 +47,7 @@ Tests titled `KNOWN GAP` assert that a gap still exists. If Track A fixes one, t
 | Gap | Observed in the contracts | Required Track B / integration behavior |
 | --- | --- | --- |
 | UTF-8 trace cap | `IntakeInput.trace.max(MAX_TRACE_BYTES)` counts UTF-16 code units. `'€'.repeat(204799)` parses but is 614,397 bytes. | Engine independently enforces `Buffer.byteLength(trace) <= 200 KiB` before use. |
-| Short suites | `Suite.scenarios.max(12)` accepts zero or one scenario. | Engine requires twelve reviewed scenarios for ordinary jobs and records deliberate reductions. |
+| Short suites | `Suite.scenarios.max(32)` accepts zero or one scenario. | Engine requires twelve reviewed scenarios for ordinary jobs and records deliberate reductions. |
 | Finding association | Zod strips `runId`, `branchId`, and `versionLabel` from `Finding`. | Persist run/branch/version links separately; do not rely on `Finding` to carry them. |
 | Unknown cost | `CostEntry.microUsd` is a non-negative integer; `null` is rejected. Unknown judge cost cannot be represented as a monetary entry. | Preserve usage separately until billing reconciliation supplies a known cost; never fabricate a zero-dollar entry. |
 | Run outcomes | `RunResult.results[]` has only `passed`, `detail`, and `scenarioId`. Calendar stop reasons `complete`, `target_error`, `invalid_response`, and `round_limit`, and monitoring outcomes (`passed`, `failed`, `inconclusive`, `infrastructure_error`), collapse into one boolean. `FindingStatus` has no infrastructure status. | Keep rich outcomes internally; extend the contract before showing infrastructure errors or inconclusive checks as product results. |

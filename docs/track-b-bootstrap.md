@@ -58,8 +58,13 @@ source inspection. Track B's `evals/index` remains a factory entry, not a global
 ## Remaining service-shape gaps
 
 The current shared interface additionally requires `proposeAndVerifyFix`.
-Track B has no real verified-remediation implementation. Track A's deterministic
-mock template reports simulated verification and must stay confined to mock jobs.
+Track B now supplies `createRemediationServices` through its composition entry point;
+see [the remediation contract](track-b-remediation.md) for authenticated evidence,
+isolated application receipts, operation reservations and replay requirements.
+It can verify prompt replacements against all 12 unchanged frozen text scenarios.
+Trace-only and unsupported patches remain unverified. Production wiring and live
+acceptance are still outstanding. Track A's deterministic mock template reports
+simulated verification and must stay confined to mock jobs.
 A proposed prompt change is not evidence that a customer agent is fixed, and
 rechecking an unchanged historical transcript cannot prove a patch works.
 

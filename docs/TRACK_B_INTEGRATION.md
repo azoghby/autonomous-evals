@@ -2,6 +2,21 @@
 
 Status: implementation in progress. This document specifies integration requirements, not completed capabilities. PLAN.md is the product baseline; TRACKS.md sets ownership. Track A owns app/platform configuration and application database migrations. Track B owns engine services and simulator migrations.
 
+## Parent integration checkpoint (2026-11-07)
+
+The remediation factory is exported and its invalid-initial-budget recovery defect
+is fixed. The current private-chat patch package is integrated as a handoff artifact.
+Against pinned Track A `eee9939b290190886fa9aa11fd32ff84442f05f2`, the full harness
+passed strict TypeScript and 987 tests across 61 files, none skipped. The 25
+`KNOWN GAP` cases pin unresolved contract limitations, not completed integration.
+After integrating rubric authority/template construction revision `ac82f9e`, the
+changed evals/judges components passed strict TypeScript and 429 tests across 27 files.
+The separate remediation review passed 458 tests with one explicit expected failure
+documenting the missing secured adapter; its budget-recovery case now passes normally.
+The chat patch was reapplied to its exact base and passed all 51 core/server/UI tests
+and targeted server/client typechecks. These are offline checks, not a deployed app,
+live provider acceptance, or proof of real Neon SDK/session connectivity.
+
 ## Integration boundary
 
 Track B exports TypeScript services for Track A's Workflow steps. It does not start a second job orchestrator, call public customer routes, send outreach, collect payments, or manage Vercel configuration.
@@ -18,7 +33,7 @@ Track A published initial contracts on branch `track-a`, commit `673873d`, at `p
 
 - `ServiceContext.budgetMicroUsd` is a number, not an atomic reservation. Engine construction must also receive durable budget/session persistence adapters; concurrent invocations cannot authorize spending from this number alone.
 - `RunResult.results` currently has only `passed: boolean` plus text. Preserve richer execution outcomes internally and extend the integration contract before displaying infrastructure errors or inconclusive checks as product failures.
-- `Suite.scenarios.max(12)` permits empty/short suites. The engine must enforce the planned twelve reviewed scenarios for ordinary full evaluation jobs; deliberate scope reductions must be recorded.
+- The current `Suite.scenarios.max(32)` permits empty/short suites. The engine must enforce the planned twelve reviewed scenarios for ordinary full evaluation jobs; deliberate scope reductions must be recorded. Track A's appended red-team cases require separate execution/reporting integration.
 - Intake trace `.max(MAX_TRACE_BYTES)` measures string length rather than UTF-8 bytes. The engine must independently enforce the 200 KB byte cap, including multibyte input.
 - `rerunFinding` receives a finding/scenario but no target credentials or frozen initial state. Resolve these from authorized durable job storage; never infer a target or state from untrusted finding text.
 - `deleteJobBranch(branchId)` must use a stored job-to-branch association and verify ownership; an arbitrary branch ID is insufficient authority to delete.
@@ -30,17 +45,19 @@ These are integration requirements identified from the published contracts, not 
 
 The initial service list above is historical. The current Track A contract also requires
 `proposeAndVerifyFix` and optionally exposes `getJobBranchConnection`. Track B supplies the
-ownership-checked connection resolver. It does **not** yet supply a verified-remediation
-service: a suggested change must not be reported as verified without executing the relevant
-frozen scenario against that change. This is an open integration requirement, not covered by
-the service-name compatibility test. Trace rechecking alone cannot prove that a customer
-agent's behavior has changed.
+ownership-checked connection resolver and now supplies an explicit
+[remediation service factory](track-b-remediation.md). Its bounded verification executes
+all 12 unchanged frozen text scenarios with isolated patch-application receipts.
+Secured adapter composition and production acceptance remain open; trace rechecking
+alone cannot prove that a customer's behavior has changed.
 
 Private progress chat now has a PostgreSQL conversation adapter and a separate migration
 artifact, plus a [durable progress projection](track-b-progress-projection.md).
 The app must still supply authenticated routes, authorized job inventories and consistent
 storage reads for that projection.
-The UI patch under `docs/progress-chat-ui/` is not a deployed interface. Evaluation-data
+The current [chat integration package](progress-chat-integration/README.md) supersedes
+the old `docs/progress-chat-ui/` handoff and includes concrete routes, persistence and UI
+patches against Track A `96cb4ad`; it is not a deployed interface. Evaluation-data
 acquisition has quality/provenance gates and expert drafts, but no expert outreach has been
 sent and no contributed dataset has been validated in production.
 

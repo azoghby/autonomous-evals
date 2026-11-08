@@ -37,9 +37,11 @@ replay when the current remaining-budget hint has fallen to zero. Do not release
 external target/judge intents. Add the zero-then-positive retry regression and
 retain the existing frozen-budget replay control.
 
-The test `DEFECT R1` uses `it.fails` to assert the desired successful retry;
-its expected failure is an explicitly unresolved defect, not acceptance of the
-current behavior. Production remains unchanged for the parent to fix.
+Parent fix: invalid initial input now releases only the newly claimed budget
+checkpoint before rejecting. The R1 test is an ordinary acceptance regression:
+it requires a releasable `ready` budget checkpoint, no paid calls, and a successful
+retry with a positive budget. Completed budgets and external dispatch intents
+remain immutable. The original results artifact records the pre-fix review.
 
 ## G1 — Integration gap: secured application attestation is not implemented here
 

@@ -149,7 +149,11 @@ export function createRemediationServices(deps: RemediationDeps) {
     const bc = await deps.checkpoints.claim(bk);
     let engineerBudget: number;
     if (bc.state === 'claimed') {
-      if (!Number.isSafeInteger(ctx.budgetMicroUsd) || ctx.budgetMicroUsd <= 0) block('Positive bounded engineer budget required.');
+      if (!Number.isSafeInteger(ctx.budgetMicroUsd) || ctx.budgetMicroUsd <= 0) {
+        // No reservation or provider dispatch has occurred for this budget-only claim.
+        await deps.checkpoints.release(bk, bc.token);
+        block('Positive bounded engineer budget required.');
+      }
       engineerBudget = ctx.budgetMicroUsd;
       await deps.checkpoints.complete(bk, bc.token, engineerBudget);
     } else if (bc.state === 'completed' && Number.isSafeInteger(bc.value) && Number(bc.value) > 0) engineerBudget = Number(bc.value);

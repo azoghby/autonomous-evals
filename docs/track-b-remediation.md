@@ -9,10 +9,10 @@ server factory; application bootstrap and deployment remain separate work.
 
 ## Wiring
 
-Import `createRemediationServices` directly from
-`packages/core/src/evals/remediation/index.ts` (package subpath
-`@ae/core/evals/remediation/index` where the workspace resolves source subpaths).
-There is no new root export, singleton, migration, dependency or manifest change.
+Import `createRemediationServices` from the server-only composition entry point
+`packages/core/src/evals/index.ts`, or directly from `evals/remediation/index.ts`.
+The entry point also exports its dependency, authorization, receipt and result types.
+There is no singleton, new migration, dependency or manifest change.
 
 ```ts
 const remediation = createRemediationServices({

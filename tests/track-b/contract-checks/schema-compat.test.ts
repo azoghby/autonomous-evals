@@ -58,11 +58,12 @@ describe('baseline shared-contract compatibility', () => {
     expect(IntakeInput.safeParse({ ...intake, trace: 'a', authorizedToTest: false }).success).toBe(false);
   });
 
-  it('bounds suites to at most twelve scenarios', () => {
+  it('allows twelve designed scenarios plus the Track A red-team pack, capped at 32', () => {
     const scenario = { id: 's', title: 't', category: 'c', input: 'i', checks: [{ kind: 'objective' as const, description: 'd' }] };
     const suite = (count: number) => ({ jobId, frozenAt: '2026-11-07T00:00:00.000Z', scenarios: Array.from({ length: count }, (_, i) => ({ ...scenario, id: `s${i}` })) });
     expect(Suite.safeParse(suite(12)).success).toBe(true);
-    expect(Suite.safeParse(suite(13)).success).toBe(false);
+    expect(Suite.safeParse(suite(32)).success).toBe(true);
+    expect(Suite.safeParse(suite(33)).success).toBe(false);
   });
 });
 

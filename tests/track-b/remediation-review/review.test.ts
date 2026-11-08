@@ -211,16 +211,15 @@ describe('remediation: SQL persistence and offline isolated target trials', () =
     }
   });
 
-  it.fails('DEFECT R1: an invalid initial budget must not permanently poison an unstarted remediation', async () => {
+  it('REGRESSION R1: an invalid initial budget does not permanently poison an unstarted remediation', async () => {
     const f = await fixture();
     f.ctx.budgetMicroUsd = 0;
     await expect(f.call()).rejects.toThrow('Positive bounded engineer budget required');
     expect(f.run).not.toHaveBeenCalled(); expect(f.send).not.toHaveBeenCalled();
     const rows = await engine.query<{ state: string }>('SELECT state FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2', [f.ctx.jobId, 'remediation_engineer_budget']);
-    expect(rows.rows).toEqual([{ state: 'pending' }]);
+    expect(rows.rows).toEqual([{ state: 'ready' }]);
     f.ctx.budgetMicroUsd = 1_000_000;
-    // Current behavior throws "Engineer budget intent requires reconciliation."
-    // Desired behavior: no paid action occurred, so corrected authorization may start safely.
+    // No paid action occurred, so corrected authorization may start safely.
     await expect(f.call()).resolves.toMatchObject({ remediation: { verification: { status: 'verified' } } });
   });
 

@@ -5,6 +5,8 @@ export type { TrackBServiceDeps } from './service-adapter';
 export { createTextEvaluationServices, toLegacyRunResult } from './integration/services';
 export { PostgresTextCheckpointStore } from './integration/checkpoints';
 export { createCalendarEvaluationServices } from './calendar-integration';
+export { createRemediationServices } from './remediation';
+export type { RemediationDeps, AuthorizedRemediation, RemediationResult, AppliedReceipt } from './remediation';
 export { createTargetServices } from '../targets/adapters';
 export { createTextTarget } from '../targets/text';
 export { createBranchServices } from '../simulator/adapters';
