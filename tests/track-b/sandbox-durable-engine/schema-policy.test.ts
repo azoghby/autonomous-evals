@@ -39,3 +39,27 @@ it('rejects unknown metadata/report fields instead of passing unknown objects th
   expect(() => validatePrivateReport({ ...legacy(), policy: {} }, 'job')).toThrow();
   expect(() => validatePrivateReport({ ...legacy(), media: { kind: 'receipt', artifact: {} } }, 'job')).toThrow();
 });
+
+it('rejects v2 success or failure claims unsupported by completed grading evidence', () => {
+  const metadata = { outcomeRule: 'sandbox-quality-outcome-v2', qualityCostPolicy: null };
+  for (const status of ['pass', 'fail']) {
+    const report = { ...legacy(), ...metadata, policyDigest: executionDigest(metadata) };
+    report.outcome.status = status;
+    if (status === 'pass') delete (report.outcome as { failureAttribution?: string }).failureAttribution;
+    expect(() => validatePrivateReport(report, 'job')).toThrow('sandbox_persistence_outcome_conflict');
+  }
+});
+
+it('rejects a passing v2 cost-gated report when actual money remains unknown', () => {
+  const metadata = { outcomeRule: 'sandbox-quality-outcome-v2', qualityCostPolicy: { version: 'sandbox-quality-cost-policy-v1', maxCostMicroUsd: 100 } };
+  const base = legacy();
+  const execution = { ...base.execution, status: 'completed', infrastructure: 'known', runId: 'run', worldId: 'world', diff: [], outbox: [] };
+  const { failureAttribution: _unused, ...outcome } = base.outcome;
+  const grade = { runId: 'run', scenarioId: execution.input.scenario.id, versions: execution.input.versions, transcript: [], toolCalls: [], diff: [],
+    verdict: 'pass', utility: 'pass', security: 'not_applicable', checks: [{ id: 'state:ok', kind: 'state', severity: 'high', verdict: 'pass', rewardBearing: true, detail: 'Actual state check' }] };
+  const report = { ...base, ...metadata, policyDigest: executionDigest(metadata), execution, grade, unresolved: [], outcome: { ...outcome, status: 'pass' } };
+  expect(() => validatePrivateReport(report, 'job')).toThrow('sandbox_persistence_outcome_conflict');
+  const noCap = { outcomeRule: metadata.outcomeRule, qualityCostPolicy: null };
+  const qualityOnly = { ...report, ...noCap, policyDigest: executionDigest(noCap) };
+  expect(validatePrivateReport(qualityOnly, 'job')).toEqual(qualityOnly);
+});

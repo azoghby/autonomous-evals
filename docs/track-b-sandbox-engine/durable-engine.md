@@ -80,3 +80,7 @@ The repaired original persistence runner also passed all 14 native PostgreSQL ch
 Parent acceptance now constructs the receipt proposal through `engine.propose`: real rendered receipt SDK execution over an injected local transport, SQL reference execution, independently supplied exact perception authority, failed null/empty/dump controls, and targeted mutations. It no longer supplies synthetic control grade booleans or constructs a receipt suite artifact by hand. Missing extraction is graded from complete trajectory evidence. After reopening SQL, both proposal and trial replay preserve their artifacts and dispatch counts.
 
 Strict staged compilation and all seven durable-engine/schema tests passed after this replacement against `ec1f76e`. Reference execution remains a controlled local fixture, provider responses remain injected, and this does not prove live-provider performance or permissions.
+
+## Versioned outcome consistency
+
+New v2 report writes/reads now recompute outcome consistency from the retained execution, grade, media checks, unresolved reasons and approved quality cost policy. A digest-valid report cannot claim pass/fail for incomplete execution or a passing cost gate with unknown money. Historical reports without the versioned policy group remain unchanged. Parent strict compilation and **nine durable-engine/schema tests** passed, including restart replay and the two new contradiction regressions.

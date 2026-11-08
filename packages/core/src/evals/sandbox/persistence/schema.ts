@@ -3,6 +3,7 @@ import { mediaEvidenceSchema, validateMediaBindings } from './media-schema';
 import { EnvironmentSpec, SandboxScenario } from '../../../sandbox/spec';
 import { executionDigest } from '../execution/runner';
 import type { PrivateSandboxReport } from '../integration';
+import { qualityOutcome } from '../integration/outcome';
 
 const text = z.string().min(1).max(4096);
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -71,5 +72,17 @@ export function validatePrivateReport(value: unknown, jobId: string): PrivateSan
       || executionDigest(r.grade.toolCalls) !== executionDigest(r.execution.toolCalls)
       || executionDigest(r.grade.diff) !== executionDigest(r.execution.diff)))) throw new Error('sandbox_persistence_report_identity_conflict');
   validateMediaBindings(r as PrivateSandboxReport);
+  // Preserve historical outcomes verbatim. New rule-versioned evidence must
+  // agree with the policy it carries, even when a trusted writer supplied it.
+  if (r.outcomeRule === 'sandbox-quality-outcome-v2') {
+    const report = r as PrivateSandboxReport;
+    const unresolved = [...report.unresolved];
+    const media = report.media;
+    if (media?.artifact.perception.some(check => !check.passed)) unresolved.push('media_perception_unresolved_or_failed');
+    if ((media?.kind === 'voice' && media.artifact.timing.latencyPassed === false)
+      || (media?.kind === 'receipt' && media.artifact.latency.checks.some(check => !check.passed))) unresolved.push('media_latency_failed');
+    if (qualityOutcome(report.execution, report.grade, report.qualityCostPolicy ?? null, unresolved) !== report.outcome.status)
+      throw new Error('sandbox_persistence_outcome_conflict');
+  }
   return value as PrivateSandboxReport;
 }
