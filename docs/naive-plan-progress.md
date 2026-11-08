@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Latest repository checkpoint
+
+Track A main `8637532` is preserved in `track-a` merge `7c61008`, including billing, the Revenue tab, auth hardening and session-lock fixes. Current merged web TypeScript passes; the original npm suite passes **3,681 tests, zero failures and two documented opt-in skips**. Fresh installed dependencies are available. Earlier missing-executable statements below describe historical checkpoints.
+
+The approved 15-file accounting/expert and 26-file expert text patches are actual source. Operator review/recovery and generic text routing remain proposed artifacts, not deployed features. The isolated staging database has the 27 app migrations through 0026 plus four sidecars; newly merged 0027/0028 are not yet applied. Full Phase 0 and later acceptance gates remain open.
+
 ## Phase 0
 
 Implemented and checked locally:

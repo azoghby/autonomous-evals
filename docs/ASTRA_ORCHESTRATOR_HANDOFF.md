@@ -4,13 +4,14 @@ Prepared for Alex at his explicit request. Read this instead of importing the mu
 
 ## Current source checkpoint (2026-11-08)
 
-This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on old “not implemented” statements. Main and origin/main were fetched and matched at `11d7ff2b18c8d6388ffe2d20ac329e8e5095792d`. The latest supplied AGENTS instructions require commits on `track-a`; this continuation created that branch from the verified main tip without changing source.
+This handoff's detailed inventory below is historical. Read the later entries in `LEDGER.md` and `docs/naive-plan-progress.md` before acting on old “not implemented” statements. The latest fetched origin/main is `8637532`, merged into `track-a` at `7c61008`. This preserves Track A’s billing, Revenue tab, authentication and session-lock changes. The local `main` branch is older; use the fetched ref and merge evidence rather than assuming it is current. The latest supplied AGENTS instructions require commits on `track-a`.
 
 - Approved accounting/expert source is adopted in `796b5cf`; approved 26-file expert text routing/contracts/schema source is adopted in `9eb9e4c`. Do not apply those historical patches again. Adoption receipts distinguish them from their immutable pre-adoption manifests.
 - `9eb9e4c` passed complete locked-install [GitHub CI](https://github.com/azoghby/standard-evals/actions/runs/42466546567). Core independent proxy accounting recovery is actual source in `11d7ff2`, independently checked with 987 tests/68 files and strict types; its full hosted [CI passed](https://github.com/azoghby/standard-evals/actions/runs/42467560403).
 - New operator review and accounting recovery surfaces are separate proposed artifacts in `docs/expert-review-surface-integration` and `docs/naive-proxy-recovery-integration`. They are not actual app source or deployed features.
 - An isolated schema-only Neon staging branch, fresh role and database have been created using privately supplied credentials. See `docs/naive-staging-infrastructure-receipt.json`; all 27 application and four sidecar migrations were applied to the empty fresh staging database. Replay, operation immutability/rollback and two-connection task uniqueness checks passed. Production was not modified. The staging branch expires November 15, 2026.
-- Full roster attestation/provisioning, generic method routing, real hosted acceptance and subsequent plan phases remain open. Source tests do not satisfy these gates.
+- Current merged source passes web TypeScript and 3,681 tests, with two documented skips. The new 0027/0028 migrations are source only and are not yet applied to isolated staging. Operator and generic text candidates are being revalidated against this merged baseline; their previous receipts do not certify changed upstream files.
+- Full roster attestation/provisioning, generic method routing adoption, real hosted acceptance and subsequent plan phases remain open. Source tests do not satisfy these gates.
 
 ## Assignment and governing plan
 
@@ -28,7 +29,7 @@ User preferences: use Codex subagents and delegate independent work; children ma
 ## Repository and working method
 
 - Root: `/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2`.
-- Branch: `main`; remote `https://github.com/azoghby/standard-evals.git`.
+- Working branch: `track-a`; remote `https://github.com/azoghby/standard-evals.git`.
 - Track A actively pushes to main. Fetch and inspect upstream before pushing; preserve its changes, never force push. Root owns commits/merges; subagents use disjoint files and report changes.
 - Track B owns `packages/core/src/{agents,evals,judges,monitoring,reporting,simulator,targets}` and its docs/tests. Do not overwrite Track A application/platform/runtime/contracts/manifests. Deliver owner-applied app patches or coordinate the documented interface changes.
 - User's unrelated `docs/customer-recruitment/` is untracked work: leave it alone.
