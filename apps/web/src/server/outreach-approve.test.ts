@@ -12,7 +12,7 @@ vi.mock("drizzle-orm", () => ({ and: () => ({}), eq: () => ({}) }));
 vi.mock("@ae/core/db/client", () => {
   const t = new Proxy({}, { get: (_x, k) => String(k) });
   return {
-    schema: { outreachDrafts: t, interventions: t, expertEngagements: t },
+    schema: { outreachDrafts: t, interventions: t, expertEngagements: t, prospectLeads: t },
     db: () => ({
       select: () => h.chain(() => h.state.selects.shift() ?? []),
       update: () => h.chain(() => { h.state.updates++; return h.state.updateResult; }),
@@ -69,6 +69,24 @@ describe("approveAndSendDraft", () => {
     h.state.configured = true; h.state.selects = [[{ toEmail: "e@b.com", kind: "expert_invite" }], []];
     expect(await approveAndSendDraft(ID, "op@example.com")).toEqual({ ok: true, status: "sent" });
     expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sdr kinds", () => {
+  it("still blocks a suppressed sdr_first_touch at approve time via guardOutreachSend", async () => {
+    h.state.selects = [[{ toEmail: "p@b.com", kind: "sdr_first_touch" }]]; h.state.configured = true;
+    guard.mockResolvedValueOnce({ ok: false, status: 409, error: "suppressed" });
+    expect(await approveAndSendDraft(ID, "op@example.com")).toMatchObject({ ok: false, status: 409 });
+    expect(guard).toHaveBeenCalledWith(ID, "p@b.com");
+    expect(h.state.updates).toBe(0); expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("marks the lead contacted after an sdr send", async () => {
+    h.state.configured = true;
+    h.state.selects = [[{ toEmail: "p@b.com", kind: "sdr_first_touch" }], []];
+    h.state.updateResult = [{ toEmail: "p@b.com", subject: "s", body: "b", kind: "sdr_first_touch" }];
+    expect(await approveAndSendDraft(ID, "op@example.com")).toEqual({ ok: true, status: "sent" });
+    expect(h.state.updates).toBe(3); // claim + sent status + lead contacted
   });
 });
 

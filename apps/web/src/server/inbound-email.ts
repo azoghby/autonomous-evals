@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { InboundMessage } from "@ae/core/email/webhook";
 import { sendJobEvent } from "@/workflows/events";
@@ -34,12 +34,19 @@ export interface InboundStore {
   founderAddress?(): string | null;
   /** Side effects for an authenticated founder reply, bound to the inbound message. */
   founderReplyDeps?(msg: InboundMessage): FounderReplyDeps;
+  /** Signed-up, non-suppressed customer for a sender address. */
+  customerByEmail?(email: string): Promise<{ id: string } | null>;
+  /** Marks the thread as an onboarding thread so later replies route back. Best-effort. */
+  recordOnboardingThread?(threadId: string): Promise<void>;
+  handleOnboarding?(i: { customerId: string; threadId: string; inboxId: string; messageId: string; subject: string; body: string }): Promise<void>;
+  /** Prospect-lead reply bookkeeping (outreach agent). */
+  recordProspectReply?(fromEmail: string, text: string): Promise<{ matched: boolean; optedOut: boolean }>;
 }
 
 export type InboundResult =
   | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped"
   | "owner_replied" | "owner_escalated"
-  | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated";
+  | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated"; | "onboarding" | "prospect_reply";
 
 /** Pulls the bare address out of "Name <a@b.c>" and lowercases it. */
 export const bareAddress = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
@@ -65,6 +72,8 @@ export async function handleInbound(msg: InboundMessage, store: InboundStore): P
     }
 
     const thread = await store.findThread(msg.threadId);
+    const known = !!thread && !!(thread.jobId || thread.expertEngagementId || thread.publicAgentId);
+    if (!known) return routeUnknownThread(msg, body, sender, store);
     if (!thread) return "unmatched";
 
     if (thread.jobId) {
@@ -94,6 +103,25 @@ export async function handleInbound(msg: InboundMessage, store: InboundStore): P
     await store.release(msg.messageId); // let AgentMail's retry reprocess it
     throw err;
   }
+}
+
+/**
+ * Messages not on a job / engagement / public-agent thread: prospect replies (outreach bookkeeping) and signed-up
+ * customers writing to us (onboarding agent). Unknown senders are unchanged: "unmatched".
+ */
+async function routeUnknownThread(msg: InboundMessage, body: string, sender: string, store: InboundStore): Promise<InboundResult> {
+  let prospect = false;
+  if (store.recordProspectReply) {
+    try { prospect = (await store.recordProspectReply(sender, body)).matched; }
+    catch (err) { console.error("recordProspectReply failed", err instanceof Error ? err.message : err); }
+  }
+  const customer = store.customerByEmail ? await store.customerByEmail(sender) : null;
+  if (customer && store.handleOnboarding) {
+    await store.recordOnboardingThread?.(msg.threadId);
+    await store.handleOnboarding({ customerId: customer.id, threadId: msg.threadId, inboxId: msg.inboxId, messageId: msg.messageId, subject: msg.subject, body });
+    return "onboarding";
+  }
+  return prospect ? "prospect_reply" : "unmatched";
 }
 
 /** Idempotency rides on the idempotency_keys table (key agentmail:<messageId>). */
@@ -150,5 +178,24 @@ export function drizzleInboundStore(): InboundStore {
     founderThread: (threadId) => findFounderThread(threadId),
     founderAddress: () => resolveFounderEmail(),
     founderReplyDeps: (msg) => founderReplyDeps(msg),
+    async customerByEmail(email) {
+      const [row] = await d().select({ id: schema.customers.id }).from(schema.customers)
+        .where(sql`lower(${schema.customers.email}) = ${email}`).limit(1);
+      if (!row) return null;
+      const { isSuppressed } = await import("./owner-shared");
+      return (await isSuppressed(email)) ? null : row;
+    },
+    async recordOnboardingThread(threadId) {
+      const { recordEmailThread } = await import("./email-threads");
+      await recordEmailThread(threadId, "onboarding", {});
+    },
+    async handleOnboarding(i) {
+      const { handleOnboardingMessage } = await import("./company/onboarding");
+      await handleOnboardingMessage({ customerId: i.customerId, channel: "email", text: i.body, threadId: i.threadId, subject: i.subject, inboxId: i.inboxId, messageId: i.messageId });
+    },
+    async recordProspectReply(fromEmail, text) {
+      const { recordProspectReply } = await import("./company/outreach");
+      return recordProspectReply(fromEmail, text);
+    },
   };
 }

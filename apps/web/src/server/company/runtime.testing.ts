@@ -2,7 +2,7 @@
 import type { CompanyAgentId } from "@ae/core/company/registry";
 import type { ActivityFinish, RunTrigger, RuntimeDeps } from "./runtime";
 
-export interface MemoryActivity extends Partial<ActivityFinish> {
+export interface MemoryActivity extends Omit<Partial<ActivityFinish>, "status"> {
   id: string; agentId: CompanyAgentId; trigger: RunTrigger; budgetMicroUsd: number; dryRun: boolean; startedAt: Date; status: string;
 }
 

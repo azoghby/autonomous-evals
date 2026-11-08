@@ -61,6 +61,7 @@ export async function approveAndSendDraft(id: string, approverEmail: string, opt
           .where(eq(schema.expertEngagements.outreachDraftId, id)).limit(1);
         if (engagement) await recordEmailThread(sentMail.threadId, "expert_outreach", { expertEngagementId: engagement.id });
       } catch (err) { console.error("record outreach thread failed", err); }
+      if (String(draft.kind ?? "").startsWith("sdr_")) await markProspectContacted(id, sentMail.threadId);
     } catch (err) {
       sendError = err instanceof Error ? err.message : "send failed";
       console.error("outreach send failed", err);
@@ -82,6 +83,15 @@ export async function rejectDraft(id: string, approverEmail: string, opts: { syn
   });
   if (opts.syncApproval !== false) await closeApprovalFromSource("outreach_draft", id, "rejected", approverEmail);
   return { ok: true };
+}
+
+/** After an SDR draft is sent: mark the prospect lead "contacted" and map the thread. Best-effort. */
+async function markProspectContacted(draftId: string, threadId: string | null | undefined): Promise<void> {
+  try {
+    await db().update(schema.prospectLeads).set({ status: "contacted", updatedAt: new Date() })
+      .where(eq(schema.prospectLeads.outreachDraftId, draftId));
+    await recordEmailThread(threadId, "prospect", {});
+  } catch (err) { console.error("mark prospect contacted failed", err); }
 }
 
 export type ApproveAllPayload = { ids?: unknown; op?: unknown; [k: string]: unknown };
