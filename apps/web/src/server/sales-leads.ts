@@ -75,6 +75,15 @@ export async function submitSalesLead(raw: unknown, ip: string): Promise<SubmitR
     console.error("sales lead alert failed", err instanceof Error ? err.message : String(err));
   }
   if (row) await notifySalesLead({ id: row.id, company: lead.company, name: lead.name, volume: lead.volume, agentDescription: lead.agentDescription });
+  if (row) {
+    // Hand the lead to the SDR agent (draft only, founder approves before anything is sent). Never fails the request.
+    try {
+      const { routeSalesLeadToPipeline } = await import("./company/inbound-leads");
+      await routeSalesLeadToPipeline({ id: row.id, ...lead });
+    } catch (err) {
+      console.error("sales lead pipeline routing failed", err instanceof Error ? err.message : String(err));
+    }
+  }
   return { ok: true };
 }
 
