@@ -1,0 +1,1125 @@
+diff --git a/apps/web/src/app/api/operator/jobs/[id]/remediation-policy/route.ts b/apps/web/src/app/api/operator/jobs/[id]/remediation-policy/route.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/api/operator/jobs/[id]/remediation-policy/route.ts
+@@ -0,0 +1,21 @@
++import { requireOperator, readJson, isUuid } from '@/server/http';
++import { expertOwnerDatabase } from '@/server/automated-expert-owner';
++import { RemediationPolicyMutation, mutateNaiveRemediationTrialPolicy, readNaiveRemediationPolicyStatus } from '@/server/naive-remediation-policy';
++export const dynamic='force-dynamic';
++const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'private, no-store','Vary':'Cookie'}});
++type Context={params:Promise<{id:string}>};
++export async function GET(_request:Request,context:Context){
++ const auth=await requireOperator();if(auth.res)return auth.res;
++ const {id}=await context.params;if(!isUuid(id))return json({error:'Invalid job'},400);
++ try{return json(await readNaiveRemediationPolicyStatus(expertOwnerDatabase(),id.toLowerCase(),auth.viewer.id));}
++ catch{return json({error:'Remediation policy unavailable'},409);}
++}
++export async function POST(request:Request,context:Context){
++ const auth=await requireOperator();if(auth.res)return auth.res;
++ const {id}=await context.params;if(!isUuid(id))return json({error:'Invalid job'},400);
++ if(request.headers.get('origin')!==new URL(request.url).origin||!['same-origin',null].includes(request.headers.get('sec-fetch-site')))return json({error:'Same origin required'},403);
++ if(request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json')return json({error:'JSON required'},415);
++ const parsed=await readJson(request,RemediationPolicyMutation,2048);if(!parsed.ok)return parsed.res;
++ try{await mutateNaiveRemediationTrialPolicy(expertOwnerDatabase(),id.toLowerCase(),auth.viewer.id,parsed.data);return json({ok:true});}
++ catch{return json({error:'Remediation policy unavailable'},409);}
++}
+diff --git a/apps/web/src/server/naive-method-authority.ts b/apps/web/src/server/naive-method-authority.ts
+--- a/apps/web/src/server/naive-method-authority.ts
++++ b/apps/web/src/server/naive-method-authority.ts
+@@ -113,6 +113,7 @@
+  }
+  return {artifacts,checkpoints:new PostgresTextCheckpointStore(deps.sql),
+   authorizeDesign:async(request:ServiceContext)=>{if(request.jobId!==captured.jobId||request.environment!==captured.environment)return fail();return deps.sql.transaction(tx=>current(tx));},
++  currentInTransaction:current,
+   current:(value?:unknown)=>deps.sql.transaction(tx=>current(tx,value)),designIdentity:(tx?:Tx)=>tx?designIdentity(tx):deps.sql.transaction(tx=>designIdentity(tx)),
+   resolveSuite:async(publicSuite?:Suite)=>{
+    const a=await deps.sql.transaction(tx=>current(tx)),identity=await deps.sql.transaction(tx=>designIdentity(tx));
+diff --git a/apps/web/src/server/naive-remediation-authority.test.ts b/apps/web/src/server/naive-remediation-authority.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-authority.test.ts
+@@ -0,0 +1,140 @@
++import { createHash } from 'node:crypto';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++/** Real generic owner SQL + concrete admission + rich adapters; provider/target transport only are fakes. */
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,describe,expect,it,vi } from 'vitest';
++import type { IntakeInput } from '@ae/core/contracts/index';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import { PostgresAgentTaskStore,PostgresBudgetLedger,type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { AgentSessionService,type AgentTaskRunner } from '@ae/core/agents/session-service';
++import { harness,directory } from '@ae/core/agents/__tests__/fakes';
++import { behavioralInstructions,behavioralRubric } from '@ae/core/evals/text/rubric-admission';
++import { makeScenarios } from '@ae/core/evals/text/__tests__/fixtures';
++import { createNaiveRemediationAuthority } from './naive-remediation-authority';
++import { createNaiveTextRuntime } from './naive-text-methods';
++import { createNaiveTextMethods } from './naive-text-methods';
++import { createNaiveTextPublication,readNaiveTextDeliveryReceipt,claimNaiveTextDeliveryNotification,completeNaiveTextDeliveryNotification } from './naive-text-publication';
++import type { Report } from '@ae/core/contracts/index';
++
++const jobId='123e4567-e89b-42d3-a456-426614174000',customerId='323e4567-e89b-42d3-a456-426614174000';
++const databases:PGlite[]=[];
++afterEach(async()=>{vi.unstubAllEnvs();for(const pg of databases.splice(0))await pg.close();});
++async function fixture(rubric=false,fixtureJobId=jobId,shared?:{pg:PGlite;sql:AgentTransactionalSql;provider:ReturnType<typeof harness>;proxyFetch:typeof fetch},proxyOutcome:'passed'|'inconclusive'='passed',factual=false){
++ const jobId=fixtureJobId;
++ if(factual){vi.stubEnv('EVAL_NAIVE_FACTUAL_GAPS','1');vi.stubEnv('EVAL_SERVICES','real');}
++ vi.stubEnv('NAIVE_JUDGE_MODEL','fixture-jude-model');vi.stubEnv('NAIVE_API_KEY','fixture-proxy-key');
++ vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
++ const pg=shared?.pg??new PGlite();if(!shared){databases.push(pg);
++ for(const file of ['packages/core/src/db/migrations/0000_init.sql','packages/core/src/db/migrations/0005_remediations.sql','packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql','docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
++ await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customerId,'publication-fixture@example.test']);}
++ const intake:Extract<IntakeInput,{package:'text_eval'}>={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',referenceText:'Canonical grounding text.',systemPrompt:rubric?'Use a polite tone.':'Follow explicit constraints.',apiKey:'fixture-target-key'}};
++ // Match workflows/steps/evaluate.ts targetFor: referenceText belongs to design, not the dispatch target.
++ const target={url:intake.endpoint.url,model:intake.endpoint.model,apiKey:intake.endpoint.apiKey,systemPrompt:intake.endpoint.systemPrompt??''};
++ const {apiKey:_key,...endpoint}=intake.endpoint;
++ await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake) VALUES($1,$2,'test','text_eval',false,'planning',$3)`,[jobId,customerId,JSON.stringify({...intake,endpoint,_credentialSlots:['endpoint']})]);
++ await pg.query(`INSERT INTO job_credentials(job_id,ciphertext) VALUES($1,'encrypted-fixture')`,[jobId]);
++ const sql:AgentTransactionalSql=shared?.sql??{query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
++ const executionProfile=factual?{policyId:'generic-text-factual-gap-v1' as const,designId:'generic-text-factual-gap-v1' as const,versionLabel:'generic-text-factual-gap-v1' as const,admissionPolicyId:'automated-text-design-factual-gap-v1' as const,factualGapPolicy:'propose_missing_reference.v1' as const,expertTaskId:'fact-task'}:undefined;
++ if(executionProfile){const value={schemaVersion:'naive_text_execution_selection.v1',identity:{jobId,customerId:customerId,environment:'test'},profile:executionProfile};await pg.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_execution_policy','selection-v1',$2,'selection','completed',$3)`,[jobId,createHash('sha256').update(canonicalJson(value)).digest('hex'),JSON.stringify(value)]);}
++ const scenarios=makeScenarios().map(s=>{if(!rubric)return s;const source=behavioralInstructions(intake.endpoint.systemPrompt,s)[0]!;return {...s,rubricChecks:[{id:`${s.id}.r1`,kind:'rubric' as const,description:'Polite tone',rubric:behavioralRubric(source),behavioralInstructionId:source.id,assessesFactualCorrectness:false}]};});
++ const provider=shared?.provider??harness(body=>({structuredOutput:body.metadata.ae_output==='text_design'?{scenarios}:body.metadata.ae_output==='text_review'?{verdicts:scenarios.map(s=>({scenarioId:s.id,accepted:true,reasons:[]}))}:{reproduceScenarioIds:['S01'],verdicts:[{candidateId:'text:S01:S01.o1',verdict:'confirmed',rationale:'Reproduced exact literal constraint failure.',quote:'WRONG',defectNote:null}]}}),{store:new PostgresAgentTaskStore(sql),ledger:new PostgresBudgetLedger(sql),directory:Object.fromEntries(Object.entries(directory).map(([role,agent])=>[role,{...agent,agentVersion:1}])) as typeof directory});
++ const proxyBodies=new Map<string,any>();let proxySequence=0;
++ const proxyFetch=shared?.proxyFetch??vi.fn<typeof fetch>(async(input,init)=>{
++  const url=String(input),text=JSON.stringify({outcome:proxyOutcome,explanation:'Fixture judged the exact response.',evidenceQuotes:['WRONG']});
++  if(url.includes('/anthropic/v1/messages')){const body=JSON.parse(String(init?.body));const id=`req_${String(++proxySequence).padStart(26,'0')}`;proxyBodies.set(id,body);return Response.json({id,type:'message',role:'assistant',model:body.model,content:[{type:'text',text}],stop_reason:'end_turn',stop_sequence:null,usage:{input_tokens:1,output_tokens:2,cache_read_input_tokens:0,cache_creation_input_tokens:0}});}
++  const id=url.split('/').at(-1)!,body=proxyBodies.get(id);if(!body)throw Error('unknown fixture proxy trace');
++  return Response.json({id,object:'proxy_call_trace',dialect:'anthropic',actor:{type:'system',id:'fixture'},model:body.model,window:'immediate',resolved_model:body.model,provider:'fixture',generation_id:null,stop:'end_turn',usage:{input:1,output:2,cache_read:0,cache_write:0,reasoning:0},billed_micro_usd:5,vendor_cost_micro_usd:null,duration_ms:1,content_scope:'full',source:'proxy',session_id:null,seq:null,board_card_id:null,tool_call_ids:[],tool_schema_hash:null,request_sha256:'a'.repeat(64),response_sha256:'b'.repeat(64),request_bytes:1,response_bytes:1,request:{model:body.model,system:body.system,max_output_tokens:body.max_tokens,messages:body.messages},response:{text,tool_calls:[]},truncated:false,created_at:'2026-11-07T20:00:00.000Z',expires_at:null});
++ });
++ let loseCostAck=false,revokeAfterAgent=false,revokeAfterTarget=false;
++ const post=vi.fn(async()=>{if(revokeAfterTarget){revokeAfterTarget=false;await pg.query(`UPDATE jobs SET state='cancelled' WHERE id=$1`,[jobId]);}return {choices:[{message:{role:'assistant',content:'WRONG'},finish_reason:'stop'}]};});
++ const ctx:ServiceContext={jobId,environment:'test',budgetMicroUsd:1000000,recordProgress:async()=>{},recordCost:async cost=>{
++  const key=String(cost.meta?.idempotencyKey);await sql.transaction(async tx=>{const old=(await tx.query<{micro_usd:string;meta:unknown}>(`SELECT micro_usd::text,meta FROM costs WHERE job_id=$1 AND meta->>'idempotencyKey'=$2`,[jobId,key])).rows[0];if(old){if(Number(old.micro_usd)!==cost.microUsd)throw Error('cost_conflict');}else await tx.query(`INSERT INTO costs(job_id,source,agent,session_id,micro_usd,meta) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,[jobId,cost.source,cost.agent??null,cost.sessionId??null,cost.microUsd,JSON.stringify(cost.meta)]);});
++  if(loseCostAck){loseCostAck=false;throw Error('cost_ack_lost');}
++ }};
++ function runtime(context=ctx){
++  return createNaiveTextMethods(context,{sql,executionProfile,runnerFactory:ledger=>{
++   const service=new AgentSessionService({...provider.deps,store:new PostgresAgentTaskStore(sql),ledger,workerId:'reconstructed-worker'});
++   const runner:AgentTaskRunner={run:async spec=>{const result=await service.run(spec);if(revokeAfterAgent){revokeAfterAgent=false;await pg.query(`UPDATE jobs SET state='cancelled' WHERE id=$1`,[jobId]);}return result;}};
++   return runner;
++  },clock:provider.clock,targetTransport:{post},proxyFetch,decryptCredentials:()=>({endpoint:'fixture-target-key'})});
++ }
++
++ return {jobId,pg,sql,intake,target,ctx,provider,post,proxyFetch,runtime,loseCostAck:()=>{loseCostAck=true;},revokeAfterAgent:()=>{revokeAfterAgent=true;},revokeAfterTarget:()=>{revokeAfterTarget=true;}};
++}
++
++async function preparedAuthority(){
++ const f=await fixture(),methods=await f.runtime();
++ const suite=await methods.designSuite(f.ctx,f.intake),run=await methods.runSuite(f.ctx,suite,f.target),findings=await methods.investigate(f.ctx,suite,[run]);
++ const runtime=await createNaiveTextRuntime(f.ctx,{sql:f.sql,decryptCredentials:()=>({endpoint:'fixture-target-key'}),runnerFactory:()=>new AgentSessionService(f.provider.deps)});
++ const authority=await createNaiveRemediationAuthority(f.ctx,{sql:f.sql,authority:runtime.authority});
++ const snapshot=await authority.resolve(findings[0]!.id,findings[0]);
++ const detailed={remediation:{findingId:snapshot.finding.id,kind:'other' as const,summary:'Proposal only',patch:'Bounded proposal',rationale:'Unsupported patch',verification:{status:'not_verified' as const,before:{passed:0,total:12},after:{passed:0,total:0},regressions:0,evidence:[]}},reason:'Unsupported',scope:'12 original scenarios',baselineRunId:snapshot.runId,freshRunId:null,suiteDigest:snapshot.scope.suiteDigest,patchDigest:'a'.repeat(64),executions:[],applied:[]};
++ return {...f,authority,snapshot,detailed,findings,suite};
++}
++describe('current remediation authority SQL',()=>{
++ it('resolves full retained baseline and immutable projection before public finding exists',async()=>{
++  const f=await preparedAuthority();expect(f.snapshot.original.run.executions).toHaveLength(12);expect(f.snapshot.finding.label).toBe('confirmed');
++  expect((await f.pg.query('SELECT * FROM findings')).rows).toHaveLength(0);
++  await f.authority.retain(f.detailed);await f.authority.retain(f.detailed);
++  expect((await f.pg.query('SELECT * FROM remediations')).rows).toHaveLength(1);
++  expect((await f.pg.query("SELECT * FROM text_integration.checkpoints WHERE kind='naive_remediation_receipt'")).rows).toHaveLength(1);
++  await expect(f.authority.retain({...f.detailed,reason:'conflicting replay'})).rejects.toThrow();
++ },60000);
++ it('rejects public finding substitution and cancellation before persistence',async()=>{
++  const f=await preparedAuthority();await expect(f.authority.resolve(f.findings[0]!.id,{...f.findings[0]!,title:'substitution'})).rejects.toThrow();
++  await f.pg.query("UPDATE jobs SET state='cancelled' WHERE id=$1",[f.jobId]);await expect(f.authority.retain(f.detailed)).rejects.toThrow();
++  expect((await f.pg.query('SELECT * FROM remediations')).rows).toHaveLength(0);
++ },60000);
++ it('rejects changed credentials before dispatch',async()=>{
++  const f=await preparedAuthority();await f.pg.query('DELETE FROM job_credentials WHERE job_id=$1',[f.jobId]);await expect(f.authority.assertCurrent()).rejects.toThrow();
++ },60000);
++ it('rolls back detailed receipt when a conflicting public projection already exists',async()=>{
++  const f=await preparedAuthority();
++  const finding=(await f.pg.query<{id:string}>(`INSERT INTO findings(job_id,finding_key,data) VALUES($1,$2,$3::jsonb) RETURNING id`,[f.jobId,f.snapshot.finding.id,JSON.stringify(f.snapshot.publicFinding)])).rows[0]!;
++  await f.pg.query(`INSERT INTO remediations(job_id,finding_row_id,data) VALUES($1,$2,$3::jsonb)`,[f.jobId,finding.id,JSON.stringify({...f.detailed.remediation,summary:'conflicting existing projection'})]);
++  await expect(f.authority.retain(f.detailed)).rejects.toThrow();
++  expect((await f.pg.query("SELECT * FROM text_integration.checkpoints WHERE kind='naive_remediation_receipt'")).rows).toHaveLength(0);
++ },60000);
++ it('rejects admission revocation on replay',async()=>{
++  const f=await preparedAuthority();
++  await f.pg.query(`UPDATE text_integration.checkpoints SET value=jsonb_set(value,'{status}','"rejected"'::jsonb) WHERE job_id=$1 AND kind='naive_admission'`,[f.jobId]);
++  await expect(f.authority.assertCurrent()).rejects.toThrow();
++  await expect(f.authority.retain(f.detailed)).rejects.toThrow();
++  expect((await f.pg.query('SELECT * FROM remediations')).rows).toHaveLength(0);
++ },60000);
++
++});
++
++const publicationPaths={reportBlobPath:'private/report.json',suiteBlobPath:'private/suite.json',reportHtmlBlobPath:'private/report.html',evidenceBlobPath:'private/evidence.json'};
++async function publicationFor(f:Awaited<ReturnType<typeof preparedAuthority>>){return createNaiveTextPublication(f.ctx,f.suite,f.findings,{sql:f.sql,decryptCredentials:()=>({endpoint:'fixture-target-key'})});}
++describe('retained remediation report SQL integration',()=>{
++ it('includes exact retained remediation and scoped summary in publication context',async()=>{
++  const f=await preparedAuthority();await f.authority.retain(f.detailed);
++  const publication=await publicationFor(f),context=await publication.reportContext();
++  expect(context.remediations).toEqual([f.detailed.remediation]);expect(context.summary).toContain(`${f.snapshot.finding.id}: not_verified`);expect(context.summary).toContain('no deployed configuration was changed');
++  const report={jobId:f.jobId,summary:context.summary,markdown:context.summary,html:'<p>Scoped report</p>',findings:f.findings};
++  await publication.atomicPublish(report,publicationPaths);
++  expect((await f.pg.query('SELECT * FROM remediations')).rows).toHaveLength(1);
++ },60000);
++ it('rejects corrupted receipt digest and a wrong baseline even with a recomputed receipt digest',async()=>{
++  const f=await preparedAuthority();await f.authority.retain(f.detailed);
++  const row=(await f.pg.query<{value:any}>(`SELECT value FROM text_integration.checkpoints WHERE kind='naive_remediation_receipt'`)).rows[0]!;
++  const write=async(value:unknown)=>f.pg.query(`UPDATE text_integration.checkpoints SET value=$1::jsonb WHERE kind='naive_remediation_receipt'`,[JSON.stringify(value)]);
++  await write({...row.value,receiptDigest:'0'.repeat(64)});await expect(publicationFor(f)).rejects.toThrow();
++  const detailed={...row.value.detailed,baselineRunId:'substituted-baseline'},input=row.value.input;
++  await write({...row.value,detailed,receiptDigest:createHash('sha256').update(canonicalJson({input,detailed})).digest('hex')});await expect(publicationFor(f)).rejects.toThrow();
++ },60000);
++ it('rejects public remediation projection drift',async()=>{
++  const f=await preparedAuthority();await f.authority.retain(f.detailed);
++  await f.pg.query(`UPDATE remediations SET data=jsonb_set(data,'{summary}','"substitution"'::jsonb) WHERE job_id=$1`,[f.jobId]);
++  await expect(publicationFor(f)).rejects.toThrow();
++ },60000);
++ it('rejects remediation added after report context was captured',async()=>{
++  const f=await preparedAuthority(),publication=await publicationFor(f),context=await publication.reportContext();
++  expect(context.remediations).toEqual([]);await f.authority.retain(f.detailed);
++  await expect(publication.atomicPublish({jobId:f.jobId,summary:context.summary,markdown:context.summary,html:'<p>Old context</p>',findings:f.findings},publicationPaths)).rejects.toThrow();
++  expect((await f.pg.query<{state:string}>('SELECT state FROM jobs WHERE id=$1',[f.jobId])).rows[0]!.state).toBe('planning');
++ },60000);
++});
+diff --git a/apps/web/src/server/naive-remediation-authority.ts b/apps/web/src/server/naive-remediation-authority.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-authority.ts
+@@ -0,0 +1,97 @@
++import 'server-only';
++import { createHash, randomUUID } from 'node:crypto';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { Remediation, type Finding as PublicFinding } from '@ae/core/contracts/index';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { assertRunMatches } from '@ae/core/evals/text/investigate';
++import { SuiteRunSchema } from '@ae/core/evals/text/schema';
++import { FindingSchema } from '@ae/core/evals/types';
++import type { RemediationResult } from '@ae/core/evals/remediation/index';
++import { toContractFinding, TrackBBlockedError } from '@ae/core/evals/service-adapter';
++import type { createNaiveMethodAuthority } from './naive-method-authority';
++type Tx = Parameters<Parameters<AgentTransactionalSql['transaction']>[0]>[0];
++type Authority = Awaited<ReturnType<typeof createNaiveMethodAuthority>>;
++const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
++const equal=(a:unknown,b:unknown)=>canonicalJson(a)===canonicalJson(b);
++const fail=():never=>{throw new TrackBBlockedError('rejected_input','Current remediation authority or immutable evidence changed.');};
++export interface NaiveRemediationAuthorityDependencies {
++ sql:AgentTransactionalSql;
++ authority:Authority & {currentInTransaction(tx:Tx,value?:unknown):ReturnType<Authority['current']>};
++ /** Required when sql is not already decorated by the active Workflow stage guard. */
++ guard?:(tx:Tx)=>Promise<void>;
++}
++/** Internal owner capability: finding IDs are lookup hints, never evidence or authority. */
++export async function createNaiveRemediationAuthority(ctx:ServiceContext,deps:NaiveRemediationAuthorityDependencies){
++ const admitted=await deps.authority.resolveSuite();
++ let pinned:string|undefined;
++ async function read(tx:Tx,kind:string,id:string,input:unknown){
++  const row=(await tx.query<{state:string;input_digest:string;value:any}>(`SELECT state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3 FOR SHARE`,[ctx.jobId,kind,id])).rows[0];
++  if(!row||row.state!=='completed'||row.input_digest!==hash(input))return fail();return row.value;
++ }
++ async function current(tx:Tx,findingId:string,value?:unknown){
++  await deps.guard?.(tx);
++  const a=await deps.authority.currentInTransaction(tx,value);
++  if(!equal(a.binding,admitted.binding))return fail();
++  const {scope,runId,frozen}=admitted;
++  const designIdentity=await deps.authority.designIdentity(tx);
++  const approval=await read(tx,'naive_admission',a.designId,designIdentity);
++  if(approval.status!=='approved'||!equal(approval.identity,designIdentity)||!equal(approval.artifact.scope,scope)||!equal(approval.artifact.frozen,frozen))return fail();
++  const approved=await read(tx,'naive_approved_suite',scope.approvalArtifactId,scope);
++  if(!equal(approved,approval.artifact))return fail();
++  const artifactBinding={scope,runId,targetVersion:a.targetVersion};
++  // Admission is reauthorized by currentInTransaction; each retained baseline is exact.
++  const retained=await read(tx,'naive_run_artifact',runId,artifactBinding);
++  const run=SuiteRunSchema.parse(retained.run);
++  if(retained.schemaVersion!=='naive_contract_run.v1'||!equal(retained.scope,scope)||run.runId!==runId||run.executions.length!==frozen.scenarios.length)return fail();
++  assertRunMatches(frozen,run);
++  const runInput={suiteDigest:scope.suiteDigest,targetVersion:a.targetVersion,ids:frozen.scenarios.map(s=>s.id),attempt:'initial',baselineRunId:null};
++  if(!equal(await read(tx,'run_result',runId,{environment:ctx.environment,input:runInput}),{environment:ctx.environment,run}))return fail();
++  const identity=await read(tx,'run_identity',runId,{environment:ctx.environment,input:runInput});
++  if(identity.targetVersion!==a.targetVersion||identity.startedAt!==run.startedAt)return fail();
++  const investigation=await read(tx,'naive_investigation_artifact',runId,artifactBinding);
++  const rich=investigation.investigation;
++  if(!equal(investigation.scope,scope)||investigation.runId!==runId||investigation.targetVersion!==a.targetVersion||!equal(rich,await read(tx,'investigation',runId,{environment:ctx.environment,input:{suiteDigest:scope.suiteDigest,run,targetVersion:a.targetVersion}}))||rich.investigatorStatus!=='completed')return fail();
++  const selected=rich.findings.filter((f:{id:string})=>f.id===findingId);
++  if(selected.length!==1)return fail();
++  const finding=FindingSchema.parse(selected[0]),publicFinding=toContractFinding(finding);
++  if(finding.label!=='confirmed'||finding.source!=='text_eval')return fail();
++  const rows=(await tx.query<{data:unknown}>(`SELECT data FROM findings WHERE job_id=$1 AND finding_key=$2 AND rerun_of_finding_id IS NULL FOR SHARE`,[ctx.jobId,findingId])).rows;
++  if(rows.length>1||rows.some(r=>!equal(r.data,publicFinding)))return fail();
++  const failingCheckIds=[...new Set(finding.evidence.filter(e=>e.kind==='check').map(e=>e.checkId))].filter(id=>run.executions.some(e=>e.checks.some(c=>c.checkId===id&&c.kind==='objective'&&c.status==='fail')));
++  if(!failingCheckIds.length)return fail();
++  const binding={targetId:ctx.jobId,targetVersion:a.targetVersion,environment:ctx.environment};
++  const proof={binding:a.binding,scope,frozen,run,rich,finding,publicFinding};
++  if(pinned&&pinned!==hash(proof))return fail();
++  return {job:a.job,finding,publicFinding,knownSecrets:a.knownSecrets,binding,original:{suite:frozen,run,binding,failingCheckIds},target:a.target,scope,runId,proof};
++ }
++ let selectedId:string|undefined;
++ return {
++  async resolve(findingId:string,requested?:PublicFinding){
++   if(selectedId&&selectedId!==findingId)return fail();
++   const a=await deps.sql.transaction(tx=>current(tx,findingId,requested));
++   if(requested&&!equal(requested,a.publicFinding))return fail();
++   selectedId=findingId;pinned=hash(a.proof);return a;
++  },
++  async assertCurrentInTransaction(tx:Tx,value?:unknown){if(!selectedId)return fail();await current(tx,selectedId,value);},
++  async assertCurrent(value?:unknown){if(!selectedId)return fail();await deps.sql.transaction(tx=>current(tx,selectedId!,value));},
++  async retain(detailed:RemediationResult){
++   if(!selectedId)return fail();
++   return deps.sql.transaction(async tx=>{
++    const a=await current(tx,selectedId!,detailed),projection=Remediation.parse(detailed.remediation);
++    if(!equal(projection,detailed.remediation)||projection.findingId!==a.finding.id||detailed.baselineRunId!==a.runId||detailed.suiteDigest!==a.scope.suiteDigest)return fail();
++    const input={evidenceDigest:pinned,findingId:a.finding.id},value={schemaVersion:'naive_remediation_receipt.v1',input,detailed,receiptDigest:hash({input,detailed})};
++    await tx.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_remediation_receipt',$2,$3,$4,'completed',$5::jsonb) ON CONFLICT DO NOTHING`,[ctx.jobId,a.finding.id,hash(input),randomUUID(),JSON.stringify(value)]);
++    if(!equal(await read(tx,'naive_remediation_receipt',a.finding.id,input),value))return fail();
++    // Immutable detailed receipt precedes the public projection in this same transaction.
++    await tx.query(`INSERT INTO findings(job_id,finding_key,data) SELECT $1,$2,$3::jsonb WHERE NOT EXISTS (SELECT 1 FROM findings WHERE job_id=$1 AND finding_key=$2 AND rerun_of_finding_id IS NULL)`,[ctx.jobId,a.finding.id,JSON.stringify(a.publicFinding)]);
++    const rows=(await tx.query<{id:string;data:unknown}>(`SELECT id::text,data FROM findings WHERE job_id=$1 AND finding_key=$2 AND rerun_of_finding_id IS NULL FOR UPDATE`,[ctx.jobId,a.finding.id])).rows;
++    if(rows.length!==1||!equal(rows[0].data,a.publicFinding))return fail();
++    await tx.query(`INSERT INTO remediations(job_id,finding_row_id,data) VALUES($1,$2,$3::jsonb) ON CONFLICT DO NOTHING`,[ctx.jobId,rows[0].id,JSON.stringify(projection)]);
++    const saved=(await tx.query<{data:unknown}>(`SELECT data FROM remediations WHERE job_id=$1 AND finding_row_id=$2 FOR UPDATE`,[ctx.jobId,rows[0].id])).rows;
++    if(saved.length!==1||!equal(saved[0].data,projection))return fail();
++    await current(tx,selectedId!,detailed);return projection;
++   });
++  }
++ };
++}
+diff --git a/apps/web/src/server/naive-remediation-policy-route.test.ts b/apps/web/src/server/naive-remediation-policy-route.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-policy-route.test.ts
+@@ -0,0 +1,33 @@
++import { beforeEach,describe,expect,it,vi } from 'vitest';
++const state=vi.hoisted(()=>({viewer:null as null|{id:string;isOperator:boolean},mutate:vi.fn(),read:vi.fn(),database:vi.fn(()=>({}))}));
++vi.mock('./session',()=>({getCurrentCustomer:async()=>state.viewer}));
++vi.mock('./automated-expert-owner',()=>({expertOwnerDatabase:state.database}));
++vi.mock('./naive-remediation-policy',async original=>({...await original<typeof import('./naive-remediation-policy')>(),mutateNaiveRemediationTrialPolicy:state.mutate,readNaiveRemediationPolicyStatus:state.read}));
++import { GET,POST } from '@/app/api/operator/jobs/[id]/remediation-policy/route';
++const id='123e4567-e89b-42d3-a456-426614174000',operatorId='323e4567-e89b-42d3-a456-426614174000';
++const input={action:'issue',targetVersion:'a'.repeat(64),kind:'stateless_chat_completions',isolation:'request_messages_only',declaresStateless:true,operationMicroUsd:100};
++const context={params:Promise.resolve({id})};
++function request(body:unknown=input,headers:Record<string,string>={}){return new Request('https://app.example.test/api/operator/jobs/'+id+'/remediation-policy',{method:'POST',headers:{origin:'https://app.example.test','content-type':'application/json','sec-fetch-site':'same-origin',...headers},body:typeof body==='string'?body:JSON.stringify(body)});}
++beforeEach(()=>{state.viewer={id:operatorId,isOperator:true};state.mutate.mockReset();state.read.mockReset();state.database.mockClear();state.read.mockResolvedValue({status:'not_configured'});});
++describe('operator remediation policy route',()=>{
++ it('denies anonymous and nonoperator reads and writes before database access',async()=>{
++  for(const viewer of [null,{id:operatorId,isOperator:false}]){state.viewer=viewer;const expected=viewer?403:401;expect((await GET(request(),context)).status).toBe(expected);expect((await POST(request(),context)).status).toBe(expected);}
++  expect(state.database).not.toHaveBeenCalled();expect(state.mutate).not.toHaveBeenCalled();
++ });
++ it('uses authenticated operator identity and marks responses private',async()=>{
++  const get=await GET(request(),context);expect(get.status).toBe(200);expect(get.headers.get('cache-control')).toContain('no-store');expect(state.read).toHaveBeenCalledWith({},id,operatorId);
++  expect((await POST(request(),context)).status).toBe(200);expect(state.mutate).toHaveBeenCalledWith({},id,operatorId,input);
++ });
++ it('rejects CSRF, unsupported content type, malformed and oversized JSON',async()=>{
++  for(const headers of [{origin:'https://evil.example.test'},{origin:''},{'sec-fetch-site':'cross-site'}])expect((await POST(request(input,headers),context)).status).toBe(403);
++  expect((await POST(request(input,{'content-type':'text/plain'}),context)).status).toBe(415);
++  expect((await POST(request('{'),context)).status).toBe(400);
++  expect((await POST(request({...input,declaresStateless:false}),context)).status).toBe(400);
++  expect((await POST(request({...input,arbitrary:'x'.repeat(3000)}),context)).status).toBe(413);
++  expect(state.mutate).not.toHaveBeenCalled();expect(state.database).not.toHaveBeenCalled();
++ });
++ it('validates job ids and surfaces canonical authority conflicts',async()=>{
++  const invalid={params:Promise.resolve({id:'bad'})};expect((await GET(request(),invalid)).status).toBe(400);expect((await POST(request(),invalid)).status).toBe(400);
++  state.read.mockRejectedValue(Error('revoked'));state.mutate.mockRejectedValue(Error('revoked'));expect((await GET(request(),context)).status).toBe(409);expect((await POST(request(),context)).status).toBe(409);
++ });
++});
+diff --git a/apps/web/src/server/naive-remediation-policy.test.ts b/apps/web/src/server/naive-remediation-policy.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-policy.test.ts
+@@ -0,0 +1,59 @@
++import { createHash } from 'node:crypto';
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,describe,expect,it,vi } from 'vitest';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { loadNaiveRemediationTrialPolicy,mutateNaiveRemediationTrialPolicy,readNaiveRemediationPolicyStatus } from './naive-remediation-policy';
++const jobId='123e4567-e89b-42d3-a456-426614174000',customerId='223e4567-e89b-42d3-a456-426614174000',operatorId='323e4567-e89b-42d3-a456-426614174000',targetVersion='a'.repeat(64);
++const digest=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
++const dbs:PGlite[]=[];afterEach(async()=>{vi.unstubAllEnvs();for(const pg of dbs.splice(0))await pg.close();});
++async function fixture(){
++ vi.stubEnv('OPERATOR_EMAILS','operator@example.test');const pg=new PGlite();dbs.push(pg);
++ for(const path of ['packages/core/src/db/migrations/0000_init.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql'])await pg.exec(readFileSync(resolve(path),'utf8'));
++ await pg.query(`INSERT INTO customers(id,email) VALUES($1,'customer@example.test'),($2,'operator@example.test')`,[customerId,operatorId]);
++ const intake={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.test/chat',model:'fixture',systemPrompt:'Original'}};
++ await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake) VALUES($1,$2,'test','text_eval',false,'running',$3::jsonb)`,[jobId,customerId,JSON.stringify(intake)]);
++ const binding={job:{jobId,customerId,environment:'test'},intakeDigest:digest(intake),targetVersion};
++ await pg.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_method_binding','generic-text-v1',$2,'fixture','completed',$3::jsonb)`,[jobId,digest(binding),JSON.stringify(binding)]);
++ const sql:AgentTransactionalSql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
++ const issue={action:'issue',targetVersion,kind:'stateless_chat_completions',isolation:'request_messages_only',declaresStateless:true,operationMicroUsd:100};
++ return {pg,sql,issue,identity:{jobId,customerId,environment:'test' as const,targetVersion}};
++}
++describe('operator remediation trial policy SQL',()=>{
++ it('issues exact immutable policy and replays without repeated audit',async()=>{
++  const f=await fixture();expect(await loadNaiveRemediationTrialPolicy(f.sql,f.identity)).toBeNull();
++  await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue);await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue);
++  expect(await readNaiveRemediationPolicyStatus(f.sql,jobId,operatorId)).toMatchObject({status:'active',policy:{operationMicroUsd:100,issuedByOperator:operatorId}});
++  expect((await f.pg.query('SELECT * FROM interventions')).rows).toHaveLength(1);
++  await expect(mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,{...f.issue,operationMicroUsd:101})).rejects.toThrow();
++ },60000);
++ it('revokes irreversibly and denies resurrection',async()=>{
++  const f=await fixture();await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue);
++  const revoke={action:'revoke',targetVersion};await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,revoke);await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,revoke);
++  expect(await loadNaiveRemediationTrialPolicy(f.sql,f.identity)).toBeNull();expect(await readNaiveRemediationPolicyStatus(f.sql,jobId,operatorId)).toMatchObject({status:'revoked'});
++  await expect(mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue)).rejects.toThrow();expect((await f.pg.query('SELECT * FROM interventions')).rows).toHaveLength(2);
++ },60000);
++ it('uses current operator authority and rejects drift or inactive jobs',async()=>{
++  const f=await fixture();await expect(mutateNaiveRemediationTrialPolicy(f.sql,jobId,customerId,f.issue)).rejects.toThrow();
++  vi.stubEnv('OPERATOR_EMAILS','');await expect(readNaiveRemediationPolicyStatus(f.sql,jobId,operatorId)).rejects.toThrow();vi.stubEnv('OPERATOR_EMAILS','operator@example.test');
++  await expect(mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,{...f.issue,targetVersion:'b'.repeat(64)})).rejects.toThrow();
++  await f.pg.query(`UPDATE jobs SET intake=jsonb_set(intake,'{endpoint,systemPrompt}','"drift"'::jsonb) WHERE id=$1`,[jobId]);await expect(mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue)).rejects.toThrow();
++  await f.pg.query(`UPDATE jobs SET state='cancelled' WHERE id=$1`,[jobId]);await expect(readNaiveRemediationPolicyStatus(f.sql,jobId,operatorId)).rejects.toThrow();
++ },60000);
++ it('rejects substituted identity and corrupted immutable policy',async()=>{
++  const f=await fixture();await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue);
++  await expect(loadNaiveRemediationTrialPolicy(f.sql,{...f.identity,environment:'live'})).rejects.toThrow();
++  await f.pg.query(`UPDATE text_integration.checkpoints SET value=jsonb_set(value,'{operationMicroUsd}','999'::jsonb) WHERE kind='naive_remediation_trial_policy'`);
++  await expect(loadNaiveRemediationTrialPolicy(f.sql,f.identity)).rejects.toThrow();
++ },60000);
++});
++
++it('revokes an existing trial after pause and input drift without restoring execution authority',async()=>{
++ const f=await fixture();await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue);
++ await f.pg.query(`UPDATE jobs SET state='paused_budget',intake='{}'::jsonb WHERE id=$1`,[jobId]);
++ await mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,{action:'revoke',targetVersion});
++ expect(await loadNaiveRemediationTrialPolicy(f.sql,f.identity)).toBeNull();
++ await expect(mutateNaiveRemediationTrialPolicy(f.sql,jobId,operatorId,f.issue)).rejects.toThrow();
++});
+diff --git a/apps/web/src/server/naive-remediation-policy.ts b/apps/web/src/server/naive-remediation-policy.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-policy.ts
+@@ -0,0 +1,60 @@
++import 'server-only';
++import { createHash, randomUUID } from 'node:crypto';
++import { z } from 'zod';
++import { isOperator } from '@ae/core/auth/tokens';
++import type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++
++const digest = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
++const denied = (): never => { throw new Error('naive_remediation_policy_unavailable'); };
++const Identity = z.object({ jobId: z.uuid(), customerId: z.uuid(), environment: z.enum(['test','live']), targetVersion: z.string().regex(/^[a-f0-9]{64}$/) });
++const Policy = Identity.extend({ schemaVersion: z.literal('naive_remediation_trial_policy.v1'), kind: z.literal('stateless_chat_completions'), isolation: z.literal('request_messages_only'), operationMicroUsd: z.number().int().min(1).max(100_000), issuedByOperator: z.uuid() }).strict();
++export type NaiveRemediationTrialPolicy = z.infer<typeof Policy>;
++export type RemediationPolicyIdentity = z.infer<typeof Identity>;
++export const RemediationPolicyMutation = z.discriminatedUnion('action',[
++  z.object({ action: z.literal('issue'), targetVersion: Identity.shape.targetVersion, kind: z.literal('stateless_chat_completions'), isolation: z.literal('request_messages_only'), declaresStateless: z.literal(true), operationMicroUsd: Policy.shape.operationMicroUsd }).strict(),
++  z.object({ action: z.literal('revoke'), targetVersion: Identity.shape.targetVersion }).strict(),
++]);
++type Row = { state:string; input_digest:string; value:unknown };
++async function retained(tx:AgentSqlExecutor, jobId:string, kind:string, id:string) {
++  return (await tx.query<Row>('SELECT state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3 FOR SHARE',[jobId,kind,id])).rows[0];
++}
++/** Called under current canonical job authority; this declaration never grants target authority alone. */
++export async function loadNaiveRemediationTrialPolicy(tx:AgentSqlExecutor, expected:RemediationPolicyIdentity):Promise<NaiveRemediationTrialPolicy|null> {
++  const identity=Identity.parse(expected);
++  if(await retained(tx,identity.jobId,'naive_remediation_trial_revocation',identity.targetVersion))return null;
++  const row=await retained(tx,identity.jobId,'naive_remediation_trial_policy',identity.targetVersion);
++  if(!row)return null;
++  const parsed=Policy.safeParse(row.value);
++  if(!parsed.success||row.state!=='completed'||row.input_digest!==digest(parsed.data)||Object.entries(identity).some(([key,value])=>parsed.data[key as keyof NaiveRemediationTrialPolicy]!==value))return denied();
++  return parsed.data;
++}
++async function operatorJob(tx:AgentSqlExecutor,jobId:string,operatorId:string, revokeTargetVersion?:string) {
++  const job=(await tx.query<{customer_id:string;environment:'test'|'live';package:string;is_mock:boolean;state:string;intake:unknown}>('SELECT customer_id::text,environment,package,is_mock,state,intake FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++  const viewer=(await tx.query<{email:string}>('SELECT email FROM customers WHERE id=$1 FOR SHARE',[operatorId])).rows[0];
++  if(!viewer||!isOperator(viewer.email)||!job||job.package!=='text_eval'||job.is_mock||!revokeTargetVersion&&!['planning','running','investigating'].includes(job.state))return denied();
++  // Revocation removes authority even after a job is paused or its input changes.
++  if(revokeTargetVersion)return {jobId,customerId:job.customer_id,environment:job.environment,targetVersion:revokeTargetVersion};
++  const rows=(await tx.query<Row>("SELECT state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_method_binding' FOR SHARE",[jobId])).rows;
++  if(rows.length!==1)return denied();
++  const row=rows[0]!,binding=row.value as {job?:{jobId:string;customerId:string;environment:string};intakeDigest?:string;targetVersion?:string};
++  if(row.state!=='completed'||row.input_digest!==digest(binding)||binding.job?.jobId!==jobId||binding.job.customerId!==job.customer_id||binding.job.environment!==job.environment||binding.intakeDigest!==digest(job.intake)||!Identity.shape.targetVersion.safeParse(binding.targetVersion).success)return denied();
++  return {jobId,customerId:job.customer_id,environment:job.environment,targetVersion:binding.targetVersion!};
++}
++export async function readNaiveRemediationPolicyStatus(sql:AgentTransactionalSql, jobId:string, operatorId:string) {
++  return sql.transaction(async tx=>{const identity=await operatorJob(tx,jobId,operatorId);const policy=await loadNaiveRemediationTrialPolicy(tx,identity);return {targetVersion:identity.targetVersion,policy,status:await retained(tx,jobId,'naive_remediation_trial_revocation',identity.targetVersion)?'revoked':policy?'active':'not_configured'};});
++}
++export async function mutateNaiveRemediationTrialPolicy(sql:AgentTransactionalSql,jobId:string,operatorId:string,raw:unknown):Promise<void> {
++  const input=RemediationPolicyMutation.parse(raw);
++  await sql.transaction(async tx=>{
++    const identity=await operatorJob(tx,jobId,operatorId,input.action==='revoke'?input.targetVersion:undefined);
++    if(identity.targetVersion!==input.targetVersion)return denied();
++    const kind=input.action==='issue'?'naive_remediation_trial_policy':'naive_remediation_trial_revocation';
++    if(input.action==='issue'&&await retained(tx,jobId,'naive_remediation_trial_revocation',identity.targetVersion))return denied();
++    const value=input.action==='issue'?Policy.parse({...identity,schemaVersion:'naive_remediation_trial_policy.v1',kind:input.kind,isolation:input.isolation,operationMicroUsd:input.operationMicroUsd,issuedByOperator:operatorId}):{...identity,revokedByOperator:operatorId};
++    const prior=await retained(tx,jobId,kind,identity.targetVersion);
++    if(prior){if(prior.state!=='completed'||prior.input_digest!==digest(prior.value)||canonicalJson(prior.value)!==canonicalJson(value))return denied();return;}
++    await tx.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,$2,$3,$4,$5,'completed',$6::jsonb)`,[jobId,kind,identity.targetVersion,digest(value),randomUUID(),JSON.stringify(value)]);
++    await tx.query("INSERT INTO interventions(job_id,operator_email,kind,note) SELECT $1,email,'other',$3 FROM customers WHERE id=$2",[jobId,operatorId,input.action==='issue'?'Declared exact target suitable for request-only remediation trials.':'Revoked remediation trial policy.']);
++  });
++}
+diff --git a/apps/web/src/server/naive-remediation-runtime.test.ts b/apps/web/src/server/naive-remediation-runtime.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-runtime.test.ts
+@@ -0,0 +1,129 @@
++import { createHash } from 'node:crypto';
++import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
++import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
++/** Real generic owner SQL + concrete admission + rich adapters; provider/target transport only are fakes. */
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,describe,expect,it,vi } from 'vitest';
++import type { IntakeInput } from '@ae/core/contracts/index';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import { PostgresAgentTaskStore,PostgresBudgetLedger,type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { AgentSessionService,type AgentTaskRunner } from '@ae/core/agents/session-service';
++import { harness,directory } from '@ae/core/agents/__tests__/fakes';
++import { behavioralInstructions,behavioralRubric } from '@ae/core/evals/text/rubric-admission';
++import { makeScenarios } from '@ae/core/evals/text/__tests__/fixtures';
++import { createNaiveTextMethods,createNaiveTextRuntime } from './naive-text-methods';
++import { composeNaiveRemediationMethods } from './naive-remediation-runtime';
++vi.mock('./workflow-stage-children',()=>({fenceWorkflowStageRunner:(runner:unknown)=>runner,fenceWorkflowStageSessions:(sessions:unknown)=>sessions}));
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>({owner:{jobId}})}));
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:async()=>{}}));
++import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
++const jobId='123e4567-e89b-42d3-a456-426614174000';
++const databases:PGlite[]=[];
++afterEach(async()=>{vi.unstubAllEnvs();for(const pg of databases.splice(0))await pg.close();});
++async function fixture(rubric=false,fixtureJobId=jobId,shared?:{pg:PGlite;sql:AgentTransactionalSql;provider:ReturnType<typeof harness>;proxyFetch:typeof fetch},proxyOutcome:'passed'|'inconclusive'='passed',factual=false){
++ const jobId=fixtureJobId;
++ if(factual){vi.stubEnv('EVAL_NAIVE_FACTUAL_GAPS','1');vi.stubEnv('EVAL_SERVICES','real');}
++ vi.stubEnv('NAIVE_JUDGE_MODEL','fixture-jude-model');vi.stubEnv('NAIVE_API_KEY','fixture-proxy-key');
++ vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
++ const pg=shared?.pg??new PGlite();if(!shared){databases.push(pg);
++ for(const file of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
++ await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id text NOT NULL,environment text NOT NULL,package text NOT NULL,is_mock boolean NOT NULL,state text NOT NULL,intake jsonb NOT NULL,retest_of_job_id uuid,credentials_delete_after timestamptz,budget_reserved_micro_usd bigint DEFAULT 0);
++ CREATE TABLE findings(id uuid DEFAULT gen_random_uuid(),job_id uuid,finding_key text,data jsonb,rerun_of_finding_id uuid,UNIQUE(job_id,finding_key));
++ CREATE TABLE remediations(job_id uuid,finding_row_id uuid,data jsonb,UNIQUE(job_id,finding_row_id));
++ CREATE TABLE job_credentials(job_id uuid PRIMARY KEY,ciphertext text NOT NULL);
++ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++ CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid NOT NULL,micro_usd bigint NOT NULL,receipt jsonb NOT NULL);`);
++ await pg.exec(readFileSync(resolve('docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));}
++ const intake:Extract<IntakeInput,{package:'text_eval'}>={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',referenceText:'Canonical grounding text.',systemPrompt:rubric?'Use a polite tone.':'Follow explicit constraints.',apiKey:'fixture-target-key'}};
++ // Match workflows/steps/evaluate.ts targetFor: referenceText belongs to design, not the dispatch target.
++ const target={url:intake.endpoint.url,model:intake.endpoint.model,apiKey:intake.endpoint.apiKey,systemPrompt:intake.endpoint.systemPrompt??''};
++ const {apiKey:_key,...endpoint}=intake.endpoint;
++ await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake,retest_of_job_id,credentials_delete_after) VALUES($1,'123e4567-e89b-42d3-a456-426614174099','test','text_eval',false,'planning',$2,null,null)`,[jobId,JSON.stringify({...intake,endpoint,_credentialSlots:['endpoint']})]);
++ await pg.query(`INSERT INTO job_credentials VALUES($1,'encrypted-fixture')`,[jobId]);
++ const sql:AgentTransactionalSql=shared?.sql??{query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
++ const executionProfile=factual?{policyId:'generic-text-factual-gap-v1' as const,designId:'generic-text-factual-gap-v1' as const,versionLabel:'generic-text-factual-gap-v1' as const,admissionPolicyId:'automated-text-design-factual-gap-v1' as const,factualGapPolicy:'propose_missing_reference.v1' as const,expertTaskId:'fact-task'}:undefined;
++ if(executionProfile){const value={schemaVersion:'naive_text_execution_selection.v1',identity:{jobId,customerId:'123e4567-e89b-42d3-a456-426614174099',environment:'test'},profile:executionProfile};await pg.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_execution_policy','selection-v1',$2,'selection','completed',$3)`,[jobId,createHash('sha256').update(canonicalJson(value)).digest('hex'),JSON.stringify(value)]);}
++ const scenarios=makeScenarios().map(s=>{if(!rubric)return s;const source=behavioralInstructions(intake.endpoint.systemPrompt,s)[0]!;return {...s,rubricChecks:[{id:`${s.id}.r1`,kind:'rubric' as const,description:'Polite tone',rubric:behavioralRubric(source),behavioralInstructionId:source.id,assessesFactualCorrectness:false}]};});
++ const provider=shared?.provider??harness(body=>({structuredOutput:body.metadata.ae_output==='remediation_patch'?{kind:'prompt_patch',summary:'Replace prompt',patch:'Return the exact expected literal.',rationale:'Preserve fixed checks.'}:body.metadata.ae_output==='text_design'?{scenarios}:body.metadata.ae_output==='text_review'?{verdicts:scenarios.map(s=>({scenarioId:s.id,accepted:true,reasons:[]}))}:{reproduceScenarioIds:['S01'],verdicts:[{candidateId:'text:S01:S01.o1',verdict:'confirmed',rationale:'Reproduced exact literal constraint failure.',quote:'WRONG',defectNote:null}]}}),{store:new PostgresAgentTaskStore(sql),ledger:new PostgresBudgetLedger(sql),directory:Object.fromEntries(Object.entries(directory).map(([role,agent])=>[role,{...agent,agentVersion:1}])) as typeof directory});
++ const proxyBodies=new Map<string,any>();let proxySequence=0;
++ const proxyFetch=shared?.proxyFetch??vi.fn<typeof fetch>(async(input,init)=>{
++  const url=String(input),text=JSON.stringify({outcome:proxyOutcome,explanation:'Fixture judged the exact response.',evidenceQuotes:['WRONG']});
++  if(url.includes('/anthropic/v1/messages')){const body=JSON.parse(String(init?.body));const id=`req_${String(++proxySequence).padStart(26,'0')}`;proxyBodies.set(id,body);return Response.json({id,type:'message',role:'assistant',model:body.model,content:[{type:'text',text}],stop_reason:'end_turn',stop_sequence:null,usage:{input_tokens:1,output_tokens:2,cache_read_input_tokens:0,cache_creation_input_tokens:0}});}
++  const id=url.split('/').at(-1)!,body=proxyBodies.get(id);if(!body)throw Error('unknown fixture proxy trace');
++  return Response.json({id,object:'proxy_call_trace',dialect:'anthropic',actor:{type:'system',id:'fixture'},model:body.model,window:'immediate',resolved_model:body.model,provider:'fixture',generation_id:null,stop:'end_turn',usage:{input:1,output:2,cache_read:0,cache_write:0,reasoning:0},billed_micro_usd:5,vendor_cost_micro_usd:null,duration_ms:1,content_scope:'full',source:'proxy',session_id:null,seq:null,board_card_id:null,tool_call_ids:[],tool_schema_hash:null,request_sha256:'a'.repeat(64),response_sha256:'b'.repeat(64),request_bytes:1,response_bytes:1,request:{model:body.model,system:body.system,max_output_tokens:body.max_tokens,messages:body.messages},response:{text,tool_calls:[]},truncated:false,created_at:'2026-11-07T20:00:00.000Z',expires_at:null});
++ });
++ let loseCostAck=false,revokeAfterAgent=false,revokeAfterTarget=false;
++ const post=vi.fn(async()=>{if(revokeAfterTarget){revokeAfterTarget=false;await pg.query(`UPDATE jobs SET state='cancelled' WHERE id=$1`,[jobId]);}return {choices:[{message:{role:'assistant',content:'WRONG'},finish_reason:'stop'}]};});
++ const ctx:ServiceContext={jobId,environment:'test',budgetMicroUsd:1000000,recordProgress:async()=>{},recordCost:async cost=>{
++  const digest=createHash('sha256').update(String(cost.meta?.idempotencyKey)).digest('hex');const key=`${digest.slice(0,8)}-${digest.slice(8,12)}-${digest.slice(12,16)}-${digest.slice(16,20)}-${digest.slice(20,32)}`;await sql.transaction(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,$3,$4::jsonb) ON CONFLICT DO NOTHING',[key,jobId,cost.microUsd,JSON.stringify(cost)]);const r=await tx.query<{equal:boolean}>('SELECT receipt=$2::jsonb AS equal FROM costs WHERE id=$1',[key,JSON.stringify(cost)]);if(!r.rows[0]?.equal)throw Error('cost_conflict');});
++  if(loseCostAck){loseCostAck=false;throw Error('cost_ack_lost');}
++ }};
++ function runtime(context=ctx){
++  return createNaiveTextRuntime(context,{sql,executionProfile,runnerFactory:ledger=>{
++   const service=new AgentSessionService({...provider.deps,store:new PostgresAgentTaskStore(sql),ledger,workerId:'reconstructed-worker'});
++   const runner:AgentTaskRunner={run:async spec=>{const result=await service.run(spec);if(revokeAfterAgent){revokeAfterAgent=false;await pg.query(`UPDATE jobs SET state='cancelled' WHERE id=$1`,[jobId]);}return result;}};
++   return runner;
++  },clock:provider.clock,targetTransport:{post},proxyFetch,decryptCredentials:()=>({endpoint:'fixture-target-key'})});
++ }
++
++ return {jobId,pg,sql,intake,target,ctx,provider,post,proxyFetch,runtime,loseCostAck:()=>{loseCostAck=true;},revokeAfterAgent:()=>{revokeAfterAgent=true;},revokeAfterTarget:()=>{revokeAfterTarget=true;}};
++}
++
++describe('composed generic remediation owner runtime',()=>{
++ it('executes all twelve unchanged checks with applied prompt, retains detailed receipts and replays without dispatch',async()=>{
++  const f=await fixture();const runtime=await f.runtime();
++  const suite=await runtime.methods.designSuite(f.ctx,f.intake);
++  const run=await runtime.methods.runSuite(f.ctx,suite,f.target);
++  const findings=await runtime.methods.investigate(f.ctx,suite,[run]);
++  const finding=findings.find(f=>f.status==='confirmed')!;
++  await f.pg.exec(readFileSync(resolve('packages/core/src/evals/remediation/accounting/001-remediation-accounting.sql'),'utf8'));
++  const binding=(await runtime.authority.current()).binding;
++  const policy={schemaVersion:'naive_remediation_trial_policy.v1',jobId,customerId:binding.job.customerId,environment:'test',targetVersion:binding.targetVersion,kind:'stateless_chat_completions',isolation:'request_messages_only',operationMicroUsd:1000,issuedByOperator:'123e4567-e89b-42d3-a456-426614174088'};
++  await f.sql.query("INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_remediation_trial_policy',$2,$3,'policy','completed',$4::jsonb)",[jobId,binding.targetVersion,createHash('sha256').update(canonicalJson(policy)).digest('hex'),JSON.stringify(policy)]);
++  const post=vi.fn(async(_url:unknown,request:any)=>{
++   expect(request.messages[0].content).toBe('Return the exact expected literal.');
++   return {choices:[{message:{role:'assistant',content:'READY'},finish_reason:'stop'}],usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}};
++  });
++  const methods=composeNaiveRemediationMethods(f.ctx,runtime,{post});
++  f.loseCostAck();
++  await expect(methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake})).rejects.toThrow('cost_ack_lost');
++  const proposalCalls=f.provider.naive.createCalls.length;
++  const result=await methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake});
++  expect(f.provider.naive.createCalls).toHaveLength(proposalCalls);
++  expect(result.verification.status).toBe('verified');
++  expect(result.verification.before).toEqual({passed:0,total:12});
++  expect(result.verification.after).toEqual({passed:12,total:12});
++  expect(post).toHaveBeenCalledTimes(12);
++  const calls=f.provider.naive.createCalls.length;
++  expect(await methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake})).toEqual(result);
++  expect(post).toHaveBeenCalledTimes(12);expect(f.provider.naive.createCalls).toHaveLength(calls);
++  const receipt=(await f.sql.query<{value:any}>("SELECT value FROM text_integration.checkpoints WHERE kind='naive_remediation_receipt'")).rows[0].value;
++  expect(receipt.detailed.applied).toHaveLength(12);expect(receipt.detailed.executions).toHaveLength(12);
++  expect((await f.sql.query("SELECT * FROM remediation_accounting.operations WHERE settlement IS NULL")).rows).toHaveLength(12);
++ });
++ it('uses canonical investigation, retained proposal-only result and replay without redispatch',async()=>{
++  const f=await fixture();const runtime=await f.runtime();
++  const suite=await runtime.methods.designSuite(f.ctx,f.intake);
++  const run=await runtime.methods.runSuite(f.ctx,suite,f.target);
++  const findings=await runtime.methods.investigate(f.ctx,suite,[run]);
++  const finding=findings.find(f=>f.status==='confirmed')!;
++  const methods=composeNaiveRemediationMethods(f.ctx,runtime);
++  const result=await methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake});
++  expect(result.verification.status).toBe('not_verified');
++  expect(result.verification.after.total).toBe(0);
++  expect(f.post).toHaveBeenCalledTimes(13);
++  const calls=f.provider.naive.createCalls.length;
++  expect(await methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake})).toEqual(result);
++  expect(f.provider.naive.createCalls).toHaveLength(calls);
++  expect((await f.pg.query("SELECT * FROM text_integration.checkpoints WHERE kind='naive_remediation_receipt'")).rows).toHaveLength(1);
++  expect((await f.pg.query('SELECT * FROM remediations')).rows).toHaveLength(1);
++  await expect(methods.proposeAndVerifyFix(f.ctx,{finding:{...finding,title:'Untrusted replacement'},suite,intake:f.intake})).rejects.toThrow();
++  await f.pg.query("UPDATE jobs SET state='cancelled'");
++  await expect(methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake})).rejects.toThrow();
++  expect(f.provider.naive.createCalls).toHaveLength(calls);
++ });
++});
+diff --git a/apps/web/src/server/naive-remediation-runtime.ts b/apps/web/src/server/naive-remediation-runtime.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-runtime.ts
+@@ -0,0 +1,66 @@
++import 'server-only';
++import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
++import type { JsonTransport } from '@ae/core/targets/transport';
++import type { EvalServices, ServiceContext } from '@ae/core/contracts/services';
++import { createRemediationServices, remediationDigest } from '@ae/core/evals/remediation/index';
++import { TrackBBlockedError } from '@ae/core/evals/service-adapter';
++import { assertWorkflowStageOwner } from '@ae/core/db/workflow-stage-authority';
++import { currentWorkflowStageScope } from './workflow-stage-runtime';
++import { createNaiveTextRuntime, type NaiveTextMethodsDependencies, type NaiveTextRuntime } from './naive-text-methods';
++import { createNaiveRemediationAuthority } from './naive-remediation-authority';
++import { createNaiveRemediationTrial } from './naive-remediation-trial';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { loadNaiveRemediationTrialPolicy } from './naive-remediation-policy';
++
++/** The existing core engine currently promises exactly twelve frozen scenarios. */
++const unsupported=():never=>{throw new TrackBBlockedError('needs_operator','Remediation currently requires the original twelve frozen scenarios and current Workflow authority.');};
++export async function createNaiveRemediationMethods(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}):Promise<Pick<EvalServices,'proposeAndVerifyFix'>> {
++ return composeNaiveRemediationMethods(ctx,await createNaiveTextRuntime(ctx,deps),deps.remediationTransport);
++}
++/** Shared runner, judge, checkpoints, allocation and cost outbox; no independent provider runtime. */
++export function composeNaiveRemediationMethods(ctx:ServiceContext,runtime:NaiveTextRuntime,transport?:JsonTransport):Pick<EvalServices,'proposeAndVerifyFix'> {
++ return {proposeAndVerifyFix:async(input,request)=>{
++  const stable=runtime.stableContext(input);
++  let policyPin:{identity:Parameters<typeof loadNaiveRemediationTrialPolicy>[1];value:unknown}|undefined;
++  const guard=async(tx:Parameters<Parameters<typeof runtime.sql.transaction>[0]>[0])=>{
++   const stage=currentWorkflowStageScope();
++   if(!stage||stage.owner.jobId!==ctx.jobId)return unsupported();
++   stage.assertActive?.();
++   await assertWorkflowStageOwner(tx,stage.owner);
++   if(policyPin&&canonicalJson(await loadNaiveRemediationTrialPolicy(tx,policyPin.identity))!==canonicalJson(policyPin.value))return unsupported();
++  };
++  const owner=await createNaiveRemediationAuthority(stable,{sql:runtime.sql,authority:runtime.authority,guard});
++  const snapshot=await owner.resolve(request.finding.id,request.finding);
++  if(snapshot.original.suite.scenarios.length!==12)return unsupported();
++  const policy=await runtime.sql.transaction(async tx=>{
++   await guard(tx);await runtime.authority.currentInTransaction(tx);
++   return loadNaiveRemediationTrialPolicy(tx,{jobId:ctx.jobId,customerId:snapshot.job.customerId,environment:ctx.environment,targetVersion:snapshot.binding.targetVersion});
++  });
++  policyPin={identity:{jobId:ctx.jobId,customerId:snapshot.job.customerId,environment:ctx.environment,targetVersion:snapshot.binding.targetVersion},value:policy};
++  const trialId=`generic-remediation-${remediationDigest({binding:snapshot.binding,findingId:snapshot.finding.id,baseline:snapshot.runId}).slice(0,40)}`;
++  async function assertTrialCurrent(tx:Parameters<Parameters<typeof runtime.sql.transaction>[0]>[0]) {
++   await owner.assertCurrentInTransaction(tx);
++   const fresh=await loadNaiveRemediationTrialPolicy(tx,{jobId:ctx.jobId,customerId:snapshot.job.customerId,environment:ctx.environment,targetVersion:snapshot.binding.targetVersion});
++   if(canonicalJson(fresh)!==canonicalJson(policy))return unsupported();
++  }
++  const secured=policy===null?null:createNaiveRemediationTrial({
++   sql:runtime.sql,
++   scope:{job:snapshot.job,finding:snapshot.finding,binding:snapshot.binding,original:snapshot.original,trialId,
++    endpoint:{kind:policy.kind,isolation:policy.isolation,url:snapshot.target.url,model:snapshot.target.model,...(snapshot.target.apiKey?{apiKey:snapshot.target.apiKey}:{})}},
++   operationMicroUsd:policy.operationMicroUsd,
++   ...(transport?{transport}:{}),
++   reservationScopes:[{key:`agent:quality_investigator:${process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7)}`,capMicroUsd:COMPANY_ROLE_DEFINITIONS.quality_investigator.monthlyMicroUsd},{key:`job:${ctx.jobId}`,capMicroUsd:runtime.cap},{key:runtime.allocationScope,capMicroUsd:runtime.allocation}],
++   assertCurrentInTransaction:assertTrialCurrent,
++   assertCurrent:async()=>{await runtime.sql.transaction(assertTrialCurrent);return (await runtime.authority.current()).secrets;},
++   resolveJudge:async()=>{await runtime.sql.transaction(assertTrialCurrent);return runtime.judge;},
++  });
++  const engine=createRemediationServices({runner:runtime.runner,checkpoints:runtime.authority.checkpoints,resolve:async()=>{
++   const fresh=await owner.resolve(request.finding.id,request.finding);
++   return {...fresh,trial:secured?.trial??null,judge:secured?.judge??null,authorize:secured?.authorize??(async()=>false)};
++  }});
++  const detailed=await engine.proposeAndVerifyFixDetailed(stable,{findingId:snapshot.finding.id});
++  await owner.assertCurrent(detailed);
++  await runtime.sql.transaction(assertTrialCurrent);
++  return owner.retain(detailed);
++ }};
++}
+diff --git a/apps/web/src/server/naive-remediation-trial.test.ts b/apps/web/src/server/naive-remediation-trial.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-trial.test.ts
+@@ -0,0 +1,90 @@
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { PGlite } from '@electric-sql/pglite';
++import { describe, expect, it, vi } from 'vitest';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { remediationDigest, type Patch } from '@ae/core/evals/remediation/index';
++import { evaluateObjectiveCheck, executeSuite } from '@ae/core/evals/text/index';
++import { makeSuite } from '@ae/core/evals/text/__tests__/fixtures';
++import { jobBudgetExposure, lockJobBudget } from '@ae/core/db/job-budget-authority';
++import type { RemediationTargetScope } from '@ae/core/targets/remediation';
++import { createNaiveRemediationTrial, type NaiveRemediationTrialDeps } from './naive-remediation-trial';
++
++const jobId='11111111-1111-4111-8111-111111111111';
++async function fixture(){
++ const pg=new PGlite();
++ await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,budget_reserved_micro_usd bigint DEFAULT 0);
++ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++ CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);`);
++ await pg.exec(readFileSync(resolve('packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'),'utf8'));
++ await pg.exec(readFileSync(resolve('packages/core/src/evals/remediation/accounting/001-remediation-accounting.sql'),'utf8'));
++ await pg.exec(readFileSync(resolve('docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));
++ await pg.query('INSERT INTO jobs(id,package) VALUES($1,$2)',[jobId,'text_eval']);
++ const sql:AgentTransactionalSql={query:(s,p)=>pg.query(s,p),transaction:fn=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))};
++ const suite=makeSuite({jobId});
++ const run=await executeSuite(suite,'baseline',{target:{send:async()=>({ok:true,text:'WRONG',latencyMs:1})},judge:null,evaluateObjective:evaluateObjectiveCheck});
++ const binding={targetId:'target',targetVersion:'v1',environment:'test' as const};
++ const scope:RemediationTargetScope={job:{jobId,customerId:'customer',environment:'test',package:'text_eval',quoteVersion:null,linkedRetestOf:null,isFixture:true},
++  finding:{id:'finding',source:'text_eval',category:'instruction_violation',title:'Missing marker',summary:'READY missing',label:'confirmed',severity:'medium',basis:'objective',evidence:[{kind:'check',checkId:'S01.o1',detail:'Missing marker'}],investigatorNote:null,reproduction:null},
++  binding,original:{suite,run,binding,failingCheckIds:['S01.o1']},trialId:'trial',endpoint:{kind:'stateless_chat_completions',isolation:'request_messages_only',url:'https://example.com/chat/completions',model:'test-model'}};
++ const patch:Patch={kind:'prompt_patch',patch:'Always say READY.',summary:'Add marker',rationale:'Preserve criteria'};
++ const root=remediationDigest({finding:scope.finding,binding,original:scope.original,trialId:scope.trialId});
++ const input={request:{runId:`rem-${root.slice(0,48)}`,scenarioId:'S01',systemPrompt:patch.patch,userMessage:suite.scenarios[0]!.userMessage},patch,patchDigest:remediationDigest(patch),baselineRunId:run.runId,suiteDigest:suite.digest};
++ const operation={kind:'target' as const,operationId:`remediation:${jobId}:target:${root}:S01`,inputDigest:remediationDigest({root,input})};
++ let revoked=false;
++ const post=vi.fn(async(_url:string,_body:unknown)=>({choices:[{message:{role:'assistant',content:'READY'},finish_reason:'stop'}]}));
++ const current=async()=>{if(revoked)throw Error('revoked');return [];};
++ const deps:NaiveRemediationTrialDeps={sql,scope,operationMicroUsd:40,reservationScopes:[{key:`job:${jobId}`,capMicroUsd:1000},{key:`generic-text:${jobId}`,capMicroUsd:1000},{key:'agent:quality_investigator:2026-11',capMicroUsd:1000}],assertCurrent:current,
++  assertCurrentInTransaction:async tx=>{await lockJobBudget(tx,jobId);await current();},resolveJudge:async()=>null,transport:{post}};
++ return {pg,sql,deps,input,operation,post,revoke:()=>{revoked=true;}};
++}
++describe('Naive remediation shared-budget stateless trial',()=>{
++ it('receipts match actual immutable messages; unknown target money remains held and fresh instances cannot redispatch',async()=>{
++  const f=await fixture();try{
++   const ports=createNaiveRemediationTrial(f.deps);expect(await ports.authorize(f.operation)).toBe(true);
++   const result=await ports.trial!.send(f.input);
++   const payload=f.post.mock.calls[0]![1] as {messages:{content:string}[]};
++   expect(result.value.receipt.actualSystemPrompt).toBe(payload.messages[0]!.content);
++   expect(Object.isFrozen(payload)).toBe(true);expect(result.costs).toEqual([]);
++   expect((await f.pg.query('SELECT settlement,usage FROM remediation_accounting.operations')).rows).toEqual([{settlement:null,usage:null}]);
++   expect((await f.pg.query('SELECT pending,reason FROM remediation_accounting.reconciliation_outbox')).rows).toEqual([{pending:true,reason:'usage_unknown'}]);
++   expect(await f.sql.transaction(tx=>jobBudgetExposure(tx,jobId))).toMatchObject({committedMicroUsd:40});
++   const restarted=createNaiveRemediationTrial(f.deps);expect(await restarted.authorize(f.operation)).toBe(true);
++   await expect(restarted.trial!.send(f.input)).rejects.toThrow();expect(f.post).toHaveBeenCalledTimes(1);
++   expect((await f.pg.query('SELECT settled_micro_usd FROM agent_persistence.reservations')).rows).toEqual([{settled_micro_usd:null}]);
++  }finally{await f.pg.close();}
++ });
++ it('revocation after reservation blocks the secured transport and preserves the hold',async()=>{
++  const f=await fixture();try{const ports=createNaiveRemediationTrial(f.deps);await ports.authorize(f.operation);f.revoke();
++   await expect(ports.trial!.send(f.input)).rejects.toThrow();expect(f.post).not.toHaveBeenCalled();
++   expect(await f.sql.transaction(tx=>jobBudgetExposure(tx,jobId))).toMatchObject({committedMicroUsd:40});
++  }finally{await f.pg.close();}
++ });
++ it('a lost target acknowledgement keeps durable ambiguity and refuses replay',async()=>{
++  const f=await fixture();try{
++   f.post.mockRejectedValueOnce(Error('lost response'));
++   const ports=createNaiveRemediationTrial(f.deps);await ports.authorize(f.operation);
++   await expect(ports.trial!.send(f.input)).rejects.toThrow();
++   const restarted=createNaiveRemediationTrial(f.deps);await restarted.authorize(f.operation);
++   await expect(restarted.trial!.send(f.input)).rejects.toThrow();expect(f.post).toHaveBeenCalledTimes(1);
++   expect((await f.pg.query('SELECT ambiguous,settlement FROM remediation_accounting.operations')).rows).toEqual([{ambiguous:true,settlement:null}]);
++   expect(await f.sql.transaction(tx=>jobBudgetExposure(tx,jobId))).toMatchObject({committedMicroUsd:40});
++  }finally{await f.pg.close();}
++ });
++ it('unsupported patches and changed reservation policy fail before dispatch',async()=>{
++  const f=await fixture();try{const ports=createNaiveRemediationTrial(f.deps);await ports.authorize(f.operation);
++   await expect(ports.trial!.send({...f.input,patch:{...f.input.patch,kind:'tool_schema'}})).rejects.toThrow();
++   await expect(createNaiveRemediationTrial({...f.deps,operationMicroUsd:41}).authorize(f.operation)).rejects.toThrow();
++   expect(f.post).not.toHaveBeenCalled();
++  }finally{await f.pg.close();}
++ });
++ it('reuses the accounted proxy judge without fabricating session costs',async()=>{
++  const f=await fixture();try{const judge=vi.fn(async()=>({outcome:'passed' as const,explanation:'Retained proxy result',evidenceQuotes:[]}));
++   const ports=createNaiveRemediationTrial({...f.deps,resolveJudge:async()=>judge});
++   expect(await ports.authorize({...f.operation,kind:'judge'})).toBe(true);
++   const input={} as Parameters<NonNullable<typeof ports.judge>>[0];
++   expect(await ports.judge!(input)).toEqual({value:{outcome:'passed',explanation:'Retained proxy result',evidenceQuotes:[]},costs:[]});
++   expect(judge).toHaveBeenCalledTimes(1);expect((await f.pg.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);
++  }finally{await f.pg.close();}
++ });
++});
+diff --git a/apps/web/src/server/naive-remediation-trial.ts b/apps/web/src/server/naive-remediation-trial.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-remediation-trial.ts
+@@ -0,0 +1,101 @@
++import 'server-only';
++import type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
++import type { BudgetReservationRequest, RubricJudge } from '@ae/core/evals/types';
++import type { AuthorizedRemediation } from '@ae/core/evals/remediation/index';
++import { canonicalJson } from '@ae/core/evals/text/index';
++import { PostgresRemediationAccounting, type RemediationOperation } from '@ae/core/evals/remediation/accounting/index';
++import { createRemediationTarget, type RemediationTargetDeps, type RemediationTargetScope } from '@ae/core/targets/remediation';
++
++const refused = (): never => { throw new Error('NAIVE_REMEDIATION_TRIAL_HOLD'); };
++const pinned = (tx: AgentSqlExecutor): AgentTransactionalSql => ({ query: tx.query.bind(tx), transaction: fn => fn(tx) });
++
++export interface NaiveRemediationTrialDeps {
++  sql: AgentTransactionalSql;
++  /** Canonical owner policy must explicitly attest stateless request-message isolation.
++   * An arbitrary endpoint URL or a model-generated assertion does not establish this scope. */
++  scope: RemediationTargetScope;
++  operationMicroUsd: number;
++  /** Exact job and allocation scopes from the shared text runtime, plus optional stricter scopes. */
++  reservationScopes: BudgetReservationRequest['scopes'];
++  /** Rechecks the complete canonical binding, consent, credentials and enabled trial policy. */
++  assertCurrent(): Promise<readonly string[]>;
++  /** Locks the canonical job first and validates current authority in this transaction. */
++  assertCurrentInTransaction(tx: AgentSqlExecutor): Promise<void>;
++  /** Existing Naive proxy judge, including its durable dispatch/accounting protocol. */
++  resolveJudge(): Promise<RubricJudge | null>;
++  transport?: RemediationTargetDeps['transport'];
++  limits?: RemediationTargetDeps['limits'];
++}
++
++/** Reuse core durable dispatch/usage fencing, replacing ONLY budget admission with the
++ * shared job ledger. No monetary settlement capability is exposed: target HTTP usage has
++ * no authoritative monetary receipt here, so every target reservation remains held. */
++class SharedRemediationAccounting extends PostgresRemediationAccounting {
++  constructor(private readonly owner: NaiveRemediationTrialDeps) {
++    super({ sql: owner.sql, jobId: owner.scope.job.jobId,
++      reservation: () => refused(), deliverCost: async () => refused() });
++  }
++  override async authorize(operation: RemediationOperation): Promise<boolean> {
++    if (operation.kind !== 'target' || !operation.operationId || operation.operationId.length > 4096
++      || !/^[a-f0-9]{64}$/.test(operation.inputDigest)) return refused();
++    await this.owner.assertCurrent();
++    const reservation: BudgetReservationRequest = { reservationId: operation.operationId,
++      jobId: this.owner.scope.job.jobId, amountMicroUsd: this.owner.operationMicroUsd,
++      scopes: structuredClone(this.owner.reservationScopes) };
++    return this.owner.sql.transaction(async tx => {
++      await this.owner.assertCurrentInTransaction(tx);
++      await tx.query(`INSERT INTO remediation_accounting.operations(operation_id,job_id,kind,input_digest,reservation)
++        VALUES($1,$2,'target',$3,$4::jsonb) ON CONFLICT DO NOTHING`,
++      [operation.operationId,reservation.jobId,operation.inputDigest,canonicalJson(reservation)]);
++      const row=(await tx.query<{job_id:string;kind:string;input_digest:string;allowed:boolean|null;agrees:boolean}>(
++        `SELECT *,reservation=$2::jsonb AS agrees FROM remediation_accounting.operations WHERE operation_id=$1 FOR UPDATE`,
++        [operation.operationId,canonicalJson(reservation)])).rows[0];
++      if (!row || row.job_id !== reservation.jobId || row.kind !== 'target'
++        || row.input_digest !== operation.inputDigest || row.agrees !== true) return refused();
++      if (row.allowed !== null) return row.allowed;
++      const admitted=await new SharedJobBudgetLedger(pinned(tx)).reserve(reservation);
++      await tx.query('UPDATE remediation_accounting.operations SET allowed=$2 WHERE operation_id=$1',[operation.operationId,admitted.ok]);
++      if (admitted.ok) await tx.query(`INSERT INTO remediation_accounting.reconciliation_outbox(operation_id,pending,reason)
++        VALUES($1,true,'reserved') ON CONFLICT DO NOTHING`,[operation.operationId]);
++      return admitted.ok;
++    });
++  }
++}
++
++/** Stateless replacement-prompt trial. The core observer derives AppliedReceipt from
++ * the immutable serialized messages actually handed to secured HTTPS transport. */
++export function createNaiveRemediationTrial(raw: NaiveRemediationTrialDeps): Pick<AuthorizedRemediation,'trial'|'judge'|'authorize'> {
++  const deps={...raw,scope:structuredClone(raw.scope),reservationScopes:structuredClone(raw.reservationScopes)};
++  if (deps.scope.endpoint.kind !== 'stateless_chat_completions' || deps.scope.endpoint.isolation !== 'request_messages_only'
++    || !Number.isSafeInteger(deps.operationMicroUsd) || deps.operationMicroUsd <= 0
++    || !deps.reservationScopes.some(s => s.key === `job:${deps.scope.job.jobId}` && Number.isSafeInteger(s.capMicroUsd) && s.capMicroUsd >= deps.operationMicroUsd)
++    || !deps.reservationScopes.some(s => /^agent:[a-z_]+:[A-Za-z0-9_-]+$/.test(s.key))
++    || !deps.reservationScopes.some(s => s.key.startsWith('generic-text:') && s.key.endsWith(`:${deps.scope.job.jobId}`))) return refused();
++  const accounting=new SharedRemediationAccounting(deps);
++  const trial=createRemediationTarget({scope:deps.scope,currentSecrets:deps.assertCurrent,
++    accounting:{beforeDispatch:async evidence=>deps.sql.transaction(async tx=>{
++      await deps.assertCurrentInTransaction(tx);
++      // Join the owner transaction: job lock precedes durable operation fencing.
++      const joined=new PostgresRemediationAccounting({sql:pinned(tx),jobId:deps.scope.job.jobId,
++        reservation:()=>refused(),deliverCost:async()=>refused()});
++      await joined.beforeDispatch(evidence);
++    }),observed:accounting.observed.bind(accounting),ambiguous:accounting.ambiguous.bind(accounting)},
++    limits:deps.limits??{timeoutMs:15000,maxCompletionTokens:512,maxRequestBytes:256000,maxResponseBytes:1000000},
++    ...(deps.transport?{transport:deps.transport}:{})});
++  return {trial,
++    authorize:async operation=>{
++      await deps.assertCurrent();
++      if(operation.kind==='target')return accounting.authorize(operation);
++      // The existing proxy judge reserves its own stable operation on the SAME ledger.
++      // A second outer reservation would double-count or invent a proxy charge.
++      return (await deps.resolveJudge())!==null;
++    },
++    judge:async input=>{
++      await deps.assertCurrent();
++      const judge=await deps.resolveJudge();if(!judge)return refused();
++      const value=await judge(input);
++      await deps.assertCurrent();
++      return {value,costs:[]};
++    }};
++}
+diff --git a/apps/web/src/server/naive-text-methods.test.ts b/apps/web/src/server/naive-text-methods.test.ts
+--- a/apps/web/src/server/naive-text-methods.test.ts
++++ b/apps/web/src/server/naive-text-methods.test.ts
+@@ -96,7 +96,7 @@
+   const query=vi.fn(async()=>{throw Error('SQL must not be touched');}),transaction=vi.fn(async()=>{throw Error('SQL must not be touched');});
+   const sql={query,transaction} as AgentTransactionalSql,base={jobId,environment:'test' as const,budgetMicroUsd:0,recordCost:async()=>{},recordProgress:async()=>{}};
+   for(const budgetMicroUsd of [0,-1,Number.NaN,Infinity,Number.MAX_SAFE_INTEGER+1,0.5])await expect(createNaiveTextMethods({...base,budgetMicroUsd},{sql})).rejects.toThrow();
+-  const builder=createNaiveTextMethodBuilder({sql});for(const method of ['proposeAndVerifyFix','rerunFinding'] as const)await expect(builder(method,{...base,budgetMicroUsd:1000000})).rejects.toThrow();
++  const builder=createNaiveTextMethodBuilder({sql});for(const method of ['rerunFinding'] as const)await expect(builder(method,{...base,budgetMicroUsd:1000000})).rejects.toThrow();
+   expect(query).not.toHaveBeenCalled();expect(transaction).not.toHaveBeenCalled();
+  });
+  it('requires configured judge policy before provider or target calls',async()=>{
+diff --git a/apps/web/src/server/naive-text-methods.ts b/apps/web/src/server/naive-text-methods.ts
+--- a/apps/web/src/server/naive-text-methods.ts
++++ b/apps/web/src/server/naive-text-methods.ts
+@@ -38,12 +38,13 @@
+  runnerFactory?:(ledger:BudgetLedger)=>AgentTaskRunner;
+  clock?:Clock;
+  targetTransport?:JsonTransport;
++ remediationTransport?:JsonTransport;
+  proxyFetch?:typeof fetch;
+  decryptCredentials?:(ciphertext:string)=>Record<string,string>;
+ }
+ interface CostEnvelope {jobId:string;customerId:string;environment:'test'|'live';cost:ContractCost}
+ /** Internal composition of existing durable services, never an alternate job Workflow. */
+-export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}):Promise<Pick<EvalServices,NaiveTextMethod>> {
++export async function createNaiveTextRuntime(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}) {
+  if(!Number.isSafeInteger(ctx.budgetMicroUsd)||ctx.budgetMicroUsd<=0)throw new TrackBBlockedError('paused_budget','Positive safe integer Naive budget required before constructing providers.');
+  const sql=deps.sql??(await import('@/server/automated-expert-owner')).expertOwnerDatabase();
+  const jobId=ctx.jobId,environment=ctx.environment;
+@@ -150,15 +151,21 @@
+  const investigation=createNaiveInvestigationService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:async()=>{
+   const a=await resolved(),retainedRun=await authority.artifacts.loadRun(stable,a.scope,a.runId,a.targetVersion);if(!retainedRun)return fail();return {...a,retainedSuite:a.retained,retainedRun};
+  },persistInvestigation:authority.artifacts.persistInvestigation});
+- return {
++ const methods:Pick<EvalServices,NaiveTextMethod>={
+   designSuite:(input,intake)=>design.designSuite(stableContext(input),intake),
+   runSuite:(input,suite,target,branch)=>run.runSuite(stableContext(input),suite,target,branch),
+   investigate:(input,suite,runs)=>investigation.investigate(stableContext(input),suite,runs),
+  };
++ return {sql,profile,authority,stableContext,runner,judge,ledger,targetDependencies,resolved,methods,allocation,cap,allocationScope:profile.policyId==='generic-text-v1'?`generic-text:${jobId}`:`generic-text:${profile.policyId}:${jobId}`};
+ }
++export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMethodsDependencies={}):Promise<Pick<EvalServices,NaiveTextMethod>> {
++ return (await createNaiveTextRuntime(ctx,deps)).methods;
++}
++export type NaiveTextRuntime=Awaited<ReturnType<typeof createNaiveTextRuntime>>;
+ /** Routing installs this builder lazily. Unsupported trial/rerun semantics stay unavailable. */
+ export function createNaiveTextMethodBuilder(deps:NaiveTextMethodsDependencies={}){
+  return async(method:NaiveMethod,ctx:ServiceContext):Promise<Partial<Pick<EvalServices,NaiveMethod>>>=>{
++  if(method==='proposeAndVerifyFix')return (await import('./naive-remediation-runtime')).createNaiveRemediationMethods(ctx,deps);
+   if(!['designSuite','runSuite','investigate'].includes(method))return fail('Generic Naive remediation/rerun requires its own owner runtime.');
+   return createNaiveTextMethods(ctx,deps);
+  };
+diff --git a/apps/web/src/server/naive-text-publication.test.ts b/apps/web/src/server/naive-text-publication.test.ts
+--- a/apps/web/src/server/naive-text-publication.test.ts
++++ b/apps/web/src/server/naive-text-publication.test.ts
+@@ -25,7 +25,7 @@
+  vi.stubEnv('NAIVE_JUDGE_MODEL','fixture-jude-model');vi.stubEnv('NAIVE_API_KEY','fixture-proxy-key');
+  vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
+  const pg=shared?.pg??new PGlite();if(!shared){databases.push(pg);
+- for(const file of ['packages/core/src/db/migrations/0000_init.sql','packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql','docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
++ for(const file of ['packages/core/src/db/migrations/0000_init.sql','packages/core/src/db/migrations/0005_remediations.sql','packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/evals/integration/migrations/001-text-integration.sql','docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'])await pg.exec(readFileSync(resolve(file),'utf8'));
+  await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customerId,'publication-fixture@example.test']);}
+  const intake:Extract<IntakeInput,{package:'text_eval'}>={package:'text_eval',authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',referenceText:'Canonical grounding text.',systemPrompt:rubric?'Use a polite tone.':'Follow explicit constraints.',apiKey:'fixture-target-key'}};
+  // Match workflows/steps/evaluate.ts targetFor: referenceText belongs to design, not the dispatch target.
+diff --git a/apps/web/src/server/naive-text-publication.ts b/apps/web/src/server/naive-text-publication.ts
+--- a/apps/web/src/server/naive-text-publication.ts
++++ b/apps/web/src/server/naive-text-publication.ts
+@@ -1,7 +1,7 @@
+ import 'server-only';
+ import { createHash,randomUUID } from 'node:crypto';
+ import type { AgentSqlExecutor,AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
+-import { IntakeInput,Report,type Finding,type Suite } from '@ae/core/contracts/index';
++import { IntakeInput,Report,Remediation,type Finding,type Suite } from '@ae/core/contracts/index';
+ import type { ServiceContext } from '@ae/core/contracts/services';
+ import { canonicalJson } from '@ae/core/evals/text/freeze';
+ import { SuiteRunSchema } from '@ae/core/evals/text/schema';
+@@ -87,16 +87,33 @@
+   const findings=rich.findings.map(f=>toContractFinding(FindingSchema.parse(f)));
+   if(requestedFindings&&!equal(requestedFindings,findings))return fail();
+   if(!inspectDataSafety({projection,run,rich,findings},secrets).safe)return fail();
++  const remediationRows=(await tx.query<(Checkpoint&{id:string})>(`SELECT id,input_digest,state,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_remediation_receipt' ORDER BY id FOR SHARE`,[jobId])).rows;
++  if(remediationRows.length>findings.length)return fail();
++  const remediations:Remediation[]=[];
++  for(const row of remediationRows){
++   const richFinding=rich.findings.find(f=>f.id===row.id),publicFinding=findings.find(f=>f.id===row.id);
++   if(!richFinding||!publicFinding||richFinding.label!=='confirmed')return fail();
++   const evidenceDigest=hash({binding:binding.value,scope,frozen:projection.retained.frozen,run,rich,finding:richFinding,publicFinding});
++   const input={evidenceDigest,findingId:row.id},v=row.value,detailed=v?.detailed;
++   if(row.state!=='completed'||row.input_digest!==hash(input)||v?.schemaVersion!=='naive_remediation_receipt.v1'||!equal(v.input,input)||v.receiptDigest!==hash({input,detailed})||detailed?.baselineRunId!==runId||detailed.suiteDigest!==scope.suiteDigest)return fail();
++   const remediation=Remediation.parse(detailed.remediation);
++   if(!equal(remediation,detailed.remediation)||remediation.findingId!==row.id)return fail();
++   remediations.push(remediation);
++  }
++  const projected=(await tx.query<{finding_key:string;data:unknown;finding_data:unknown}>(`SELECT f.finding_key,r.data,f.data AS finding_data FROM remediations r JOIN findings f ON f.id=r.finding_row_id WHERE r.job_id=$1 AND f.job_id=$1 AND f.rerun_of_finding_id IS NULL FOR SHARE OF r,f`,[jobId])).rows;
++  if(projected.length!==remediations.length||projected.some(r=>!findings.some(f=>f.id===r.finding_key&&equal(f,r.finding_data))||!remediations.some(f=>f.findingId===r.finding_key&&equal(f,r.data))))return fail();
++  if(!inspectDataSafety({remediationRows,remediations},secrets).safe)return fail();
++  const remediationSummary=remediations.length?`Remediation results: ${remediations.map(r=>`${r.findingId}: ${r.verification.status}; ${r.verification.after.passed}/${r.verification.after.total} original scenarios passed; ${r.verification.regressions} regressions`).join('; ')}. Verification is limited to the retained frozen scenarios; no deployed configuration was changed. Target usage may remain pending monetary reconciliation. Post-delivery reruns were not performed.`:'Remediation and rerun verification were not performed.';
+   const assessed=publicRun.results.filter(r=>r.assessment?.kind==='objective'||r.assessment?.kind==='rubric').length;
+-  const summary=`Text baseline assessment: ${assessed} of ${publicRun.results.length} scenarios assessed.\n${publicRun.results.map(r=>`${r.scenarioId}: ${r.assessment?.kind??'objective'}; ${r.assessment?.checks.map(c=>`${c.checkId}=${c.status}${c.reason?` (${c.reason})`:''}`).join('; ')??''}`).join('\n')}\nLimitations: ${rich.limitations.join('; ')||'No additional investigator limitations.'}\nRemediation and rerun verification were not performed. Full target responses, check evidence, and reproductions are retained privately.`;
+-  const proof={binding,admission,approved,retained,richRun,richIdentity,investigation,engineInvestigation};
+-  return {owner,identity,scope,findings,suite:projection.suite,assessed,summary,proof,secrets};
++  const summary=`Text baseline assessment: ${assessed} of ${publicRun.results.length} scenarios assessed.\n${publicRun.results.map(r=>`${r.scenarioId}: ${r.assessment?.kind??'objective'}; ${r.assessment?.checks.map(c=>`${c.checkId}=${c.status}${c.reason?` (${c.reason})`:''}`).join('; ')??''}`).join('\n')}\nLimitations: ${rich.limitations.join('; ')||'No additional investigator limitations.'}\n${remediationSummary} Full target responses, check evidence, and reproductions are retained privately.`;
++  const proof={binding,admission,approved,retained,richRun,richIdentity,investigation,engineInvestigation,...(remediationRows.length?{remediationRows}: {})};
++  return {owner,identity,scope,findings,suite:projection.suite,assessed,summary,proof,secrets,remediations};
+  }
+  const initial=await sql.transaction(tx=>current(tx,undefined,true)),fixed=hash(initial.proof);
+  async function checked(tx:AgentSqlExecutor,value?:unknown,allowDelivered=false){const a=await current(tx,value,allowDelivered);if(hash(a.proof)!==fixed)return fail();return a;}
+  return {
+   assertCurrent:async(value?:unknown)=>{await sql.transaction(tx=>checked(tx,value,true));},
+-  reportContext:async()=>{const a=await sql.transaction(tx=>checked(tx,undefined,true));return {assessed:a.assessed,summary:a.summary};},
++  reportContext:async()=>{const a=await sql.transaction(tx=>checked(tx,undefined,true));return {assessed:a.assessed,summary:a.summary,remediations:a.remediations};},
+   atomicPublish:async(raw:Report,paths:NaiveTextPublicationPaths):Promise<{deliveredAtIso:string}>=>sql.transaction(async tx=>{
+    const report=Report.parse(raw);
+    if(!equal(raw,report)||report.jobId!==jobId||!equal(report.findings,initial.findings)||Object.keys(paths).sort().join(',')!=='evidenceBlobPath,reportBlobPath,reportHtmlBlobPath,suiteBlobPath'||Object.values(paths).some(v=>typeof v!=='string'||!v||v.length>4096||v.includes('\0')))return fail();
+diff --git a/apps/web/src/workflows/job-naive-routing.test.ts b/apps/web/src/workflows/job-naive-routing.test.ts
+--- a/apps/web/src/workflows/job-naive-routing.test.ts
++++ b/apps/web/src/workflows/job-naive-routing.test.ts
+@@ -1,13 +1,13 @@
+ import { beforeEach, describe, expect, it, vi } from 'vitest';
+ const p = vi.hoisted(() => ({
+-  gap:vi.fn(), design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),progress:vi.fn(),
++  selectedFixes:vi.fn(),fixPolicy:vi.fn(),gap:vi.fn(), design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),progress:vi.fn(),
+ }));
+ vi.mock('workflow', () => ({FatalError: class FatalError extends Error {}, sleep: p.sleep, createHook: () => ({[Symbol.dispose]() {}, [Symbol.asyncIterator]: () => ({next: p.next})})}));
+-vi.mock('@/workflows/decisions', () => ({decideResumePlan: p.plan, selectFindingsForFix: () => [], needsConnectionCheck: () => false}));
++vi.mock('@/workflows/decisions', () => ({decideResumePlan: p.plan, selectFindingsForFix: p.selectedFixes, needsConnectionCheck: () => false}));
+ vi.mock('@/workflows/steps/expert-data', () => ({expertDataGateStep: p.gate, expertDataHoldStep: vi.fn()}));
+ vi.mock('@/workflows/steps/expert-text', () => ({expertTextEvaluationStep: p.expert, expertTextReportStep: async () => ({status:'ok'})}));
+ vi.mock('@/workflows/steps/resume', () => ({loadResumeSnapshotStep:p.snapshot, discardPartialEvaluationStep: vi.fn()}));
+-vi.mock('@/workflows/steps/evaluate', () => ({factualGapEntryStep:p.gap,createBranchStep:p.branch, designSuiteStep:p.design, runSuiteStep:p.run, investigateStep:async () => ({status:'ok',data:[]}), renderReportStep:async () => ({status:'ok',data:{}}), persistReportStep:vi.fn(), proposeFixStep:p.fix,genericTextExecutionPolicyStep:p.policy,genericTextReportStep:p.genericReport,genericTextCommittedReceiptStep:p.receipt,genericTextNotifyStep:p.notify, auditTraceStep:vi.fn()}));
++vi.mock('@/workflows/steps/evaluate', () => ({factualGapEntryStep:p.gap,createBranchStep:p.branch, designSuiteStep:p.design, runSuiteStep:p.run, investigateStep:async () => ({status:'ok',data:[]}), renderReportStep:async () => ({status:'ok',data:{}}), persistReportStep:vi.fn(), proposeFixStep:p.fix,genericTextExecutionPolicyStep:p.policy,genericTextRemediationPolicyStep:p.fixPolicy,genericTextReportStep:p.genericReport,genericTextCommittedReceiptStep:p.receipt,genericTextNotifyStep:p.notify, auditTraceStep:vi.fn()}));
+ vi.mock('@/workflows/steps/lifecycle', () => ({setStateStep:async () => true, progressStep:p.progress, deliverStep:p.deliver, neonDeliverySafetyStep:vi.fn(), failStep:p.fail, cancelStep:p.cancel}));
+ vi.mock('@/workflows/steps/quote', () => ({connectionCheckStep:vi.fn(), createQuoteStep:vi.fn(), qualifyStep:vi.fn()}));
+ vi.mock('@/workflows/steps/notify', () => ({notifyCustomerStep:vi.fn()}));
+@@ -16,7 +16,7 @@
+ import { routeNaiveMethods,readRoutingSelection } from '@/server/naive-method-routing';
+ import { jobWorkflow } from '@/workflows/job';
+ describe('actual candidate Workflow caller', () => {
+- beforeEach(() => {vi.clearAllMocks();p.gap.mockReset().mockResolvedValue('absent');p.gate.mockResolvedValue('legacy');p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});p.plan.mockReturnValue({phase:'execute',quoteVersion:1});p.receipt.mockResolvedValue(null);p.notify.mockResolvedValue(true);p.policy.mockResolvedValue(false);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});p.deliver.mockResolvedValue({deliveredAtIso:''});p.branch.mockResolvedValue({});p.design.mockResolvedValue({status:'ok',data:{scenarios:[]}});p.run.mockResolvedValue({status:'ok',data:{results:[]}});p.next.mockImplementation(() => new Promise(() => {}));p.sleep.mockResolvedValue(undefined);});
++ beforeEach(() => {vi.clearAllMocks();p.selectedFixes.mockReturnValue([]);p.fixPolicy.mockResolvedValue(false);p.fix.mockResolvedValue({status:"ok",data:{}});p.gap.mockReset().mockResolvedValue('absent');p.gate.mockResolvedValue('legacy');p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});p.plan.mockReturnValue({phase:'execute',quoteVersion:1});p.receipt.mockResolvedValue(null);p.notify.mockResolvedValue(true);p.policy.mockResolvedValue(false);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});p.deliver.mockResolvedValue({deliveredAtIso:''});p.branch.mockResolvedValue({});p.design.mockResolvedValue({status:'ok',data:{scenarios:[]}});p.run.mockResolvedValue({status:'ok',data:{results:[]}});p.next.mockImplementation(() => new Promise(() => {}));p.sleep.mockResolvedValue(undefined);});
+  it('durably waits for admission then resumes generic evaluation', async () => {
+   p.design.mockRejectedValueOnce(new Error('NAIVE_ADMISSION_PENDING: review'));
+   expect((await jobWorkflow('job')).status).toBe('delivered');expect(p.sleep).toHaveBeenCalledWith('30m');expect(p.design).toHaveBeenCalledTimes(2);expect(p.fail).not.toHaveBeenCalled();
+@@ -37,11 +37,21 @@
+   p.policy.mockResolvedValue(true);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:false}});
+   expect((await jobWorkflow('job')).status).toBe('on_hold');expect(p.deliver).not.toHaveBeenCalled();expect(p.settle).not.toHaveBeenCalled();expect(p.fix).not.toHaveBeenCalled();
+  });
+- it('generic rich reporting skips legacy automatic fix verification',async()=>{
++ it('generic rich reporting skips unselected fix verification',async()=>{
+   p.policy.mockResolvedValue(true);
+   expect((await jobWorkflow('job')).status).toBe('delivered');expect(p.genericReport).toHaveBeenCalledOnce();expect(p.fix).not.toHaveBeenCalled();expect(p.deliver).not.toHaveBeenCalled();
+  });
+ 
++ it('routes selected generic fixes before retained-evidence publication',async()=>{
++  p.policy.mockResolvedValue(true);p.fixPolicy.mockResolvedValue(true);p.selectedFixes.mockReturnValue([{id:'canonical-finding'}]);
++  expect((await jobWorkflow('job')).status).toBe('delivered');
++  expect(p.fix).toHaveBeenCalledWith('job',{id:'canonical-finding'},{scenarios:[]});
++  expect(p.fix.mock.invocationCallOrder[0]).toBeLessThan(p.genericReport.mock.invocationCallOrder[0]);
++ });
++ it('holds ambiguous selected generic fixes without publishing',async()=>{
++  p.policy.mockResolvedValue(true);p.fixPolicy.mockResolvedValue(true);p.selectedFixes.mockReturnValue([{id:'canonical-finding'}]);p.fix.mockRejectedValue(Error('NAIVE_RECONCILIATION_REQUIRED'));
++  expect((await jobWorkflow('job')).status).toBe('on_hold');expect(p.genericReport).not.toHaveBeenCalled();expect(p.deliver).not.toHaveBeenCalled();expect(p.fail).not.toHaveBeenCalled();
++ });
+  it('recovers an acknowledged committed publication without overwriting delivered state',async()=>{
+   p.policy.mockResolvedValue(true);p.genericReport.mockRejectedValueOnce(new Error('commit_ack_lost'));p.receipt.mockResolvedValue({deliveredAtIso:'2026-11-08T00:00:00.000Z'});
+   expect((await jobWorkflow('job')).status).toBe('delivered');expect(p.fail).not.toHaveBeenCalled();expect(p.deliver).not.toHaveBeenCalled();expect(p.notify).toHaveBeenCalledOnce();
+diff --git a/apps/web/src/workflows/job.ts b/apps/web/src/workflows/job.ts
+--- a/apps/web/src/workflows/job.ts
++++ b/apps/web/src/workflows/job.ts
+@@ -12,7 +12,7 @@
+ } from "./steps/lifecycle";
+ import { connectionCheckStep, createQuoteStep, qualifyStep } from "./steps/quote";
+ import {
+-  auditTraceStep, createBranchStep, designSuiteStep, factualGapEntryStep, investigateStep, genericTextExecutionPolicyStep, genericTextReportStep, genericTextCommittedReceiptStep, genericTextNotifyStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
++  auditTraceStep, createBranchStep, designSuiteStep, factualGapEntryStep, investigateStep, genericTextExecutionPolicyStep, genericTextRemediationPolicyStep, genericTextReportStep, genericTextCommittedReceiptStep, genericTextNotifyStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
+ } from "./steps/evaluate";
+ import { notifyCustomerStep } from "./steps/notify";
+ import { flagSettlementFailureStep, settlePaymentStep } from "./steps/billing";
+@@ -320,6 +320,15 @@
+     if (inv.status === "budget_exceeded") { await pauseBudgetStep(jobId, inv.message); return { stopped: "paused_budget" }; }
+     if (generic) {
+       genericAttempted = true;
++      if (await genericTextRemediationPolicyStep()) {
++        for (const finding of selectFindingsForFix(inv.data)) {
++          const fix = await proposeFixStep(jobId, finding, suite);
++          if (fix.status === "budget_exceeded") {
++            await progressStep(jobId, "fixes_skipped", "Skipped remaining fix verification: per-job budget is limited. Findings are still reported.");
++            break;
++          }
++        }
++      }
+       const report = await genericTextReportStep(jobId, inv.data, suite);
+       if (report.status === "budget_exceeded") { await pauseBudgetStep(jobId, report.message); return { stopped: "paused_budget" }; }
+       if (!report.data.assessed) return { stopped: "on_hold" };
+diff --git a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+--- a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
++++ b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+@@ -4,9 +4,9 @@
+ vi.mock('@/server/naive-factual-gap-workflow',()=>({retryNaiveFactualGapEntry:p.retry,retainNaiveFactualGapProposal:p.retain}));
+ vi.mock('@ae/core/db/client',()=>({db:()=>({select:()=>({from:()=>({where:p.reservations})}),execute:p.release}),schema:{budgetReservations:{id:'id',jobId:'job',agent:'agent',releasedAt:'released'}}}));
+ vi.mock('@/server/naive-text-publication',()=>({createNaiveTextPublication:async()=>({reportContext:p.coverage,assertCurrent:p.assert,atomicPublish:p.publish}),claimNaiveTextDeliveryNotification:p.claim,completeNaiveTextDeliveryNotification:p.complete,readNaiveTextDeliveryReceipt:vi.fn()}));
+-vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),evalServices:{renderReport:p.report}}));
++vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),evalServices:{renderReport:()=>{throw Error('unfenced report runtime');}}}));
+ vi.mock('@/workflows/steps/notify',()=>({notifyCustomerStep:p.notify}));
+-vi.mock('@/server/services',()=>({getEvalServices:async()=>p.services,isWorkflowStagePendingError:()=>false}));
++vi.mock('@/server/services',()=>({getEvalServices:async()=>p.services,stageRealEvalServices:{renderReport:p.report},isWorkflowStagePendingError:()=>false}));
+ vi.mock('@/server/workflow-stage-runtime',()=>({assertWorkflowStageCurrent:async()=>{}}));
+ vi.mock('@/workflows/steps/common',()=>({loadIntake:async()=>p.intake,requireJob:async()=>({state:'planning'}),withBudget:async(_j:unknown,_a:unknown,stage:unknown,fn:(ctx:unknown)=>unknown)=>{expect(stage).toMatchObject({key:expect.any(String),input:expect.any(Object)});const data=await fn({recordProgress:async()=>{}});p.released=true;return {status:'ok',data};}}));
+ vi.mock('@ae/core/redteam/index',()=>({appendRedTeamToSuite:p.append}));
+@@ -16,7 +16,7 @@
+ import {factualGapEntryStep,createBranchStep,designSuiteStep,runSuiteStep,genericTextReportStep,genericTextNotifyStep} from '@/workflows/steps/evaluate';
+ afterEach(()=>vi.unstubAllEnvs());
+ describe('actual selected generic evaluation steps',()=>{
+- beforeEach(()=>{vi.clearAllMocks();p.reservations.mockResolvedValue([]);p.resolve.mockImplementation(async()=>process.env.EVAL_NAIVE_METHODS?{generic:true,profile:{factualGapPolicy:"propose_missing_reference.v1"},identity:{jobId:"job"},sql:{}}:{generic:false});p.retry.mockReset().mockResolvedValue({status:"absent"});p.retain.mockResolvedValue({status:"retained"});vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('EVAL_NAIVE_METHODS','designSuite,runSuite,investigate');vi.stubEnv('REDTEAM_PACK','1');p.released=false;p.put.mockResolvedValue('private-artifact');p.coverage.mockResolvedValue({assessed:12,summary:'12 assessed; remediation not performed'});p.assert.mockResolvedValue(undefined);p.publish.mockImplementation(async()=>{expect(p.released).toBe(true);return {deliveredAtIso:'2026-11-08T00:00:00.000Z'};});p.report.mockResolvedValue({jobId:'job',summary:'summary',markdown:'report',html:'<p>report</p>',findings:[]});p.claim.mockResolvedValue({status:'claimed',token:'canonical-token'});p.complete.mockResolvedValue(undefined);});
++ beforeEach(()=>{vi.clearAllMocks();p.reservations.mockResolvedValue([]);p.resolve.mockImplementation(async()=>process.env.EVAL_NAIVE_METHODS?{generic:true,profile:{factualGapPolicy:"propose_missing_reference.v1"},identity:{jobId:"job"},sql:{}}:{generic:false});p.retry.mockReset().mockResolvedValue({status:"absent"});p.retain.mockResolvedValue({status:"retained"});vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('EVAL_NAIVE_METHODS','designSuite,runSuite,investigate');vi.stubEnv('REDTEAM_PACK','1');p.released=false;p.put.mockResolvedValue('private-artifact');p.coverage.mockResolvedValue({assessed:12,remediations:[],summary:'12 assessed; remediation not performed'});p.assert.mockResolvedValue(undefined);p.publish.mockImplementation(async()=>{expect(p.released).toBe(true);return {deliveredAtIso:'2026-11-08T00:00:00.000Z'};});p.report.mockResolvedValue({jobId:'job',summary:'summary',markdown:'report',html:'<p>report</p>',findings:[]});p.claim.mockResolvedValue({status:'claimed',token:'canonical-token'});p.complete.mockResolvedValue(undefined);});
+  it('text execution creates no simulator branch',async()=>{expect(await createBranchStep('job')).toEqual({});expect(p.services.createJobBranch).not.toHaveBeenCalled();});
+  it('does not append red-team cases after design admission',async()=>{const suite={scenarios:[],versionLabel:'admitted'};p.services.designSuite.mockResolvedValue(suite);expect((await designSuiteStep('job'))).toMatchObject({data:suite});expect(p.append).not.toHaveBeenCalled();});
+  it('retains legacy post-design augmentation and public version projection',async()=>{vi.stubEnv('EVAL_NAIVE_METHODS','');const suite={scenarios:[],jobId:'job',versionLabel:'admitted',frozenAt:'2026-01-01'};p.services.designSuite.mockResolvedValue(suite);p.append.mockReturnValue(suite);await designSuiteStep('job');expect(p.append).toHaveBeenCalledWith(suite,p.intake);p.services.runSuite.mockResolvedValue({results:[]});await runSuiteStep('job',suite,'endpoint','A');expect(p.services.runSuite.mock.calls[0][1]).toMatchObject({versionLabel:'A'});});
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -14,7 +14,7 @@
+ import { requireNaivePackage, selectedNaiveMethod, selectedNaiveEvaluation, toNaiveWorkflowError } from "@/server/naive-method-routing";
+ import { makeServiceContext } from "@/server/job-store";
+ import { createNaiveTextPublication, readNaiveTextDeliveryReceipt, claimNaiveTextDeliveryNotification, completeNaiveTextDeliveryNotification } from "@/server/naive-text-publication";
+-import { evalServices as naiveReportServices } from "@ae/core/integration/eval-services";
++import { stageRealEvalServices as naiveReportServices } from "@/server/services";
+ import { getEvalServices, isWorkflowStageControlError, isWorkflowStagePendingError, recoverableEvalStage, workflowServiceCall } from "@/server/services";
+ import { notifyCustomerStep } from "./notify";
+ import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+@@ -172,6 +172,8 @@
+       return null;
+     }
+     await assertWorkflowStageCurrent();
++    // The owner runtime atomically retained detailed evidence and projected this exact result.
++    if (selectedNaiveMethod("proposeAndVerifyFix")) return fix;
+     await saveFindings(jobId, [finding]);
+     const rowId = await findingRowIdByKey(jobId, finding.id);
+     if (!rowId) throw new Error("finding row missing");
+@@ -211,12 +213,16 @@
+   await recordProgress(jobId, "report_stored", "Report and evidence stored.");
+ }
+ 
+-/** Durable Workflow reads configuration inside a step; selected generic text has no verified fix runtime. */
++/** Durable Workflow reads configuration inside a step. */
+ export async function genericTextExecutionPolicyStep(jobId:string): Promise<boolean> {
+   "use step";
+   const selected = (await resolveJobNaiveExecution(jobId)).generic;
+-  if (selected && selectedNaiveMethod("proposeAndVerifyFix")) throw new FatalError("Generic Naive remediation requires its own owner runtime.");
+   return selected;
++}
++
++export async function genericTextRemediationPolicyStep():Promise<boolean> {
++  "use step";
++  return selectedNaiveMethod("proposeAndVerifyFix");
+ }
+ 
+ /** Rich baseline coverage and current retained authority gate generic publication. */
+@@ -232,7 +238,7 @@
+     const intake = await loadIntake(jobId, false);
+     await publication.assertCurrent({ findings, suite });
+     let report: Report;
+-    try { report = await naiveReportServices.renderReport(ctx, { intake, findings, suite, remediations: [] }); }
++    try { report = await naiveReportServices.renderReport(ctx, { intake, findings, suite, remediations: coverage.remediations }); }
+     catch (error) { throw toNaiveWorkflowError(error); }
+     await publication.assertCurrent(report);
+     const escape = (s: string) => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));

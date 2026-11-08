@@ -2,6 +2,12 @@
 
 Read-only source audit at `7c61008`, which preserves Track A main `8637532`. The generic three-method and operator surfaces remain candidate artifacts. This is implementation guidance, not a deployment receipt or authorization to contact anyone.
 
+## Remediation continuation after unified composition
+
+The previously missing owner remediation path now exists in `naive-remediation-owner-integration`, an unapplied 19-file increment. It resolves canonical evidence, uses the shared runtime, requires an exact authenticated stateless-target declaration for trials, retains detailed receipts before immutable projection and connects the selected Workflow/report path. Its before/after and replay tests use real composition with fake external transports. Earlier remediation instructions below describe the requirements this candidate implements, not a request to rebuild it.
+
+Next work must address the remaining operational boundaries: mixed callback recovery with complete target/proxy child coverage, monetary target reconciliation without fake zero costs, complete parent/daily budgets, optional judge recovery wiring, and post-delivery rerun identity/resolution. Copilot conversation/idle and full roster/Phase 0 conformance remain separate. Read final artifact receipts before extending or adopting; source adoption and live acceptance remain unproven.
+
 ## Unified continuation at `7f28e20`
 
 The factual/sourcing rebase described as missing below is now implemented in the unapplied `naive-unified-integration` artifact. Continue from its retained manifest and final validation receipt. It includes shared generic/expert ledgers and stage decorators, pending propagation, cancellation/dispatch ordering and current main preservation. Historical separate candidate postimages must not overwrite it.

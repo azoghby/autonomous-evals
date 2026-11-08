@@ -1,0 +1,24 @@
+{
+  "manifestSha256": "62fe7dc24cb5a4b2b3d6c39a8c32dbf429be861596bcd74a960a3f36ec04488d",
+  "ownerPatchSha256": "ed491343efcca8c19ae7607987f252f3b09be4b161c03934b2d3a5eda5e9cc42",
+  "ownerPatchApplied": true,
+  "independentPatchCheckedFiles": 2376,
+  "inheritedSourceAndBaselinePaths": 2350,
+  "incrementalPaths": 19,
+  "composedSourceAndBaselinePaths": 2360,
+  "inheritedSqlPaths": 16,
+  "incrementalSqlPaths": 1,
+  "checks": [
+    {
+      "assembly": "/private/tmp/naive-remediation-final-v2",
+      "checkedFiles": 2377,
+      "mismatches": []
+    },
+    {
+      "assembly": "/private/tmp/naive-remediation-reproduced-final-v2",
+      "checkedFiles": 2377,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true
+}

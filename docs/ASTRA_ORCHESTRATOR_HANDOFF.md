@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Latest remediation owner continuation (2026-11-08)
+
+Resume from `docs/naive-remediation-owner-integration/README.md`, manifest and final validation receipt after reading LEDGER. This is a 19-file increment over the unified candidate at actual repository `6fa1fe7` / main `ef368fc`; it does not adopt application source. It connects canonical full-baseline remediation, shared budgets, actual serialized prompt trials, immutable detailed/public receipts, selected Workflow routing and scoped report context. Its operator policy API supports exact target-version declaration and irreversible revocation. A real composed offline test proves 0/12→12/12 unchanged scenarios and replay without redispatch.
+
+Keep the monetary and lifecycle limits explicit: target costs have no authoritative money receipt, reservations remain held, and mixed callbacks still lack automatic recovery. Nonstrict stage completion does not itself require all children settled; do not claim held target usage automatically parks delivery. No remote internal-configuration attestation, native PostgreSQL, hosted/provider acceptance, source adoption or live action is implied. Next: mixed child/recovery coverage and budget envelopes, target/judge reconciliation, post-delivery rerun, copilot turns/idle, roster and Phase 0 hosted gates. Do not reapply historical approved patches or touch unrelated customer-recruitment work.
+
 ## Latest unified integration continuation (2026-11-08)
 
 Start with `docs/naive-unified-integration/README.md` and its validation receipt, then the latest LEDGER entry. Main `ef368fc` is preserved at `7f28e20`. The new increment combines factual39/sourcing26 with the 75-path cancellation chain: 64 incremental postimages, 133 composed source/test paths and 12 additional upstream overrides. It is **unapplied**, and supersedes conflicting separate factual/sourcing postimages only within this composed artifact. Earlier approved exact15/exact26 patches were already adopted and must not be reapplied.

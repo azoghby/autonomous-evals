@@ -2,6 +2,14 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Current-authority remediation candidate (2026-11-08)
+
+`naive-remediation-owner-integration` adds 19 source/test postimages over the unified candidate. Canonical admission, the full original run and investigator evidence select the finding; request prose cannot supply the baseline. The shared generic runtime now mounts `proposeAndVerifyFix`, and the existing Workflow invokes selected fixes before the generic report. Exact detailed receipts are retained atomically before immutable finding/remediation projection. Reports validate those receipts and preserve the scoped result. Generic report generation now uses the stage-decorated real service.
+
+An authenticated operator endpoint issues an immutable declaration for the exact target version, bounded operation allowance and request-message-only isolation. Without it, the result stays a proposal. Revocation remains available after pause or intake drift and cannot resurrect a grant. The secured transport derives application receipts from serialized replacement-prompt messages; it does not attest the remote target's internals. An actual composed offline test changes 0/12 original scenarios passing to 12/12, with replay and lost cost acknowledgement causing no additional provider or target dispatch.
+
+This is staged source only. Target monetary costs remain unknown: shared reservations and accounting outbox entries stay held, never synthesized as zero or Naïve session spend. A mixed callback can finish behavioral work without strict child-settlement proof; retained target holds alone do not guarantee that the Workflow parks. Automatic mixed callback recovery, target monetary reconciliation, post-delivery rerun authority, source adoption, native PostgreSQL/hosted acceptance and the complete Naïve plan remain open. Final verification: **4,476 staged tests / zero failures / two documented skips**, web/core types and offline-font build (63 steps/four workflows) pass. Independent patch and two fresh assemblies match 2,377 source/SQL hashes. Actual-source web types and 3,956 tests pass. Evidence is in the artifact validation receipt and LEDGER.
+
 ## Unified factual sourcing and safety candidate (2026-11-08)
 
 `naive-unified-integration` combines the factual Workflow and standing-policy sourcing candidates with the shared-budget, stage-recovery and cancellation chain. Its 64 incremental source/test paths compose to 133 paths. Twelve exact upstream overrides preserve main `ef368fc`, merged at `7f28e20`; earlier candidate receipts remain historical, not instructions to apply both conflicting versions.
