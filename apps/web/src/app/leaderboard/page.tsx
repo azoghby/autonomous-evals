@@ -6,6 +6,8 @@ import { SUITE_VERSION, percent, type RankedEntry } from "@/server/leaderboard";
 import { suiteCounts } from "@/server/leaderboard-suite";
 import { KindTag, LEADERBOARD_NAV, RateBar, Th, fmtDate } from "./parts";
 import { Methodology } from "./Methodology";
+import { AgentMatrixTable } from "./AgentMatrix";
+import { buildAgentMatrix } from "@/server/leaderboard-matrix";
 
 export const revalidate = 300;
 export const metadata: Metadata = {
@@ -34,6 +36,7 @@ function Row({ e }: { e: RankedEntry }) {
 export default async function LeaderboardPage() {
   const { entries, ok } = await getLeaderboard();
   const c = suiteCounts();
+  const matrix = buildAgentMatrix(entries.filter((e) => e.kind === "local_reference"));
   return (
     <PageShell nav={LEADERBOARD_NAV} active="/leaderboard">
       <Reveal>
@@ -43,7 +46,21 @@ export default async function LeaderboardPage() {
         <p className="mt-3 text-[15px]"><Link href="/leaderboard/submit" className="text-accent-text underline underline-offset-4">Submit your agent</Link></p>
       </Reveal>
 
+      {matrix.rows.length > 0 && (
+        <>
+          <Frame className="mt-14 bg-bg-raised" aria-labelledby="matrix-h">
+            <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line px-4 py-4">
+              <h2 id="matrix-h" className="t-h3 text-fg">Open-source agents × models</h2>
+              <p className="text-[13px] text-muted">{matrix.rows.length} agents · {matrix.columns.length} models · click a header to sort, a score to open the run</p>
+            </div>
+            <AgentMatrixTable matrix={matrix} />
+          </Frame>
+          <p className="t-small mt-4 text-subtle">Each agent is a public sample under an OSI licence (MIT or Apache-2.0), run unmodified from a pinned commit on our machine. Only its model client is pointed at our AI Gateway account. These are not vendor-hosted products. A <span className="text-danger">!</span> marks a run with a critical failure.</p>
+        </>
+      )}
+
       <Frame className="mt-14 bg-bg-raised" aria-labelledby="board-h">
+        <h2 id="board-h" className="t-h3 border-b border-line px-4 py-4 text-fg">All runs, ranked<span className="sr-only">, suite {SUITE_VERSION}</span></h2>
         <h2 id="board-h" className="sr-only">Ranking, suite {SUITE_VERSION}</h2>
         {entries.length === 0 ? (
           <div className="px-6 py-16 text-center">
@@ -64,7 +81,7 @@ export default async function LeaderboardPage() {
           </div>
         )}
       </Frame>
-      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Open-source sample agents (OpenAI CS Agents demo, Google ADK customer-service agent) are run from their own public code by us, on each model, through our AI Gateway account. They are not vendor-hosted products.</p>
+      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Every run: one agent on one model, same scenarios, same budget.</p>
 
       <Methodology />
     </PageShell>
