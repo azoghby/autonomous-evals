@@ -4,6 +4,7 @@ import { db, schema } from "@ae/core/db/client";
 import { stripe, webhookSecret, getStripeMode } from "@ae/core/payments/stripe";
 import { isManualCaptureAuthorized, recordPaymentFromSession } from "@ae/core/payments/checkout";
 import { recordPlanPurchase, syncSubscription } from "@ae/core/payments/plans-checkout";
+import { syncMonitoringSubscription } from "@ae/core/payments/subscription-changes";
 import { alertOperators } from "@/server/operator-alerts";
 import { notifyPlanPurchase } from "@/server/notify/hooks";
 import { resumeJobForPayment } from "../../../../workflows/resume";
@@ -42,7 +43,12 @@ export async function POST(request: Request) {
 
   if (event.type.startsWith("customer.subscription.")) {
     try {
-      const customerId = await syncSubscription(event.data.object as Stripe.Subscription);
+      const subscription = event.data.object as Stripe.Subscription;
+      if (subscription.metadata?.kind === "monitoring") {
+        const updated = await syncMonitoringSubscription(subscription);
+        return Response.json({ received: true, synced: updated > 0 });
+      }
+      const customerId = await syncSubscription(subscription);
       return Response.json({ received: true, synced: customerId !== null });
     } catch (err) {
       console.error("stripe webhook subscription sync failed", event.id, err instanceof Error ? err.message : err);

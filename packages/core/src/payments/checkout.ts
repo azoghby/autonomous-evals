@@ -267,6 +267,18 @@ export async function reconcile(send: SendJobEvent, now: Date = new Date()): Pro
   for await (const s of sessions) {
     summary.sessionsChecked++;
     if (summary.sessionsChecked > 1000) break;
+    const kind = s.metadata?.kind;
+    if (kind === "plan" || kind === "agent_audit") {
+      // Missed plan/audit webhook: record it so a paid subscription or $2,500 audit is never lost. Idempotent on session id.
+      if (s.payment_status !== "paid" && s.payment_status !== "no_payment_required") continue;
+      try {
+        const { recordPlanPurchase } = await import("./plans-checkout");
+        if ((await recordPlanPurchase(s, null)).inserted) summary.recorded++;
+      } catch (err) {
+        summary.errors.push(`${s.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      continue;
+    }
     if (!s.metadata?.job_id) continue;
     try {
       if (s.payment_status !== "paid" && !(await isManualCaptureAuthorized(s))) continue;

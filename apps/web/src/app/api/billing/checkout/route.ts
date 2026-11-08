@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
-import { createAuditCheckout, createPlanCheckout, effectivePlanFor } from "@ae/core/payments/plans-checkout";
+import { createAuditCheckout, createPlanCheckout, effectivePlanFor, resolvePriceId, syncSubscription } from "@ae/core/payments/plans-checkout";
+import { changePlanSubscription } from "@ae/core/payments/subscription-changes";
 import { BILLING_INTERVALS, SELF_SERVE_PLAN_IDS } from "@ae/core/pricing/plans";
 import { getCurrentCustomer } from "@/server/queries";
 import { jsonError, readJson } from "@/server/http";
@@ -31,10 +32,20 @@ export async function POST(request: Request) {
       return Response.json({ url });
     }
     const [row] = await db().select({
-      plan: schema.customers.plan, planStatus: schema.customers.planStatus, stripeCustomerId: schema.customers.stripeCustomerId,
+      plan: schema.customers.plan, planStatus: schema.customers.planStatus, planInterval: schema.customers.planInterval,
+      stripeCustomerId: schema.customers.stripeCustomerId, stripeSubscriptionId: schema.customers.stripeSubscriptionId,
     }).from(schema.customers).where(eq(schema.customers.id, me.id)).limit(1);
-    if (row && effectivePlanFor(row) === input.plan) {
-      return jsonError(409, `You are already on the ${input.plan === "pro" ? "Pro" : "Scale"} plan. Manage it from your account.`);
+    const current = row ? effectivePlanFor(row) : "developer";
+    if (current === input.plan && (row?.planInterval ?? "month") === input.interval) {
+      return jsonError(409, `You are already on the ${input.plan === "pro" ? "Pro" : "Scale"} plan. Manage it from /settings/billing.`);
+    }
+    if ((current === "pro" || current === "scale") && row?.stripeSubscriptionId) {
+      // Switch the existing subscription in place (prorated) so the old plan never keeps billing alongside the new one.
+      const updated = await changePlanSubscription(
+        { customerId: me.id, stripeSubscriptionId: row.stripeSubscriptionId, plan: input.plan, interval: input.interval }, resolvePriceId,
+      );
+      await syncSubscription(updated);
+      return Response.json({ url: `${origin}/settings/billing?changed=${input.plan}`, changed: true });
     }
     const { url } = await createPlanCheckout({
       customerId: me.id, customerEmail: me.email, stripeCustomerId: row?.stripeCustomerId ?? null,

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const me = vi.hoisted(() => ({ value: null as null | { id: string; email: string; isOperator: boolean } }));
 const row = vi.hoisted(() => ({ value: undefined as undefined | Record<string, unknown> }));
-const plans = vi.hoisted(() => ({ plan: vi.fn(), audit: vi.fn() }));
+const plans = vi.hoisted(() => ({ plan: vi.fn(), audit: vi.fn(), change: vi.fn(), sync: vi.fn() }));
 
 vi.mock("@/server/queries", () => ({ getCurrentCustomer: async () => me.value }));
 vi.mock("@/server/session", () => ({ getCurrentCustomer: async () => me.value }));
@@ -12,8 +12,9 @@ vi.mock("@ae/core/db/client", () => ({
 }));
 vi.mock("@ae/core/payments/plans-checkout", async (orig) => {
   const actual = await orig<typeof import("@ae/core/payments/plans-checkout")>();
-  return { ...actual, createPlanCheckout: plans.plan, createAuditCheckout: plans.audit };
+  return { ...actual, createPlanCheckout: plans.plan, createAuditCheckout: plans.audit, syncSubscription: plans.sync };
 });
+vi.mock("@ae/core/payments/subscription-changes", () => ({ changePlanSubscription: plans.change }));
 
 import { POST } from "./route";
 
@@ -60,6 +61,25 @@ describe("POST /api/billing/checkout", () => {
     row.value = { plan: "pro", planStatus: "canceled", stripeCustomerId: "cus_1" };
     expect((await post({ kind: "plan", plan: "pro", interval: "month" })).status).toBe(200);
     expect(plans.plan).toHaveBeenCalledWith(expect.objectContaining({ stripeCustomerId: "cus_1" }));
+  });
+  it("switches an active plan subscription in place instead of creating a second one", async () => {
+    row.value = { plan: "pro", planStatus: "active", planInterval: "month", stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1" };
+    plans.change.mockResolvedValue({ id: "sub_1", status: "active" });
+    const res = await post({ kind: "plan", plan: "scale", interval: "month" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: "https://app.test/settings/billing?changed=scale", changed: true });
+    expect(plans.change).toHaveBeenCalledWith(
+      { customerId: "c1", stripeSubscriptionId: "sub_1", plan: "scale", interval: "month" }, expect.any(Function),
+    );
+    expect(plans.sync).toHaveBeenCalledWith({ id: "sub_1", status: "active" });
+    expect(plans.plan).not.toHaveBeenCalled();
+  });
+  it("switches monthly to annual on the same plan in place", async () => {
+    row.value = { plan: "pro", planStatus: "active", planInterval: "month", stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1" };
+    plans.change.mockResolvedValue({ id: "sub_1" });
+    expect((await post({ kind: "plan", plan: "pro", interval: "year" })).status).toBe(200);
+    expect(plans.change).toHaveBeenCalledWith(expect.objectContaining({ plan: "pro", interval: "year" }), expect.any(Function));
+    expect(plans.plan).not.toHaveBeenCalled();
   });
   it("starts an audit checkout", async () => {
     const res = await post({ kind: "audit" });

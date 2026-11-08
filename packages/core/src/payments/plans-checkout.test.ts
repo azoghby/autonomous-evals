@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const stripeMock = {
   prices: { list: vi.fn() },
   checkout: { sessions: { create: vi.fn() } },
+  subscriptions: { cancel: vi.fn() },
 };
 vi.mock("./stripe", () => ({ stripe: () => stripeMock, getStripeMode: () => "test" }));
 
@@ -104,6 +105,17 @@ describe("recordPlanPurchase", () => {
     expect(r).toMatchObject({ inserted: true, kind: "plan", email: "a@b.co", product: "pro" });
     expect(inserts[0]).toMatchObject({ kind: "subscription", product: "pro", interval: "month", amountCents: 49900, stripeSubscriptionId: "sub_1" });
     expect(updates[0]).toMatchObject({ plan: "pro", planInterval: "month", planStatus: "active", stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1" });
+  });
+  it("cancels a still-active older plan subscription so the customer is never billed twice", async () => {
+    selects = [[{ sub: "sub_old", status: "active" }]];
+    stripeMock.subscriptions.cancel.mockResolvedValue({});
+    await recordPlanPurchase(session(), "evt_1");
+    expect(stripeMock.subscriptions.cancel).toHaveBeenCalledWith("sub_old", { prorate: true }, { idempotencyKey: "supersede:sub_old" });
+  });
+  it("does not cancel anything when the older subscription already lapsed", async () => {
+    selects = [[{ sub: "sub_old", status: "canceled" }]];
+    await recordPlanPurchase(session(), "evt_1");
+    expect(stripeMock.subscriptions.cancel).not.toHaveBeenCalled();
   });
   it("is idempotent: a duplicate does not touch the customer", async () => {
     insertReturn = [];

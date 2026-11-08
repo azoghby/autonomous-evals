@@ -1,7 +1,8 @@
 import { objectivePassed } from "@ae/core/contracts/services";
 import "server-only";
 import { assertPublicTarget } from "./target-url";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { RUNNABLE_MONITORING_STATUSES } from "@ae/core/payments/subscription-changes";
 import { db, schema } from "@ae/core/db/client";
 import { MONITORING_RUN_BUDGET_MICRO_USD, Suite } from "@ae/core/contracts/index";
 import type { RunResult } from "@ae/core/contracts/services";
@@ -155,7 +156,7 @@ export async function runMonitoring(opts: MonitoringOptions = {}): Promise<Monit
   };
 
   const subs = await db().select().from(schema.monitoringSubscriptions).where(and(
-    eq(schema.monitoringSubscriptions.status, "active"),
+    inArray(schema.monitoringSubscriptions.status, [...RUNNABLE_MONITORING_STATUSES]),
     eq(schema.monitoringSubscriptions.environment, monitoringEnvironment()),
   ));
 

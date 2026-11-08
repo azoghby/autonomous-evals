@@ -234,7 +234,7 @@ export const monitoringSubscriptions = pgTable("monitoring_subscriptions", {
   environment: envEnum("environment").notNull(),
   lastRunAt: ts("last_run_at"),
   createdAt,
-});
+}, (t) => [uniqueIndex("monitoring_subs_stripe_sub_uq").on(t.stripeSubscriptionId).where(sql`${t.stripeSubscriptionId} is not null`)]);
 
 /** One nightly re-run of a frozen suite per subscription per UTC day. */
 export const monitoringRuns = pgTable("monitoring_runs", {
