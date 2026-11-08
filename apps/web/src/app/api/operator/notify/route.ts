@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { isEmailConfigured } from "@ae/core/auth/email";
-import { operatorEmails } from "@ae/core/auth/tokens";
+import { founderRecipients } from "@/server/notify/founder-email-logic";
 import { jsonError, readJson, requireOperator } from "@/server/http";
 import { rateLimit } from "@/server/rate-limit";
 import { maskPhone } from "@/server/notify/approvals-logic";
+import { listFounderNotes } from "@/server/notify/founder-email";
 import { decideApproval, listApprovals } from "@/server/notify/approvals";
 import {
   createTelegramLinkCode, getFounderSettings, resolveTelegramChat, resolveWhatsAppTo, sendFounderText, updateFounderSettings,
@@ -36,9 +37,10 @@ export async function GET() {
         linkCode: null, linkCodeExpiresAt: hasCode ? s.telegramLinkCodeExpiresAt!.toISOString() : null,
       },
       whatsapp: { configured: twilioConfigured(), to: maskPhone(resolveWhatsAppTo(s)) },
-      email: { configured: isEmailConfigured(), recipients: operatorEmails().size },
+      email: { configured: isEmailConfigured(), recipients: founderRecipients().length },
     },
     approvals: await listApprovals(100),
+    notes: await listFounderNotes(50),
   }, { headers: { "Cache-Control": "no-store" } });
 }
 

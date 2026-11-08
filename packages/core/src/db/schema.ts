@@ -626,7 +626,7 @@ export const founderApprovals = pgTable("founder_approvals", {
   payload: jsonb("payload").notNull().default({}),
   /** pending | approved | rejected | expired | fyi */
   status: text("status").notNull().default("pending"),
-  /** telegram | whatsapp | email | console */
+  /** telegram | whatsapp | email | email_reply | console */
   decidedVia: text("decided_via"),
   decidedBy: text("decided_by"),
   decidedAt: ts("decided_at"),
@@ -652,3 +652,30 @@ export const founderNotifySettings = pgTable("founder_notify_settings", {
   whatsappTo: text("whatsapp_to"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+/**
+ * Outbound founder emails we started (approval requests and daily reports), keyed by AgentMail thread id.
+ * A reply is only treated as a founder command when it arrives on one of these threads (anti-spoofing).
+ */
+export const founderEmailThreads = pgTable("founder_email_threads", {
+  threadId: text("thread_id").primaryKey(),
+  /** The approval this thread asked about; null for the daily report thread. */
+  approvalId: uuid("approval_id").references(() => founderApprovals.id, { onDelete: "set null" }),
+  /** approval | report */
+  kind: text("kind").notNull(),
+  createdAt,
+});
+
+/** Founder free-text email replies that are not commands. Data only: surfaced in /operator and the next daily report, never acted on. */
+export const founderNotes = pgTable("founder_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  body: text("body").notNull(),
+  threadId: text("thread_id").notNull(),
+  /** Inbound AgentMail message id (unique: a replayed webhook cannot duplicate a note). */
+  messageId: text("message_id").notNull(),
+  /** Approval seq the thread was about, when known. */
+  approvalSeq: integer("approval_seq"),
+  /** Set when the note was included in a daily report. */
+  reportedAt: ts("reported_at"),
+  createdAt,
+}, (t) => [uniqueIndex("founder_notes_message_uq").on(t.messageId), index("founder_notes_created_idx").on(t.createdAt)]);

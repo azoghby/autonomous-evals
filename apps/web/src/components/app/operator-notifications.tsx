@@ -18,7 +18,9 @@ interface NotifyState {
     email: { configured: boolean; recipients: number };
   };
   approvals: NotifyApproval[];
+  notes: FounderNoteRow[];
 }
+interface FounderNoteRow { id: string; body: string; approvalSeq: number | null; createdAt: string; reportedAt: string | null }
 interface LinkResult { ok: true; linkCode: string; expiresAt: string; botUsername: string | null; deepLink: string | null }
 interface TestResult { ok: true; results: Record<string, string> }
 interface DecideResult { ok: true; status: string; note?: string }
@@ -236,6 +238,28 @@ function ApprovalsSection({ approvals, onChanged }: { approvals: NotifyApproval[
   );
 }
 
+function NotesSection({ notes }: { notes: FounderNoteRow[] }) {
+  return (
+    <Section title="Founder notes">
+      <TableWrap>
+        {notes.length === 0 ? <Empty title="No notes" body="Free-text email replies from you are saved here and included in the next daily report. They never trigger actions." /> : (
+          <table className={`${tableCls} min-w-[620px]`}>
+            <thead><tr><Th>Received</Th><Th>Re</Th><Th>Note</Th><Th>In report</Th></tr></thead>
+            <tbody>{notes.map((n) => (
+              <tr key={n.id} className={trCls}>
+                <td className={tdCls}>{when(n.createdAt)}</td>
+                <td className={tdCls}>{n.approvalSeq !== null ? `#${n.approvalSeq}` : "-"}</td>
+                <td className={`${tdCls} whitespace-pre-wrap`}>{n.body}</td>
+                <td className={tdCls}>{n.reportedAt ? when(n.reportedAt) : "Next report"}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+      </TableWrap>
+    </Section>
+  );
+}
+
 /** Operator-only notifications panel (GET/POST /api/operator/notify). */
 export function OperatorNotifications() {
   const { data, error, loading, reload } = useFetch<NotifyState>("/api/operator/notify");
@@ -256,6 +280,7 @@ export function OperatorNotifications() {
         <TestSection onTested={reload} />
       </Section>
       <ApprovalsSection approvals={data.approvals} onChanged={reload} />
+      <NotesSection notes={data.notes ?? []} />
     </div>
   );
 }

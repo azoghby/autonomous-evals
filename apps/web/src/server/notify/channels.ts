@@ -3,10 +3,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { isEmailConfigured, sendEmail } from "@ae/core/auth/email";
-import { operatorEmails } from "@ae/core/auth/tokens";
 import { signToken } from "../owner-policy";
 import { appUrl } from "../owner-shared";
 import { EMAIL_LINK_TTL_MS } from "./approvals-logic";
+import { founderRecipients } from "./founder-email-logic";
+import { recordFounderThread } from "./founder-email";
 import { sendTelegramApproval, sendTelegramText, telegramConfigured } from "./telegram";
 import { formatWhatsAppApproval, normalizeWhatsAppNumber, sendWhatsApp, twilioConfigured } from "./whatsapp";
 import type { ApprovalMessage, Env } from "./types";
@@ -86,7 +87,8 @@ export function buildApprovalEmail(msg: ApprovalMessage, approvalId: string, now
     lines.push("Links expire in 24 hours and work once.", "");
   } else lines.push("(FYI, no action needed.)", "");
   lines.push(`View: ${msg.viewUrl}`);
-  return { subject: `${msg.actions ? "[Approve?]" : "[FYI]"} #${msg.seq} ${msg.title}`, text: lines.join("\n") };
+  if (msg.actions) lines.push("", `Or just reply to this email: YES to ${msg.actions.approveLabel.toLowerCase()}, NO to reject (YES ${msg.seq} / NO ${msg.seq} also work).`);
+  return { subject: msg.actions ? `[Approve #${msg.seq}] ${msg.title}` : `[FYI] ${msg.title}`, text: lines.join("\n") };
 }
 
 async function settle(results: ChannelResults, ch: Channel, fn: () => Promise<unknown>) {
@@ -114,17 +116,21 @@ export async function dispatchApproval(msg: ApprovalMessage, approvalId: string,
   else out.results.whatsapp = "skipped: not configured";
   const phoneSent = out.results.telegram === "sent" || out.results.whatsapp === "sent";
   if (opts.skipEmail) out.results.email = "skipped: caller emails separately";
-  else if (isEmailConfigured() && operatorEmails().size > 0 && (!phoneSent || env.FOUNDER_NOTIFY_EMAIL === "always")) {
+  else if (isEmailConfigured() && founderRecipients(env).length > 0 && (!phoneSent || env.FOUNDER_NOTIFY_EMAIL === "always")) {
     const { subject, text } = buildApprovalEmail(msg, approvalId);
     await settle(out.results, "email", async () => {
-      for (const to of operatorEmails()) await sendEmail({ to, subject, text, purpose: "auth", labels: ["founder-approval"] });
+      // Commercial inbox: replies come back through the AgentMail inbound webhook (see founder-email.ts).
+      for (const to of founderRecipients(env)) {
+        const sent = await sendEmail({ to, subject, text, purpose: "commercial", labels: ["founder-approval"] });
+        await recordFounderThread(sent.threadId, "approval", approvalId);
+      }
     });
   } else out.results.email = phoneSent ? "skipped: phone channel delivered" : "skipped: not configured";
   return out;
 }
 
 /** Plain text (daily report, test message, decision confirmations) to every configured channel. */
-export async function sendFounderText(text: string, opts: { subject: string; emailAlways?: boolean } = { subject: "Standard Evals" }, env: Env = process.env): Promise<ChannelResults> {
+export async function sendFounderText(text: string, opts: { subject: string; emailAlways?: boolean; threadKind?: "report" } = { subject: "Standard Evals" }, env: Env = process.env): Promise<ChannelResults> {
   const s = await getFounderSettings();
   const results: ChannelResults = {};
   const chat = resolveTelegramChat(s, env), wa = resolveWhatsAppTo(s, env);
@@ -133,9 +139,12 @@ export async function sendFounderText(text: string, opts: { subject: string; ema
   if (twilioConfigured(env) && wa) await settle(results, "whatsapp", () => sendWhatsApp(wa, text.slice(0, 1500)));
   else results.whatsapp = "skipped: not configured";
   const phoneSent = results.telegram === "sent" || results.whatsapp === "sent";
-  if (isEmailConfigured() && operatorEmails().size > 0 && (opts.emailAlways || !phoneSent || env.FOUNDER_NOTIFY_EMAIL === "always")) {
+  if (isEmailConfigured() && founderRecipients(env).length > 0 && (opts.emailAlways || !phoneSent || env.FOUNDER_NOTIFY_EMAIL === "always")) {
     await settle(results, "email", async () => {
-      for (const to of operatorEmails()) await sendEmail({ to, subject: opts.subject, text, purpose: "auth", labels: ["founder-notify"] });
+      for (const to of founderRecipients(env)) {
+        const sent = await sendEmail({ to, subject: opts.subject, text, purpose: "commercial", labels: ["founder-notify"] });
+        if (opts.threadKind) await recordFounderThread(sent.threadId, opts.threadKind);
+      }
     });
   } else results.email = phoneSent ? "skipped: phone channel delivered" : "skipped: not configured";
   return results;

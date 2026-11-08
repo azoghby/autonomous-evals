@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, lt } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
-import { operatorEmails } from "@ae/core/auth/tokens";
+import { resolveFounderEmail } from "./founder-email-logic";
 import { redactAlertText } from "../operator-alerts";
 import { appUrl } from "../owner-shared";
 import { DEFAULT_APPROVAL_TTL_MS, MAX_TITLE_CHARS, noopMessage, phoneSummary, transition } from "./approvals-logic";
@@ -44,7 +44,8 @@ export type FounderApprovalResult =
   | { ok: true; created: boolean; id: string; seq: number; results?: ChannelResults }
   | { ok: false; error: string };
 
-export const founderEmail = (): string => [...operatorEmails()][0] ?? "founder";
+/** Founder identity: FOUNDER_EMAIL, else the first OPERATOR_EMAILS entry. */
+export const founderEmail = (): string => resolveFounderEmail() ?? "founder";
 
 function toRecord(r: typeof schema.founderApprovals.$inferSelect): ApprovalRecord {
   return { id: r.id, seq: r.seq, kind: r.kind, title: r.title, summary: r.summary, ref: r.ref, payload: (r.payload ?? {}) as Record<string, unknown> };

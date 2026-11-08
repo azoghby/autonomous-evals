@@ -35,7 +35,11 @@ export interface InboundMessage {
   from: string;
   subject: string;
   text: string;
+  /** SPF/DKIM/DMARC verdicts AgentMail computed for the received message; absent when it did not report them. */
+  auth?: InboundAuth;
 }
+
+export interface InboundAuth { spf?: string; dkim?: string; dmarc?: string }
 
 const pick = (o: Record<string, unknown>, camel: string, snake: string) => o[camel] ?? o[snake];
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -52,11 +56,20 @@ export function parseInboundEvent(payload: unknown): InboundMessage | null {
   const inboxId = str(pick(m, "inboxId", "inbox_id"));
   if (!messageId || !threadId || !inboxId) return null;
   const from = pick(m, "from", "from_");
+  const ar = pick(m, "authenticationResults", "authentication_results");
+  const auth = ar && typeof ar === "object" ? parseAuth(ar as Record<string, unknown>) : undefined;
   return {
     eventType: str(pick(p, "eventType", "event_type")),
     inboxId, threadId, messageId,
     from: Array.isArray(from) ? str(from[0]) : str(from),
     subject: str(m.subject),
     text: str(pick(m, "extractedText", "extracted_text")) || str(m.text) || str(m.preview),
+    ...(auth ? { auth } : {}),
   };
+}
+
+function parseAuth(o: Record<string, unknown>): InboundAuth {
+  const v = (k: string) => (typeof o[k] === "string" ? (o[k] as string).toLowerCase() : undefined);
+  const spf = v("spf"), dkim = v("dkim"), dmarc = v("dmarc");
+  return { ...(spf ? { spf } : {}), ...(dkim ? { dkim } : {}), ...(dmarc ? { dmarc } : {}) };
 }

@@ -2,7 +2,7 @@
 
 export type Decision = "approve" | "reject";
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired" | "fyi";
-export type DecidedVia = "telegram" | "whatsapp" | "email" | "console";
+export type DecidedVia = "telegram" | "whatsapp" | "email" | "email_reply" | "console";
 
 /** What a channel needs to render one approval request (or FYI) on the founder's phone. */
 export interface ApprovalMessage {

@@ -4,6 +4,7 @@ import { handleInbound, bareAddress, MAX_INBOUND_CHARS, type InboundStore } from
 vi.mock("@ae/core/db/client", () => ({ db: vi.fn(), schema: {} }));
 vi.mock("@/workflows/events", () => ({ sendJobEvent: vi.fn() }));
 vi.mock("./owner-responder", () => ({ respondToOwner: vi.fn() }));
+vi.mock("./notify/founder-email", () => ({ findFounderThread: vi.fn(), founderReplyDeps: vi.fn() }));
 
 const msg = (over: Record<string, unknown> = {}) => ({
   eventType: "message.received", inboxId: "ae-commercial@agentmail.to", threadId: "t1", messageId: "m1",
@@ -107,5 +108,46 @@ describe("handleInbound", () => {
       const { store } = fakeStore({ thread: t, owner: null });
       expect(await handleInbound(msg(), store)).toBe("unmatched");
     });
+  });
+});
+
+describe("handleInbound: founder email replies", () => {
+  const founderMsg = (over: Record<string, unknown> = {}) => ({ ...msg({ from: "Ronit <Ronit@Gmail.com>", subject: "Re: [Approve #12] Outreach", text: "YES", threadId: "ft1", messageId: "fm1" }), ...over });
+  function founderStore(thread: { kind: "approval" | "report"; approvalSeq: number | null } | null = { kind: "approval", approvalSeq: 12 }) {
+    const { store } = fakeStore({ thread: null });
+    const decisions: string[] = [];
+    const deps = {
+      decide: async (seq: number, d: "approve" | "reject") => { decisions.push(`${d}:${seq}`); return { ok: true, message: "ok" }; },
+      approveAllDrafts: async () => ({ total: 0, sent: 0, approved: 0, skipped: 0 }),
+      saveNote: async () => {}, reply: async () => {},
+    };
+    return { decisions, store: { ...store, founderThread: async (id: string) => (id === "ft1" ? thread : null), founderAddress: () => "ronit@gmail.com", founderReplyDeps: () => deps } as InboundStore };
+  }
+
+  it("approves from the founder on a thread we started (case-insensitive sender)", async () => {
+    const { store, decisions } = founderStore();
+    expect(await handleInbound(founderMsg(), store)).toBe("founder_decided");
+    expect(decisions).toEqual(["approve:12"]);
+  });
+  it("is idempotent per message id (replayed webhook does nothing)", async () => {
+    const { store, decisions } = founderStore();
+    await handleInbound(founderMsg(), store);
+    expect(await handleInbound(founderMsg(), store)).toBe("duplicate");
+    expect(decisions).toHaveLength(1);
+  });
+  it("rejects a spoofed sender on a founder thread", async () => {
+    const { store, decisions } = founderStore();
+    expect(await handleInbound(founderMsg({ from: "evil@x.com" }), store)).toBe("sender_mismatch");
+    expect(decisions).toEqual([]);
+  });
+  it("rejects when AgentMail reports a failing DKIM/SPF verdict", async () => {
+    const { store, decisions } = founderStore();
+    expect(await handleInbound(founderMsg({ auth: { dkim: "fail", spf: "pass" } }), store)).toBe("founder_unauthenticated");
+    expect(decisions).toEqual([]);
+  });
+  it("ignores the founder address on a thread we did not start", async () => {
+    const { store, decisions } = founderStore();
+    expect(await handleInbound(founderMsg({ threadId: "other" }), store)).toBe("unmatched");
+    expect(decisions).toEqual([]);
   });
 });

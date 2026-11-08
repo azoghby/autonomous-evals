@@ -2,7 +2,6 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
-import { operatorEmails } from "@ae/core/auth/tokens";
 import { APPROVE_ALL_PATH, DIGEST_MAX_DRAFTS, DIGEST_TOKEN_TTL_MS } from "../operator-digest";
 import { signToken } from "../owner-policy";
 import { appUrl } from "../owner-shared";
@@ -10,6 +9,8 @@ import { readConfig as readPublicAgentConfig, spentTodayMicroUsd } from "../publ
 import { expireStaleApprovals } from "./approvals";
 import { sendFounderText, type ChannelResults } from "./channels";
 import { getTodaysPlan } from "./daily-plan";
+import { formatNotesSection, resolveFounderEmail } from "./founder-email-logic";
+import { markNotesReported, unreportedFounderNotes } from "./founder-email";
 import { formatDailyReport, meanRate, type DailyMetrics } from "./daily-report-logic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -80,7 +81,7 @@ export async function buildDailyReportText(now = new Date()): Promise<string> {
   const m = await collectDailyMetrics(now);
   const plan = await getTodaysPlan(now).catch(() => null);
   let text = formatDailyReport({ ...m, ...(plan?.length ? { plan } : {}) }, `${appUrl()}/operator`);
-  const op = [...operatorEmails()][0];
+  const op = resolveFounderEmail();
   if (m.pending.outreachDrafts > 0 && op) {
     const d = schema.outreachDrafts;
     const ids = (await db().select({ id: d.id }).from(d).where(eq(d.status, "pending")).limit(DIGEST_MAX_DRAFTS)).map((r) => r.id);
@@ -106,13 +107,16 @@ export async function runFounderDailyReport(now = new Date()): Promise<ReportOut
       const subjectId = reportClaimId(now);
       const claim = await db().insert(f).values({ subjectType: "founder_report", subjectId, kind: "founder_report" }).onConflictDoNothing().returning({ id: f.id });
       if (claim.length === 0) return { status: "skipped", reason: "already_sent" };
-      const text = await buildDailyReportText(now);
-      const results = await sendFounderText(text, { subject: `Standard Evals daily report ${now.toISOString().slice(0, 10)}` });
+      const notes = await unreportedFounderNotes().catch(() => []);
+      const hint = "\n\nReply to respond: YES ALL approves every pending outreach draft; any other text is saved as a note and never acted on.";
+      const text = (await buildDailyReportText(now)) + formatNotesSection(notes) + hint;
+      const results = await sendFounderText(text, { subject: `Standard Evals daily report — ${now.toISOString().slice(0, 10)}`, threadKind: "report" });
       if (!Object.values(results).some((r) => r === "sent")) {
         // Nothing delivered (no channels or all failed): release the claim so a manual re-run can retry.
         await db().delete(f).where(and(eq(f.subjectType, "founder_report"), eq(f.subjectId, subjectId), eq(f.kind, "founder_report")));
         return { status: "skipped", reason: `not_delivered: ${JSON.stringify(results)}` };
       }
+      await markNotesReported(notes.map((n) => n.id), now).catch((err) => console.error("mark notes reported failed", err instanceof Error ? err.message : err));
       return { status: "sent", results, expired };
     } finally {
       await client.query("select pg_advisory_unlock($1::bigint)", [REPORT_LOCK_KEY.toString()]).catch(() => {});

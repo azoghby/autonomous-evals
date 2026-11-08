@@ -65,7 +65,29 @@ Only your linked chat can approve anything. Other people who find the bot get "N
 
 Only messages from your number are accepted. Every inbound request must carry a valid `X-Twilio-Signature`; if Twilio calls a URL different from `https://standard-evals.vercel.app/api/notify/whatsapp` (custom domain), set `TWILIO_WEBHOOK_URL` to that exact URL.
 
-## 3. Email fallback
+## 3. Email-first (set `FOUNDER_EMAIL`, no phone channel needed)
+
+Set `FOUNDER_EMAIL=you@example.com`. It takes precedence over the first `OPERATOR_EMAILS` entry as the founder address and identity (decision actor, recipient). With no Telegram/WhatsApp bound, every approval request and the daily report goes there, sent from the commercial AgentMail inbox so your replies come back through the existing `/api/webhooks/agentmail` webhook (Svix signature verified first).
+
+Subjects: `[Approve #12] <title>`, `[FYI] <title>`, `Standard Evals daily report — <date>`.
+
+Reply to the email (first non-quoted line only; quoted history and signatures are ignored):
+
+| Reply | Effect |
+|---|---|
+| `YES`, `Y`, `APPROVE`, `OK`, 👍 | approve the approval that email was about |
+| `NO`, `N`, `REJECT`, 👎 | reject it |
+| `YES 12` / `NO 12` | decide #12 explicitly (works from any founder thread) |
+| `YES ALL` | approve and send every pending outreach draft (same path as the approve-all link; guardrails apply) |
+| anything else | saved as a **founder note**; no action is taken; you get a short help reply |
+
+Only a bare command line counts: a sentence that starts with "yes" or "no" is a note. You get a confirmation reply ("Approved #12 — sent." / "Rejected #12."). Decisions use the same idempotent state machine, are audit-logged, and record `decided_via = email_reply`; a replayed webhook or second YES changes nothing.
+
+Anti-spoofing (all must hold): the sender equals `FOUNDER_EMAIL` (case-insensitive); the reply is on a thread we started (`founder_email_threads`, written when the email is sent); and if AgentMail reports SPF/DKIM/DMARC verdicts for the message, none may fail and at least one must pass. When AgentMail reports no verdicts, the thread match carries the check.
+
+Founder notes appear in /operator > Notifications > Founder notes and in the next daily report. They never trigger actions. Tables: `founder_email_threads`, `founder_notes` (migration 0020).
+
+## 3b. Email fallback (links)
 
 Uses the existing email transport (AgentMail, or Resend fallback). Nothing to set up beyond what already sends operator alerts. Links are HMAC-signed with `SESSION_SECRET`, bound to one approval and one decision, expire after 24 hours, and work once (the approval can only change while pending). Opening a link never changes anything (mail scanners prefetch links); you must press **Confirm** on the page.
 
@@ -87,6 +109,7 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://standard-evals.vercel.app/a
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | WhatsApp | From the Twilio console. |
 | `FOUNDER_WHATSAPP_TO` | optional | Fallback when no number is saved in the DB. |
 | `TWILIO_WEBHOOK_URL` | optional | Exact public webhook URL if not `${APP_URL}/api/notify/whatsapp`. |
+| `FOUNDER_EMAIL` | email-first | Founder address and identity; overrides first `OPERATOR_EMAILS`. Set in prod. |
 | `FOUNDER_NOTIFY_EMAIL` | optional | `always` = also email when a phone channel delivered. |
 | `DAILY_SPEND_BUDGET_USD` | optional | Daily spend budget line in the report. |
 | existing: `OPERATOR_EMAILS`, `SESSION_SECRET`, `CRON_SECRET`, `APP_URL`, email transport | | First `OPERATOR_EMAILS` entry is the founder identity on phone decisions. |

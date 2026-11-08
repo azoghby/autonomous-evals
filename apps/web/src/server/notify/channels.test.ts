@@ -17,7 +17,7 @@ describe("buildApprovalEmail", () => {
   it("contains signed approve + reject links to the confirm page (24h)", () => {
     const now = Date.now();
     const { subject, text } = buildApprovalEmail(msg, aid, now);
-    expect(subject).toBe("[Approve?] #12 Expert invite");
+    expect(subject).toBe("[Approve #12] Expert invite");
     const links = [...text.matchAll(/https:\/\/x\/notify\/decide\?t=(\S+)/g)].map((m) => decodeURIComponent(m[1]!));
     expect(links).toHaveLength(2);
     const [a, r] = links.map((t) => parseDecisionToken(verifySignedToken("founder_decision", t)));
