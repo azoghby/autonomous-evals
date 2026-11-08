@@ -1,0 +1,322 @@
+diff --git a/apps/web/src/server/current-autonomy.ts b/apps/web/src/server/current-autonomy.ts
+--- a/apps/web/src/server/current-autonomy.ts
++++ b/apps/web/src/server/current-autonomy.ts
+@@ -41,9 +41,8 @@
+     async authenticateScheduler(credential) { return credential === scheduler; },
+     authorizeJob: authorize,
+     async evaluate(request, key, digest, _runner, paid) {
+-      // targetForScenario lacks a trusted stable run ID. Never invoke Calendar or a legacy fallback.
+-      if (request.job.package === 'workflow_eval') throw new Error('autonomous_calendar_durable_run_identity_required');
+-      if (request.job.package !== 'text_eval') throw new Error('autonomous_package_adapter_required');
++      // Paid Calendar dispatch is bound by the durable calendar engine identity hook.
++      if (request.job.package !== 'text_eval' && request.job.package !== 'workflow_eval') throw new Error('autonomous_package_adapter_required');
+       const job = await deps.job(request.job.jobId);
+       if (!job?.workflowRunId || !await authorize({ tenantId: request.tenantId, subject: request.job.customerId }, request)) throw new Error('current_autonomy_authority_refused');
+       const ctx = await config.contextFor(request);
+diff --git a/apps/web/src/server/rich-services.ts b/apps/web/src/server/rich-services.ts
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -1,3 +1,4 @@
++import { autonomyDigest } from '@ae/core/agents/autonomy/policy';
+ import { assertAutonomousPaidContext, runAutonomousTarget, type AutonomousPaidContext } from './autonomous-paid';
+ import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
+ import { deliverRemediationCost } from './rich-remediation';
+@@ -7,7 +8,7 @@
+ import type { ServiceContext } from '@ae/core/contracts/services';
+ import { IntakeInput } from '@ae/core/contracts/index';
+ import { createTextEvaluationServices, PostgresTextCheckpointStore } from '@ae/core/evals/integration/index';
+-import { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
++import { calendarOperationRunId, createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
+ import { TrackBBlockedError, TrackBPendingError, toContractCost, createTrackBServices } from '@ae/core/evals/service-adapter';
+ import { buildAgentDeps } from './current-agent-deps';
+ import { withAgentCostDelivery } from '@ae/core/agents/runtime';
+@@ -18,7 +19,8 @@
+ import { createTextTarget } from '@ae/core/targets/text';
+ import { platformTarget } from '@ae/core/targets/adapters';
+ import type { JobRef } from '@ae/core/evals/types';
+-import type { CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
++import { calendarExecutionScope, freezeCalendarSuite, type CalendarSuiteInput, type CalendarDispatchIdentity } from '@ae/core/simulator/workflow/index';
++import type { ChatMessage, FunctionTool } from '@ae/core/targets/chat';
+ import { getJobWithDecryptedCredentials } from './job-store';
+ import { upsertWorkflowCost } from './workflow-costs';
+ import { createRichRemediation } from './rich-remediation';
+@@ -28,16 +30,20 @@
+ import { evalServices } from '@ae/core/integration/eval-services';
+ 
+ let applicationPool: Pool | undefined;
++let applicationSql: ReturnType<typeof pooledCalendarDatabase> | undefined;
+ export function workflowSql() {
+   if (!process.env.DATABASE_URL) throw new TrackBBlockedError('needs_operator', 'Application database configuration required.');
+   applicationPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 5, connectionTimeoutMillis: 10000,
+     idleTimeoutMillis: 30000, options: '-c statement_timeout=30000 -c lock_timeout=10000' });
+-  return pooledCalendarDatabase(applicationPool);
++  return applicationSql ??= pooledCalendarDatabase(applicationPool);
+ }
+ const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Canonical Workflow binding unavailable or changed; operator reconciliation required.'); };
+ 
+ /** Internal Workflow authority only; no route accepts this value from a customer body. */
+ export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string; autonomous?: AutonomousPaidContext; judgeRuntime?: TrustedJudgeRuntime; rerun?: { ownerId: string; targetVersion: string } }) {
++  // Snapshot caller-owned context/authority before any asynchronous authorization.
++  ctx = Object.freeze({ ...ctx });
++  authority = Object.freeze({ ...authority, rerun: authority.rerun && Object.freeze({ ...authority.rerun }) });
+   if (authority.autonomous) assertAutonomousPaidContext(authority.autonomous);
+   const sql = authority.autonomous?.sql ?? workflowSql();
+   async function canonical() {
+@@ -86,6 +92,9 @@
+       await remediationRuntime.beforeDispatch(intent);
+     } }, deliverCost: deliverRemediationCost });
+   const initial = await canonical();
++  // Budget, checkpoints, ownership and session-lock journal must share the exact application port.
++  // No prior legacy workflowSql() call is required to initialize the session pool.
++  if (initial.job.package === 'workflow_eval' && authority.autonomous && sql !== workflowSql()) return refused();
+   const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
+   const checkpoints = inventory.wrap(new PostgresTextCheckpointStore(sql));
+   const selectedRunner = authority.autonomous ? authority.autonomous.runner : (await buildAgentDeps()).runner;
+@@ -131,9 +140,6 @@
+   const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+     const a = await canonical();
+-    // targetForScenario has no retained run/attempt identity. Autonomous Calendar is refused
+-    // before pool/branch/provider work; a process-local counter or payload hash is not replay authority.
+-    if (authority.autonomous) return refused();
+     if (!a.row.neonBranchId || !a.binding.reviewed_calendar) return refused();
+     const ledger = new PostgresBranchLedger(applicationPool!);
+     const owned = await ledger.findOwnedBranch(a.row.neonBranchId);
+@@ -145,8 +151,53 @@
+     const db = pooledCalendarDatabase(branchBinding.pool);
+     return { job: a.job, targetVersion: a.targetVersion,
+       branch: { jobId: ctx.jobId, branchId: a.row.neonBranchId, targetVersion: a.targetVersion },
++      executionIdentity: authority.autonomous ? autonomyDigest({ workflowRunId: authority.workflowRunId,
++        job: a.job, policy: authority.autonomous.policy, targetReservationMicroUsd: authority.autonomous.targetReservationMicroUsd,
++        judgeReservationMicroUsd: authority.autonomous.judgeReservationMicroUsd,
++        targetReservation: authority.autonomous.reservation('target')({ operationId: 'calendar-context' }),
++        judgeReservation: authority.autonomous.reservation('judge')({ operationId: 'calendar-context' }),
++        context: { jobId: ctx.jobId, environment: ctx.environment, budgetMicroUsd: ctx.budgetMicroUsd } }) : undefined,
+       reviewedSuite: a.binding.reviewed_calendar, systemPrompt: a.intake.endpoint.systemPrompt, knownSecrets: a.knownSecrets,
+-      dependencies: { db, simulator: new CalendarSimulator(new PostgresCalendarStore(db)), targetForScenario: () => ({ async complete(messages) { const fresh=await canonical(); const currentBranch=await ledger.findOwnedBranch(a.row.neonBranchId!); if(fresh.targetVersion!==a.targetVersion || fresh.row.neonBranchId!==a.row.neonBranchId || currentBranch?.jobId!==ctx.jobId || currentBranch.state!=='ready') return refused(); return platformTarget(fresh.intake.endpoint).complete(messages); } }) } };
++      dependencies: { db, simulator: new CalendarSimulator(new PostgresCalendarStore(db)),
++        // Legacy callers retain their existing non-autonomous path. Paid dispatch never enters it.
++        targetForScenario: () => ({ async complete(messages, tools) {
++          if (authority.autonomous) return refused();
++          const fresh = await currentCalendar();
++          return platformTarget(fresh.intake.endpoint).complete(messages, tools);
++        } }),
++        ...(authority.autonomous ? { completeRound: async (raw: Readonly<CalendarDispatchIdentity>, messages: ChatMessage[], tools: FunctionTool[]) => {
++          if (!Number.isSafeInteger(ctx.budgetMicroUsd) || ctx.budgetMicroUsd <= 0) return refused();
++          const identity = structuredClone(raw), paid = authority.autonomous!;
++          const suite = freezeCalendarSuite(a.binding.reviewed_calendar!);
++          if (identity.jobId !== a.job.jobId || identity.scope.jobId !== a.job.jobId
++            || identity.branchId !== a.row.neonBranchId || identity.suiteHash !== suite.hash
++            || identity.runId !== calendarOperationRunId(a.job.jobId, identity.operationId)
++            || identity.scope.version !== identity.versionLabel || identity.scope.runId !== calendarExecutionScope(identity).runId
++            || !['baseline', 'investigation'].includes(identity.phase)
++            || !Number.isInteger(identity.round) || identity.round < 1 || identity.round > 6
++            || !suite.scenarios.some(s => s.id === identity.scenarioId)) return refused();
++          // Stable lifecycle ID excludes request payload and target configuration. Drift conflicts
++          // against immutable checkpoint/paid input digest instead of minting another paid attempt.
++          const dispatchId = createHash('sha256').update(JSON.stringify({ runId: identity.runId,
++            phase: identity.phase, scenarioId: identity.scenarioId, round: identity.round })).digest('hex');
++          const request = structuredClone({ messages, tools });
++          await currentCalendar();
++          return runAutonomousTarget(paid, { job: a.job, operationId: `autonomous-calendar:${dispatchId}`,
++            input: { identity, workflowRunId: authority.workflowRunId, targetVersion: a.targetVersion,
++              context: { jobId: ctx.jobId, environment: ctx.environment, budgetMicroUsd: ctx.budgetMicroUsd }, request } }, async () => {
++              const fresh = await currentCalendar();
++              return platformTarget(fresh.intake.endpoint).complete(request.messages, request.tools);
++            });
++        } } : {}),
++      } };
++    async function currentCalendar() {
++      const fresh = await canonical();
++      const currentBranch = await ledger.findOwnedBranch(a.row.neonBranchId!);
++      if (fresh.targetVersion !== a.targetVersion || fresh.row.neonBranchId !== a.row.neonBranchId
++        || !fresh.binding.reviewed_calendar || freezeCalendarSuite(fresh.binding.reviewed_calendar).hash !== freezeCalendarSuite(a.binding.reviewed_calendar!).hash
++        || currentBranch?.jobId !== ctx.jobId || currentBranch.state !== 'ready') return refused();
++      return fresh;
++    }
+   } });
+   const reportServices = createTrackBServices({ runner,
+     resolveJob: async current => {
+diff --git a/packages/core/src/evals/calendar-integration/index.ts b/packages/core/src/evals/calendar-integration/index.ts
+--- a/packages/core/src/evals/calendar-integration/index.ts
++++ b/packages/core/src/evals/calendar-integration/index.ts
+@@ -19,6 +19,8 @@
+   dependencies: CalendarWorkflowDependencies;
+   /** Loaded from trusted reviewed storage; never supplied by the request payload. */
+   reviewedSuite: CalendarSuiteInput;
++  /** Immutable application Workflow + paid policy/caps/context binding. Trusted resolver only. */
++  executionIdentity?: string;
+   systemPrompt?: string;
+   knownSecrets?: readonly string[];
+ }
+@@ -81,6 +83,7 @@
+       || !/^[A-Za-z0-9_.:-]{1,128}$/.test(a.targetVersion) || !/^[A-Za-z0-9_-]{1,128}$/.test(a.branch.branchId) || a.branch.jobId !== ctx.jobId
+       || a.branch.targetVersion !== a.targetVersion || a.reviewedSuite.jobId !== ctx.jobId
+       || (a.reviewedSuite.origin === 'internal_fixture' && !a.job.isFixture)) rejected();
++    if (a.executionIdentity !== undefined && !/^[a-f0-9]{64}$/.test(a.executionIdentity)) rejected();
+     if (a.systemPrompt !== undefined && (typeof a.systemPrompt !== 'string' || a.systemPrompt.length > 20_000 || !isPersistableText(a.systemPrompt))) rejected();
+     const suite = freezeCalendarSuite(a.reviewedSuite);
+     safe(a, { job: a.job, suite, systemPrompt: a.systemPrompt ?? null, targetVersion: a.targetVersion, branch: a.branch });
+@@ -90,6 +93,7 @@
+     return safe(a, { jobId: a.job.jobId, kind: `calendar_${kind}`, id, inputDigest: digest({
+       environment: a.job.environment, customerId: a.job.customerId, suiteHash: suite.hash,
+       systemPrompt: a.systemPrompt ?? null, targetVersion: a.targetVersion, branch: a.branch, extra,
++      ...(a.executionIdentity === undefined ? {} : { executionIdentity: a.executionIdentity }),
+     }) });
+   }
+   async function suiteFor(a: AuthorizedCalendarDependencies, expected: FrozenCalendarSuite, input: CalendarSuiteReference) {
+@@ -117,7 +121,7 @@
+     key(a, suite, 'run', input.operationId, { suiteId: input.suiteId, versionLabel: input.versionLabel });
+   async function loadRun(a: AuthorizedCalendarDependencies, suite: FrozenCalendarSuite, input: CalendarRunRequest) {
+     const run = safe(a, read<CalendarWorkflowRun>(await store.get(runKey(a, suite, input))));
+-    if (run.jobId !== a.job.jobId || run.branchId !== a.branch.branchId || run.suiteHash !== suite.hash
++    if (run.runId !== calendarOperationRunId(a.job.jobId, input.operationId) || run.jobId !== a.job.jobId || run.branchId !== a.branch.branchId || run.suiteHash !== suite.hash
+       || run.versionLabel !== input.versionLabel || run.systemPrompt !== a.systemPrompt) rejected();
+     return run;
+   }
+@@ -148,14 +152,14 @@
+       const { a, suite: expected } = await authorize(ctx);
+       const suite = await suiteFor(a, expected, input);
+       return operation(a, runKey(a, suite, input), () => runCalendarSuite({ suite, versionLabel: input.versionLabel,
+-        branchId: a.branch.branchId, runId: calendarOperationRunId(a.job.jobId, input.operationId), systemPrompt: a.systemPrompt, dependencies: a.dependencies }));
++        branchId: a.branch.branchId, runId: calendarOperationRunId(a.job.jobId, input.operationId), operationId: input.operationId, suiteId: input.suiteId, systemPrompt: a.systemPrompt, dependencies: a.dependencies }));
+     },
+     async investigate(ctx: ServiceContext, input: CalendarRunRequest): Promise<CalendarInvestigation> {
+       input = requestSnapshot(input, true);
+       const { a, suite: expected } = await authorize(ctx);
+       const suite = await suiteFor(a, expected, input);
+       const run = await loadRun(a, suite, input);
+-      return operation(a, investigationKey(a, suite, input, run), () => investigateCalendarRun({ suite, run, dependencies: a.dependencies, journal: journal(a) }));
++      return operation(a, investigationKey(a, suite, input, run), () => investigateCalendarRun({ suite, run, dependencies: a.dependencies, journal: journal(a), operationId: input.operationId, suiteId: input.suiteId }));
+     },
+     async reportInput(ctx: ServiceContext, input: CalendarRunRequest) {
+       input = requestSnapshot(input, true);
+diff --git a/packages/core/src/simulator/runner.ts b/packages/core/src/simulator/runner.ts
+--- a/packages/core/src/simulator/runner.ts
++++ b/packages/core/src/simulator/runner.ts
+@@ -1,5 +1,5 @@
+ import { randomUUID } from 'node:crypto';
+-import { assistantSchema, type ChatTarget, type ChatMessage } from '../targets/chat';
++import { assistantSchema, type ChatTarget, type ChatMessage, type AssistantMessage, type FunctionTool } from '../targets/chat';
+ import { CalendarSimulator, calendarTools, type CalendarState, type RunScope } from './calendar';
+ export interface CalendarExecution {
+   scope: RunScope; scenarioId: string; messages: ChatMessage[]; state: CalendarState;
+@@ -10,6 +10,8 @@
+ /** Six total requests, with at most eight tool calls per round. Target transport enforces its shared concurrency/deadline. */
+ export async function runCalendarScenario(input: {
+   simulator: CalendarSimulator; target: ChatTarget; scope: RunScope; scenarioId: string;
++  /** Engine round ordinal, never reconstructed from message count. */
++  dispatchRound?(round: number, messages: ChatMessage[], tools: FunctionTool[]): Promise<AssistantMessage>;
+   actorId: string; prompt: string; systemPrompt?: string; seed: CalendarState;
+ }): Promise<CalendarExecution> {
+   await input.simulator.store.create(input.scope, input.seed);
+@@ -19,7 +21,9 @@
+   scenario: for (; rounds < 6;) {
+     rounds++;
+     let raw: unknown;
+-    try { raw = await input.target.complete(structuredClone(messages), calendarTools); }
++    try { raw = input.dispatchRound
++      ? await input.dispatchRound(rounds, structuredClone(messages), structuredClone(calendarTools))
++      : await input.target.complete(structuredClone(messages), calendarTools); }
+     catch { stopped = 'target_error'; break; }
+     const parsed = assistantSchema.safeParse(raw);
+     if (!parsed.success) {
+diff --git a/packages/core/src/simulator/workflow/index.ts b/packages/core/src/simulator/workflow/index.ts
+--- a/packages/core/src/simulator/workflow/index.ts
++++ b/packages/core/src/simulator/workflow/index.ts
+@@ -1,6 +1,6 @@
+ import { createHash, randomUUID } from 'node:crypto';
+ import { z } from 'zod';
+-import type { ChatTarget } from '../../targets/chat';
++import type { ChatTarget, ChatMessage, AssistantMessage, FunctionTool } from '../../targets/chat';
+ import { isPersistableText } from '../../targets/chat';
+ import { CalendarSimulator, type CalendarState, type RunScope } from '../calendar';
+ import { gradeCalendarState, stateExpectationSchema } from '../graders';
+@@ -69,28 +69,57 @@
+   jobId: string; branchId: string; runId: string; suiteHash: string; versionLabel: string;
+   origin: 'customer' | 'internal_fixture'; systemPrompt?: string; results: WorkflowScenarioResult[];
+ }
++/** Trusted engine boundary; parent operation/run originates in durable integration checkpoints.
++ * Investigation phase is issued only after its append-only journal attempt intent commits. */
++export interface CalendarDispatchIdentity {
++  jobId: string; operationId: string; runId: string; suiteId: string; suiteHash: string; branchId: string;
++  versionLabel: string; phase: 'baseline' | 'investigation'; scenarioId: string; scope: RunScope; round: number;
++}
++export function calendarExecutionScope(identity: Pick<CalendarDispatchIdentity, 'jobId' | 'operationId' | 'runId' | 'phase' | 'scenarioId' | 'versionLabel'>): RunScope {
++  return immutable({ jobId: identity.jobId, runId: createHash('sha256').update(canonical({
++    kind: 'calendar_execution.v1', operationId: identity.operationId, runId: identity.runId,
++    phase: identity.phase, scenarioId: identity.scenarioId,
++  })).digest('hex'), version: identity.versionLabel });
++}
+ export interface CalendarWorkflowDependencies {
+   simulator: CalendarSimulator;
+   /** Same branch/database as simulator. Transactions must pin a connection. */
+   db: TransactionalDatabase;
+   /** Return a fresh target per scenario. Production must use the existing secure target client. */
+   targetForScenario(scenario: WorkflowScenario): ChatTarget | Promise<ChatTarget>;
++  /** Paid integrations implement this hook; identity is immutable and never request-derived.
++   * Missing durable operation/run identity refuses before target or simulator work. */
++  completeRound?(identity: Readonly<CalendarDispatchIdentity>, messages: ChatMessage[], tools: FunctionTool[]): Promise<AssistantMessage>;
+   /** Trusted classifier; unknown or unavailable classification never proves false success. */
+   classifySuccess?(execution: CalendarExecution, scenario: WorkflowScenario): Promise<'success' | 'no_success' | 'unknown'>;
+ }
+ interface RunInput {
+   /** Optional stable parent operation identity, durably fenced by the integration factory. */
+   runId?: string;
++  operationId?: string;
++  suiteId?: string;
++  phase?: 'baseline' | 'investigation';
+   suite: FrozenCalendarSuite; versionLabel: string; branchId: string; systemPrompt?: string; dependencies: CalendarWorkflowDependencies;
+ }
+ async function executeScenario(input: RunInput, scenario: WorkflowScenario): Promise<WorkflowScenarioResult> {
+-  const scope = { jobId: input.suite.jobId, runId: randomUUID(), version: input.versionLabel };
++  const paidDispatch = input.dependencies.completeRound;
++  if (paidDispatch && (!input.runId || !input.operationId || !input.suiteId)) throw new Error('calendar_durable_dispatch_identity_required');
++  const phase = input.phase ?? 'baseline';
++  const scope = paidDispatch ? calendarExecutionScope({ jobId: input.suite.jobId, operationId: input.operationId!,
++    runId: input.runId!, phase, scenarioId: scenario.id, versionLabel: input.versionLabel })
++    : { jobId: input.suite.jobId, runId: randomUUID(), version: input.versionLabel };
+   const base = { scenarioId: scenario.id, scope };
+   let execution: CalendarExecution;
+   try {
+-    const target = await input.dependencies.targetForScenario(structuredClone(scenario));
++    const target: ChatTarget = paidDispatch ? { complete: async () => { throw new Error('calendar_paid_fallback_refused'); } }
++      : await input.dependencies.targetForScenario(structuredClone(scenario));
++    const dispatchRound = paidDispatch ? (round: number, messages: ChatMessage[], tools: FunctionTool[]) => paidDispatch(immutable({
++      jobId: scope.jobId, operationId: input.operationId!, runId: input.runId!, suiteId: input.suiteId!, suiteHash: input.suite.hash,
++      branchId: input.branchId, versionLabel: input.versionLabel, phase, scenarioId: scenario.id,
++      scope: structuredClone(scope), round,
++    }), messages, tools) : undefined;
+     execution = await runCalendarScenario({ simulator: input.dependencies.simulator, target, scope, scenarioId: scenario.id,
+-      actorId: scenario.actorId, prompt: scenario.prompt, seed: structuredClone(scenario.seed), systemPrompt: input.systemPrompt });
++      dispatchRound, actorId: scenario.actorId, prompt: scenario.prompt, seed: structuredClone(scenario.seed), systemPrompt: input.systemPrompt });
+   } catch {
+     // The runner may fail before returning (create/snapshot). Preserve readable partial state,
+     // but never fabricate a transcript or expose driver/target exceptions containing credentials.
+@@ -123,6 +152,8 @@
+ async function execute(input: RunInput, scenarios: WorkflowScenario[]): Promise<CalendarWorkflowRun> {
+   id.parse(input.versionLabel); id.parse(input.branchId);
+   if (input.runId !== undefined) id.parse(input.runId);
++  if (input.operationId !== undefined) id.parse(input.operationId);
++  if (input.suiteId !== undefined) id.parse(input.suiteId);
+   if (input.systemPrompt !== undefined) z.string().max(20_000).refine(isPersistableText).parse(input.systemPrompt);
+   const run: CalendarWorkflowRun = { jobId: input.suite.jobId, branchId: input.branchId, runId: input.runId ?? randomUUID(), suiteHash: input.suite.hash,
+     versionLabel: input.versionLabel, origin: input.suite.origin, systemPrompt: input.systemPrompt, results: [] };
+@@ -222,7 +253,7 @@
+ }
+ /** Three candidate product failures, each once. Unknown/transport failures are never retried here. */
+ export async function investigateCalendarRun(input: {
+-  suite: FrozenCalendarSuite; run: CalendarWorkflowRun; dependencies: CalendarWorkflowDependencies; journal: WorkflowInvestigationJournal;
++  suite: FrozenCalendarSuite; run: CalendarWorkflowRun; dependencies: CalendarWorkflowDependencies; journal: WorkflowInvestigationJournal; operationId?: string; suiteId?: string;
+ }) {
+   input = { ...input, suite: verifySuite(input.suite), run: immutable(structuredClone(input.run)) };
+   verifyRun(input.suite, input.run);
+@@ -241,7 +272,7 @@
+       // A crash after intent is ambiguous: retain a pending attempt and never auto-dispatch it again.
+       await input.journal.save(key, record);
+       const scenario = input.suite.scenarios.find(s => s.id === candidate.scenarioId)!;
+-      attempt.result = await executeScenario({ suite: input.suite, versionLabel: input.run.versionLabel, branchId: input.run.branchId,
++      attempt.result = await executeScenario({ suite: input.suite, runId: input.run.runId, operationId: input.operationId, suiteId: input.suiteId, phase: 'investigation', versionLabel: input.run.versionLabel, branchId: input.run.branchId,
+         systemPrompt: input.run.systemPrompt, dependencies: input.dependencies }, scenario);
+       await input.journal.save(key, record);
+     }

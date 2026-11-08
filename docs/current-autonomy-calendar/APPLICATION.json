@@ -1,0 +1,36 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "candidateCommit": "f88811c8fb7509dc5996bb8cd1d148e4c23f3de3",
+  "patchSha256": "989d199c230cd0f0a52b36674a420a233a333a65ed58d5a6a8cea930d38679aa",
+  "changes": {
+    "apps/web/src/server/current-autonomy.ts": {
+      "preimageSha256": "511c57fc8c51c46163c84d55066485bf16a6241a531c26489860f30606208684",
+      "sha256": "886bfb4e198c931c232bcfc9e1573b2a49a73c58a8f18a67485a8484073d7469",
+      "bytes": 5026
+    },
+    "apps/web/src/server/rich-services.ts": {
+      "preimageSha256": "07009e8ea303f36090ea79b9fe846053b5deecf911b32303c934f4312c5e8e43",
+      "sha256": "1c345b2cc9168e26ad631dce826693f9bf195a22ac629f6e8759abea005165b6",
+      "bytes": 20098
+    },
+    "packages/core/src/evals/calendar-integration/index.ts": {
+      "preimageSha256": "34954cc1063f162672ff4a94da139e4ee5042b83b2029bc17174fe2b1f1d53c4",
+      "sha256": "70c00e21087b99dcc2493effb07b381771a28be5b162b0debe3df69cad97c2b3",
+      "bytes": 12289
+    },
+    "packages/core/src/simulator/runner.ts": {
+      "preimageSha256": "a4eae5578d1c791d9241d216b8d4a01215e326b95896aea45fc7e00b5ac820fe",
+      "sha256": "3709dc2a5faca4ebe4affce64ae952df73bcce3af8d9d3e93b8f94d09d4644f9",
+      "bytes": 3914
+    },
+    "packages/core/src/simulator/workflow/index.ts": {
+      "preimageSha256": "7d807c446ff170ee8767c903d52125faa312a5c14d97ebded1dfaf4a4b84ebdd",
+      "sha256": "94d861f26b4dbb8c1bd2ebdd8e2e239aed9b0796aa6615d1b3308ae5c68e558d",
+      "bytes": 21766
+    }
+  },
+  "preservedCandidateFiles": 2028,
+  "releaseAccepted": false,
+  "liveRunPerformed": false,
+  "measuredStagingMode": "verified-retained-candidate"
+}
