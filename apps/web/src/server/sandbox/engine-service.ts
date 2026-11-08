@@ -9,7 +9,7 @@ import { PLANS, checkEnvironmentAllowance, checkTrialAllowance, usageWindowStart
 import { GATEWAY_TARGET_MODELS, GATEWAY_TARGET_URL, SAMPLE_RUN_ID, type DraftScenario, type SandboxDraft, type SandboxIntakeInput, type SandboxRunReport, type ScenarioReviewInput } from "@/components/sandbox/contract";
 import type { SandboxService } from "../sandbox-service";
 import { buildCustom, buildFromIntake, buildPrebuilt, type BuiltEnvironment, type CustomWorld } from "./env-build";
-import { runScenarios, suiteScenarios, type RunListItem, type RunRow, type SandboxStore } from "./store";
+import { runScenarios, suiteScenarios, type RunListItem, type RunRow, type RunStatus, type SandboxStore } from "./store";
 import { SandboxInputError } from "./target";
 import { draftView, environmentSummary, runReportView } from "./views";
 
@@ -108,6 +108,8 @@ export interface EngineSandboxService extends SandboxService {
   getRunTarget(ownerId: string, runId: string): Promise<RunTarget | null>;
   /** Owner's most recent runs (dashboard). */
   listRuns(ownerId: string, limit?: number): Promise<RunListItem[]>;
+  /** One keyset page of the owner's runs (newest first); `nextCursor` is null on the last page. */
+  listRunsPage(ownerId: string, opts: { status?: RunStatus; limit?: number; cursor?: string }): Promise<{ runs: Array<RunListItem & { targetModel: string | null }>; nextCursor: string | null }>;
   /**
    * Copilot: a new suite holding a finished run's scenarios (gate results carried over), optionally on a sibling
    * environment with a different hosted model / system prompt, minus removed scenarios, plus one generated scenario.
@@ -214,6 +216,13 @@ export function createEngineSandboxService(deps: EngineServiceDeps): EngineSandb
       const integration = (env.spec as BuiltEnvironment["spec"]).integration;
       if (integration.mode !== "tool_loop") return { mode: integration.mode, hosted: false };
       return { mode: integration.mode, hosted: integration.endpointUrl === GATEWAY_TARGET_URL, model: integration.model, systemPrompt: integration.systemPrompt };
+    },
+
+    async listRunsPage(ownerId, { status, limit = 20, cursor }) {
+      const n = Math.min(100, Math.max(1, Math.floor(limit)));
+      const rows = await store.listRunsPage(ownerId, { status, limit: n + 1, cursor });
+      const page = rows.slice(0, n);
+      return { runs: page.map(({ cursor: _c, ...r }) => r), nextCursor: rows.length > n ? page[page.length - 1]!.cursor : null };
     },
 
     listRuns: (ownerId, limit = 20) => store.listRuns(ownerId, Math.min(50, Math.max(1, limit))),

@@ -112,6 +112,15 @@ export const StatusInput = z.object({ runId: RunId.optional(), suiteId: SuiteId.
   { message: "Provide exactly one of runId or suiteId", path: ["runId"] },
 );
 export type StatusInput = z.infer<typeof StatusInput>;
+export const MAX_LIST_LIMIT = 100;
+export const DEFAULT_LIST_LIMIT = 20;
+export const ListRunsInput = z.object({
+  status: z.enum(["queued", "running", "complete", "failed"]).optional().describe("Only runs in this state"),
+  limit: z.int().min(1).max(MAX_LIST_LIMIT).default(DEFAULT_LIST_LIMIT).describe(`Page size (1-${MAX_LIST_LIMIT}, default ${DEFAULT_LIST_LIMIT})`),
+  cursor: z.string().max(200).regex(/^[0-9A-Za-z:.+ -]{1,100}\|[\w-]{1,100}$/, "cursor must be a nextCursor returned by a previous call").optional()
+    .describe("nextCursor from the previous page; omit for the first page"),
+});
+export type ListRunsInput = z.infer<typeof ListRunsInput>;
 
 export interface SandboxService {
   createEnvironment(c: McpCaller, input: CreateEnvironmentInput): Promise<McpToolResult>;
@@ -119,9 +128,10 @@ export interface SandboxService {
   run(c: McpCaller, args: { environmentId: string; suiteId: string; k: number; scenarioIds?: string[] }): Promise<McpToolResult>;
   status(c: McpCaller, ref: StatusInput): Promise<McpToolResult>;
   report(c: McpCaller, runId: string): Promise<McpToolResult>;
+  listRuns(c: McpCaller, input: ListRunsInput): Promise<McpToolResult>;
 }
 
-export type McpEngine = Pick<EngineSandboxService, "createEnvironment" | "generateSuite" | "getDraft" | "startRun" | "getRunReport">;
+export type McpEngine = Pick<EngineSandboxService, "createEnvironment" | "generateSuite" | "getDraft" | "startRun" | "getRunReport" | "listRunsPage">;
 type EngineSource = McpEngine | (() => Promise<McpEngine>);
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}...` : s);
@@ -278,6 +288,17 @@ export function createMcpSandboxService(source: EngineSource): SandboxService {
       const report = await e.getRunReport(c.customerId, ref.runId ?? "");
       return report ? ok(runStatusView(report)) : notFound();
     }),
+    listRuns: (c, { status, limit, cursor }) => guard(async () => {
+      const page = await (await engine()).listRunsPage(c.customerId, { status, limit, cursor });
+      return ok({
+        runs: page.runs.map((r) => ({
+          runId: r.runId, name: r.name, targetModel: r.targetModel ?? null, status: r.status, k: r.k,
+          passAt1: r.passAt1 == null ? null : round(r.passAt1), passHatK: r.passHatK == null ? null : round(r.passHatK),
+          createdAt: r.createdAt, url: `${c.origin}/sandbox/runs/${r.runId}`,
+        })),
+        nextCursor: page.nextCursor,
+      });
+    }),
     report: (c, runId) => guard(async () => {
       const report = await (await engine()).getRunReport(c.customerId, runId);
       if (!report) return notFound();
@@ -304,6 +325,9 @@ export function buildSandboxTools(service: SandboxService): ToolDef[] {
     { name: "sandbox_report", title: "Get sandbox run report", readOnly: true, inputSchema: RunRefInput,
       description: "Compact reliability report for a finished run (complete or failed): pass@1, pass^k, per-workflow and per-scenario pass rates, failed checks with the policy clause, failure clusters, cost, and a link to the full report. Only after sandbox_status reports complete or failed.",
       run: (c: McpCaller, i: z.infer<typeof RunRefInput>) => service.report(c, i.runId) },
+    { name: "sandbox_list_runs", title: "List your sandbox runs", readOnly: true, inputSchema: ListRunsInput,
+      description: `List the caller's own sandbox runs, newest first: runId, name, target model, status, pass@1 and pass^k (null until the run finishes), created_at and a link to the run page. Optional status filter; limit 1-${MAX_LIST_LIMIT} (default ${DEFAULT_LIST_LIMIT}); pass nextCursor back as cursor for the next page (null = last page). Use it to find a runId for sandbox_status or sandbox_report.`,
+      run: (c: McpCaller, i: ListRunsInput) => service.listRuns(c, i) },
   ];
   return tools as unknown as ToolDef[];
 }

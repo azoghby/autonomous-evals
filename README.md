@@ -187,7 +187,7 @@ Then ask your agent to audit itself. The [Claude Code plugin](integrations/claud
 | `get_report` | Findings, verified remediations, full report markdown |
 | `rerun_finding` | Re-check one finding after you apply a fix |
 | `cancel_job` | Cancel before work starts |
-| `sandbox_create_environment`, `sandbox_generate_suite`, `sandbox_run`, `sandbox_status`, `sandbox_report` | Sandbox Evals flow. **Preview:** returns `coming_soon` today |
+| `sandbox_create_environment`, `sandbox_generate_suite`, `sandbox_run`, `sandbox_status`, `sandbox_report`, `sandbox_list_runs` | Sandbox Evals flow. **Preview:** returns `coming_soon` today |
 
 Also a `sample_report` resource and prompt, and a `hire_eval` playbook prompt. Headless and CI setups use an API key bearer token instead of OAuth. Everything is in [docs/MCP.md](docs/MCP.md).
 

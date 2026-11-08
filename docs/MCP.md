@@ -143,6 +143,7 @@ Your coding agent should read the relevant files from your repo and send their *
 | `sandbox_status` | exactly one of `suiteId` or `runId` | Suite: status, cost, preview when ready. Run: state, scenarios/trials completed, cost vs budget |
 | `sandbox_run` | `environmentId`, `suiteId`, `k` (1-10, default 5), optional `scenarioIds` | `runId`, `status: "queued"` |
 | `sandbox_report` | `runId` | Compact report. Errors with "Run not finished" until the run completes or fails |
+| `sandbox_list_runs` | optional `status` (`queued`, `running`, `complete`, `failed`), `limit` (1-100, default 20), `cursor` | Your own runs, newest first: `runId`, `name`, `targetModel`, `status`, `k`, `passAt1`, `passHatK` (null until finished), `createdAt`, `url`; plus `nextCursor` (null on the last page) |
 
 Foreign and missing ids look identical ("Not found"); every call is scoped to your account.
 

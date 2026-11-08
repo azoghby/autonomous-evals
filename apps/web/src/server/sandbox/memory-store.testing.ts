@@ -55,6 +55,21 @@ export function createMemoryStore() {
           completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
         }));
     },
+    async listRunsPage(ownerId, { status, limit, cursor }) {
+      const ts = (r: RunRow) => +new Date(r.createdAt ?? 0);
+      const [at, afterId] = cursor ? cursor.split("|") : [];
+      return [...runs.values()].filter((r) => r.ownerId === ownerId && (!status || r.status === status))
+        .sort((a, b) => ts(b) - ts(a) || (a.id < b.id ? 1 : -1))
+        .filter((r) => !at || ts(r) < +at || (ts(r) === +at && r.id < afterId!))
+        .slice(0, limit)
+        .map((r) => ({
+          runId: r.id, name: envs.get(r.environmentId)?.name ?? "Environment", status: r.status as never, k: r.k,
+          scenarios: Array.isArray(r.scenarios) ? r.scenarios.length : 0, passAt1: r.passAt1 ?? null, passHatK: r.passHatK ?? null,
+          costMicroUsd: r.costMicroUsd ?? 0, createdAt: new Date(r.createdAt ?? Date.now()).toISOString(),
+          completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null, cursor: `${ts(r)}|${r.id}`,
+          targetModel: (envs.get(r.environmentId)?.spec as { integration?: { model?: string } } | undefined)?.integration?.model ?? null,
+        }));
+    },
     async updateRun(id, patch) { const r = runs.get(id); if (r) runs.set(id, { ...r, ...patch } as RunRow); },
     async putRunResult(id, result) {
       const r = runs.get(id);

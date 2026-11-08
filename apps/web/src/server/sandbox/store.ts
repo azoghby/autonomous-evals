@@ -22,6 +22,8 @@ export const suiteScenarios = (row: SuiteRow): DraftScenario[] => row.scenarios 
 export const runScenarios = (row: RunRow): SandboxScenario[] => row.scenarios as SandboxScenario[];
 export const runResults = (row: RunRow): ScenarioResult[] => row.results as ScenarioResult[];
 
+export type RunPageItem = RunListItem & { cursor: string; targetModel: string | null };
+export interface RunPageOpts { status?: RunStatus; limit: number; cursor?: string }
 export interface RunListItem {
   runId: string; name: string; status: RunStatus; k: number; scenarios: number; passAt1: number | null; passHatK: number | null;
   costMicroUsd: number; createdAt: string; completedAt: string | null;
@@ -41,6 +43,8 @@ export interface SandboxStore {
   getRunById(id: string): Promise<RunRow | null>;
   /** Owner's newest runs with their environment name (dashboard list). */
   listRuns(ownerId: string, limit: number): Promise<RunListItem[]>;
+  /** Keyset page (newest first) of the owner's runs, optionally filtered by status. `cursor` is an opaque `rawCreatedAt|id`. */
+  listRunsPage(ownerId: string, opts: RunPageOpts): Promise<RunPageItem[]>;
   updateRun(id: string, patch: Partial<Omit<RunRow, "id" | "ownerId" | "createdAt">>): Promise<void>;
   /** Replaces (or appends) the result for result.scenarioId. Idempotent under step retries. */
   putRunResult(id: string, result: ScenarioResult): Promise<void>;
@@ -103,6 +107,23 @@ export function createDbSandboxStore(conn?: Db): SandboxStore {
       return rows.map((r) => ({
         runId: r.id, name: r.name, status: r.status as RunStatus, k: r.k, scenarios: Number(r.scenarios), passAt1: r.passAt1, passHatK: r.passHatK,
         costMicroUsd: r.costMicroUsd, createdAt: new Date(r.createdAt).toISOString(), completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
+      }));
+    },
+    async listRunsPage(ownerId, { status, limit, cursor }) {
+      const [rawAt, afterId] = cursor ? cursor.split("|") : [];
+      const conds = [
+        eq(R.ownerId, ownerId),
+        ...(status ? [eq(R.status, status)] : []),
+        ...(rawAt && afterId ? [sql`(${R.createdAt}, ${R.id}) < (${rawAt}::timestamptz, ${afterId})`] : []),
+      ];
+      const rows = await db().select({
+        id: R.id, name: E.name, status: R.status, k: R.k, scenarios: sql<number>`jsonb_array_length(${R.scenarios})::int`, passAt1: R.passAt1, passHatK: R.passHatK,
+        costMicroUsd: R.costMicroUsd, createdAt: R.createdAt, completedAt: R.completedAt, raw: sql<string>`${R.createdAt}::text`, targetModel: sql<string | null>`${E.spec}->'integration'->>'model'`,
+      }).from(R).innerJoin(E, eq(E.id, R.environmentId)).where(and(...conds)).orderBy(desc(R.createdAt), desc(R.id)).limit(limit);
+      return rows.map((r) => ({
+        runId: r.id, name: r.name, status: r.status as RunStatus, k: r.k, scenarios: Number(r.scenarios), passAt1: r.passAt1, passHatK: r.passHatK,
+        costMicroUsd: r.costMicroUsd, createdAt: new Date(r.createdAt).toISOString(), completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
+        cursor: `${r.raw}|${r.id}`, targetModel: r.targetModel ?? null,
       }));
     },
     async updateRun(id, patch) { await db().update(R).set({ ...patch, updatedAt: now() }).where(eq(R.id, id)); },
