@@ -91,8 +91,16 @@ function assertSafeContent(value: unknown, knownSecrets: readonly string[]): voi
   }
 }
 
-/** Cost rows for ctx.recordCost. `meta.idempotencyKey` is unique per session: record it at most once. */
+/** Measured receipts only. The owner sink must enforce meta.idempotencyKey atomically. */
 export function toContractCost(c: CostEntry): Omit<ContractCostEntry, "jobId"> {
+  // Unknown provider usage is reconciliation work, never a fabricated zero-cost receipt.
+  // Validate before constructing a key or emitting any cost to the application's sink.
+  if (!c || c.source !== "naive_session" || c.measured !== true ||
+      typeof c.externalId !== "string" || !/^[A-Za-z0-9_.:-]{1,200}$/.test(c.externalId) ||
+      !Number.isSafeInteger(c.microUsd) || c.microUsd < 0 ||
+      (c.role !== null && !Object.prototype.hasOwnProperty.call(ROLE_DEFINITIONS, c.role))) {
+    throw new TrackBBlockedError("needs_operator", "Measured Naive cost receipt unavailable");
+  }
   return {
     source: "naive",
     agent: c.role ? ROLE_DEFINITIONS[c.role].costLabel : undefined,

@@ -1,0 +1,174 @@
+{
+  "recordedAt": "2026-11-08T07:10:56.019652+00:00",
+  "scope": "Track B private-key account; ae-* diagnostic agents, separate from Track A standard-evals-* app pins",
+  "resourceReceipts": [
+    {
+      "operation": "naive-provision:agent:ae-commercial",
+      "fingerprint": "a747bcd2a8df8fd6641b36550ff65e86483b5470f04c4d9694ddce12e9ee01b3",
+      "receipt": {
+        "id": "agt_td46vftzqhb490emtnp92tdrth",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:agent:ae-company-operator",
+      "fingerprint": "11a9e30a35b0b4e9ee64e1bf32770fd7659bca364433b42d4eef2bc026a2ab6a",
+      "receipt": {
+        "id": "agt_fdbkn5tgmm8jgn6rpq3gkrw4x4",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:agent:ae-evaluation-engineer",
+      "fingerprint": "f87bec5b9c9106b348c45a10ab652facdc3c20bbc0aae9f70a817be4cb4a526a",
+      "receipt": {
+        "id": "agt_qs8k88dbxbea704v2f49hgtq8h",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:agent:ae-quality-investigator",
+      "fingerprint": "baf30b81e2bdacb8b490628b8326b642393350bb4815a3019b3f6d4160c66229",
+      "receipt": {
+        "id": "agt_vgvrtnybp6n5325vwnfdfr9w7d",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:outcome:ocm_report_clarity",
+      "fingerprint": "a769eca93fbf7cab46524130784d8059b577aaaf8608a4ba02ca1f55903a79d7",
+      "receipt": {
+        "id": "ocm_k00mky6hexqbcjewg80e6fk74j"
+      }
+    },
+    {
+      "operation": "naive-provision:outcome:ocm_scenario_quality",
+      "fingerprint": "05373fb890366d13d756b10b6db89162ae99f0a4d0985ea74b85784971ce1872",
+      "receipt": {
+        "id": "ocm_z77a40hpaz3z77v9kvm6sk18hm"
+      }
+    },
+    {
+      "operation": "naive-provision:outcome:ocm_suite_quality",
+      "fingerprint": "33d600cd3cbd357cad1f8e45dda15e900f2d14147420faa6e0b38fb14f6f80d5",
+      "receipt": {
+        "id": "ocm_93sxcg8xsnas6sez9y7jbgvcmt"
+      }
+    },
+    {
+      "operation": "naive-provision:skill:se-eval-taxonomy",
+      "fingerprint": "407529e90f125c86ab3592c365280b7e768dfeaf90ad7e79f562effd487cabd9",
+      "receipt": {
+        "id": "skl_94bynzbm0n1gxx6qrqzz4v07sn",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:skill:se-house-rules",
+      "fingerprint": "e8be7b8177be9223b2b1cde287853e4a46817e0a4de20cfff05f200e25bfbe28",
+      "receipt": {
+        "id": "skl_0yz9qmfn9k43n6mcndx5m12h6y",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:skill:se-pricing-menu",
+      "fingerprint": "f5d26661345580fec495bed616f06644399b001169d81114cd0636169e3de060",
+      "receipt": {
+        "id": "skl_jfc7rd6n79bkhd68vh204mz6fm",
+        "version": 1
+      }
+    },
+    {
+      "operation": "naive-provision:skill:se-tau2-patterns",
+      "fingerprint": "83b815d371d70485b2cabebb81b31594c815a0d57911d03d2772c1a36de5b18d",
+      "receipt": {
+        "id": "skl_5b1b38jq33h5k3n6gxfvr56xv1",
+        "version": 1
+      }
+    }
+  ],
+  "diagnostic": {
+    "createdAgents": [],
+    "evidence": {
+      "persistence": "single_process_file",
+      "postgresCostsVerified": false,
+      "expandedRosterVerified": false
+    },
+    "directory": {
+      "commercial": {
+        "agentId": "agt_td46vftzqhb490emtnp92tdrth",
+        "agentVersion": 1
+      },
+      "evaluation_engineer": {
+        "agentId": "agt_qs8k88dbxbea704v2f49hgtq8h",
+        "agentVersion": 1
+      },
+      "quality_investigator": {
+        "agentId": "agt_vgvrtnybp6n5325vwnfdfr9w7d",
+        "agentVersion": 1
+      },
+      "company_operator": {
+        "agentId": "agt_fdbkn5tgmm8jgn6rpq3gkrw4x4",
+        "agentVersion": 1
+      }
+    },
+    "results": [
+      {
+        "role": "commercial",
+        "status": "completed",
+        "sessionId": "ses_72x0sbx6h2jm2fjp78tjyvgtnm",
+        "agentId": "agt_td46vftzqhb490emtnp92tdrth",
+        "agentVersion": 1,
+        "consumedMicroUsd": 6140,
+        "detail": "decision=quote package=trace_audit policyWarnings=0"
+      },
+      {
+        "role": "evaluation_engineer",
+        "status": "completed",
+        "sessionId": "ses_b97kskdq11at372q643r7zq7e6",
+        "agentId": "agt_qs8k88dbxbea704v2f49hgtq8h",
+        "agentVersion": 1,
+        "consumedMicroUsd": 7439,
+        "detail": "scenarios=2"
+      },
+      {
+        "role": "quality_investigator",
+        "status": "completed/investigator=completed",
+        "sessionId": "ses_saey3ta71664j00qytz61xx6yg",
+        "agentId": "agt_vgvrtnybp6n5325vwnfdfr9w7d",
+        "agentVersion": 1,
+        "consumedMicroUsd": 8471,
+        "detail": "findings=F1:unsupported_claim:confirmed dismissed=0 rejectedAgentFindings=0"
+      },
+      {
+        "role": "company_operator",
+        "status": "completed",
+        "sessionId": "ses_j8rs3h7qm0wcnhsp4rvhp7ewe0",
+        "agentId": "agt_fdbkn5tgmm8jgn6rpq3gkrw4x4",
+        "agentVersion": 1,
+        "consumedMicroUsd": 7394,
+        "detail": "summary_chars=332 notes=1"
+      }
+    ],
+    "totalConsumedMicroUsd": 29444
+  },
+  "sourceSha256": {
+    "packages/core/src/agents/live-diagnostic.ts": "11157f7db4b5e85377f88c4a779ee9b9c8e6a8c94c188bea36df584840601792",
+    "packages/core/src/agents/live-diagnostic-policy.ts": "db8164fddf34a4cef1737d9259f3a429a72ec33e997e072a6b5297ea61dbe14b",
+    "packages/core/src/agents/company-resources.ts": "96694e712fd3f3ad18f6c676958feb5f5e47a4fd08067504ccef4fc5d559aa2c",
+    "packages/core/src/agents/naive-provisioning.ts": "5c522e4c59e741112cd320f830d0976efdafd751b63f851339ddf6ca282c3750",
+    "packages/core/src/agents/naive-resources.ts": "fd9f9cae84513ea529b63aa92a1284070868a9945d1cc5dd59179937aeebc11c"
+  },
+  "limits": {
+    "perSessionMicroUsd": 250000,
+    "totalMicroUsd": 1000000
+  },
+  "productionActivated": false,
+  "postgresCostsVerifiedByThisRun": false,
+  "sameStateReplay": {
+    "verified": true,
+    "sessionIdsUnchanged": true,
+    "measuredTotalUnchanged": true
+  }
+}

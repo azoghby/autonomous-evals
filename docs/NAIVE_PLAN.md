@@ -48,6 +48,23 @@ Left for Phase 1: map the five remaining methods; apply `001_calendar.sql` to th
 
 ---
 
+## Track B continuation (2026-11-07, after Track A `96e1069`)
+
+Track A's results above are preserved. Track B independently created and attested four version-1 skills and three advisory outcomes using the staged, journaled CLI, then created four tool-denied `ae-*` diagnostic agents. These are **separate from the `standard-evals-*` application pins**; no app environment pins or deployments were changed. Nonsecret IDs, hashes and session receipts are in `docs/naive-phase0-live-receipts.json`.
+
+The four-role diagnostic completed at $0.25/session / $1 total limits, consuming **29,444 micro-USD ($0.029444)**. Commercial qualified the fixture, the engineer produced two scenarios, the investigator confirmed the unsupported booking claim, and the operator summarized it. Replaying the same file-backed task state returned the same four session IDs and costs. This validates these four SDK/session paths, **not PostgreSQL settlement or expanded-role acceptance**.
+
+Current additional implementation:
+
+- Staged roster builder with explicit revision names, verified `slug@N` skill references, exact dependency receipts and paused deployment bodies. Missing MCP authorization, private bearer files, schedules or callbacks remain blocking inputs.
+- Diagnostic requires explicit directory pins and budget period, performs read-only attestation and never provisions or increases its $1 envelope.
+- Lossless rich-text/contract projection retains authorized immutable sidecars; it does not wire the five missing methods. Boolean `RunResult` cannot represent rubric/inconclusive/infrastructure states and those projections fail closed.
+- Cost adapter rejects unmeasured or unidentified receipts. Application sinks still require atomic keyed settlement; see `docs/naive-cost-settlement-handoff.md`.
+
+Phase 0 is still open: full real conformance, remaining migrations, expanded-role resources/authorization, and staging/application acceptance remain gates. Production remains unchanged by this work.
+
+---
+
 Goal: **every agentic role in the company runs on Naïve**, using every relevant Naïve capability the SDK actually offers. Only the deterministic, safety-critical pieces stay as our code.
 
 Each claim carries one of two labels:

@@ -1,7 +1,7 @@
 /**
  * LIVE Naïve diagnostic (operator-run; spends real credits, bounded).
- * Provisions the four role agents if missing (never touches other agents, e.g. the org CEO), then
- * runs one real structured-output task per role through AgentSessionService:
+ * Read-only attests four explicitly pinned legacy role agents, then runs one
+ * structured-output task per role through AgentSessionService. Never provisions:
  *   commercial  -> qualifyRequest      (QualifyAgentOutput)
  *   engineer    -> tiny scenario draft (EngineerProbeOutput)
  *   investigator-> auditTrace recheck  (TraceRecheckOutput) on a known false-success trace
@@ -19,6 +19,7 @@ import { FileBackedPorts } from "./file-ports";
 import { createNaiveSessionsPort } from "./naive-adapter";
 import { writeReportSummary } from "./operator";
 import { ensureAgents } from "./provision";
+import { diagnosticPolicy, type DiagnosticPolicyInput } from "./live-diagnostic-policy";
 import { AgentSessionService, type AgentTaskRunner, taskKeyFor } from "./session-service";
 
 export const EngineerProbeOutput = z.object({
@@ -57,23 +58,17 @@ export interface LiveDiagnosticReport {
   directory: AgentDirectory;
   results: LiveRoleResult[];
   totalConsumedMicroUsd: number;
+  evidence: { persistence: "single_process_file"; postgresCostsVerified: false; expandedRosterVerified: false };
 }
 
-export async function runLiveDiagnostic(opts: {
+export async function runLiveDiagnostic(opts: DiagnosticPolicyInput & {
   client: VettaClient;
-  stateFile: string;
-  runId: string;
   model?: string;
-  perSessionMicroUsd?: number;
-  totalMicroUsd?: number;
-  maxWaitMs?: number;
-  provision?: boolean;
 }): Promise<LiveDiagnosticReport> {
-  const per = opts.perSessionMicroUsd ?? 100_000;
-  const total = opts.totalMicroUsd ?? 400_000;
-  const prov = await ensureAgents(opts.client, { model: opts.model, dryRun: opts.provision === false });
-  if (prov.missing.length) throw new Error(`agents missing and provisioning disabled: ${prov.missing.join(", ")}`);
-  const directory = prov.directory as AgentDirectory;
+  // Validate all local authorization/identity inputs before provider or filesystem calls.
+  const { per, total, directory, budgetPeriodId } = diagnosticPolicy(opts);
+  const prov = await ensureAgents(opts.client, { model: opts.model, dryRun: true, directory });
+  if (prov.missing.length) throw new Error("Diagnostic agents unavailable");
 
   const ports = new FileBackedPorts(opts.stateFile);
   const service = new AgentSessionService({
@@ -81,7 +76,7 @@ export async function runLiveDiagnostic(opts: {
     store: ports.store,
     ledger: ports.ledger,
     directory,
-    budgetPeriodId: "2026-11-hackathon",
+    budgetPeriodId,
     idempotencyNamespace: "livediag",
     workerId: `diag-${process.pid}`,
     maxWaitMs: opts.maxWaitMs ?? 240_000,
@@ -108,7 +103,7 @@ export async function runLiveDiagnostic(opts: {
       agentId: directory[role].agentId,
       agentVersion: row?.agentVersion ?? null,
       consumedMicroUsd: row?.consumedMicroUsd ?? null,
-      detail: row?.error ? `${detail} error=${row.error.code}: ${row.error.message.slice(0, 200)}` : detail,
+      detail: row?.error ? `${detail} task_error=true` : detail,
     });
   };
 
@@ -161,7 +156,8 @@ export async function runLiveDiagnostic(opts: {
   await push("company_operator", "report_summary", s.status, s.status === "completed" ? `summary_chars=${s.value.executive_summary.length} notes=${s.value.finding_notes.length}` : "code" in s ? `code=${s.code}` : "");
 
   return {
-    createdAgents: prov.created,
+    createdAgents: [],
+    evidence: { persistence: "single_process_file", postgresCostsVerified: false, expandedRosterVerified: false },
     directory,
     results,
     totalConsumedMicroUsd: [...ports.store.rows.values()].filter((x) => x.jobId === job.jobId).reduce((t, x) => t + (x.consumedMicroUsd ?? 0), 0),

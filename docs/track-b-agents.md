@@ -178,7 +178,7 @@ Cost recording: `ctx.recordCost` receives `meta.idempotencyKey = "naive:<session
   - (a) raise the per-session cap above the pre-flight quote. That quote is undocumented and probably depends on the model's maximum output; try ≈ $0.25–0.50 within the role maximums ($1–1.5).
   - (b) switch the four `ae-*` agents to a cheaper model, e.g. `z-ai/glm-5.3-flash` (the CEO's model) or `openai/gpt-oss-20b`, then rerun with a new `runId`.
 
-  To rerun, call `runLiveDiagnostic({ client, stateFile, runId: "<new>", perSessionMicroUsd, totalMicroUsd })` from a script that reads the key from the private file inside the process.
+  To rerun, call `runLiveDiagnostic({ client, directory, budgetPeriodId: "YYYY-MM", stateFile, runId: "<new>", perSessionMicroUsd: 250_000, totalMicroUsd: 1_000_000 })` from a script that reads the key from the private file inside the process.
 
 ## Not done in this slice
 

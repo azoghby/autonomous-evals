@@ -44,7 +44,7 @@ npx --no-install tsx scripts/naive-provision.ts --inspect
 
 `--inspect` performs read-only roster discovery and prints `configurationAttested:false`. It is not the resource attestation gate.
 
-The current apply interface consumes **operator-prepared staged JSON operations**, not the complete automatic graph proposed in NAIVE_PLAN:
+The apply interface consumes **explicit staged JSON operations**. The roster builder supplies dependency-checked stages; it does not automatically discover and activate the whole roster:
 
 ```sh
 npx --no-install tsx scripts/naive-provision.ts --resource-plan > /absolute/private/phase0-plan.json
@@ -53,6 +53,15 @@ npx --no-install tsx scripts/naive-provision.ts --apply /absolute/private/phase0
 ```
 
 Plan shape: `{ "operations": [ ... ] }`. Every entry has `kind` and `body`; supported kinds are `skill`, `outcome`, `vault`, `agent`, `credential`, `deployment`. Agent entries may specify `pin:{id,version}`. Deployment entries require an operation `name`; bodies require a positive budget, exact `agent_id`/`agent_version`, and `enabled:false`. Credential entries use `vaultId`, `valueFile`, and optional trusted `{id,fingerprint}`; plaintext `body.value` is rejected. These are explicit SDK input bodies, not inferred from prose.
+
+The whole-roster builder now emits one concrete dependency stage at a time:
+
+```sh
+npx --no-install tsx scripts/naive-provision.ts --roster-plan /absolute/private/roster-config.json /absolute/private/roster-plan.json
+npx --no-install tsx scripts/naive-provision.ts --check /absolute/private/roster-plan.json /absolute/private/phase0-journal
+```
+
+`--roster-plan` writes a new private `0600` output file and prints only a summary, because callback URLs may carry an idle secret. It refuses overwrite. Its config uses `stage` (`resources`, `agents`, `coordinator`, `credentials`, `deployments`), explicit `createRevisionAgents:true`, a revision name, and retained dependency receipts. Later stages require exact skill `slug@N` references, matching content hashes, agent IDs/versions/configuration fingerprints, and applicable private credential files/schedules/callbacks. It neither discovers remote state nor creates resources. See `CompanyProvisionPlanOptions` for the exact input contract. New revision names avoid modifying either legacy `ae-*` or Track A's `standard-evals-*` agents.
 
 Run dependent stages separately: skills/outcomes/vaults → exact pinned agent configurations → agent-bound credentials → paused deployments. Discover and attest all inputs of each stage before creating missing resources. Record returned IDs/versions; build the next stage from those exact receipts. Keep the durable journal for every rerun. Pending/ambiguous operations require reconciliation; never erase a journal to force retry.
 
@@ -97,7 +106,9 @@ Execute only after a reviewed staging/spend plan. The conformance recording cont
 
 Current `scripts/conformance.ts` imports `integration/eval-services` directly for `real`. Five `integration/compose.ts` methods remain unavailable: `designSuite`, `runSuite`, `investigate`, `proposeAndVerifyFix`, `rerunFinding`. Provisioning alone cannot make full conformance pass. The current app `server/services.ts` still wraps real services with `withLiteFallback`; a successful app flow under `EVAL_SERVICES=real` does **not** certify all-Naïve execution. Track A must provide routing/no-fallback evidence at the Phase 1 acceptance boundary.
 
-`runLiveDiagnostic` is an exported function in `agents/live-diagnostic.ts`, not an executable CLI. Current defaults are $0.10/session and $0.40 total. The plan instead specifies $0.25/session and $1 total, while its roster proposes at least $0.30 task ceilings. Do not silently raise the approved total: agree the concrete four-session budget and explicit arguments before invoking it. A $0.30 four-session reservation envelope would be $1.20, not $1. This diagnostic still uses four legacy configurations and `FileBackedPorts`, a hardcoded diagnostic budget period, and may provision unless `provision:false` is passed. It does not prove production PostgreSQL cost rows or expanded-role acceptance. A runner must supply a fresh run ID/state path, explicit caps, reviewed pins/configurations, and avoid provisioning side effects.
+`runLiveDiagnostic` is an exported function in `agents/live-diagnostic.ts`, not an executable CLI. It now requires an explicit four-role pinned `directory` and `budgetPeriodId`, validates those before provider calls, and uses read-only configuration attestation. It never provisions. Defaults and maximum allowed diagnostic envelope are the plan's $0.25/session and $1 total; lower positive caps are permitted if the total covers all four reservations. Production role task ceilings of $0.30 or higher do not raise this diagnostic envelope.
+
+The diagnostic still uses the four tool-denied configurations and single-process `FileBackedPorts`. It does not prove PostgreSQL cost rows or expanded-role acceptance. Use a fresh run ID/state file for a new diagnostic, retain that same identity/state to resume, and record measured usage. A separate staging run must prove database settlement/deduplication.
 
 ## Exit receipts still required
 
