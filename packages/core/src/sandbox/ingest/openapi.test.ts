@@ -79,3 +79,36 @@ describe.skipIf(!existsSync(acme))("acme-support spec", () => {
     expect(eff).toMatchObject({ send_email: "external", verify_identity: "read", search_kb: "read", get_order: "read", list_orders: "read", lookup_customer: "read", create_refund: "write", create_ticket: "write", update_ticket: "write" });
   });
 });
+
+describe("expansion bombs", () => {
+  /** Each schema references the previous one fanout times: 4 levels x 40 refs expand to ~40^4 nodes from a few KB. */
+  function refBomb(levels: number, fanout = 9) {
+    const schemas: Record<string, unknown> = { s0: { type: "string" } };
+    for (let i = 1; i <= levels; i++) {
+      schemas[`s${i}`] = { type: "object", properties: Object.fromEntries(Array.from({ length: fanout }, (_, j) => [`p${j}`, { $ref: `#/components/schemas/s${i - 1}` }])) };
+    }
+    return { openapi: "3.0.0", components: { schemas }, paths: { "/x": { post: { operationId: "boom", requestBody: { content: { "application/json": { schema: { $ref: `#/components/schemas/s${levels}` } } } } } } } };
+  }
+
+  it("refuses a $ref fan-out bomb quickly with a clear error", () => {
+    const t0 = Date.now();
+    expect(() => parseOpenApi(refBomb(4, 40))).toThrow(/expands to more than 250,000 schema nodes/);
+    expect(Date.now() - t0).toBeLessThan(2_000);
+  });
+
+  it("refuses a YAML alias (billion laughs) bomb", () => {
+    const lines = ["openapi: 3.0.0", "x0: &a0 {type: string}"];
+    for (let i = 1; i <= 9; i++) lines.push(`x${i}: &a${i} {type: object, properties: {${Array.from({ length: 9 }, (_, j) => `p${j}: *a${i - 1}`).join(", ")}}}`);
+    lines.push("paths:", "  /x:", "    post:", "      operationId: boom", "      requestBody:", "        content:", "          application/json:", "            schema: *a9");
+    const yaml = lines.join("\n");
+    expect(yaml.length).toBeLessThan(1_500);
+    expect(() => parseOpenApi(yaml)).toThrow(/schema nodes/);
+  });
+
+  it("still resolves a modest shared schema used many times (memoised)", () => {
+    const tools = parseOpenApi(refBomb(2));
+    const props = (tools[0]!.inputSchema as { properties: Record<string, { properties: Record<string, unknown> }> }).properties;
+    expect(Object.keys(props)).toHaveLength(9);
+    expect(props.p0!.properties.p0).toEqual({ type: "string" });
+  });
+});
