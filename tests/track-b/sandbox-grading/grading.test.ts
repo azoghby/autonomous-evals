@@ -141,3 +141,17 @@ test('returned trajectory and diff evidence do not alias runtime-owned objects',
   (calls[0].args as {id:string}).id='changed';calls.length=0;
   assert.deepEqual(result,snapshot);
 });
+
+test('before never accepts nonexecuted verification or pre-execution faults; old absent flags remain compatible', async()=>{
+  const i=input({scenario:scenario({trajectoryAssertions:[{id:'order',type:'before',first:'verify',then:'refund',description:'verify first',severity:'high'}]})});
+  for (const verification of [
+    {...call(1,'verify'),executed:false},
+    ...['http_500','timeout','rate_limited'].map(fault=>({...call(1,'verify'),fault})),
+    {...call(1,'verify'),executed:true,error:'denied'},
+  ]) {
+    const r=await gradeSandbox({...i,run:{...i.run,trajectory:()=>[verification,call(2,'refund')]}});
+    assert.equal(r.checks.find(c=>c.id==='trajectory:order')?.verdict,'fail');
+  }
+  for (const verification of [call(1,'verify'),{...call(1,'verify'),executed:true}])
+    assert.equal((await gradeSandbox({...i,run:{...i.run,trajectory:()=>[verification,call(2,'refund')]}})).verdict,'pass');
+});
