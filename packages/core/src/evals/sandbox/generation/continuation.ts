@@ -2,10 +2,15 @@ import { AgentSessionService, outputJsonSchema, taskKeyFor, type AgentTaskOutcom
 import type { AgentTransactionalSql } from '../../../agents/postgres-ports';
 import { containsSecret } from '../../../agents/redact';
 import { PostgresTextCheckpointStore, type CheckpointKey } from '../../integration/checkpoints';
+import type { ScenarioGateEvidence } from './gates';
 import { executionDigest } from '../execution/runner';
-import { createSandboxGenerationAdapter, type SandboxGenerationConfig, type SandboxGenerationRequest, type SandboxGenerationResult } from './adapter';
+import { createSandboxGenerationAdapter, type SandboxGenerationConfig, type SandboxGenerationRequest, type SandboxGenerationResult, type CandidateAssessment, type GeneratedSandboxCandidate } from './adapter';
 
-export interface SandboxGenerationContinuationConfig extends Omit<SandboxGenerationConfig, 'runner' | 'bindOperation'> {
+export type GenerationAssessmentReceipt = CandidateAssessment & { gateEvidence?: ScenarioGateEvidence };
+export interface GenerationReceiptObserver {
+  onAssessmentReceipt?(candidate: GeneratedSandboxCandidate, operationKey: string, receipt: GenerationAssessmentReceipt): void;
+}
+export interface SandboxGenerationContinuationConfig extends Omit<SandboxGenerationConfig, 'runner' | 'bindOperation'>, GenerationReceiptObserver {
   /** Actual durable service; arbitrary runner callbacks are deliberately unsupported. */
   service: AgentSessionService;
   db: AgentTransactionalSql;
@@ -23,7 +28,7 @@ export interface SandboxGenerationContinuationConfig extends Omit<SandboxGenerat
 export function createPostgresSandboxGenerationContinuation(config: SandboxGenerationContinuationConfig) {
   config = { ...config, job: structuredClone(config.job) };
   const scope = structuredClone(config.scope);
-  if (!(config.service instanceof AgentSessionService) || config.job.jobId !== scope.jobId
+  if (!(config.service instanceof AgentSessionService) || config.job.jobId !== scope.jobId || config.job.customerId !== scope.tenantId
     || typeof config.authorize !== 'function'
     || [scope.tenantId, scope.jobId, scope.environmentId, config.executionIdentity].some(v => typeof v !== 'string' || !v.trim() || v.length > 512)) {
     throw new Error('invalid_sandbox_continuation_config');
@@ -33,6 +38,7 @@ export function createPostgresSandboxGenerationContinuation(config: SandboxGener
   const authorize = config.authorize;
   const costSink = config.onMeasuredCost;
   const assess = config.assessCandidate;
+  const observe = config.onAssessmentReceipt;
   const source = config.knownSecrets;
   const retained = new Set<string>();
   const secrets = () => {
@@ -172,7 +178,13 @@ export function createPostgresSandboxGenerationContinuation(config: SandboxGener
           }
         },
         onMeasuredCost: entry => once(keyFor('cost', entry.taskKey, entry), async () => { await costSink(screen(entry)); return null; }).then(() => undefined),
-        assessCandidate: (candidate, operationKey) => once(keyFor('gate', operationKey, { executionIdentity, candidate }), () => assess(screen(candidate), operationKey)),
+        assessCandidate: async (candidate, operationKey) => {
+          const receipt = await once(keyFor('gate', operationKey, { executionIdentity, candidate }), () => assess(screen(candidate), operationKey));
+          await auth();
+          observe?.(screen(candidate), operationKey, screen(receipt));
+          await auth();
+          return receipt;
+        },
       });
       const result = await adapter(request);
       await auth();

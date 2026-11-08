@@ -1,3 +1,4 @@
+import type { GenerationReceiptObserver, GenerationAssessmentReceipt } from '../generation/continuation';
 import { qualityOutcome, SANDBOX_OUTCOME_RULE } from './outcome';
 import { executeEngineMedia, pinMediaPlan, mediaPlanIdentity, validateMediaPlan, type EngineMediaPorts, type EngineMediaEvidence } from './media';
 export type { EngineMediaPorts, EngineMediaPlan, EngineMediaEvidence } from './media';
@@ -31,6 +32,8 @@ export interface SandboxEngineAuthority {
 export interface SandboxEngineConfig {
   scope: GateScope;
   generation: Omit<SandboxGenerationConfig, 'assessCandidate'>;
+  /** Trusted generation composition; durable engines install the continuation here. */
+  generationConstructor?: (config: SandboxGenerationConfig & GenerationReceiptObserver) => ReturnType<typeof createSandboxGenerationAdapter>;
   gateVersions: GateVersions;
   gateEvalVersions: EvalVersions;
   gates: Omit<GatePorts, 'grade'>;
@@ -67,6 +70,9 @@ export interface EngineTrialRequest {
 export function createSandboxEngine(config: SandboxEngineConfig) {
   const scope = structuredClone(config.scope), gateVersions = structuredClone(config.gateVersions);
   const job = structuredClone(config.generation.job);
+  const generationConstructor = config.generationConstructor ?? createSandboxGenerationAdapter;
+  const generationConfig = { ...config.generation, job };
+  const generationAuthority = config.authority.authorize;
   const gateEvalVersions = structuredClone(config.gateEvalVersions);
   if (job.jobId !== scope.jobId || !scope.environmentId || gateVersions.runtime !== gateEvalVersions.runtime)
     throw new Error('engine_scope_or_runtime_mismatch');
@@ -100,13 +106,18 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
     propose,
     async generate(raw: SandboxGenerationRequest) {
       const request = structuredClone(raw);
-      await authorize('generate', null);
+      if (!await generationAuthority({ scope: structuredClone(scope), suiteDigest: null, operation: 'generate' })) throw new Error('sandbox_engine_unauthorized');
       const accepted = new Map<string, ScenarioGateEvidence>();
-      const adapter = createSandboxGenerationAdapter({ ...config.generation, job, assessCandidate: async (candidate, operationKey) => {
+      const adapter = generationConstructor({ ...generationConfig, onAssessmentReceipt(candidate, _key, receipt) {
+        const evidence = receipt.gateEvidence;
+        if (receipt.status === 'passed' && evidence?.status === 'passed'
+          && evidence.scenarioDigest === candidate.provenance.scenarioDigest) accepted.set(candidate.provenance.scenarioDigest, structuredClone(evidence));
+      }, assessCandidate: async (candidate, operationKey) => {
         const evidence = await assess(request.environment, candidate.scenario, `${scope.jobId}/generation-gate/${operationKey}/${candidate.provenance.scenarioDigest}`);
         if (evidence.status === 'passed') accepted.set(candidate.provenance.scenarioDigest, evidence);
-        return evidence.status === 'passed' ? { status: 'passed' } : evidence.status === 'rejected'
-          ? { status: 'rejected', reasons: evidence.reasons } : { status: 'unresolved', reason: evidence.reasons.join(',') };
+        const receipt: GenerationAssessmentReceipt = evidence.status === 'passed' ? { status: 'passed', gateEvidence: evidence } : evidence.status === 'rejected'
+          ? { status: 'rejected', reasons: evidence.reasons, gateEvidence: evidence } : { status: 'unresolved', reason: evidence.reasons.join(','), gateEvidence: evidence };
+        return receipt;
       } });
       const result = await adapter(request);
       let artifact: SuiteGateArtifact | null = null;
