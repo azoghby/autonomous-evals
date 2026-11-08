@@ -25,6 +25,10 @@ describe("pickNextAgent", () => {
     expect(pickNextAgent(list, sched({ ok: ago(48) }), now, 24 * H)?.slug).toBe("ok");
     expect(pickNextAgent(list.slice(0, 3), sched({}), now, 24 * H)).toBeNull();
   });
+  it("never picks local_reference agents (CLI-only, --allow-local), even if active, authorized and never run", () => {
+    expect(pickNextAgent([agent("loc", { kind: "local_reference" })], sched({}), now, 24 * H)).toBeNull();
+    expect(pickNextAgent([agent("loc", { kind: "local_reference" }), agent("ok", { kind: "reference" })], sched({}), now, 24 * H)?.slug).toBe("ok");
+  });
   it("cools down an agent whose last attempt failed so it cannot starve the others", () => {
     const failed = { a: new Date(now.getTime() - FAILURE_COOLDOWN_MS / 2) };
     expect(pickNextAgent([agent("a"), agent("b")], sched({ b: ago(48) }, failed), now, 24 * H)?.slug).toBe("b");

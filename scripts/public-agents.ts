@@ -5,7 +5,8 @@
  *   npx tsx --env-file=.env scripts/public-agents.ts init                 # create leaderboard tables if missing (idempotent)
  *   npx tsx --env-file=.env scripts/public-agents.ts seed                 # upsert agents from data/public-agents.json
  *   npx tsx --env-file=.env scripts/public-agents.ts add '<json>|@file.json|file.json'
- *   npx tsx --env-file=.env scripts/public-agents.ts run <slug|--all> [--dry-run] [--investigate] [--budget-usd 2] [--timeout-min 15]
+ *   npx tsx --env-file=.env scripts/public-agents.ts run <slug|--all> [--dry-run] [--investigate] [--allow-local] [--budget-usd 2] [--timeout-min 15]
+ *     --allow-local: required for kind local_reference agents (http://127.0.0.1 shims of real open-source agents). CLI only, never cron.
  *   npx tsx scripts/public-agents.ts suite                                # (re)freeze data/standard-suite-v1.json
  *
  * Safety: refuses any agent without termsUrl + authorizedNote (or marked inactive). API keys are read from the env var NAMED in
@@ -25,7 +26,7 @@ const SUITE_PATH = resolve(ROOT, "data/standard-suite-v1.json");
 const AGENTS_PATH = resolve(ROOT, "data/public-agents.json");
 export { DEFAULT_BUDGET_MICRO_USD, DEFAULT_TIMEOUT_MIN, derivedFindings } from "../apps/web/src/server/public-agent-runner";
 
-export interface Cli { cmd: string; target?: string; all: boolean; dryRun: boolean; investigate: boolean; budgetMicroUsd: number; timeoutMin: number }
+export interface Cli { cmd: string; target?: string; all: boolean; dryRun: boolean; investigate: boolean; allowLocal: boolean; budgetMicroUsd: number; timeoutMin: number }
 
 /** Pure argv parser (exported for tests). */
 export function parseCli(argv: string[]): Cli {
@@ -38,7 +39,7 @@ export function parseCli(argv: string[]): Cli {
   const usd = Number(val("--budget-usd") ?? NaN);
   const mins = Number(val("--timeout-min") ?? NaN);
   return {
-    cmd, target, all: flag("--all"), dryRun: flag("--dry-run"), investigate: flag("--investigate"),
+    cmd, target, all: flag("--all"), dryRun: flag("--dry-run"), investigate: flag("--investigate"), allowLocal: flag("--allow-local"),
     budgetMicroUsd: Number.isFinite(usd) && usd > 0 ? Math.round(usd * 1_000_000) : DEFAULT_BUDGET_MICRO_USD,
     timeoutMin: Number.isFinite(mins) && mins > 0 ? mins : DEFAULT_TIMEOUT_MIN,
   };
@@ -55,7 +56,7 @@ function readAgentFile(): PublicAgentInput[] {
 }
 
 async function runAgent(row: PublicAgentInput, cli: Cli, suite: Suite): Promise<void> {
-  await runPublicAgent(row, { suite, budgetMicroUsd: cli.budgetMicroUsd, timeoutMin: cli.timeoutMin, dryRun: cli.dryRun, investigate: cli.investigate });
+  await runPublicAgent(row, { suite, budgetMicroUsd: cli.budgetMicroUsd, timeoutMin: cli.timeoutMin, dryRun: cli.dryRun, investigate: cli.investigate, allowLocal: cli.allowLocal });
 }
 
 async function main(): Promise<number> {
@@ -102,7 +103,9 @@ async function main(): Promise<number> {
       let agents: PublicAgentInput[];
       try { const { listAgents } = await import("../apps/web/src/server/leaderboard-db"); agents = (await listAgents()) as unknown as PublicAgentInput[]; if (!agents.length) agents = readAgentFile(); }
       catch { agents = readAgentFile(); }
-      const picked = cli.all ? agents.filter((a) => a.active !== false) : agents.filter((a) => a.slug === cli.target);
+      // Entries in the JSON file that are not in the DB yet (before `seed`) are usable for --dry-run planning.
+      if (cli.dryRun) { const have = new Set(agents.map((a) => a.slug)); agents = [...agents, ...readAgentFile().filter((a) => !have.has(a.slug))]; }
+      const picked = cli.all ?agents.filter((a) => a.active !== false) : agents.filter((a) => a.slug === cli.target);
       if (!picked.length) throw new Error(`no agent matches ${cli.target ?? "--all"}`);
       let failures = 0;
       for (const a of picked) {
@@ -112,7 +115,7 @@ async function main(): Promise<number> {
       return failures ? 1 : 0;
     }
     default:
-      console.log("commands: list | init | seed | add <json|@file> | run <slug|--all> [--dry-run] [--investigate] [--budget-usd N] [--timeout-min N] | suite");
+      console.log("commands: list | init | seed | add <json|@file> | run <slug|--all> [--dry-run] [--investigate] [--allow-local] [--budget-usd N] [--timeout-min N] | suite");
       return cli.cmd === "help" ? 0 : 2;
   }
 }

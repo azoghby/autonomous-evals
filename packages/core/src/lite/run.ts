@@ -8,7 +8,7 @@ import { Finding, type Scenario } from "../contracts/index";
 import type { EvalServices, RunResult, ServiceContext } from "../contracts/services";
 import { GatewayError } from "../ai/gateway";
 import { ChatCompletionsClient, type AssistantMessage, type ChatMessage } from "../targets/chat";
-import { TargetError, resolvePublic, targetUrl } from "../targets/transport";
+import { TargetError, isLoopbackEndpoint, resolvePublic, targetUrl } from "../targets/transport";
 import { gradeRedTeamResponse, isRedTeamScenarioId, plantedSystemPrompt, renderRedTeamTurns } from "../redteam/select";
 import {
   JUDGE_MODEL, SMART_MODEL, resolveLiteTarget, MIN_CALL_BUDGET_MICRO_USD, designedTurns, encodeDetail, trackingContext, LiteJudgeOutageError, logLiteFallback,
@@ -35,7 +35,8 @@ function makeScrub(apiKey: string | undefined): (s: string) => string {
 }
 
 /** URL checks that need no network: HTTPS-only, no localhost, IP literals must be public. */
-async function validateEndpoint(url: string): Promise<void> {
+async function validateEndpoint(url: string, allowLoopback = false): Promise<void> {
+  if (allowLoopback && isLoopbackEndpoint(url)) return;
   const parsed = targetUrl(url);
   const host = parsed.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host)) await resolvePublic(host);
@@ -99,7 +100,7 @@ async function runOne(
   const system = redteam ? plantedSystemPrompt(s, baseSystem) : baseSystem;
   let convo: Awaited<ReturnType<typeof converse>>;
   try {
-    await validateEndpoint(target.url);
+    await validateEndpoint(target.url, deps.allowLoopback);
     convo = await converse(deps, target, userTurns, system);
   } catch (e) {
     return finish(false, errCode(e), "error", []);
@@ -193,7 +194,7 @@ export function createRunServices(
     async checkTarget(_ctx, { url, model, apiKey }) {
       const scrub = makeScrub(apiKey);
       try {
-        await validateEndpoint(url);
+        await validateEndpoint(url, deps.allowLoopback);
         const client = new ChatCompletionsClient({ endpoint: url, model, bearer: apiKey }, deps.transport);
         await client.checkTarget();
         return { ok: true, detail: "connected" };

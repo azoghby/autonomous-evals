@@ -26,15 +26,34 @@ describe("PublicAgentInput", () => {
     expect(PublicAgentInput.safeParse({ ...base, authEnvVar: "sk-abc" }).success).toBe(false);
     expect(PublicAgentInput.safeParse({ ...base, authEnvVar: "MY_KEY" }).success).toBe(true);
   });
-  it("data/public-agents.json is valid, authorized, key-free and has no third-party entries without a terms record", () => {
+  it("data/public-agents.json is valid, key-free; active entries are authorized local real agents, old Acme baselines are deactivated", () => {
     const raw = JSON.parse(readFileSync(new URL("../../../../data/public-agents.json", import.meta.url), "utf8")) as { agents: unknown[]; todo: string[] };
-    expect(raw.agents.length).toBe(10);
+    expect(raw.agents.length).toBe(18);
     expect(raw.todo.length).toBeGreaterThan(0);
-    for (const a of raw.agents) {
-      const p = PublicAgentInput.parse(a);
+    const parsed = raw.agents.map((a) => PublicAgentInput.parse(a));
+    const active = parsed.filter((p) => p.active);
+    expect(active).toHaveLength(8);
+    for (const p of active) {
       expect(() => assertAuthorizedToTest(p)).not.toThrow();
-      expect(p.kind).toBe("reference");
+      expect(p.kind).toBe("local_reference");
+      expect(p.authEnvVar ?? null).toBeNull();
     }
+    for (const p of parsed.filter((x) => !x.active)) { expect(p.kind).toBe("reference"); expect(p.slug).toMatch(/^acme-/); }
     expect(JSON.stringify(raw)).not.toMatch(/sk-[A-Za-z0-9]{10,}/);
+  });
+
+  describe("local_reference", () => {
+    const local = { ...base, slug: "x-local", kind: "local_reference", endpointUrl: "http://127.0.0.1:8765/v1/chat/completions" };
+    it("accepts only the exact loopback shim URL, with no key", () => {
+      expect(PublicAgentInput.safeParse(local).success).toBe(true);
+      for (const u of ["http://localhost:8765/v1/chat/completions", "http://127.0.0.1/v1/chat/completions", "http://127.0.0.1:8765/other", "http://10.0.0.5:8765/v1/chat/completions", "https://127.0.0.1:8765/v1/chat/completions", "http://127.0.0.1:8765@evil.com/v1/chat/completions"]) {
+        expect(PublicAgentInput.safeParse({ ...local, endpointUrl: u }).success, u).toBe(false);
+      }
+      expect(PublicAgentInput.safeParse({ ...local, authEnvVar: "MY_KEY" }).success).toBe(false);
+    });
+    it("http loopback is still rejected for non-local kinds", () => {
+      expect(PublicAgentInput.safeParse({ ...base, endpointUrl: "http://127.0.0.1:8765/v1/chat/completions" }).success).toBe(false);
+      expect(PublicAgentInput.safeParse({ ...local, kind: "third_party" }).success).toBe(false);
+    });
   });
 });

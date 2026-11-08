@@ -4,15 +4,20 @@
 import { z } from "zod";
 import { SLUG_RE } from "./leaderboard";
 
-export const AGENT_KINDS = ["reference", "third_party"] as const;
+export const AGENT_KINDS = ["reference", "third_party", "local_reference"] as const;
+/** Kinds that run on the operator's machine (loopback shim). Never run by the web/cron path; CLI only, behind --allow-local. */
+export const LOCAL_KINDS: readonly string[] = ["local_reference"];
+export const isLocalKind = (kind: string | null | undefined): boolean => !!kind && LOCAL_KINDS.includes(kind);
+/** The only non-HTTPS endpoint shape accepted: http://127.0.0.1:<port>/v1/chat/completions (exactly). */
+export const LOCAL_ENDPOINT_RE = /^http:\/\/127\.0\.0\.1:\d{2,5}\/v1\/chat\/completions$/;
 
 export const PublicAgentInput = z.object({
   slug: z.string().regex(SLUG_RE, "slug: lowercase letters, digits, dashes"),
   name: z.string().min(1).max(120),
   vendor: z.string().min(1).max(120),
   kind: z.enum(AGENT_KINDS),
-  /** Full OpenAI-compatible chat completions URL. HTTPS only. */
-  endpointUrl: z.url().refine((u) => u.startsWith("https://"), "endpointUrl must use HTTPS"),
+  /** Full OpenAI-compatible chat completions URL. HTTPS only, except local_reference (loopback shim, see LOCAL_ENDPOINT_RE). */
+  endpointUrl: z.url(),
   model: z.string().min(1).max(200),
   /** NAME of the env var that holds the key. Never the key itself. */
   authEnvVar: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/, "authEnvVar must be an ENV_VAR_NAME, not a key").nullish(),
@@ -21,6 +26,11 @@ export const PublicAgentInput = z.object({
   termsUrl: z.url().nullish(),
   authorizedNote: z.string().max(1_000).nullish(),
   active: z.boolean().default(true),
+}).superRefine((a, ctx) => {
+  const local = isLocalKind(a.kind);
+  if (local && !LOCAL_ENDPOINT_RE.test(a.endpointUrl)) ctx.addIssue({ code: "custom", path: ["endpointUrl"], message: "local_reference endpointUrl must be http://127.0.0.1:<port>/v1/chat/completions" });
+  if (!local && !a.endpointUrl.startsWith("https://")) ctx.addIssue({ code: "custom", path: ["endpointUrl"], message: "endpointUrl must use HTTPS" });
+  if (local && a.authEnvVar) ctx.addIssue({ code: "custom", path: ["authEnvVar"], message: "local_reference agents take no API key" });
 });
 export type PublicAgentInput = z.infer<typeof PublicAgentInput>;
 

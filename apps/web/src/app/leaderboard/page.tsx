@@ -64,7 +64,7 @@ export default async function LeaderboardPage() {
           </div>
         )}
       </Frame>
-      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Reference baselines are our own model calls with a fixed Acme support prompt, shown for comparison; they are not vendor products.</p>
+      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Open-source sample agents (OpenAI CS Agents demo, Google ADK customer-service agent) are run from their own public code by us, on each model, through our AI Gateway account. They are not vendor-hosted products.</p>
 
       <Methodology />
     </PageShell>
