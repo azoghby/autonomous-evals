@@ -21,17 +21,19 @@ links existing installed dependencies, invokes the above tsx test command (with 
 single expanded test filename), then removes the stage. Exact command used here:
 
 ```sh
-node tests/track-b/naive-release-assurance/crash/run-local.mjs '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/node_modules' '/Users/alexzoghby/.t3/worktrees/simulization/t3-52d1553b/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/cli.mjs'
+node tests/track-b/naive-release-assurance/crash/run-local.mjs /tmp/autonomous-evals-checks.m10du4/node_modules /tmp/trackb-harness/node_modules/.bin/tsx
 ```
 
 Pass equivalent existing local dependency paths on another machine. The helper
 does not discover dependencies, install packages, load environment files, or read credentials.
 
+Current scoped result: **13 passed, 0 failed/skipped/cancelled/todo** (7,328.018 ms).
+Strict no-emit TypeScript compilation of the crash and version roots and imports passed.
+
 ## Acceptance map
 
 These are local acceptance notes, not live provider acceptance or a mapping to an
-unseen parent acceptance document. Test titles explicitly separate acceptance from
-defect characterization.
+unseen parent acceptance document. D1 cases are regressions for the repaired accounting boundary.
 
 | Local requirement | Executable coverage |
 | --- | --- |
@@ -41,7 +43,7 @@ defect characterization.
 | CRASH-04: terminal task CAS interrupted | Rollback after settlement and post-commit lost ack; retry polls only when needed and reuses the durable terminal row otherwise |
 | CRASH-05: external cost delivery interrupted | Failure before sink commit and lost ack after sink commit; same measured payload redelivered, SQL sink contains one keyed cost |
 | CRASH-06: competing finalizers | Provider barrier makes two runtime instances read the same created revision; real SQL CAS advances terminal revision once; both callers deliver the same cost |
-| CRASH-07: settlement, task and delivered cost stay consistent after recovery | **Not accepted generally**: D1 characterizes inconsistent amounts when the provider revises terminal usage between settlement and retry |
+| CRASH-07: settlement, task and delivered cost stay consistent after recovery | D1 regressions retain first-writer settlement in task/cost, refuse output and require reconciliation after revised usage, including lost acknowledgement and competing finalizers |
 
 The six SQL-boundary cases verify the injected fault actually fired, intermediate
 task/reservation/cost rows, recovered output and usage, provider create count,
@@ -50,25 +52,19 @@ keyed idempotency; the test sink persists by `naive:<sessionId>` and rejects a
 changed payload under that key. This is an explicit sink contract, not proof that
 an arbitrary application sink is safe.
 
-## D1: out-of-scope accounting consistency defect
+## D1 regression policy
 
-Minimal executable repro: the test titled `CHARACTERIZATION D1`.
+The first successful ledger settlement remains authoritative for the task and delivered cost.
+When provider terminal usage changes after a terminal CAS rollback or a lost settlement
+acknowledgement, recovery returns `needs_operator` / `settlement_usage_conflict`, persists
+12,345 micro-USD consistently and refuses the revised output. Replaying the resulting task
+performs no provider I/O and redelivers the same cost identity. An additional deterministic
+race holds the first settlement acknowledgement after commit while a revised-usage finalizer
+wins terminal CAS; the stale first finalizer rereads the same operator outcome.
 
-1. Run a task whose provider snapshot reports 12,345 micro-USD.
-2. Let production settlement commit, then force rollback of the terminal task CAS.
-   SQL now has settlement 12,345 and task state `created`.
-3. Change only the fake provider's terminal snapshot to 23,456 micro-USD.
-4. Recreate the runtime and rerun the identical task.
-5. Runtime completes; reservation still says 12,345, but the durable task and
-   external cost both say 23,456. No second provider create occurs.
-
-Cause: `packages/core/src/agents/postgres-ports.ts` returns the first settled amount
-on repeated settlement (around line 148). `session-service.ts` ignores that result
-and persists the latest polled usage after `ledger.settle` (around lines 511–519).
-Potential production resolution belongs to its owner: reconcile or reject changed
-usage before persisting/delivering a different amount, with an explicit policy for
-revised provider usage. Production was not edited. A passing characterization is
-evidence of the defect, not a release acceptance pass for accounting consistency.
+This proves local accounting consistency, not automatic provider-bill reconciliation.
+A human policy must resolve the newly observed 23,456 amount without silently rewriting an
+immutable first settlement or issuing a second automatic charge.
 
 ## Limits
 
@@ -80,5 +76,5 @@ evidence of the defect, not a release acceptance pass for accounting consistency
   external PostgreSQL multi-connection isolation, advisory locking, or deployment behavior.
 - Provider deduplication/lookup semantics are the established fake's assumptions.
   No SDK, provider version, real billing, or mutable terminal-usage guarantee is verified.
-- Successful stable-usage recovery and the revised-usage counterexample are both
+- Successful stable-usage recovery and revised-usage refusal regressions are both
   represented. The suite does not claim exhaustive crash points or arbitrary sink safety.

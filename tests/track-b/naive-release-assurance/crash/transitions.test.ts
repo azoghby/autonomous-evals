@@ -27,12 +27,14 @@ async function harness() {
   let delivery: 'before_commit' | 'lost_ack' | undefined;
   let deliveryCalls = 0;
   let lists = 0;
+  let settlementHold: { committed: () => void; gate: Promise<void> } | undefined;
   const list = naive.listAgentSessions.bind(naive);
   naive.listAgentSessions = async (...args) => { lists++; return list(...args); };
   const db: AgentTransactionalSql = {
     query: <T>(s: string, p?: unknown[]) => sql.query<T>(s, p),
     async transaction<T>(fn: (tx: AgentSqlExecutor) => Promise<T>): Promise<T> {
       let matched: Fault | undefined;
+      let held: typeof settlementHold;
       const result = await sql.transaction(async tx => {
         const out = await fn({ async query<U>(s: string, p?: unknown[]) {
           const result = await tx.query<U>(s, p);
@@ -42,7 +44,10 @@ async function harness() {
             if (state === 'created') boundary = 'adoption';
             if (state === 'completed') boundary = 'terminal';
           }
-          if (s.startsWith('UPDATE agent_persistence.reservations SET settled_micro_usd')) boundary = 'settlement';
+          if (s.startsWith('UPDATE agent_persistence.reservations SET settled_micro_usd')) {
+            boundary = 'settlement';
+            held = settlementHold; settlementHold = undefined;
+          }
           if (armed && boundary === armed.boundary) {
             matched = armed; armed = undefined; fired++;
             if (matched.timing === 'rollback') throw crash;
@@ -51,6 +56,7 @@ async function harness() {
         } });
         return out;
       });
+      if (held) { held.committed(); await held.gate; }
       // Throw only after PGlite has committed, simulating a lost COMMIT acknowledgement.
       if (matched?.timing === 'lost_ack') throw crash;
       return result;
@@ -76,6 +82,13 @@ async function harness() {
     return { tasks: tasks.rows, reservations: reservations.rows, costs: costs.rows };
   }
   return { sql, naive, clock, runtime, state, arm: (f: Fault) => { armed = f; },
+    holdSettlement() {
+      let committed!: () => void; let release!: () => void;
+      const settled = new Promise<void>(resolve => { committed = resolve; });
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      settlementHold = { committed, gate };
+      return { settled, release };
+    },
     failDelivery: (mode: typeof delivery) => { delivery = mode; },
     counts: () => ({ fired, deliveryCalls, lists }) };
 }
@@ -188,21 +201,55 @@ test('ACCEPTANCE: two finalizers race the actual SQL CAS and deliver one idempot
   assert.equal(h.naive.createCalls.length, 1);
 });
 
-test('CHARACTERIZATION D1: changed usage after settlement/task-CAS crash diverges ledger and delivered cost', async t => {
+for (const fault of [
+  { boundary: 'terminal', timing: 'rollback' },
+  { boundary: 'settlement', timing: 'lost_ack' },
+] as const) {
+  test(`REGRESSION D1: revised usage after ${fault.boundary} ${fault.timing} preserves first settlement and quarantines output`, async t => {
+    const h = await harness(); t.after(() => h.sql.close());
+    h.arm(fault);
+    await assert.rejects(h.runtime().run(spec()), /injected_crash/);
+    assert.equal((await h.state()).reservations[0].settled, 12_345);
+    const session = [...h.naive.sessions.values()][0];
+    session.consumedMicroUsd = 23_456;
+    const result = await h.runtime().run(spec());
+    assert.equal(result.status, 'needs_operator');
+    if (result.status !== 'needs_operator') throw new Error('unexpected outcome');
+    assert.equal(result.code, 'settlement_usage_conflict');
+    assert.equal(result.cost?.microUsd, 12_345);
+    assert.equal('output' in result, false);
+    const after = await h.state();
+    assert.equal(after.reservations[0].settled, 12_345);
+    assert.equal(after.tasks[0].record.consumedMicroUsd, 12_345);
+    assert.equal(after.costs[0].entry.microUsd, 12_345);
+    assert.equal(h.naive.createCalls.length, 1);
+    const polls = h.naive.getCalls;
+    assert.deepEqual(await h.runtime().run(spec()), result);
+    assert.equal(h.naive.getCalls, polls);
+    assert.equal((await h.state()).costs.length, 1);
+  });
+}
+
+test('REGRESSION D1: concurrent revised-usage finalizer cannot overwrite first settlement or return stale valid output', async t => {
   const h = await harness(); t.after(() => h.sql.close());
-  h.arm({ boundary: 'terminal', timing: 'rollback' });
-  await assert.rejects(h.runtime().run(spec()), /injected_crash/);
-  assert.equal((await h.state()).reservations[0].settled, 12_345);
-  // No production mutation: the fake provider returns a revised terminal usage snapshot.
-  const session = [...h.naive.sessions.values()][0];
-  session.consumedMicroUsd = 23_456;
-  const result = await h.runtime().run(spec());
-  assert.equal(result.status, 'completed');
+  h.naive.setScript(() => ({ pollsUntilDone: 1, structuredOutput: { answer: 'ok' } }));
+  assert.equal((await h.runtime().run(spec())).status, 'pending');
+  const hold = h.holdSettlement();
+  const first = h.runtime().run(spec());
+  await hold.settled;
+  [...h.naive.sessions.values()][0].consumedMicroUsd = 23_456;
+  let second: Awaited<ReturnType<ReturnType<typeof h.runtime>['run']>>;
+  try { second = await h.runtime().run(spec()); } finally { hold.release(); }
+  const outcomes = [await first, second];
+  assert.deepEqual(outcomes[0], outcomes[1]);
+  assert.equal(outcomes[0].status, 'needs_operator');
+  if (outcomes[0].status !== 'needs_operator') throw new Error('unexpected outcome');
+  assert.equal(outcomes[0].code, 'settlement_usage_conflict');
+  assert.equal(outcomes[0].cost?.microUsd, 12_345);
   const after = await h.state();
   assert.equal(after.reservations[0].settled, 12_345);
-  assert.equal(after.tasks[0].record.consumedMicroUsd, 23_456);
-  assert.equal(after.costs[0].entry.microUsd, 23_456);
+  assert.equal(after.tasks[0].record.consumedMicroUsd, 12_345);
+  assert.equal(after.costs.length, 1);
+  assert.equal(after.costs[0].entry.microUsd, 12_345);
   assert.equal(h.naive.createCalls.length, 1);
-  // Passing documents the defect; it does NOT satisfy accounting-consistency acceptance.
-  assert.notEqual(after.reservations[0].settled, after.costs[0].entry.microUsd);
 });

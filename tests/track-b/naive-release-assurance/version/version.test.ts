@@ -39,8 +39,7 @@ const spec = (purpose = 'version_probe', attempt = 1, role: AgentRole = 'commerc
   output: { name: 'version-probe.v1', schema: z.object({ answer: z.string() }) },
 });
 
-// Acceptance means the named invariant is met. CHARACTERIZATION explicitly records an
-// unsafe behavior at the trusted-bootstrap boundary; a passing characterization is NOT acceptance.
+// Exact pins bind accepted output; omitted pins remain a deliberate compatibility mode.
 describe('exact provisioned version: real runtime + real local SQL + established fake provider', { concurrency: false }, () => {
   let sql: PGlite;
   let db: AgentTransactionalSql;
@@ -168,7 +167,7 @@ describe('exact provisioned version: real runtime + real local SQL + established
     assert.equal((await evidence()).reservations.length, 2);
   });
 
-  it('CHARACTERIZATION V1: mutating a verified directory before first dispatch silently selects an unverified version', async () => {
+  it('REGRESSION V1: caller mutation after construction cannot change the runtime pin', async () => {
     const h = provisionFixture();
     const directory = (await ensureAgents(h.client, { dryRun: true })).directory as AgentDirectory;
     const runner = runtime(directory);
@@ -176,13 +175,14 @@ describe('exact provisioned version: real runtime + real local SQL + established
     directory.commercial.agentVersion = 4; // no getVersion(4) occurred
     const result = await runner.run(spec());
     assert.equal(result.status, 'completed');
-    assert.equal(naive.createCalls[0].body.agent_version, 4);
-    assert.equal((await rows())[0].requestBody.agent_version, 4);
+    assert.equal(naive.createCalls[0].body.agent_version, 3);
+    assert.equal((await rows())[0].requestBody.agent_version, 3);
+    assert.deepEqual(await runner.run(spec()), result);
     assert.equal(h.calls.length, verificationCalls);
     assert.ok(!h.calls.some(c => c.version === 4));
   });
 
-  it('CHARACTERIZATION V2: runtime accepts a directory with omitted version and durably reuses an unpinned result', async () => {
+  it('COMPATIBILITY V2: omitted pin remains explicit legacy behavior without exact-version assurance', async () => {
     const directory = pins();
     delete directory.commercial.agentVersion;
     const first = await runtime(directory).run(spec());
@@ -195,7 +195,7 @@ describe('exact provisioned version: real runtime + real local SQL + established
     assert.equal(naive.getCalls, 1);
   });
 
-  it('CHARACTERIZATION V3-poll: a version change first observed during polling overwrites the adopted exact version', async () => {
+  it('REGRESSION V3-poll: observed version drift quarantines output while retaining measured cost', async () => {
     const directory = pins();
     naive.setScript(() => ({ agentVersion: 3, pollsUntilDone: 1, structuredOutput: { answer: 'ok' } }));
     assert.equal((await runtime(directory).run(spec())).status, 'pending');
@@ -204,45 +204,101 @@ describe('exact provisioned version: real runtime + real local SQL + established
     assert.equal(row.requestBody.agent_version, 3);
     naive.sessions.get(row.sessionId!)!.agentVersion = 4;
     const result = await runtime(directory).run(spec());
-    assert.equal(result.status, 'completed');
-    if (result.status === 'completed') assert.equal(result.session.agentVersion, 4);
+    assert.equal(result.status, 'needs_operator');
+    if (result.status !== 'needs_operator') throw new Error('unexpected outcome');
+    assert.equal(result.code, 'agent_version_mismatch');
+    assert.equal(result.cost?.microUsd, 12_345);
+    assert.equal('output' in result, false);
     assert.equal((await rows())[0].agentVersion, 4);
     assert.equal(naive.createCalls.length, 1);
     assert.equal((await evidence()).costs.length, 1);
   });
 
-  it('CHARACTERIZATION V3-recovery: lookup adopts a wrong-version session under the unchanged task pin', async () => {
+  it('REGRESSION V3-recovery: lookup quarantines wrong-version sessions under the unchanged task pin', async () => {
     const directory = pins();
     naive.setScript(() => ({ agentVersion: 4, structuredOutput: { answer: 'ok' } }));
     naive.createFailures.set(0, { error: new NaiveCallError('ambiguous', 'fixture timeout'), createdAnyway: true });
     assert.equal((await runtime(directory).run(spec())).status, 'pending');
     assert.equal((await rows())[0].state, 'ambiguous');
     const result = await runtime(directory).run(spec());
-    assert.equal(result.status, 'completed');
-    if (result.status === 'completed') assert.equal(result.session.agentVersion, 4);
+    assert.equal(result.status, 'needs_operator');
+    if (result.status !== 'needs_operator') throw new Error('unexpected outcome');
+    assert.equal(result.code, 'agent_version_mismatch');
+    assert.equal(result.cost?.microUsd, 12_345);
+    assert.equal('output' in result, false);
     assert.equal((await rows())[0].requestBody.agent_version, 3);
     assert.equal((await rows())[0].agentVersion, 4);
     assert.equal(naive.createCalls.length, 1); // lookup recovery, no replay
     assert.equal((await evidence()).costs.length, 1);
   });
 
-  it('CHARACTERIZATION V3: mismatched returned version is completed, settled, delivered and reused against the verified pin', async () => {
+  it('REGRESSION V3: create mismatch is quarantined with measured cost and cached refusal', async () => {
     const directory = (await ensureAgents(provisionFixture().client, { dryRun: true })).directory as AgentDirectory;
     naive.setScript(() => ({ agentVersion: 4, structuredOutput: { answer: 'wrong version' } }));
     const first = await runtime(directory).run(spec());
-    assert.equal(first.status, 'completed');
-    if (first.status === 'completed') {
-      assert.equal(first.session.agentVersion, 4);
-      assert.deepEqual(first.output, { answer: 'wrong version' });
-    }
+    assert.equal(first.status, 'needs_operator');
+    if (first.status !== 'needs_operator') throw new Error('unexpected outcome');
+    assert.equal(first.code, 'agent_version_mismatch');
+    assert.equal(first.cost?.microUsd, 12_345);
+    assert.equal('output' in first, false);
     const row = (await rows())[0];
     assert.equal(row.requestBody.agent_version, 3);
     assert.equal(row.agentVersion, 4);
-    assert.equal(row.state, 'completed');
+    assert.equal(row.state, 'needs_operator');
     assert.equal((await evidence()).reservations[0].settled_micro_usd, 12_345);
     assert.equal((await evidence()).costs.length, 1);
     assert.deepEqual(await runtime(directory).run(spec()), first);
     assert.equal(naive.createCalls.length, 1);
     assert.equal(naive.getCalls, 1);
   });
+
+  it('REGRESSION V1: invalid supplied exact pins are rejected before SQL or provider calls', async () => {
+    for (const version of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      const directory = pins();
+      directory.commercial.agentVersion = version;
+      assert.throws(() => runtime(directory));
+    }
+    assert.equal(naive.createCalls.length, 0);
+    assert.deepEqual(await rows(), []);
+  });
+
+  it('REGRESSION V3: cached legacy completed row with wrong observed version never returns its output', async () => {
+    const directory = pins();
+    await runtime(directory).run(spec());
+    // Simulate a row written before observed-version enforcement was introduced.
+    const row = (await rows())[0];
+    row.agentVersion = 4;
+    await sql.query('UPDATE agent_persistence.tasks SET record=$1::jsonb WHERE task_key=$2', [JSON.stringify(row), row.taskKey]);
+    const calls = [naive.createCalls.length, naive.getCalls];
+    const result = await runtime(directory).run(spec());
+    assert.equal(result.status, 'needs_operator');
+    if (result.status !== 'needs_operator') throw new Error('unexpected outcome');
+    assert.equal(result.code, 'agent_version_mismatch');
+    assert.equal(result.cost?.microUsd, 12_345);
+    assert.equal('output' in result, false);
+    assert.deepEqual([naive.createCalls.length, naive.getCalls], calls);
+    assert.equal((await evidence()).reservations[0].settled_micro_usd, 12_345);
+  });
+
+  it('REGRESSION V3: running wrong-version create retains an unsettled reservation without valid output', async () => {
+    const directory = pins();
+    naive.setScript(() => ({ agentVersion: 4, pollsUntilDone: 10, structuredOutput: { answer: 'wrong version' } }));
+    const result = await runtime(directory).run(spec());
+    assert.equal(result.status, 'needs_operator');
+    if (result.status !== 'needs_operator') throw new Error('unexpected outcome');
+    assert.equal(result.code, 'agent_version_mismatch');
+    assert.equal(result.cost ?? null, null);
+    assert.equal((await evidence()).reservations[0].settled_micro_usd, null);
+    assert.equal((await evidence()).costs.length, 0);
+    assert.equal(naive.getCalls, 1);
+    assert.equal(naive.createCalls.length, 1);
+    const cached = await runtime(directory).run(spec());
+    assert.equal(cached.status, 'needs_operator');
+    if (cached.status !== 'needs_operator') throw new Error('unexpected cached outcome');
+    assert.equal(cached.code, result.code);
+    assert.deepEqual(cached.sessionIds, result.sessionIds);
+    assert.equal(cached.cost ?? null, null);
+    assert.equal(naive.getCalls, 1);
+  });
+
 });
