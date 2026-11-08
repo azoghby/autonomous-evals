@@ -28,7 +28,7 @@ describe("PublicAgentInput", () => {
   });
   it("data/public-agents.json is valid, authorized, key-free and has no third-party entries without a terms record", () => {
     const raw = JSON.parse(readFileSync(new URL("../../../../data/public-agents.json", import.meta.url), "utf8")) as { agents: unknown[]; todo: string[] };
-    expect(raw.agents.length).toBe(5);
+    expect(raw.agents.length).toBe(10);
     expect(raw.todo.length).toBeGreaterThan(0);
     for (const a of raw.agents) {
       const p = PublicAgentInput.parse(a);

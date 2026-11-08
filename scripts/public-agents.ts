@@ -12,23 +12,18 @@
  * authEnvVar and are never stored or printed. --dry-run validates everything and prints the plan: no network, no DB writes.
  * Engine: imports packages/core/src/lite/index.ts when it exists (EvalServices); otherwise exits with a clear message.
  */
-import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { Suite, type Finding } from "../packages/core/src/contracts/index";
-import type { EvalServices, ServiceContext } from "../packages/core/src/contracts/services";
-import { redTeamById } from "../packages/core/src/redteam/index";
+import { Suite } from "../packages/core/src/contracts/index";
 import { PublicAgentInput, assertAuthorizedToTest, UnauthorizedAgentError } from "../apps/web/src/server/leaderboard-agents";
-import { SUITE_VERSION, scoreRun, toStoredFindings, percent, type StoredFinding } from "../apps/web/src/server/leaderboard";
+import { runPublicAgent, DEFAULT_BUDGET_MICRO_USD, DEFAULT_TIMEOUT_MIN } from "../apps/web/src/server/public-agent-runner";
 import { buildStandardSuite } from "../apps/web/src/server/leaderboard-suite";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SUITE_PATH = resolve(ROOT, "data/standard-suite-v1.json");
 const AGENTS_PATH = resolve(ROOT, "data/public-agents.json");
-const LITE_PATH = resolve(ROOT, "packages/core/src/lite/index.ts");
-export const DEFAULT_BUDGET_MICRO_USD = 2_000_000;
-export const DEFAULT_TIMEOUT_MIN = 15;
+export { DEFAULT_BUDGET_MICRO_USD, DEFAULT_TIMEOUT_MIN, derivedFindings } from "../apps/web/src/server/public-agent-runner";
 
 export interface Cli { cmd: string; target?: string; all: boolean; dryRun: boolean; investigate: boolean; budgetMicroUsd: number; timeoutMin: number }
 
@@ -59,72 +54,8 @@ function readAgentFile(): PublicAgentInput[] {
   return raw.agents.map((a) => PublicAgentInput.parse(a));
 }
 
-async function resolveEngine(): Promise<EvalServices> {
-  if (!existsSync(LITE_PATH)) {
-    throw new Error("Eval engine not found (packages/core/src/lite/index.ts). The lite engine has not landed yet; nothing was run. Re-run once it exists (use --dry-run to validate the setup now).");
-  }
-  const mod = (await import(pathToFileURL(LITE_PATH).href)) as Record<string, unknown>;
-  const candidates = [mod.liteEvalServices, mod.evalServices, mod.default,
-    typeof mod.liteServices === "function" ? (mod.liteServices as () => unknown)() : undefined,
-    typeof mod.createLiteServices === "function" ? (mod.createLiteServices as () => unknown)() : undefined,
-    typeof mod.createLiteEvalServices === "function" ? (mod.createLiteEvalServices as () => unknown)() : undefined,
-    typeof mod.getLiteEvalServices === "function" ? (mod.getLiteEvalServices as () => unknown)() : undefined];
-  const svc = candidates.find((c): c is EvalServices => !!c && typeof (c as EvalServices).runSuite === "function");
-  if (!svc) throw new Error(`packages/core/src/lite/index.ts does not export an EvalServices (looked for liteServices(), createLiteServices(), liteEvalServices, evalServices, default, createLiteEvalServices(), getLiteEvalServices()). Exports: ${Object.keys(mod).join(", ")}`);
-  return svc;
-}
-
-/** Findings from failed scenarios: deterministic, no extra model spend. Severity comes from the red-team library; designed scenarios are medium. */
-export function derivedFindings(suite: Suite, results: Array<{ scenarioId: string; passed: boolean; detail: string }>): StoredFinding[] {
-  const byId = new Map(suite.scenarios.map((s) => [s.id, s]));
-  const failed = results.filter((r) => !r.passed);
-  return toStoredFindings(failed.map((r) => {
-    const sc = byId.get(r.scenarioId);
-    const rt = redTeamById(r.scenarioId);
-    return {
-      title: sc?.title ?? r.scenarioId, severity: rt?.severity ?? "medium", category: sc?.category ?? "other", scenarioId: r.scenarioId,
-      evidence: [{ excerpt: r.detail }],
-    };
-  }));
-}
-
-class BudgetExceeded extends Error { constructor(spent: number, cap: number) { super(`budget exceeded: ${spent} > ${cap} micro-USD`); } }
-
-async function runAgent(row: PublicAgentInput & { id?: string }, cli: Cli, suite: Suite): Promise<void> {
-  assertAuthorizedToTest(row);
-  // AI Gateway accepts a Vercel OIDC token as bearer when no API key is set (vercel env pull).
-  const apiKey = row.authEnvVar
-    ? process.env[row.authEnvVar] ?? (row.authEnvVar === "AI_GATEWAY_API_KEY" ? process.env.VERCEL_OIDC_TOKEN : undefined)
-    : undefined;
-  const plan = `${row.slug}: ${row.model} @ ${row.endpointUrl} | ${suite.scenarios.length} scenarios | budget $${(cli.budgetMicroUsd / 1e6).toFixed(2)} | key ${row.authEnvVar ? (apiKey ? `from $${row.authEnvVar}` : `MISSING $${row.authEnvVar}`) : "none"}`;
-  if (cli.dryRun) { console.log(`[dry-run] ${plan}`); return; }
-  if (row.authEnvVar && !apiKey) throw new Error(`env var ${row.authEnvVar} is not set`);
-  console.log(`[run] ${plan}`);
-
-  const services = await resolveEngine();
-  const { upsertAgent, insertRun } = await import("../apps/web/src/server/leaderboard-db");
-  const agent = await upsertAgent(PublicAgentInput.parse(row));
-
-  let spent = 0;
-  const ctx: ServiceContext = {
-    jobId: randomUUID(), environment: "live", budgetMicroUsd: cli.budgetMicroUsd,
-    async recordCost(entry) { spent += entry.microUsd; if (spent > cli.budgetMicroUsd) throw new BudgetExceeded(spent, cli.budgetMicroUsd); },
-    async recordProgress(m, msg) { console.log(`  [${row.slug}] ${m}: ${msg.slice(0, 120)}`); },
-  };
-  const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`timed out after ${cli.timeoutMin} min`)), cli.timeoutMin * 60_000).unref());
-  const target = { url: row.endpointUrl, model: row.model, ...(apiKey ? { apiKey } : {}), systemPrompt: row.systemPrompt ?? "" };
-  const run = await Promise.race([services.runSuite(ctx, suite, target), timeout]);
-
-  const score = scoreRun(suite.scenarios, run.results);
-  let findings = derivedFindings(suite, run.results);
-  if (cli.investigate) {
-    try {
-      const f: Finding[] = await Promise.race([services.investigate(ctx, suite, [run]), timeout]);
-      findings = toStoredFindings(f);
-    } catch (e) { console.warn(`  investigate failed, using derived findings: ${(e as Error).message}`); }
-  }
-  await insertRun({ agentId: agent.id, suiteVersion: SUITE_VERSION, ...score, findings, costMicroUsd: spent });
-  console.log(`[done] ${row.slug}: ${score.passed}/${score.total} (${percent(score.passed / Math.max(1, score.total))}), ${findings.length} findings, $${(spent / 1e6).toFixed(3)}`);
+async function runAgent(row: PublicAgentInput, cli: Cli, suite: Suite): Promise<void> {
+  await runPublicAgent(row, { suite, budgetMicroUsd: cli.budgetMicroUsd, timeoutMin: cli.timeoutMin, dryRun: cli.dryRun, investigate: cli.investigate });
 }
 
 async function main(): Promise<number> {
