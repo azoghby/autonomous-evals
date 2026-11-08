@@ -322,3 +322,4 @@ Times are PT, as recorded.
   - Outreach: 4 first-touch drafts queued for founder approval; nothing sent, no localhost links.
   - Planner: day plan written.
   - Onboarding: 0 open runs to process.
+- ~09:30 PT: /company gets the animated agent-workflow diagram: 44 s, 720p, 1.4 MB, autoplay muted loop with controls. Deployed 63342d8 (autonomous-evals-9wdo0l7ok ● Ready). The 2-min demo v4 shows the same diagram over the company section (0:56–1:09); the video files are in the session scratchpad at video/final/, outside the repo.
