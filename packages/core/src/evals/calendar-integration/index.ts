@@ -33,6 +33,10 @@ export interface CalendarRunRequest extends CalendarSuiteReference { operationId
 export type CalendarInvestigation = Awaited<ReturnType<typeof investigateCalendarRun>>;
 
 const digest = (value: unknown) => createHash('sha256').update(canonicalJson(value)).digest('hex');
+export function calendarOperationRunId(jobId: string, operationId: string): string {
+  if ([jobId, operationId].some(value => typeof value !== 'string' || value.length < 1 || value.length > 128 || !isPersistableText(value))) rejected();
+  return digest({ kind: 'calendar_workflow_run.v1', jobId, operationId });
+}
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 function rejected(): never { throw new TrackBBlockedError('rejected_input', 'Calendar authorization or artifact identity mismatch.'); }
 function blocked(): never { throw new TrackBBlockedError('needs_operator', 'Calendar operation is ambiguous; reconcile retained evidence before any redispatch.'); }
@@ -144,7 +148,7 @@ export function createCalendarEvaluationServices(deps: CalendarEvaluationService
       const { a, suite: expected } = await authorize(ctx);
       const suite = await suiteFor(a, expected, input);
       return operation(a, runKey(a, suite, input), () => runCalendarSuite({ suite, versionLabel: input.versionLabel,
-        branchId: a.branch.branchId, systemPrompt: a.systemPrompt, dependencies: a.dependencies }));
+        branchId: a.branch.branchId, runId: calendarOperationRunId(a.job.jobId, input.operationId), systemPrompt: a.systemPrompt, dependencies: a.dependencies }));
     },
     async investigate(ctx: ServiceContext, input: CalendarRunRequest): Promise<CalendarInvestigation> {
       input = requestSnapshot(input, true);

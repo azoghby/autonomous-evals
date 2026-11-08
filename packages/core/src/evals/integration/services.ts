@@ -21,6 +21,8 @@ export interface TextEvaluationServiceDeps {
   runner: AgentTaskRunner;
   checkpoints: TextCheckpointStore;
   resolve(ctx: ServiceContext): Promise<AuthorizedTextDependencies>;
+  /** Trusted authorized immutable admission port; never request/model supplied. */
+  resolveApprovedSuite?(ctx: ServiceContext, suiteDigest: string): Promise<FrozenTextSuite | null>;
   clock?: Clock;
 }
 export interface TextSuiteDesignRequest {
@@ -89,8 +91,9 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
       return result;
     } };
   }
-  async function suiteFor(a: AuthorizedTextDependencies, suiteDigest: string): Promise<FrozenTextSuite> {
-    const suite = verifyFrozenSuite(value(await store.get({ jobId: a.job.jobId, kind: 'suite', id: suiteDigest, inputDigest: key(a, 'suite', suiteDigest, suiteDigest).inputDigest })));
+  async function suiteFor(a: AuthorizedTextDependencies, suiteDigest: string, ctx: ServiceContext): Promise<FrozenTextSuite> {
+    const admitted = await deps.resolveApprovedSuite?.(ctx, suiteDigest);
+    const suite = verifyFrozenSuite(admitted ?? value(await store.get({ jobId: a.job.jobId, kind: 'suite', id: suiteDigest, inputDigest: key(a, 'suite', suiteDigest, suiteDigest).inputDigest })));
     if (suite.jobId !== a.job.jobId || suite.digest !== suiteDigest || containsSecret(JSON.stringify(suite), a.knownSecrets)) throw new Error('text_suite_identity_mismatch');
     return suite;
   }
@@ -169,9 +172,9 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
     await costs(ctx, a, result.costs); return result;
   }
 
-  async function run(a: AuthorizedTextDependencies, input: TextRunRequest, attempt: 'initial' | 'rerun', baselineRunId: string | null): Promise<SuiteRun> {
+  async function run(a: AuthorizedTextDependencies, ctx: ServiceContext, input: TextRunRequest, attempt: 'initial' | 'rerun', baselineRunId: string | null): Promise<SuiteRun> {
     assertValidRunId(input.runId);
-    const suite = await suiteFor(a, input.suiteDigest);
+    const suite = await suiteFor(a, input.suiteDigest, ctx);
     const ids = input.scenarioIds === undefined ? suite.scenarios.map(s => s.id) : [...new Set(input.scenarioIds)].sort();
     if (!ids.length || ids.some(id => !suite.scenarios.some(s => s.id === id))) throw new Error('text_invalid_scenario_selection');
     const identity = { suiteDigest: suite.digest, targetVersion: a.targetVersion, ids, attempt, baselineRunId };
@@ -207,7 +210,7 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
   }
 
   async function investigate(ctx: ServiceContext, input: TextRunReference): Promise<TextInvestigation> {
-    const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest); const baseline = await loadRun(a, suite, input.runId);
+    const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest, ctx); const baseline = await loadRun(a, suite, input.runId);
     const identity = value<{ targetVersion: string }>(await store.get({ jobId: a.job.jobId, kind: 'run_identity', id: input.runId }));
     if (identity.targetVersion !== a.targetVersion) throw new TrackBBlockedError('rejected_input', 'Investigation must use the original run target version; use an explicit new rerun for a changed target.');
     const k = key(a, 'investigation', input.runId, { suiteDigest: suite.digest, run: baseline, targetVersion: a.targetVersion });
@@ -232,16 +235,16 @@ export function createTextEvaluationServices(deps: TextEvaluationServiceDeps) {
 
   return {
     designSuite,
-    async getSuite(ctx: ServiceContext, suiteDigest: string) { return suiteFor(await authorized(ctx), suiteDigest); },
-    async runSuite(ctx: ServiceContext, input: TextRunRequest) { return run(await authorized(ctx), input, 'initial', null); },
+    async getSuite(ctx: ServiceContext, suiteDigest: string) { return suiteFor(await authorized(ctx), suiteDigest, ctx); },
+    async runSuite(ctx: ServiceContext, input: TextRunRequest) { return run(await authorized(ctx), ctx, input, 'initial', null); },
     investigate,
     async rerun(ctx: ServiceContext, input: TextRunReference & { baselineRunId: string }) {
-      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest); const baseline = await loadRun(a, suite, input.baselineRunId);
+      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest, ctx); const baseline = await loadRun(a, suite, input.baselineRunId);
       if (input.runId === input.baselineRunId) throw new Error('rerun_requires_new_run_id');
-      return run(a, { suiteDigest: suite.digest, runId: input.runId, scenarioIds: baseline.executions.map(e => e.scenarioId) }, 'rerun', input.baselineRunId);
+      return run(a, ctx, { suiteDigest: suite.digest, runId: input.runId, scenarioIds: baseline.executions.map(e => e.scenarioId) }, 'rerun', input.baselineRunId);
     },
     async reportInput(ctx: ServiceContext, input: TextRunReference) {
-      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest); const run = await loadRun(a, suite, input.runId);
+      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest, ctx); const run = await loadRun(a, suite, input.runId);
       const investigation = value<TextInvestigation>(await store.get({ jobId: a.job.jobId, kind: 'investigation', id: input.runId, inputDigest: key(a, 'investigation', input.runId, { suiteDigest: suite.digest, run, targetVersion: a.targetVersion }).inputDigest }));
       await costs(ctx, a, investigation.costs);
       const limitations = [...investigation.limitations];

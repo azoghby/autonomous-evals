@@ -4,7 +4,7 @@ export { createTrackBServices, TrackBPendingError, TrackBBlockedError, toContrac
 export type { TrackBServiceDeps } from './service-adapter';
 export { createTextEvaluationServices, toLegacyRunResult } from './integration/services';
 export { PostgresTextCheckpointStore } from './integration/checkpoints';
-export { createCalendarEvaluationServices } from './calendar-integration';
+export { createCalendarEvaluationServices, calendarOperationRunId } from './calendar-integration';
 export { createRemediationServices } from './remediation';
 export type { RemediationDeps, AuthorizedRemediation, RemediationResult, AppliedReceipt } from './remediation';
 export { createTargetServices } from '../targets/adapters';
@@ -25,3 +25,7 @@ export { createDurableProgressProjection, createDurableProgressReader } from '..
 export { renderCalendarReport } from '../reporting/calendar';
 export { createComparisonMonitoringService, createTextComparisonAdapter, createCalendarComparisonAdapter, createRetainedComparisonAdapter } from '../monitoring';
 export { createTrustedRegistry, freezePack, verifyPack, packReviewDigest, draftFromAppendedInventory, createPackExecutionService, comparePackRuns, createSecuredTextPackRunner, actualPackTargetDigest } from './packs';
+export { createApprovedSuiteAdmission } from './integration/approved-suite';
+export type { ApprovedSuiteAdmissionDeps, ApprovedSuiteArtifact } from './integration/approved-suite';
+export { PostgresRemediationAccounting } from './remediation/accounting';
+export type { RemediationAccountingDeps } from './remediation/accounting';

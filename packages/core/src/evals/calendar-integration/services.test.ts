@@ -12,7 +12,7 @@ import { PostgresCalendarStore } from '../../simulator/postgres';
 import type { SqlPool } from '../../simulator/pool';
 import type { ChatTarget } from '../../targets/chat';
 import type { CalendarSuiteInput } from '../../simulator/workflow';
-import { createCalendarEvaluationServices } from './index';
+import { createCalendarEvaluationServices, calendarOperationRunId } from './index';
 import { renderCalendarReport } from '../../reporting/calendar';
 
 const request = { suiteId: 'reviewed-suite', operationId: 'workflow-baseline', versionLabel: 'baseline' };
@@ -84,6 +84,8 @@ describe('durable calendar integration: SQL-backed local fixtures', () => {
     expect(suite.scenarios).toHaveLength(12);
     expect(await f.restart().getSuite(f.ctx, request)).toEqual(suite);
     const run = await f.api.runSuite(f.ctx, request);
+    expect(run.runId).toBe(calendarOperationRunId(f.job.jobId, request.operationId));
+    expect(run.runId).not.toBe(calendarOperationRunId('another-job', request.operationId));
     expect(run.results.map(r => r.outcome)).toEqual(Array(12).fill('passed'));
     expect(f.complete).toHaveBeenCalledTimes(24);
     for (const result of run.results) {

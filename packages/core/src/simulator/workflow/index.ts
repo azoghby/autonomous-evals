@@ -79,6 +79,8 @@ export interface CalendarWorkflowDependencies {
   classifySuccess?(execution: CalendarExecution, scenario: WorkflowScenario): Promise<'success' | 'no_success' | 'unknown'>;
 }
 interface RunInput {
+  /** Optional stable parent operation identity, durably fenced by the integration factory. */
+  runId?: string;
   suite: FrozenCalendarSuite; versionLabel: string; branchId: string; systemPrompt?: string; dependencies: CalendarWorkflowDependencies;
 }
 async function executeScenario(input: RunInput, scenario: WorkflowScenario): Promise<WorkflowScenarioResult> {
@@ -120,8 +122,9 @@ async function executeScenario(input: RunInput, scenario: WorkflowScenario): Pro
 }
 async function execute(input: RunInput, scenarios: WorkflowScenario[]): Promise<CalendarWorkflowRun> {
   id.parse(input.versionLabel); id.parse(input.branchId);
+  if (input.runId !== undefined) id.parse(input.runId);
   if (input.systemPrompt !== undefined) z.string().max(20_000).refine(isPersistableText).parse(input.systemPrompt);
-  const run: CalendarWorkflowRun = { jobId: input.suite.jobId, branchId: input.branchId, runId: randomUUID(), suiteHash: input.suite.hash,
+  const run: CalendarWorkflowRun = { jobId: input.suite.jobId, branchId: input.branchId, runId: input.runId ?? randomUUID(), suiteHash: input.suite.hash,
     versionLabel: input.versionLabel, origin: input.suite.origin, systemPrompt: input.systemPrompt, results: [] };
   // Sequential dispatch is intentionally within the transport's two-request global bound.
   for (const scenario of scenarios) run.results.push(await executeScenario(input, scenario));
