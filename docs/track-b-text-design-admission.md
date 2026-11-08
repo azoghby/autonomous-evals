@@ -1,5 +1,18 @@
 # Track B objective design admission
 
+## Latest bounded live diagnostic
+
+The [rubric-binding probe](../tests/track-b/live-evidence/text-design-rubric-binding-2026-11-07.json)
+used the unchanged Lumen brief with `reference_assessment.v2`. Two engineer drafts
+completed for 170,549 micro-USD ($0.170549), then the single revision bound was exhausted.
+No suite was accepted and no investigator/target was dispatched. Both drafts changed
+the canonical conditional template's quote characters; the revision also changed a
+required factual flag. The source string and selected actual draft rubrics are preserved
+in the diagnostic artifact. Requiring a model to copy code-owned conditional prose
+exactly is an open usability defect, not successful design acceptance. No further
+session retry was started. The independent source/hierarchy findings are recorded in
+[the rubric boundary review](track-b-rubric-boundary-review.md).
+
 ## Rubric admission follow-up: reference_assessment.v2
 
 The actual third live suite is now quarantined by the rubric execution gate, independently of its valid v2 objectives. Its original digest remains readable through `verifyFrozenSuite`; no historical evidence or digest is upgraded. `verifyAdmittedFrozenSuite` rejects S06/S07/S11/S12's false factual flags and missing source-bound conditional checks before target/judge dispatch. The same gate protects investigation, reruns and monitoring. New design validation rejects these defects before investigator review and uses the existing single bounded revision. An always-accepting investigator cannot override code rejection.
