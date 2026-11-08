@@ -1,0 +1,210 @@
+--- /dev/null
++++ b/apps/web/migrations/003-remediation.sql
+@@ -0,0 +1,13 @@
++-- OPTIONAL integration artifact only. Owner reviews/deploys through normal migration process.
++-- Prerequisites: agent/text persistence, workflow 001/002 and core accounting migration.
++BEGIN;
++ALTER TABLE workflow_integration.bindings ADD COLUMN remediation_operation_micro_usd bigint
++ CHECK (remediation_operation_micro_usd > 0 AND remediation_operation_micro_usd <= 9007199254740991);
++CREATE TABLE workflow_integration.provider_costs (
++ job_id uuid NOT NULL REFERENCES jobs(id), key text PRIMARY KEY REFERENCES workflow_integration.cost_keys(key),
++ source text NOT NULL CHECK(source IN ('target_http','ai_gateway')), operation_id text NOT NULL,
++ receipt_id text NOT NULL, micro_usd bigint NOT NULL CHECK(micro_usd >= 0),
++ UNIQUE(job_id,operation_id)
++);
++REVOKE ALL ON workflow_integration.provider_costs FROM PUBLIC;
++COMMIT;
+--- a/apps/web/src/app/api/operator/jobs/[jobId]/workflow-binding/route.ts
++++ b/apps/web/src/app/api/operator/jobs/[jobId]/workflow-binding/route.ts
+@@ -6,7 +6,7 @@
+ import { workflowSql } from '@/server/rich-services';
+ 
+ const Input = z.object({ targetRevision: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
+-  calendar: z.unknown().optional() }).strict();
++  calendar: z.unknown().optional(), remediation: z.object({ isolation: z.literal('request_messages_only'), operationMicroUsd: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict().optional() }).strict();
+ /** Human operator admission, never customer/model review authority. Repeated exact admission replays. */
+ export async function POST(req: Request, context: { params: Promise<{ jobId: string }> }) {
+   const auth = await requireOperator();
+@@ -27,16 +27,19 @@
+       if (frozen.origin === 'internal_fixture') throw new Error(); // fixtures use dedicated server seeding, not this customer intake
+       calendar = frozen;
+     } catch { return jsonError(400,'Exactly twelve valid cases and authenticated operator review required; appended packs are unsupported.'); }
++    if (body.data.remediation) return jsonError(400,'Prompt remediation is only supported for text jobs');
+   } else if (body.data.calendar !== undefined) return jsonError(400,'Calendar suite is not valid for text jobs');
+   const secrets = Object.values(loaded.credentials).filter((v): v is string => typeof v === 'string');
+   if (secrets.some(s => s.length < 4) || containsSecret(JSON.stringify(body.data), secrets)) return jsonError(400,'Credential content refused');
+   const db = workflowSql();
+-  const result = await db.query(`INSERT INTO workflow_integration.bindings(job_id,target_revision,reviewed_calendar,admitted_by)
+-    VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id
++  const result = await db.query(`INSERT INTO workflow_integration.bindings(job_id,target_revision,reviewed_calendar,admitted_by,isolation,remediation_operation_micro_usd)
++    VALUES($1,$2,$3::jsonb,$4,$5,$6) ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id
+     WHERE workflow_integration.bindings.target_revision=EXCLUDED.target_revision
+       AND workflow_integration.bindings.reviewed_calendar IS NOT DISTINCT FROM EXCLUDED.reviewed_calendar
+-      AND workflow_integration.bindings.admitted_by=EXCLUDED.admitted_by RETURNING job_id`,
+-    [jobId,body.data.targetRevision,calendar ? JSON.stringify(calendar) : null,auth.viewer.id]);
++      AND workflow_integration.bindings.admitted_by=EXCLUDED.admitted_by
++      AND workflow_integration.bindings.isolation IS NOT DISTINCT FROM EXCLUDED.isolation
++      AND workflow_integration.bindings.remediation_operation_micro_usd IS NOT DISTINCT FROM EXCLUDED.remediation_operation_micro_usd RETURNING job_id`,
++    [jobId,body.data.targetRevision,calendar ? JSON.stringify(calendar) : null,auth.viewer.id,body.data.remediation?.isolation??null,body.data.remediation?.operationMicroUsd??null]);
+   if (result.rows.length !== 1) return jsonError(409,'Admission identity conflict; existing evidence must be reconciled');
+   return Response.json({ admitted: true, scope: 'frozen12', richPack: 'unsupported' });
+ }
+--- /dev/null
++++ b/apps/web/src/server/rich-remediation.ts
+@@ -0,0 +1,84 @@
++import 'server-only';
++import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import type { AgentTransactionalSql, AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++import { ROLE_DEFINITIONS } from '@ae/core/agents/roles';
++import { PRICE_TABLE } from '@ae/core/evals/pricing';
++import type { JobRef } from '@ae/core/evals/types';
++import type { TextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import type { createTextEvaluationServices } from '@ae/core/evals/integration/services';
++import { createRemediationServices, remediationDigest } from '@ae/core/evals/remediation';
++import { PostgresRemediationAccounting } from '@ae/core/evals/remediation/accounting';
++import { createRemediationTarget } from '@ae/core/targets/remediation';
++import { TrackBBlockedError } from '@ae/core/evals/service-adapter';
++import { canonicalJson } from '@ae/core/evals/text';
++
++const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Saved remediation authority or baseline changed; reconciliation required.'); };
++export interface RemediationCanonical {
++  job: JobRef; knownSecrets: readonly string[]; targetVersion: string;
++  intake: { endpoint: { url: string; model: string; apiKey?: string } };
++  binding: { isolation: string | null; remediation_operation_micro_usd: number | null; baseline_suite_digest: string | null; baseline_run_id: string | null };
++}
++/** One global keyed protocol across session, Gateway and HTTP provider facts.
++ * Target HTTP has its own typed table: it must never masquerade as a Naive/Gateway charge. */
++export async function deliverRemediationCost(tx: AgentSqlExecutor, entry: {
++  jobId: string; operationId: string; kind: 'target' | 'judge'; microUsd: number; idempotencyKey: string; receiptId: string;
++}) {
++  if (!Number.isSafeInteger(entry.microUsd) || entry.microUsd < 0 || !entry.idempotencyKey || !entry.receiptId) refused();
++  const payload = { ...entry, source: entry.kind === 'target' ? 'target_http' : 'ai_gateway' };
++  const claimed = await tx.query(`INSERT INTO workflow_integration.cost_keys(job_id,key,payload)
++    VALUES($1,$2,$3::jsonb) ON CONFLICT(key) DO NOTHING RETURNING key`, [entry.jobId, entry.idempotencyKey, canonicalJson(payload)]);
++  if (!claimed.rows.length) {
++    const old = await tx.query<{ agrees: boolean }>('SELECT payload=$3::jsonb AS agrees FROM workflow_integration.cost_keys WHERE job_id=$1 AND key=$2', [entry.jobId, entry.idempotencyKey, canonicalJson(payload)]);
++    if (old.rows[0]?.agrees !== true) refused();
++    return;
++  }
++  await tx.query(`INSERT INTO workflow_integration.provider_costs(job_id,key,source,operation_id,receipt_id,micro_usd)
++    VALUES($1,$2,$3,$4,$5,$6)`, [entry.jobId, entry.idempotencyKey, payload.source, entry.operationId, entry.receiptId, entry.microUsd]);
++}
++
++/** Internal Workflow closure; request finding IDs select only canonical retained investigation facts. */
++export function createRichRemediation(deps: {
++  sql: AgentTransactionalSql; runner: AgentTaskRunner; checkpoints: TextCheckpointStore;
++  canonical(): Promise<RemediationCanonical>;
++  text: ReturnType<typeof createTextEvaluationServices>;
++}) {
++  return createRemediationServices({ runner: deps.runner, checkpoints: deps.checkpoints, resolve: async (ctx, findingId) => {
++    const a = await deps.canonical();
++    if (a.job.jobId !== ctx.jobId || a.job.environment !== ctx.environment || a.job.package !== 'text_eval') return refused();
++    const suiteDigest = a.binding.baseline_suite_digest, runId = a.binding.baseline_run_id;
++    if (!suiteDigest || !runId) return refused();
++    // reportInput reads the stored frozen suite/run/investigation, never request/model prose.
++    const saved = await deps.text.reportInput(ctx, { suiteDigest, runId });
++    const identity = await deps.checkpoints.get({ jobId: ctx.jobId, kind: 'run_identity', id: runId });
++    if (identity?.state !== 'completed' || (identity.value as { targetVersion?: string }).targetVersion !== a.targetVersion) return refused();
++    const finding = saved.richFindings.find(f => f.id === findingId);
++    if (!finding || finding.label !== 'confirmed') return refused();
++    const failingCheckIds = [...new Set(finding.evidence.flatMap(e => e.kind === 'check' && saved.run.executions.some(s => s.checks.some(c => c.checkId === e.checkId && c.kind === 'objective' && c.status === 'fail')) ? [e.checkId] : []))];
++    if (!failingCheckIds.length || saved.suite.scenarios.length !== 12) return refused();
++    const binding = { targetId: `job:${ctx.jobId}:endpoint`, targetVersion: a.targetVersion, environment: ctx.environment };
++    const original = { suite: saved.suite, run: saved.run, binding, failingCheckIds };
++    const trialId = `trial:${remediationDigest({ binding, findingId, suiteDigest, runId })}`;
++    const bound = a.binding.remediation_operation_micro_usd;
++    const enabled = a.binding.isolation === 'request_messages_only' && Number.isSafeInteger(bound) && Number(bound) > 0;
++    const period = process.env.NAIVE_BUDGET_PERIOD_ID;
++    if (enabled && (!period || !/^[A-Za-z0-9_-]+$/.test(period))) return refused();
++    const accounting = new PostgresRemediationAccounting({ sql: deps.sql, jobId: ctx.jobId,
++      reservation: op => ({ reservationId: op.operationId, jobId: ctx.jobId, amountMicroUsd: Number(bound), scopes: [
++        { key: `job:${ctx.jobId}`, capMicroUsd: PRICE_TABLE[a.job.package].jobBudgetMicroUsd },
++        { key: `agent:evaluation_engineer:${period}`, capMicroUsd: ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd },
++      ] }), deliverCost: deliverRemediationCost });
++    const trial = enabled ? createRemediationTarget({
++      scope: { job: a.job, finding, binding, original, trialId,
++        endpoint: { kind: 'stateless_chat_completions', isolation: 'request_messages_only', ...a.intake.endpoint } },
++      currentSecrets: async () => {
++        const latest = await deps.canonical();
++        if (latest.targetVersion !== a.targetVersion || latest.binding.isolation !== a.binding.isolation
++          || latest.binding.remediation_operation_micro_usd !== bound) return refused();
++        return latest.knownSecrets;
++      }, accounting: { beforeDispatch: accounting.beforeDispatch.bind(accounting), observed: accounting.observed.bind(accounting), ambiguous: accounting.ambiguous.bind(accounting) }, limits: { timeoutMs: 15000, maxCompletionTokens: 512, maxRequestBytes: 256000, maxResponseBytes: 1000000 },
++    }) : null;
++    // No Gateway judge is configured: rubric checks stay unassessed, never silently passed.
++    return { job: a.job, finding, knownSecrets: a.knownSecrets, binding, original, trial, judge: null,
++      authorize: async op => op.kind === 'target' && enabled ? accounting.authorize(op) : false };
++  } });
++}
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -17,6 +17,7 @@
+ import type { JobRef } from '@ae/core/evals/types';
+ import type { CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
+ import { getJobWithDecryptedCredentials, recordCost } from './job-store';
++import { createRichRemediation } from './rich-remediation';
+ import { createWorkflowInventory } from './workflow-inventory';
+ import { evalServices } from '@ae/core/integration/eval-services';
+ 
+@@ -39,8 +40,8 @@
+       || !['planning', 'running', 'investigating'].includes(loaded.job.state)) return refused();
+     const intake = IntakeInput.parse(loaded.intake);
+     if (intake.package !== 'text_eval' && intake.package !== 'workflow_eval') return refused();
+-    const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null }>(
+-      'SELECT target_revision, reviewed_calendar, isolation FROM workflow_integration.bindings WHERE job_id=$1', [ctx.jobId]);
++    const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null; remediation_operation_micro_usd: number | string | null; baseline_suite_digest: string | null; baseline_run_id: string | null }>(
++      'SELECT target_revision, reviewed_calendar, isolation, remediation_operation_micro_usd, baseline_suite_digest, baseline_run_id FROM workflow_integration.bindings WHERE job_id=$1', [ctx.jobId]);
+     const b = binding.rows[0];
+     if (!b || !/^[A-Za-z0-9_.:-]{1,128}$/.test(b.target_revision)) return refused();
+     const fixture = await sql.query<{ fixture: boolean }>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1', [loaded.job.customerId]);
+@@ -52,7 +53,13 @@
+     const credentials = await sql.query<{ ciphertext: string }>('SELECT ciphertext FROM job_credentials WHERE job_id=$1', [ctx.jobId]);
+     const targetVersion = createHash('sha256').update(JSON.stringify({ endpoint: { ...intake.endpoint, apiKey: undefined },
+       revision: b.target_revision, credentialCiphertext: credentials.rows[0]?.ciphertext ?? null })).digest('hex');
+-    return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: b };
++    return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: { ...b,
++      // PostgreSQL bigint is a string in the actual driver; validate before narrowing.
++      remediation_operation_micro_usd: b.remediation_operation_micro_usd === null ? null : (() => {
++        const amount = Number(b.remediation_operation_micro_usd);
++        if (!Number.isSafeInteger(amount) || amount <= 0) return refused();
++        return amount;
++      })() } };
+   }
+   const initial = await canonical();
+   const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
+@@ -65,6 +72,7 @@
+     return { job: a.job, target: createTextTarget(a.intake.endpoint), targetVersion: a.targetVersion,
+       judge: null, knownSecrets: a.knownSecrets }; // Explicit unassessed rubric; no unreserved Gateway call.
+   } });
++  const remediation = createRichRemediation({ sql, runner, checkpoints, canonical, text });
+   let branchBinding: { connection: string; pool: Pool } | undefined;
+   const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+@@ -98,6 +106,6 @@
+       WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
+       RETURNING job_id`, [ctx.jobId,suiteDigest,runId]).then(r => { if (r.rows.length !== 1) return refused(); });
+   }
+-  return { text, calendar, inventory, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
++  return { text, calendar, remediation, inventory, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
+     targetVersion: initial.targetVersion, knownSecrets: initial.knownSecrets };
+ }
+--- a/apps/web/src/workflows/steps/rich-evaluation.ts
++++ b/apps/web/src/workflows/steps/rich-evaluation.ts
+@@ -65,9 +65,15 @@
+         if (!['completed', 'skipped'].includes(investigation.investigatorStatus)) throw new TrackBBlockedError('needs_operator', 'Investigation requires reconciliation.');
+         const input = await api.text.reportInput(ctx, { suiteDigest: suite.digest, runId });
+         await api.bindTextBaseline(suite.digest, runId);
+-        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations: [...input.limitations, 'Remediation not run; no fix verified.'] });
++        // One deterministic confirmed objective finding per frozen12 job; saved evidence is resolved again by the service.
++        const candidate = input.richFindings.find(f => f.label === 'confirmed' && f.evidence.some(e => e.kind === 'check' && run.executions.some(s => s.checks.some(c => c.checkId === e.checkId && c.kind === 'objective' && c.status === 'fail'))));
++        const remediation = candidate ? await api.remediation.proposeAndVerifyFixDetailed(ctx, { findingId: candidate.id }) : null;
++        const limitations = [...input.limitations, 'Remediation covers only the original frozen12. Appended packs remain separately gated.',
++          'HTTP provider monetary amounts remain unknown until authoritative reconciliation; pending accounting holds remain reserved.',
++          remediation ? `${remediation.remediation.verification.status}: ${remediation.reason} ${remediation.scope}` : 'No confirmed objective failure selected; no fix verified.'];
++        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations });
+         suiteDigest = suite.digest;
+-        evidence = { format: 'rich_text.v1', suite, run, investigation, limitations: input.limitations };
++        evidence = { format: 'rich_text_remediation.v1', suite, run, investigation, remediation, limitations };
+       } else {
+         const suite = await api.calendar.freezeSuite(ctx, { suiteId });
+         if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
