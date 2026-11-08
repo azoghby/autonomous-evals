@@ -59,3 +59,11 @@ Continuation validation against current Track A `2981bf4`: strict combined agent
 - Phase 1 mapping groundwork retains rich suites/runs beside public projections, checks current authority and refuses lossy boolean projections. It is not composed into EvalServices yet. Measured cost receipt validation is hardened; atomic application deduplication remains Track A work.
 
 Integration checkpoint against Track A `96e1069`: strict combined agents/evals harness **824 tests / 50 files**, none skipped; parent independently verified standalone CLI strict types and seven-resource offline output. Root typecheck/test/build attempted and cannot start due missing checkout executables.
+
+Phase 1 adapter checkpoint:
+
+- Added text-only design and run wrappers matching existing EvalServices signatures with injected current authorization/durable storage ports. Full immutable suite/run evidence is retained before projection. Design requires genuine admission identity; execution can only use the resolved secured target. Neither is composed into the application yet.
+- Existing remediation wrapper is reused rather than duplicated. New proposals now run as Ines (`quality_investigator`), pinned durably; completed older proposals replay unchanged and incomplete unpinned legacy operations require reconciliation.
+- Remaining method composition, rich rubric-result contract support, Jude-backed judging, investigation/rerun mapping, and SQL cost settlement remain open. See `naive-phase1-integration.md`.
+
+Final Phase 1 adapter validation: strict combined agents/evals **854 tests across 53 files**, none skipped, against `4f80ee5` Track A/core base. Root types/tests/build remain unavailable due missing executables. These tests exercise current core adapters; they do not certify app composition or hosted behavior.

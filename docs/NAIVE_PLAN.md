@@ -58,7 +58,7 @@ Current additional implementation:
 
 - Staged roster builder with explicit revision names, verified `slug@N` skill references, exact dependency receipts and paused deployment bodies. Missing MCP authorization, private bearer files, schedules or callbacks remain blocking inputs.
 - Diagnostic requires explicit directory pins and budget period, performs read-only attestation and never provisions or increases its $1 envelope.
-- Lossless rich-text/contract projection retains authorized immutable sidecars; it does not wire the five missing methods. Boolean `RunResult` cannot represent rubric/inconclusive/infrastructure states and those projections fail closed.
+- Lossless rich-text/contract projection retains authorized immutable sidecars. Text design/run contract wrappers now exist with required owner authorization/admission/run-storage ports, but are not composed into the application. Boolean `RunResult` cannot represent rubric/inconclusive/infrastructure states and those projections fail closed. New remediation proposals use Ines with durable role pinning; incomplete unpinned legacy proposals block for reconciliation.
 - Cost adapter rejects unmeasured or unidentified receipts. Application sinks still require atomic keyed settlement; see `docs/naive-cost-settlement-handoff.md`.
 
 Phase 0 is still open: full real conformance, remaining migrations, expanded-role resources/authorization, and staging/application acceptance remain gates. Production remains unchanged by this work.
