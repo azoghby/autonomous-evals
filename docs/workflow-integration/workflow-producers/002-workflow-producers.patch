@@ -1,0 +1,379 @@
+--- a/apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts
++++ b/apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts
+@@ -1,6 +1,8 @@
+ import { jsonError } from "@/server/http";
+ import { getJobForViewer, getCurrentCustomer } from "@/server/queries";
+-import { getJob } from "@/server/job-store";
++import { readRichArtifact } from "@/server/rich-artifacts";
++import { workflowSql } from "@/server/rich-services";
++import { getJob, getJobWithDecryptedCredentials } from "@/server/job-store";
+ import { readJobArtifact, readJobArtifactText } from "@ae/core/storage/blob";
+ import { renderReportDocument } from "@/server/report-html";
+ 
+@@ -34,8 +36,19 @@
+   }
+   let path: string | null | undefined;
+   if (kind === "evidence") {
+-    // Evidence is bundled with the report artifact until Track B supplies a separate bundle.
+-    path = job?.reportBlobPath;
++    if (!job) return jsonError(404, "Artifact not available yet");
++    const canonical = await getJobWithDecryptedCredentials(jobId);
++    if (!canonical) return jsonError(404, 'Artifact not available yet');
++    let evidence;
++    try {
++      evidence = await readRichArtifact(workflowSql(), jobId, job.customerId,
++        Object.values(canonical.credentials).filter((value): value is string => typeof value === 'string'));
++    } catch { return jsonError(409, 'Evidence requires operator review'); }
++    if (evidence !== null) return Response.json(evidence, { headers: {
++      "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
++      "Content-Disposition": `attachment; filename="evidence-${jobId.slice(0, 8)}.json"`,
++    } });
++    return jsonError(404, "Rich evidence is not available for this job");
+   } else {
+     path = job?.[KINDS[kind as "report" | "suite"]];
+   }
+--- /dev/null
++++ b/apps/web/src/server/rich-artifacts.ts
+@@ -0,0 +1,32 @@
++import 'server-only';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { containsSecret } from '@ae/core/agents/redact';
++import { canonicalJson } from '@ae/core/evals/text/index';
++/** Rich evidence is retained in durable private application storage. No runtime DDL.
++ * Callers authorize job ownership separately; scope is checked again in SQL. */
++export async function persistRichArtifact(db: AgentTransactionalSql,
++  scope: { jobId: string; tenantId: string; environment: 'test' | 'live' },
++  suiteDigest: string, body: unknown, knownSecrets: readonly string[]) {
++  const encoded = canonicalJson(body);
++  if (!/^[a-f0-9]{64}$/.test(suiteDigest) || containsSecret(encoded, knownSecrets)) throw new Error('rich_evidence_refused');
++  await db.transaction(async tx => {
++    const job = (await tx.query<{ customer_id: string; environment: string }>(
++      'SELECT customer_id, environment FROM jobs WHERE id=$1 FOR UPDATE', [scope.jobId])).rows[0];
++    if (!job || job.customer_id !== scope.tenantId || job.environment !== scope.environment) throw new Error('rich_evidence_scope');
++    const old = (await tx.query<{ suite_digest: string; body: unknown }>(
++      'SELECT suite_digest, body FROM workflow_integration.rich_artifacts WHERE job_id=$1', [scope.jobId])).rows[0];
++    if (old) {
++      if (old.suite_digest !== suiteDigest || canonicalJson(old.body) !== encoded) throw new Error('rich_evidence_conflict');
++      return;
++    }
++    await tx.query('INSERT INTO workflow_integration.rich_artifacts(job_id,tenant_id,environment,suite_digest,body) VALUES($1,$2,$3,$4,$5::jsonb)',
++      [scope.jobId, scope.tenantId, scope.environment, suiteDigest, encoded]);
++  });
++}
++export async function readRichArtifact(db: AgentTransactionalSql, jobId: string, tenantId: string, knownSecrets: readonly string[]): Promise<unknown | null> {
++  const row = (await db.query<{ body: unknown }>(`SELECT a.body FROM workflow_integration.rich_artifacts a
++    JOIN jobs j ON j.id=a.job_id AND j.customer_id=a.tenant_id AND j.environment=a.environment
++    WHERE a.job_id=$1 AND a.tenant_id=$2`, [jobId, tenantId])).rows[0];
++  if (row && containsSecret(canonicalJson(row.body), knownSecrets)) throw new Error('rich_evidence_refused');
++  return row?.body ?? null;
++}
+--- /dev/null
++++ b/apps/web/src/server/workflow-inventory.ts
+@@ -0,0 +1,67 @@
++import 'server-only';
++import { canonicalJson } from '@ae/core/evals/text/index';
++import { AsyncLocalStorage } from 'node:async_hooks';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import type { CheckpointKey, TextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { publishStructuredInventory } from './structured-progress-inventory';
++import { inventoryPlanSchema, type InventoryPlan } from './structured-progress';
++
++type Scope = { tenantId: string; jobId: string; environment: 'test' | 'live' };
++type Associations = { runId: string; suiteDigest: string; scenarioIds: string[]; branchId?: string };
++/** Captures identities produced by the actual core factory, not guessed hashes.
++ * A separate instance belongs to one authenticated Workflow invocation. */
++export function createWorkflowInventory(db: AgentTransactionalSql, scope: Scope) {
++  const phase = new AsyncLocalStorage<Associations>();
++  async function publish(key?: CheckpointKey, acquisitionTaskIds: string[] = []) {
++    await db.transaction(async tx => {
++      // Serialize first publication as well as updates. No lock spans external I/O.
++      const job = (await tx.query<{ customer_id: string; environment: string }>(
++        'SELECT customer_id, environment FROM jobs WHERE id = $1 FOR UPDATE', [scope.jobId])).rows[0];
++      if (!job || job.customer_id !== scope.tenantId || job.environment !== scope.environment) throw new Error('workflow_inventory_scope');
++      const row = (await tx.query<{ revision: string | number; plan: unknown }>(
++        'SELECT revision, plan FROM structured_progress.inventory WHERE job_id = $1', [scope.jobId])).rows[0];
++      const plan: InventoryPlan = row ? inventoryPlanSchema.parse(row.plan) : { checkpoints: [], acquisitionTaskIds: [] };
++      for (const id of acquisitionTaskIds) if (!plan.acquisitionTaskIds.includes(id)) plan.acquisitionTaskIds.push(id);
++      const kinds = { design: 'text_design', run_identity: 'text_run', run_result: 'text_run', investigation: 'text_investigation', calendar_run: 'calendar_run', calendar_investigation: 'calendar_investigation' } as const;
++      const format = key ? kinds[key.kind as keyof typeof kinds] : undefined;
++      if (key && format) {
++        if (key.jobId !== scope.jobId) throw new Error('workflow_inventory_scope');
++        const associations = format === 'text_design' ? {} : phase.getStore();
++        if (!associations) throw new Error('workflow_inventory_associations_required');
++        // Core run_identity and run_result use the same digest. Planning the result
++        // when run_identity is first claimed precedes every target dispatch.
++        const entry = { key: { ...key, kind: key.kind === 'run_identity' ? 'run_result' : key.kind },
++          format, phase: format === 'text_design' ? 'planning' as const : format.endsWith('_run') ? 'running' as const : 'investigating' as const,
++          ...associations };
++        const old = plan.checkpoints.find(p => p.key.kind === entry.key.kind && p.key.id === entry.key.id);
++        if (old && canonicalJson(old) !== canonicalJson(entry)) throw new Error('workflow_inventory_identity_conflict');
++        if (!old) plan.checkpoints.push(entry);
++      }
++      // There may be no public checkpoint during calendar suite freeze. Do not
++      // manufacture a completed phase from that private internal checkpoint.
++      if (!plan.checkpoints.length && !plan.acquisitionTaskIds.length) return;
++      await publishStructuredInventory(tx, scope, row ? Number(row.revision) : null, plan);
++    });
++  }
++  return {
++    phase<T>(associations: Associations, action: () => Promise<T>): Promise<T> {
++      return phase.run(JSON.parse(JSON.stringify(associations)) as Associations, action);
++    },
++    touch: () => publish(),
++    acquisition: (taskIds: string[]) => publish(undefined, taskIds),
++    wrap(base: TextCheckpointStore): TextCheckpointStore {
++      const mutate = async <T>(key: CheckpointKey, action: () => Promise<T>): Promise<T> => {
++        await publish(key); // durable expected blocker BEFORE claim/dispatch
++        try { return await action(); }
++        finally { await publish(key); } // failed publication blocks continuation
++      };
++      return {
++        claim: key => mutate(key, () => base.claim(key)),
++        get: key => base.get(key),
++        complete: (key, token, value) => mutate(key, () => base.complete(key, token, value)),
++        release: (key, token) => mutate(key, () => base.release(key, token)),
++        markAmbiguous: (key, token) => mutate(key, () => base.markAmbiguous(key, token)),
++      };
++    },
++  };
++}
+--- a/apps/web/src/workflows/job.ts
++++ b/apps/web/src/workflows/job.ts
+@@ -1,4 +1,4 @@
+-import { createHook, FatalError } from "workflow";
++import { createHook, FatalError, getWorkflowMetadata } from "workflow";
+ import { jobHookToken, type JobEvent, type Package, type QualifyResult } from "@ae/core/contracts/index";
+ import type { Remediation } from "@ae/core/contracts/index";
+ import type { RunResult } from "@ae/core/contracts/services";
+@@ -12,6 +12,9 @@
+ import {
+   auditTraceStep, createBranchStep, designSuiteStep, investigateStep, persistReportStep, proposeFixStep, renderReportStep, runSuiteStep,
+ } from "./steps/evaluate";
++import { richEvaluationStep } from "./steps/rich-evaluation";
++import { refreshRichInventoryStep } from "./steps/rich-inventory-refresh";
++import { richModeStep } from "./steps/rich-mode";
+ import { notifyCustomerStep } from "./steps/notify";
+ import { flagSettlementFailureStep, settlePaymentStep } from "./steps/billing";
+ import { discardPartialEvaluationStep, loadResumeSnapshotStep } from "./steps/resume";
+@@ -114,8 +117,15 @@
+ 
+     // 4. Execute by package. A restart first drops findings/fixes a dead run stored without finishing its report.
+     if (stage === "execute") {
+-      if (plan.phase === "execute" && plan.discardPartialResults) await discardPartialEvaluationStep(jobId);
+-      const stopped = pkg === "trace_audit" ? await runTraceAudit() : await runEndpointEval(pkg);
++      const richMode = await richModeStep();
++      if (!richMode && plan.phase === "execute" && plan.discardPartialResults) await discardPartialEvaluationStep(jobId);
++      let stopped: Stopped | undefined;
++      if (richMode && pkg !== "trace_audit") {
++        const status = await richEvaluationStep(jobId, getWorkflowMetadata().workflowRunId);
++        if (status !== "complete") stopped = { stopped: status === "paused_budget" ? "paused_budget" : "on_hold" };
++      } else {
++        stopped = pkg === "trace_audit" ? await runTraceAudit() : await runEndpointEval(pkg);
++      }
+       if (stopped) return { jobId, status: stopped.stopped };
+     }
+ 
+@@ -127,6 +137,7 @@
+       await flagSettlementFailureStep(jobId, err instanceof Error ? err.message : String(err));
+     }
+     await notifyCustomerStep(jobId);
++    if (await richModeStep()) await refreshRichInventoryStep(jobId, getWorkflowMetadata().workflowRunId);
+     return { jobId, status: "delivered" };
+   }
+ 
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -37,8 +37,12 @@
+   "use step";
+   const services = await getEvalServices();
+   const job = await requireJob(jobId);
+-  // A previous attempt that wrote neon_branch_id but lost its result is simply recreated.
+-  if (job.neonBranchId) await services.deleteJobBranch(job.neonBranchId);
++  // A persisted branch is retained on retries and fresh Workflow runs.
++  if (job.neonBranchId) {
++    // Reuse the canonical branch; an interrupted rich run must never lose evidence.
++    await resolveBranchConnection(job.neonBranchId);
++    return { branchId: job.neonBranchId };
++  }
+   const branch = await services.createJobBranch(jobId);
+   await setJobState(jobId, job.state, { neonBranchId: branch.branchId });
+   await recordProgress(jobId, "branch_ready", "Isolated test environment created.");
+--- /dev/null
++++ b/apps/web/src/workflows/steps/rich-evaluation.ts
+@@ -0,0 +1,111 @@
++import { TrackBBlockedError, TrackBPendingError } from '@ae/core/evals/service-adapter';
++import { Report } from '@ae/core/contracts/index';
++import { calendarOperationRunId } from '@ae/core/evals/calendar-integration/index';
++import { renderCalendarReport } from '@ae/core/reporting/calendar';
++import { containsSecret } from '@ae/core/agents/redact';
++import { createRichWorkflowServices, workflowSql } from '@/server/rich-services';
++import { persistRichArtifact } from '@/server/rich-artifacts';
++import { getJob, recordProgress, setJobState } from '@/server/job-store';
++import { createBranchStep, persistReportStep } from './evaluate';
++import { withBudget } from './common';
++
++type RichOutcome = 'complete' | 'pending' | 'needs_operator' | 'paused_budget';
++/** No decrypted intake, raw response, endpoint or pool connection leaves this step. */
++export async function richEvaluationStep(jobId: string, workflowRunId: string): Promise<RichOutcome> {
++  'use step';
++  let authorized = false;
++  try {
++    // Rich engines freeze exactly twelve. Appending Track A's default 32-case
++    // rt_* pack would silently skip paid scope: explicit operator decision required.
++    if (!/^(0|false|off|no)$/i.test(process.env.REDTEAM_PACK ?? '')) {
++      throw new TrackBBlockedError('needs_operator', 'Set REDTEAM_PACK=off for frozen12; appended32 requires an agreed rich-pack integration.');
++    }
++    const canonical = await getJob(jobId);
++    if (!canonical || canonical.workflowRunId !== workflowRunId || canonical.isMock
++      || ['failed', 'cancelled', 'delivered'].includes(canonical.state)) throw new TrackBBlockedError('rejected_input', 'Workflow authority refused.');
++    authorized = true;
++    await setJobState(jobId, 'planning');
++    const result = await withBudget(jobId, 'engineer', async ctx => {
++      if (canonical.package === 'workflow_eval') await createBranchStep(jobId);
++      const api = await createRichWorkflowServices(ctx, { workflowRunId });
++      try {
++      const { job, intake, inventory } = api;
++      const tasks = await workflowSql().query<{ task_id: string }>(
++        'SELECT task_id FROM evaluation_data_persistence.tasks WHERE tenant_id=$1 AND job_id=$2 ORDER BY task_id', [job.customerId, jobId]);
++      if (tasks.rows.length) {
++        await inventory.acquisition(tasks.rows.map(row => row.task_id));
++        throw new TrackBBlockedError('needs_operator', 'Data acquisition requires the authenticated review and frozen-suite bridge; no data completion is claimed.');
++      }
++      if (intake.package !== 'text_eval' && intake.package !== 'workflow_eval') throw new TrackBBlockedError('needs_operator', 'This rich path supports single-version frozen12 only.');
++      // Stable across fresh Workflow runs. Core stores bind changes to immutable digests.
++      const suiteId = `suite:${jobId}:frozen12`;
++      const runId = `run:${jobId}:baseline`;
++      let report;
++      let evidence;
++      let suiteDigest: string;
++      await setJobState(jobId, 'planning');
++      if (intake.package === 'text_eval') {
++        const designed = await api.text.designSuite(ctx, { suiteId, versionLabel: 'default',
++          systemPrompt: intake.endpoint.systemPrompt || null, referenceText: intake.endpoint.referenceText ?? null });
++        if (designed.status !== 'completed') {
++          if (designed.agentOutcome?.status === 'pending') throw new TrackBPendingError(5000, 'Suite design pending.');
++          if (designed.agentOutcome?.status === 'budget_paused' || designed.agentOutcome?.status === 'budget_exhausted') throw new TrackBBlockedError('paused_budget', 'Suite design budget paused.');
++          throw new TrackBBlockedError('needs_operator', 'Suite design requires review.');
++        }
++        const suite = designed.suite;
++        if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
++        const association = { runId, suiteDigest: suite.digest, scenarioIds: suite.scenarios.map(s => s.id) };
++        await setJobState(jobId, 'running');
++        await inventory.touch();
++        const run = await inventory.phase(association, () => api.text.runSuite(ctx, { suiteDigest: suite.digest, runId }));
++        await setJobState(jobId, 'investigating');
++        await inventory.touch();
++        const investigation = await inventory.phase(association, () => api.text.investigate(ctx, { suiteDigest: suite.digest, runId }));
++        if (investigation.investigatorStatus === 'pending') throw new TrackBPendingError(5000, 'Investigation pending.');
++        if (!['completed', 'skipped'].includes(investigation.investigatorStatus)) throw new TrackBBlockedError('needs_operator', 'Investigation requires reconciliation.');
++        const input = await api.text.reportInput(ctx, { suiteDigest: suite.digest, runId });
++        await api.bindTextBaseline(suite.digest, runId);
++        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations: [...input.limitations, 'Remediation not run; no fix verified.'] });
++        suiteDigest = suite.digest;
++        evidence = { format: 'rich_text.v1', suite, run, investigation, limitations: input.limitations };
++      } else {
++        const suite = await api.calendar.freezeSuite(ctx, { suiteId });
++        if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
++        const request = { suiteId, operationId: runId, versionLabel: 'default' };
++        // The patched core factory binds a job-scoped aggregate runId to this operation.
++        const association = { runId: calendarOperationRunId(jobId, request.operationId), suiteDigest: suite.hash,
++          scenarioIds: suite.scenarios.map(s => s.id), branchId: api.branchId };
++        await setJobState(jobId, 'running');
++        await inventory.touch();
++        const run = await inventory.phase(association, () => api.calendar.runSuite(ctx, request));
++        await setJobState(jobId, 'investigating');
++        await inventory.touch();
++        const investigation = await inventory.phase(association, () => api.calendar.investigate(ctx, request));
++        const input = await api.calendar.reportInput(ctx, request);
++        if (input.status === 'needs_operator') throw new TrackBBlockedError('needs_operator', 'Calendar reproduction requires reconciliation.');
++        const rendered = renderCalendarReport({ job, report: { ...input, limitations: [...input.limitations, 'Remediation not run; no fix verified.'] },
++          generatedAt: suite.frozenAt, costs: null, knownSecrets: api.knownSecrets, includeHtml: true });
++        report = Report.parse({ jobId, summary: rendered.summary, markdown: rendered.markdown, html: rendered.html ?? '', findings: input.findings });
++        suiteDigest = suite.hash;
++        evidence = { format: 'rich_calendar.v1', suite, run, investigation, limitations: input.limitations };
++      }
++      if (containsSecret(JSON.stringify({ evidence, report }), api.knownSecrets)) throw new TrackBBlockedError('needs_operator', 'Credential-bearing evidence refused.');
++      await persistRichArtifact(workflowSql(), { jobId, tenantId: job.customerId, environment: job.environment }, suiteDigest, evidence, api.knownSecrets);
++      await persistReportStep(jobId, report);
++      await inventory.touch();
++      } finally { await api.dispose(); }
++    });
++    return result.status === 'budget_exceeded' ? 'paused_budget' : 'complete';
++  } catch (error) {
++    if (!authorized) return 'needs_operator';
++    const state: RichOutcome = error instanceof TrackBPendingError ? 'pending'
++      : error instanceof TrackBBlockedError && error.code === 'paused_budget' ? 'paused_budget' : 'needs_operator';
++    // Fixed prose only. Retain original checkpoint and reservations; never retry an
++    // ambiguous dispatch with a fresh suite/run/branch identity.
++    await recordProgress(jobId, `rich_${state}`, state === 'pending' ? 'Evaluation is pending on retained durable work.'
++      : state === 'paused_budget' ? 'Evaluation paused at its budget limit.' : 'Evaluation requires operator reconciliation before continuing.');
++    if (state === 'paused_budget') await setJobState(jobId, 'paused_budget');
++    return state;
++  }
++}
++richEvaluationStep.maxRetries = 0;
+--- /dev/null
++++ b/apps/web/src/workflows/steps/rich-inventory-refresh.ts
+@@ -0,0 +1,11 @@
++import { getJob } from '@/server/job-store';
++import { workflowSql } from '@/server/rich-services';
++import { createWorkflowInventory } from '@/server/workflow-inventory';
++/** Touch-only authority permits delivered jobs; never creates a provider runtime. */
++export async function refreshRichInventoryStep(jobId: string, workflowRunId: string): Promise<void> {
++  'use step';
++  const job = await getJob(jobId);
++  if (!job || job.workflowRunId !== workflowRunId || job.isMock) throw new Error('workflow_inventory_authority');
++  if (job.package !== 'text_eval' && job.package !== 'workflow_eval') return;
++  await createWorkflowInventory(workflowSql(), {jobId,tenantId:job.customerId,environment:job.environment}).touch();
++}
+--- /dev/null
++++ b/apps/web/src/workflows/steps/rich-mode.ts
+@@ -0,0 +1,4 @@
++export async function richModeStep(): Promise<boolean> {
++  "use step";
++  return process.env.EVAL_SERVICES === "real";
++}
+--- a/packages/core/src/evals/calendar-integration/index.ts
++++ b/packages/core/src/evals/calendar-integration/index.ts
+@@ -33,6 +33,10 @@
+ export type CalendarInvestigation = Awaited<ReturnType<typeof investigateCalendarRun>>;
+ 
+ const digest = (value: unknown) => createHash('sha256').update(canonicalJson(value)).digest('hex');
++export function calendarOperationRunId(jobId: string, operationId: string): string {
++  if ([jobId, operationId].some(value => typeof value !== 'string' || value.length < 1 || value.length > 128 || !isPersistableText(value))) rejected();
++  return digest({ kind: 'calendar_workflow_run.v1', jobId, operationId });
++}
+ const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+ function rejected(): never { throw new TrackBBlockedError('rejected_input', 'Calendar authorization or artifact identity mismatch.'); }
+ function blocked(): never { throw new TrackBBlockedError('needs_operator', 'Calendar operation is ambiguous; reconcile retained evidence before any redispatch.'); }
+@@ -144,7 +148,7 @@
+       const { a, suite: expected } = await authorize(ctx);
+       const suite = await suiteFor(a, expected, input);
+       return operation(a, runKey(a, suite, input), () => runCalendarSuite({ suite, versionLabel: input.versionLabel,
+-        branchId: a.branch.branchId, systemPrompt: a.systemPrompt, dependencies: a.dependencies }));
++        branchId: a.branch.branchId, runId: calendarOperationRunId(a.job.jobId, input.operationId), systemPrompt: a.systemPrompt, dependencies: a.dependencies }));
+     },
+     async investigate(ctx: ServiceContext, input: CalendarRunRequest): Promise<CalendarInvestigation> {
+       input = requestSnapshot(input, true);
+--- a/packages/core/src/simulator/workflow/index.ts
++++ b/packages/core/src/simulator/workflow/index.ts
+@@ -79,6 +79,8 @@
+   classifySuccess?(execution: CalendarExecution, scenario: WorkflowScenario): Promise<'success' | 'no_success' | 'unknown'>;
+ }
+ interface RunInput {
++  /** Optional stable parent operation identity, durably fenced by the integration factory. */
++  runId?: string;
+   suite: FrozenCalendarSuite; versionLabel: string; branchId: string; systemPrompt?: string; dependencies: CalendarWorkflowDependencies;
+ }
+ async function executeScenario(input: RunInput, scenario: WorkflowScenario): Promise<WorkflowScenarioResult> {
+@@ -120,8 +122,9 @@
+ }
+ async function execute(input: RunInput, scenarios: WorkflowScenario[]): Promise<CalendarWorkflowRun> {
+   id.parse(input.versionLabel); id.parse(input.branchId);
++  if (input.runId !== undefined) id.parse(input.runId);
+   if (input.systemPrompt !== undefined) z.string().max(20_000).refine(isPersistableText).parse(input.systemPrompt);
+-  const run: CalendarWorkflowRun = { jobId: input.suite.jobId, branchId: input.branchId, runId: randomUUID(), suiteHash: input.suite.hash,
++  const run: CalendarWorkflowRun = { jobId: input.suite.jobId, branchId: input.branchId, runId: input.runId ?? randomUUID(), suiteHash: input.suite.hash,
+     versionLabel: input.versionLabel, origin: input.suite.origin, systemPrompt: input.systemPrompt, results: [] };
+   // Sequential dispatch is intentionally within the transport's two-request global bound.
+   for (const scenario of scenarios) run.results.push(await executeScenario(input, scenario));

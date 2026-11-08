@@ -1,0 +1,4 @@
+✓ Compiled workflows in 12.7s (47 steps, 1 workflow)
+Generating route types...
+✓ Types generated successfully
+Actual complete core and Next app strict TypeScript passed, actual Next/Workflow route generation compiled. No external declarations or source substitutions.

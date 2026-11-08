@@ -1,0 +1,5 @@
+df804eac5b27f299f4b742dd5ada18f72ed6d3fba79c7790b9c25ae97d067773  docs/progress-chat-integration/combined.patch
+f789fdda53766b7f08fded92b28452f9472a7a09abd03fcd82f87150eee42995  docs/structured-progress-integration/backend/structured-progress.patch
+41ceb9cc8de444d04884d429011e531818563432b0951249fc647f52fcfb88bd  docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch
+fc6697118ea2e567ef7241132d72efcd1db6504af21d9eb0b1d419e3e0bc0c16  docs/workflow-integration/workflow-producers/002-workflow-producers.patch
+01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095  docs/workflow-integration/workflow-producers/migrations/002-rich-artifacts.sql

@@ -1,0 +1,190 @@
+Shared contracts: local working tree packages/core/src/contracts (no revision recorded)
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-track-b-SDFLUj
+
+ ✓ src/simulator/workflow/postgres-journal.test.ts (23 tests) 10632ms
+   ✓ durable workflow journal SQL (PGlite; advisory functions intercepted) (14)
+     ✓ autocommits intent before returning save and recovers it after callback failure in a fresh adapter 864ms
+     ✓ keeps immutable originals and completed results, append-only attempts and the three-candidate budget 542ms
+     ✓ accepts exactly three sequential pending intents and retains all of them across reloads 431ms
+     ✓ rejects a stale compare-and-swap write instead of overwriting an out-of-band update 429ms
+     ✓ rejects adding completed work without first durably recording its pending intent 482ms
+     ✓ isolates tenants and uses tuple-safe lock identity for delimiter-bearing tenant/key pairs 468ms
+     ✓ rejects non-PostgreSQL JSON text "\u0000" before a write 537ms
+     ✓ rejects non-PostgreSQL JSON text "\ud800" before a write 439ms
+     ✓ rejects non-PostgreSQL JSON text "\udfff" before a write 573ms
+     ✓ rejects invalid JSON object keys and non-JSON values before driver dispatch 459ms
+     ✓ accepts paired supplementary Unicode and returns detached loaded values 547ms
+     ✓ validates imported JSON records, outcome/scope relationships and reproduction eligibility 490ms
+     ✓ round-trips complete simulator evidence and persists at most three completed reproductions 571ms
+     ✓ persists intent before actual workflow dispatch and never redispatches recovered ambiguous work 405ms
+   ✓ pinned journal session lifetime and safe SQL failures (9)
+     ✓ requires the active same-key scope and rejects escaped asynchronous work after release 404ms
+     ✓ waits for an autocommit before resolving save or releasing its session, including unawaited saves 398ms
+     ✓ sanitizes lock failures and discards the session 402ms
+     ✓ sanitizes load failures and discards the session 460ms
+     ✓ sanitizes save failures and discards the session 421ms
+     ✓ sanitizes unlock failures and discards the session 400ms
+     ✓ sanitizes false-unlock failures and discards the session 443ms
+     ✓ does not report success when callback catches a failed write, and never retries its callback 463ms
+ ✓ src/evals/data/discovery/persistence/persistence.test.ts (12 tests) 6497ms
+   ✓ durable discovery operations (real PGlite SQL) (12)
+     ✓ grants exactly one owner across instances and concurrent calls, durably rejects input changes 650ms
+     ✓ survives a late same-instance pending response without losing the winning token 464ms
+     ✓ replays detached results from a new adapter and arbitrates completion races by SQL value 426ms
+     ✓ binds trusted tenant/job with collision-safe framing and snapshots scope 405ms
+     ✓ never reclaims pending or ambiguous calls and enforces underlying token ownership 414ms
+     ✓ keeps ownership for replay after a committed completion loses its acknowledgement 411ms
+     ✓ rejects unsafe identities and malformed digests before SQL 495ms
+     ✓ rejects malformed, secret, lossy and forged candidate results before persistence and on replay 425ms
+     ✓ races rejection against success, preserving the winning terminal outcome and owner scope 413ms
+     ✓ validates rejection diagnostics strictly on write and replay; ambiguous tokens cannot reject 416ms
+     ✓ retains rejection through lost acknowledgement; an uncommitted write stays pending 430ms
+     ✓ reopens SQL after unsafe discovery and resumes acquisition to generation/expert with no rejected data or repeat GETs 1547ms
+ ✓ src/evals/data/postgres-store.test.ts (39 tests) 17729ms
+   ✓ PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) (39)
+     ✓ persists definitive discovery rejection and resumes generation/expert through fresh SQL adapters 845ms
+     ✓ replays from independent service instances with detached input and outputs 520ms
+     ✓ has one insert and one CAS winner across concurrent callers (PGlite serializes transactions) 450ms
+     ✓ isolates reads, inserts and CAS by both trusted tenant and job 431ms
+     ✓ captures scope values at construction and rejects record job mismatch 506ms
+     ✓ rejects insert and CAS identity drift: hash 467ms
+     ✓ rejects insert and CAS identity drift: description 509ms
+     ✓ rejects insert and CAS identity drift: target 442ms
+     ✓ rejects insert and CAS identity drift: coverage 567ms
+     ✓ rejects insert and CAS identity drift: uses 465ms
+     ✓ rejects insert and CAS identity drift: factual 536ms
+     ✓ compares full spec canonically after jsonb key reordering 537ms
+     ✓ returns null for missing/stale revisions and rejects invalid revisions and history loss 449ms
+     ✓ rejects non-JSON/unsafe text 0 without changing storage 415ms
+     ✓ rejects non-JSON/unsafe text 1 without changing storage 406ms
+     ✓ rejects non-JSON/unsafe text 2 without changing storage 399ms
+     ✓ rejects non-JSON/unsafe text 3 without changing storage 405ms
+     ✓ rejects non-JSON/unsafe text 4 without changing storage 448ms
+     ✓ rejects non-JSON/unsafe text 5 without changing storage 426ms
+     ✓ rejects non-JSON/unsafe text 6 without changing storage 401ms
+     ✓ rejects non-JSON/unsafe text 7 without changing storage 409ms
+     ✓ rejects accessors, custom serialization, sparse arrays, symbols and cycles 461ms
+     ✓ accepts valid Unicode and SQL-shaped text as bound data 449ms
+     ✓ bounds serialized record bytes 469ms
+     ✓ rejects malformed stored row: nested 421ms
+     ✓ rejects malformed stored row: unknown 399ms
+     ✓ rejects malformed stored row: revision 392ms
+     ✓ rejects malformed stored row: task 408ms
+     ✓ rejects malformed stored row: job 398ms
+     ✓ rejects malformed stored row: enum 480ms
+     ✓ rejects actual database rows with malformed nested JSON on read, insert replay and CAS 416ms
+     ✓ screens current secret policy on reads, conflicting inserts and CAS 419ms
+     ✓ rolls back inserts and CAS when the returned row fails validation 410ms
+     ✓ rolls back when the current secret policy changes before RETURNING is validated 421ms
+     ✓ redacts driver failure text with no transaction retries 410ms
+     ✓ preserves complete bound review evidence and decision history across restart 410ms
+     ✓ resumes acquisition with the same operation key after restart, outside any SQL transaction 491ms
+     ✓ replays only correctly bound ready acquisition data after service restart 423ms
+     ✓ rejects stale ready review bindings and new secret policy before completed replay 417ms
+ ✓ src/simulator/workflow/workflow.test.ts (14 tests) 1434ms
+ ✓ src/reporting/chat/postgres-conversations.test.ts (12 tests) 7434ms
+   ✓ PostgreSQL conversations: real PGlite SQL, single session (11)
+     ✓ partitions every operation by both subject and job, with independent sequences 656ms
+     ✓ keeps the first digest, reply, freshness and sequence across adapter recreation 536ms
+     ✓ integrates with the service and replays without reading current progress 474ms
+     ✓ rejects cross-scope, wrong-ID, unsafe bigint and malformed rows returned by a driver 431ms
+     ✓ paginates an exclusive ascending cursor with bounded pages 616ms
+     ✓ serializes concurrent PGlite transaction callbacks and preserves first-write replay 560ms
+     ✓ uses bound parameters for SQL-looking subjects and never queries outside both scope keys 735ms
+     ✓ rolls back allocator and exchange together after an insert failure 554ms
+     ✓ fails closed with fixed errors for malformed inputs and database failures 496ms
+     ✓ validates persisted replies on lookup, replay and history 695ms
+     ✓ rejects unsafe persisted allocator integers without consuming another sequence 571ms
+   ✓ replays after closing and reopening a persistent PGlite database 1110ms
+ ✓ src/targets/remediation.test.ts (31 tests) 1106ms
+   ✓ secured request-scoped remediation target (31)
+     ✓ composes actual text/chat serialization with the remediation factory for all twelve frozen scenarios and SQL replay 988ms
+ ✓ src/agents/postgres-ports.test.ts (12 tests) 7502ms
+   ✓ agent PostgreSQL adapters: PGlite SQL execution (single session, not real concurrency) (12)
+     ✓ runs the session service on SQL ports and replays from fresh adapters without provider calls 744ms
+     ✓ persists exact JSON, returns detached records, and resumes through a fresh adapter 547ms
+     ✓ insert replay preserves first timestamp and current state; changed identity fails 718ms
+     ✓ CAS advances once, rejects stale/missing writes, and forbids identity patches 551ms
+     ✓ parameterizes SQL-looking identifiers and rejects PostgreSQL-unsafe strings without echoing values 495ms
+     ✓ rejects unsafe money, counters, states, timestamps and unsupported JSON before writes 685ms
+     ✓ normalizes scope order, replays accepted reservations, and rejects identity or cap changes atomically 581ms
+     ✓ locks scopes in sorted order, enforces job and role budgets, and records a stable refusal 755ms
+     ✓ settles measured overage without capping, releases unused funds, and keeps the first settlement 617ms
+     ✓ uses exact SQL numeric aggregation even when combined overages exceed safe JavaScript integer range 587ms
+     ✓ rolls back reservations and settlements when the transaction callback fails after SQL writes 563ms
+     ✓ rejects duplicate or missing job/role scopes rather than bypassing aggregate caps 658ms
+ ✓ src/simulator/calendar.test.ts (14 tests) 1063ms
+ ✓ src/reporting/chat/service.test.ts (10 tests) 15ms
+ ✓ src/simulator/hostile-text.test.ts (6 tests) 1054ms
+ ✓ src/simulator/branch-ledger.test.ts (15 tests) 3567ms
+   ✓ application branch ledger SQL (PGlite; locks intercepted) (5)
+     ✓ integrates service retries with durable creation and deletion transitions 884ms
+     ✓ commits intent before cloud POST and preserves it after ambiguous failure and fresh ledger instance 737ms
+     ✓ persists each put across callback failure; supports lookup, updates and tombstones 653ms
+     ✓ enforces unique branch ownership, immutable identity and non-regressing states in SQL 695ms
+     ✓ allows bounded explicit retries but cannot reset attempts or restart ambiguous creating 584ms
+ ✓ src/simulator/acceptance-scenarios.test.ts (1 test) 928ms
+   ✓ runs all twelve independent calendar acceptance cases against PostgreSQL 926ms
+ ✓ src/evals/calendar-integration/services.test.ts (13 tests) 1719ms
+ ✓ src/evals/integration/checkpoint.test.ts (5 tests) 3521ms
+   ✓ text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) (5)
+     ✓ atomically gives one claimant ownership and rejects changed inputs under the same identity 856ms
+     ✓ persists full detached output, resumes from a fresh adapter and rejects overwrite 766ms
+     ✓ never takes over a lost response, and ambiguity cannot be released or completed 678ms
+     ✓ allows explicit safe agent polling release while rejecting stale owners 595ms
+     ✓ refuses lossy/non-PostgreSQL JSON before completion, preserving pending state 625ms
+ ✓ src/evals/remediation/remediation.test.ts (23 tests) 1265ms
+ ✓ src/reporting/chat/projection/projection.test.ts (43 tests) 34ms
+ ✓ src/targets/tls.test.ts (7 tests) 309ms
+ ✓ src/agents/__tests__/resume-identity.test.ts (20 tests) 40ms
+ ✓ src/simulator/connection.test.ts (79 tests) 70ms
+ ✓ src/evals/integration/services.test.ts (12 tests) 1119ms
+ ✓ src/evals/data/persistence.test.ts (3 tests) 77ms
+ ✓ src/evals/text/__tests__/behavioral-gateway.test.ts (17 tests) 89ms
+ ✓ src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 73ms
+ ✓ src/simulator/neon-retry.test.ts (1 test) 14ms
+ ✓ src/evals/text/__tests__/admission.test.ts (50 tests) 65ms
+ ✓ src/targets/public-source.test.ts (48 tests) 52ms
+ ✓ src/targets/transport.test.ts (49 tests) 47ms
+ ✓ src/evals/text/__tests__/design-investigate.test.ts (10 tests) 46ms
+ ✓ src/agents/provision-verification.test.ts (45 tests) 38ms
+ ✓ src/agents/__tests__/commercial-operator.test.ts (9 tests) 15ms
+ ✓ src/evals/text/__tests__/objective-execution.test.ts (29 tests) 39ms
+ ✓ src/agents/__tests__/session-service.test.ts (23 tests) 22ms
+ ✓ src/agents/__tests__/operator-labels.test.ts (18 tests) 18ms
+ ✓ src/agents/__tests__/naive-adapter.test.ts (4 tests) 18ms
+ ✓ src/evals/__tests__/service-adapter.test.ts (15 tests) 27ms
+ ✓ src/agents/redact-regression.test.ts (36 tests) 5ms
+ ✓ src/evals/trace/__tests__/trace-audit.test.ts (24 tests) 19ms
+ ✓ src/reporting/chat/projection/negative.test.ts (22 tests) 11ms
+ ✓ src/simulator/neon.test.ts (13 tests) 9ms
+ ✓ src/judges/gateway.test.ts (15 tests) 22ms
+ ✓ src/evals/data/discovery/index.test.ts (26 tests) 18ms
+ ✓ src/evals/data/adapters/mapping.test.ts (7 tests) 17ms
+ ✓ src/evals/data/adapters/generation.test.ts (9 tests) 18ms
+ ✓ src/evals/text/__tests__/safety-monitoring.test.ts (3 tests) 20ms
+ ✓ src/monitoring/index.test.ts (8 tests) 5ms
+ ✓ src/reporting/chat/file-conversations.test.ts (5 tests) 204ms
+ ✓ src/targets/connectivity.test.ts (10 tests) 7ms
+ ✓ src/evals/trace/__tests__/audit-redaction.test.ts (3 tests) 14ms
+ ✓ src/evals/data/adapters/sources.test.ts (8 tests) 13ms
+ ✓ src/evals/data/acquisition.test.ts (11 tests) 13ms
+ ✓ src/evals/trace/__tests__/detect-regression.test.ts (15 tests) 9ms
+ ✓ src/evals/text/__tests__/live-v3.test.ts (16 tests) 12ms
+ ✓ src/evals/data/quality.test.ts (23 tests) 9ms
+ ✓ src/evals/trace/__tests__/normalize-regression.test.ts (29 tests) 9ms
+ ✓ src/targets/text.test.ts (7 tests) 5ms
+ ✓ src/reporting/__tests__/render.test.ts (7 tests) 2ms
+ ✓ src/evals/data/expert.test.ts (11 tests) 6ms
+ ✓ src/simulator/pool.test.ts (5 tests) 4ms
+ ✓ src/evals/data/adapters/expert.test.ts (2 tests) 4ms
+ ✓ src/reporting/chat/answers.test.ts (8 tests) 4ms
+
+ Test Files  60 passed (60)
+      Tests  1050 passed (1050)
+   Start at  16:48:11
+   Duration  37.61s (tests 96%, import 3%, transform 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-track-b-SDFLUj/vitest-results.json
+Track B checked components: agents, evals, reporting, targets, simulator, monitoring, judges. Strict type-check passed; 60 test files, 1050 tests passed, none skipped.

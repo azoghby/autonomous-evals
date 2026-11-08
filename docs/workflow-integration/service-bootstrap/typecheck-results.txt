@@ -1,0 +1,16 @@
+Pinned Track A: f0068733ca49c37f40fd7de279325f21a4b5fbbb
+Pinned core: 5906961c2a70c0d6d2999cf7086689402ff60f5b
+Bootstrap patch SHA256: 41ceb9cc8de444d04884d429011e531818563432b0951249fc647f52fcfb88bd
+Archive source tree: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-j5VI3f
+Dependencies: actual pinned A package-lock npm ci --offline --ignore-scripts --no-audit --no-fund; 936 packages
+Next command (cwd apps/web): ../../node_modules/.bin/next typegen
+Result: exit 0; compiled 47 steps / 1 workflow; route types generated
+App command: npx --no-install tsc -p apps/web --noEmit
+Result: exit 0, zero diagnostics after Next type generation; latest calendarOperationRunId and branch-move sources included
+Core command: npx --no-install tsc -p packages/core --noEmit
+Result: exit 0, zero diagnostics
+Sink tests: 5/5 passed, none skipped
+Existing app services tests: 6/6 passed, none skipped
+Existing integration composition tests: 6/6 passed, none skipped; required config expectation updated
+No source interfaces or SDK/database/Workflow declarations stubbed for these full checks.
+No provider/cloud/live calls, secrets, spend, outreach, push, PR or deployment.

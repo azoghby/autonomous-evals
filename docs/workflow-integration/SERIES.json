@@ -1,0 +1,21 @@
+{
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "core": "5906961c2a70c0d6d2999cf7086689402ff60f5b",
+  "beforeCorePatches": [
+    "docs/progress-chat-integration/combined.patch"
+  ],
+  "coreOverlay": [
+    "packages/core/src/agents",
+    "packages/core/src/evals",
+    "packages/core/src/judges",
+    "packages/core/src/monitoring",
+    "packages/core/src/reporting",
+    "packages/core/src/simulator",
+    "packages/core/src/targets"
+  ],
+  "patches": [
+    "docs/structured-progress-integration/backend/structured-progress.patch",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch"
+  ]
+}

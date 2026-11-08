@@ -1,0 +1,367 @@
+--- /dev/null
++++ b/apps/web/src/server/rich-services.ts
+@@ -0,0 +1,103 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import type { ServiceContext } from '@ae/core/contracts/services';
++import { IntakeInput } from '@ae/core/contracts/index';
++import { createTextEvaluationServices, PostgresTextCheckpointStore } from '@ae/core/evals/integration/index';
++import { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
++import { TrackBBlockedError, toContractCost, createTrackBServices } from '@ae/core/evals/service-adapter';
++import { buildAgentDeps } from '@ae/core/integration/eval-services';
++import { withAgentCostDelivery } from '@ae/core/agents/runtime';
++import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
++import { PostgresBranchLedger } from '@ae/core/simulator/branch-ledger';
++import { PostgresCalendarStore } from '@ae/core/simulator/postgres';
++import { CalendarSimulator } from '@ae/core/simulator/calendar';
++import { createTextTarget } from '@ae/core/targets/text';
++import { platformTarget } from '@ae/core/targets/adapters';
++import type { JobRef } from '@ae/core/evals/types';
++import type { CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
++import { getJobWithDecryptedCredentials, recordCost } from './job-store';
++import { createWorkflowInventory } from './workflow-inventory';
++import { evalServices } from '@ae/core/integration/eval-services';
++
++let applicationPool: Pool | undefined;
++export function workflowSql() {
++  if (!process.env.DATABASE_URL) throw new TrackBBlockedError('needs_operator', 'Application database configuration required.');
++  applicationPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 5, connectionTimeoutMillis: 10000,
++    idleTimeoutMillis: 30000, options: '-c statement_timeout=30000 -c lock_timeout=10000' });
++  return pooledCalendarDatabase(applicationPool);
++}
++const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Canonical Workflow binding unavailable or changed; operator reconciliation required.'); };
++
++/** Internal Workflow authority only; no route accepts this value from a customer body. */
++export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string }) {
++  const sql = workflowSql();
++  async function canonical() {
++    const loaded = await getJobWithDecryptedCredentials(ctx.jobId);
++    if (!loaded || !authority.workflowRunId || loaded.job.workflowRunId !== authority.workflowRunId
++      || loaded.job.environment !== ctx.environment || loaded.job.isMock
++      || !['planning', 'running', 'investigating'].includes(loaded.job.state)) return refused();
++    const intake = IntakeInput.parse(loaded.intake);
++    if (intake.package !== 'text_eval' && intake.package !== 'workflow_eval') return refused();
++    const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null }>(
++      'SELECT target_revision, reviewed_calendar, isolation FROM workflow_integration.bindings WHERE job_id=$1', [ctx.jobId]);
++    const b = binding.rows[0];
++    if (!b || !/^[A-Za-z0-9_.:-]{1,128}$/.test(b.target_revision)) return refused();
++    const fixture = await sql.query<{ fixture: boolean }>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1', [loaded.job.customerId]);
++    const job: JobRef = { jobId: ctx.jobId, customerId: loaded.job.customerId, package: intake.package,
++      environment: ctx.environment, isFixture: fixture.rows[0]?.fixture === true, linkedRetestOf: loaded.job.retestOfJobId, quoteVersion: null };
++    const knownSecrets = Object.values(loaded.credentials).filter((x): x is string => typeof x === 'string');
++    if (knownSecrets.some(s => s.length < 4)) return refused();
++    // The ciphertext changes with credential rotation; hash stays server-only and never enters artifacts.
++    const credentials = await sql.query<{ ciphertext: string }>('SELECT ciphertext FROM job_credentials WHERE job_id=$1', [ctx.jobId]);
++    const targetVersion = createHash('sha256').update(JSON.stringify({ endpoint: { ...intake.endpoint, apiKey: undefined },
++      revision: b.target_revision, credentialCiphertext: credentials.rows[0]?.ciphertext ?? null })).digest('hex');
++    return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: b };
++  }
++  const initial = await canonical();
++  const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
++  const checkpoints = inventory.wrap(new PostgresTextCheckpointStore(sql));
++  const agentDeps = await buildAgentDeps();
++  const runner = withAgentCostDelivery(agentDeps.runner, { record: async (_key, cost) => recordCost({ ...toContractCost(cost), jobId: cost.jobId }) });
++  const text = createTextEvaluationServices({ runner, checkpoints, resolve: async current => {
++    if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++    const a = await canonical();
++    return { job: a.job, target: createTextTarget(a.intake.endpoint), targetVersion: a.targetVersion,
++      judge: null, knownSecrets: a.knownSecrets }; // Explicit unassessed rubric; no unreserved Gateway call.
++  } });
++  let branchBinding: { connection: string; pool: Pool } | undefined;
++  const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
++    if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++    const a = await canonical();
++    if (!a.row.neonBranchId || !a.binding.reviewed_calendar) return refused();
++    const ledger = new PostgresBranchLedger(applicationPool!);
++    const owned = await ledger.findOwnedBranch(a.row.neonBranchId);
++    if (!owned || owned.jobId !== ctx.jobId || owned.state !== 'ready') return refused();
++    const connection = await evalServices.getJobBranchConnection!(a.row.neonBranchId);
++    if (branchBinding && branchBinding.connection !== connection) return refused();
++    branchBinding ??= { connection, pool: new Pool({ connectionString: connection, max: 2, connectionTimeoutMillis: 10000,
++      idleTimeoutMillis: 1000, options: '-c statement_timeout=30000 -c lock_timeout=10000' }) };
++    const db = pooledCalendarDatabase(branchBinding.pool);
++    return { job: a.job, targetVersion: a.targetVersion,
++      branch: { jobId: ctx.jobId, branchId: a.row.neonBranchId, targetVersion: a.targetVersion },
++      reviewedSuite: a.binding.reviewed_calendar, systemPrompt: a.intake.endpoint.systemPrompt, knownSecrets: a.knownSecrets,
++      dependencies: { db, simulator: new CalendarSimulator(new PostgresCalendarStore(db)), targetForScenario: () => platformTarget(a.intake.endpoint) } };
++  } });
++  const reportServices = createTrackBServices({ runner,
++    resolveJob: async current => {
++      if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++      return (await canonical()).job;
++    }, resolveKnownSecrets: async () => (await canonical()).knownSecrets,
++    // Missing non-session billing remains explicitly unknown in the report.
++  });
++  async function bindTextBaseline(suiteDigest: string, runId: string) {
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    await text.reportInput(ctx, { suiteDigest, runId }); // completed investigation and exact associations required
++    await sql.query(`UPDATE workflow_integration.bindings SET baseline_suite_digest=$2,baseline_run_id=$3
++      WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
++      RETURNING job_id`, [ctx.jobId,suiteDigest,runId]).then(r => { if (r.rows.length !== 1) return refused(); });
++  }
++  return { text, calendar, inventory, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
++    targetVersion: initial.targetVersion, knownSecrets: initial.knownSecrets };
++}
+--- /dev/null
++++ b/apps/web/src/server/workflow-costs.ts
+@@ -0,0 +1,22 @@
++import { CostEntry } from '@ae/core/contracts/index';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++
++/** Same transaction inserts the canonical cost and its dedup key; conflicts never overwrite facts. */
++export async function upsertWorkflowCost(sql: AgentTransactionalSql, raw: unknown): Promise<void> {
++  const e = CostEntry.parse(raw);
++  const key = e.meta?.idempotencyKey;
++  if (e.source === 'naive' && (typeof key !== 'string' || key !== `naive:${e.sessionId}`)) throw new Error('measured_cost_identity_required');
++  await sql.transaction(async tx => {
++    if (typeof key === 'string') {
++      const claimed = await tx.query<{ payload: unknown }>(`INSERT INTO workflow_integration.cost_keys(job_id,key,payload)
++        VALUES($1,$2,$3::jsonb) ON CONFLICT(key) DO NOTHING RETURNING payload`, [e.jobId, key, JSON.stringify(e)]);
++      if (!claimed.rows.length) {
++        const existing = await tx.query<{ agrees: boolean }>('SELECT payload=$3::jsonb AS agrees FROM workflow_integration.cost_keys WHERE job_id=$1 AND key=$2', [e.jobId,key,JSON.stringify(e)]);
++        if (existing.rows[0]?.agrees !== true) throw new Error('measured_cost_identity_conflict');
++        return;
++      }
++    }
++    await tx.query(`INSERT INTO costs(job_id,source,agent,session_id,micro_usd,meta) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,
++      [e.jobId,e.source,e.agent??null,e.sessionId??null,e.microUsd,JSON.stringify(e.meta)]);
++  });
++}
+--- /dev/null
++++ b/apps/web/src/server/workflow-costs.test.ts
+@@ -0,0 +1,50 @@
++import { afterEach, describe, expect, it } from 'vitest';
++import { PGlite } from '@electric-sql/pglite';
++import { upsertWorkflowCost } from './workflow-costs';
++import type { AgentTransactionalSql, AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++
++const stores: PGlite[] = [];
++afterEach(async () => { await Promise.all(stores.splice(0).map(db => db.close())); });
++async function fixture() {
++  const db = new PGlite(); stores.push(db);
++  await db.exec(`CREATE SCHEMA workflow_integration;
++    CREATE TABLE workflow_integration.cost_keys(job_id uuid,key text,payload jsonb,PRIMARY KEY(key));
++    CREATE TABLE costs(job_id uuid,source text,agent text,session_id text,micro_usd bigint,meta jsonb);`);
++  const query: AgentSqlExecutor['query'] = async (text, values) => ({ rows: (await db.query(text, values)).rows as never[] });
++  const sql: AgentTransactionalSql = { query, transaction: fn => db.transaction(async tx => fn({ query: async (text, values) => ({ rows: (await tx.query(text,values)).rows as never[] }) })) };
++  return { db, sql };
++}
++const entry = { jobId: '11111111-1111-4111-8111-111111111111', source: 'naive', agent: 'engineer', sessionId: 'session1', microUsd: 123,
++  meta: { idempotencyKey: 'naive:session1' } };
++describe('Workflow measured cost sink', () => {
++  it('replays lost acknowledgements after fresh sink construction without duplicate costs', async () => {
++    const { db, sql } = await fixture();
++    await upsertWorkflowCost(sql,entry);
++    const fresh = { ...sql };
++    await upsertWorkflowCost(fresh,entry);
++    expect((await db.query('SELECT sum(micro_usd)::int AS total,count(*)::int AS count FROM costs')).rows).toEqual([{ total:123,count:1 }]);
++  });
++  it('refuses changed costs under existing identity and preserves the original', async () => {
++    const { db, sql } = await fixture();
++    await upsertWorkflowCost(sql,entry);
++    await expect(upsertWorkflowCost(sql,{...entry,microUsd:999})).rejects.toThrow('measured_cost_identity_conflict');
++    expect((await db.query('SELECT micro_usd::int AS amount FROM costs')).rows).toEqual([{amount:123}]);
++  });
++  it('refuses session reuse across different jobs', async () => {
++    const { sql } = await fixture();
++    await upsertWorkflowCost(sql,entry);
++    await expect(upsertWorkflowCost(sql,{...entry,jobId:'22222222-2222-4222-8222-222222222222'})).rejects.toThrow('measured_cost_identity_conflict');
++  });
++  it('rolls back the dedup key when recording the canonical cost fails', async () => {
++    const { db, sql } = await fixture();
++    await db.exec('ALTER TABLE costs ADD CONSTRAINT fixture_reject CHECK(micro_usd=0)');
++    await expect(upsertWorkflowCost(sql,entry)).rejects.toThrow();
++    expect((await db.query('SELECT count(*)::int AS count FROM workflow_integration.cost_keys')).rows).toEqual([{count:0}]);
++  });
++  it('rejects unkeyed measured session costs and records measured zero honestly', async () => {
++    const { db, sql } = await fixture();
++    await expect(upsertWorkflowCost(sql,{...entry,meta:{}})).rejects.toThrow('measured_cost_identity_required');
++    await upsertWorkflowCost(sql,{...entry,microUsd:0});
++    expect((await db.query('SELECT micro_usd::int AS amount FROM costs')).rows).toEqual([{amount:0}]);
++  });
++});
+--- a/apps/web/src/server/job-store.ts
++++ b/apps/web/src/server/job-store.ts
+@@ -1,4 +1,6 @@
+ import "server-only";
++import { workflowSql } from "./rich-services";
++import { upsertWorkflowCost } from "./workflow-costs";
+ import { createServiceAdapters } from "@ae/core/adapters/index";
+ import { and, desc, eq, sql } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+@@ -39,10 +41,7 @@
+ }
+ 
+ export async function recordCost(entry: CostEntry): Promise<void> {
+-  const e = CostEntry.parse(entry);
+-  await db().insert(schema.costs).values({
+-    jobId: e.jobId, source: e.source, agent: e.agent ?? null, sessionId: e.sessionId ?? null, microUsd: e.microUsd, meta: e.meta,
+-  });
++  await upsertWorkflowCost(workflowSql(), entry);
+ }
+ 
+ /** Persists findings. Idempotent per (jobId, findingKey): existing keys are left untouched (originals are never overwritten). */
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -219,7 +219,7 @@
+ 
+ /**
+  * EVAL_SERVICES=mock (default) -> deterministic fixtures.
+- * EVAL_SERVICES=real -> Track B engine (@ae/core/integration/eval-services), lite engine for methods Track B marks unavailable.
++ * EVAL_SERVICES=real -> Track B engine; unresolved capabilities fail closed.
+  * EVAL_SERVICES=lite -> lite engine only (@ae/core/lite: AI gateway + SSRF-safe target transport).
+  * All lazy; no I/O until first call.
+  */
+@@ -230,6 +230,6 @@
+     lite ??= withWorkflowErrors(liteServices());
+     return lite;
+   }
+-  real ??= withWorkflowErrors(withLiteFallback(trackBServices, liteServices()));
++  real ??= withWorkflowErrors(trackBServices);
+   return real;
+ }
+--- a/packages/core/src/integration/eval-services.ts
++++ b/packages/core/src/integration/eval-services.ts
+@@ -14,6 +14,7 @@
+ import { db, schema } from "../db/client";
+ import { createNaiveClient, createNaiveSessionsPort } from "../agents/naive-adapter";
+ import { PostgresAgentTaskStore, PostgresBudgetLedger } from "../agents/postgres-ports";
++import { ensureAgents } from "../agents/provision";
+ import { AgentSessionService } from "../agents/session-service";
+ import { pooledCalendarDatabase } from "../simulator/pool";
+ import { PostgresBranchLedger } from "../simulator/branch-ledger";
+@@ -43,7 +44,7 @@
+   company_operator: "NAIVE_AGENT_COMPANY_OPERATOR",
+ };
+ 
+-const AGENT_ENV = ["NAIVE_API_KEY", "DATABASE_URL", ...Object.values(NAIVE_AGENT_ENV)];
++const AGENT_ENV = ["NAIVE_API_KEY", "DATABASE_URL", "NAIVE_BUDGET_PERIOD_ID", "NAIVE_IDEMPOTENCY_NAMESPACE", ...Object.values(NAIVE_AGENT_ENV)];
+ const BRANCH_ENV = ["NEON_API_KEY", "NEON_PROJECT_ID", "NEON_SIM_SEED_BRANCH_ID", "DATABASE_URL"];
+ 
+ const missingFrom = (names: readonly string[], env: NodeJS.ProcessEnv): string[] => names.filter((n) => !env[n]?.trim());
+@@ -64,8 +65,8 @@
+     const raw = process.env[NAIVE_AGENT_ENV[role]]!.trim();
+     const [agentId, version] = raw.split("@");
+     const agentVersion = version ? Number(version) : undefined;
+-    if (!agentId || (version !== undefined && !(Number.isSafeInteger(agentVersion) && agentVersion! > 0))) {
+-      throw new EvalServiceConfigError("agents", [`${NAIVE_AGENT_ENV[role]} (expected <agentId>[@<version>])`]);
++    if (!agentId || version === undefined || !(Number.isSafeInteger(agentVersion) && agentVersion! > 0)) {
++      throw new EvalServiceConfigError("agents", [`${NAIVE_AGENT_ENV[role]} (expected <agentId>@<version>)`]);
+     }
+     return [role, { agentId, agentVersion }] as const;
+   });
+@@ -91,17 +92,24 @@
+   return { customerId: job.customerId, package: job.package, isFixture: false, linkedRetestOf: job.retestOfJobId ?? null, quoteVersion: null };
+ }
+ 
+-async function buildAgentDeps(): Promise<TrackBServiceDeps> {
++export async function buildAgentDeps(): Promise<TrackBServiceDeps> {
+   const env = requireEnv("agents", AGENT_ENV);
+   const sql = pooledCalendarDatabase(sqlPool(env.DATABASE_URL));
+-  const naive = createNaiveSessionsPort(createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined }));
++  const client = createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined });
++  const configuredDirectory = agentDirectory();
++  // Read-only attestation of exact configured versions. Never create/update agents from a request.
++  const verified = await ensureAgents(client, { directory: configuredDirectory, dryRun: true });
++  if (verified.missing.length || AgentRoleSchema.options.some(role => !verified.directory[role])) {
++    throw new EvalServiceConfigError("agents", ["verified pinned Naive role versions"]);
++  }
++  const naive = createNaiveSessionsPort(client);
+   const runner = new AgentSessionService({
+     naive,
+     store: new PostgresAgentTaskStore(sql),
+     ledger: new PostgresBudgetLedger(sql),
+-    directory: agentDirectory(),
+-    budgetPeriodId: process.env.NAIVE_BUDGET_PERIOD_ID || new Date().toISOString().slice(0, 7),
+-    idempotencyNamespace: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
++    directory: verified.directory as AgentDirectory,
++    budgetPeriodId: env.NAIVE_BUDGET_PERIOD_ID,
++    idempotencyNamespace: env.NAIVE_IDEMPOTENCY_NAMESPACE,
+     workerId: randomUUID(),
+   });
+   return { runner, resolveJob };
+--- a/packages/core/src/integration/compose.test.ts
++++ b/packages/core/src/integration/compose.test.ts
+@@ -55,7 +55,7 @@
+ describe("env-configured evalServices", () => {
+   it("reports missing env var names (never values)", () => {
+     const m = missingRealServiceEnv({ DATABASE_URL: "postgres://u:p@h/db" });
+-    expect(m.agents).toEqual(["NAIVE_API_KEY", ...Object.values(NAIVE_AGENT_ENV)]);
++    expect(m.agents).toEqual(["NAIVE_API_KEY", "NAIVE_BUDGET_PERIOD_ID", "NAIVE_IDEMPOTENCY_NAMESPACE", ...Object.values(NAIVE_AGENT_ENV)]);
+     expect(m.branches).toEqual(["NEON_API_KEY", "NEON_PROJECT_ID", "NEON_SIM_SEED_BRANCH_ID"]);
+   });
+ 
+--- /dev/null
++++ b/apps/web/migrations/001-workflow-integration.sql
+@@ -0,0 +1,24 @@
++-- Apply once using deployment migration credentials, before starting Workflow workers.
++-- Runtime service role must not own this schema or have DDL rights.
++BEGIN;
++CREATE SCHEMA IF NOT EXISTS workflow_integration;
++CREATE TABLE workflow_integration.cost_keys (
++ job_id uuid NOT NULL REFERENCES jobs(id), key text NOT NULL, payload jsonb NOT NULL,
++ PRIMARY KEY(key)
++);
++-- Existing keyed ledger entries must acquire the same identity before replay is enabled.
++-- Duplicate historical keys intentionally abort this transaction for operator reconciliation.
++INSERT INTO workflow_integration.cost_keys(job_id,key,payload)
++ SELECT job_id,meta->>'idempotencyKey',jsonb_strip_nulls(jsonb_build_object(
++   'jobId',job_id,'source',source,'agent',agent,'sessionId',session_id,'microUsd',micro_usd,'meta',meta))
++ FROM costs WHERE job_id IS NOT NULL AND jsonb_typeof(meta->'idempotencyKey')='string';
++-- Populated by an authenticated operator admission transaction. Never customer request JSON.
++-- Updating target_revision changes the target version and blocks existing checkpoint replay.
++CREATE TABLE workflow_integration.bindings (
++ job_id uuid PRIMARY KEY REFERENCES jobs(id), target_revision text NOT NULL CHECK(target_revision ~ '^[A-Za-z0-9_.:-]{1,128}$'),
++ reviewed_calendar jsonb, isolation text, baseline_suite_digest text, baseline_run_id text,
++ admitted_by uuid NOT NULL REFERENCES customers(id), admitted_at timestamptz NOT NULL DEFAULT now()
++);
++REVOKE ALL ON SCHEMA workflow_integration FROM PUBLIC;
++REVOKE ALL ON ALL TABLES IN SCHEMA workflow_integration FROM PUBLIC;
++COMMIT;
+--- /dev/null
++++ b/apps/web/src/app/api/operator/jobs/[jobId]/workflow-binding/route.ts
+@@ -0,0 +1,42 @@
++import { z } from 'zod';
++import { containsSecret } from '@ae/core/agents/redact';
++import { freezeCalendarSuite, type CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
++import { requireOperator, readJson, jsonError, isUuid } from '@/server/http';
++import { getJobWithDecryptedCredentials } from '@/server/job-store';
++import { workflowSql } from '@/server/rich-services';
++
++const Input = z.object({ targetRevision: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
++  calendar: z.unknown().optional() }).strict();
++/** Human operator admission, never customer/model review authority. Repeated exact admission replays. */
++export async function POST(req: Request, context: { params: Promise<{ jobId: string }> }) {
++  const auth = await requireOperator();
++  if (auth.res) return auth.res;
++  const { jobId } = await context.params;
++  if (!isUuid(jobId)) return jsonError(404, 'Not found');
++  const body = await readJson(req, Input);
++  if (!body.ok) return body.res;
++  const loaded = await getJobWithDecryptedCredentials(jobId);
++  if (!loaded || loaded.job.isMock || !['text_eval','workflow_eval'].includes(loaded.job.package)) return jsonError(404,'Not found');
++  let calendar: CalendarSuiteInput | null = null;
++  if (loaded.job.package === 'workflow_eval') {
++    try {
++      const proposed = body.data.calendar as CalendarSuiteInput;
++      if (!proposed || proposed.jobId !== jobId || proposed.review?.reviewerId !== auth.viewer.id || proposed.review.approved !== true) throw new Error();
++      // Exactly twelve reviewed cases. Appended 32-case packs are explicitly rejected by the engine.
++      const { hash: _hash, ...frozen } = freezeCalendarSuite(proposed);
++      if (frozen.origin === 'internal_fixture') throw new Error(); // fixtures use dedicated server seeding, not this customer intake
++      calendar = frozen;
++    } catch { return jsonError(400,'Exactly twelve valid cases and authenticated operator review required; appended packs are unsupported.'); }
++  } else if (body.data.calendar !== undefined) return jsonError(400,'Calendar suite is not valid for text jobs');
++  const secrets = Object.values(loaded.credentials).filter((v): v is string => typeof v === 'string');
++  if (secrets.some(s => s.length < 4) || containsSecret(JSON.stringify(body.data), secrets)) return jsonError(400,'Credential content refused');
++  const db = workflowSql();
++  const result = await db.query(`INSERT INTO workflow_integration.bindings(job_id,target_revision,reviewed_calendar,admitted_by)
++    VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id
++    WHERE workflow_integration.bindings.target_revision=EXCLUDED.target_revision
++      AND workflow_integration.bindings.reviewed_calendar IS NOT DISTINCT FROM EXCLUDED.reviewed_calendar
++      AND workflow_integration.bindings.admitted_by=EXCLUDED.admitted_by RETURNING job_id`,
++    [jobId,body.data.targetRevision,calendar ? JSON.stringify(calendar) : null,auth.viewer.id]);
++  if (result.rows.length !== 1) return jsonError(409,'Admission identity conflict; existing evidence must be reconciled');
++  return Response.json({ admitted: true, scope: 'frozen12', richPack: 'unsupported' });
++}
