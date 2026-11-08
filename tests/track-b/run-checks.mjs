@@ -1,7 +1,8 @@
+import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -10,8 +11,6 @@ const repo = resolve(here, '../..');
 const source = join(repo, 'packages/core/src');
 const contractsRepoPath = 'packages/core/src/contracts';
 const owned = ['agents', 'evals', 'reporting', 'targets', 'simulator', 'monitoring', 'judges'];
-/** Track B source directories each directory imports at type/runtime level (staged without their tests when unselected). */
-const sourceDependencies = { simulator: ['targets'], agents: ['evals', 'reporting'], evals: ['agents', 'reporting', 'simulator', 'judges', 'monitoring'], reporting: ['agents', 'evals'], monitoring: ['evals', 'simulator'] };
 /** Compatibility components: tests live in tests/track-b/contract-checks and are staged to src/contract-checks. */
 const contractComponents = {
   'contract-schemas': { files: ['schema-compat.test.ts'], needs: [] },
@@ -22,18 +21,20 @@ const contractComponents = {
 const allContract = Object.keys(contractComponents);
 const testFile = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
 
-const usage = `Usage: node run-checks.mjs [--components a,b,...] [--track-a-ref <git-ref>]
+const usage = `Usage: node run-checks.mjs [--components a,b,...] [--track-a-ref <git-ref>] [--dependency-dir <existing-node_modules>] [--dependency-fallback-dir <existing-node_modules>]
 Components: ${[...owned, 'contract-checks (all contract-*)', ...allContract].join(', ')}
 Omit --components for the full check (every Track B directory plus every compatibility component).
---track-a-ref reads packages/core/src/contracts from that exact, already-fetched local git revision.`;
+--track-a-ref pins contracts and every imported Track A support blob to that local revision.
+--dependency-dir uses an existing node_modules directory (default tests/track-b/node_modules); never installs or mutates it.
+--dependency-fallback-dir supplies missing packages only, via links in disposable staging (primary wins).`;
 
 function parseArgs(argv) {
-  const parsed = { components: undefined, ref: undefined };
+  const parsed = { components: undefined, ref: undefined, dependencyDir: undefined, fallbackDir: undefined };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     const [flag, inline] = arg.startsWith('--') && arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, undefined];
-    if (flag !== '--components' && flag !== '--track-a-ref') throw new Error(`Unknown argument ${JSON.stringify(arg)}.\n${usage}`);
-    const key = flag === '--components' ? 'components' : 'ref';
+    if (flag !== '--components' && flag !== '--track-a-ref' && flag !== '--dependency-dir' && flag !== '--dependency-fallback-dir') throw new Error(`Unknown argument ${JSON.stringify(arg)}.\n${usage}`);
+    const key = flag === '--components' ? 'components' : flag === '--dependency-dir' ? 'dependencyDir' : flag === '--dependency-fallback-dir' ? 'fallbackDir' : 'ref';
     if (parsed[key] !== undefined) throw new Error(`${flag} was supplied more than once.`);
     const value = inline ?? argv[++index];
     if (value === undefined || value === '') throw new Error(`${flag} requires a value.`);
@@ -112,31 +113,16 @@ async function listFiles(directory) {
 const exists = (path) => stat(path).then(() => true, (error) => (error.code === 'ENOENT' ? false : Promise.reject(error)));
 
 async function main() {
-  const { components: spec, ref } = parseArgs(process.argv.slice(2));
+  const { components: spec, ref, dependencyDir: dependencyOption, fallbackDir: fallbackOption } = parseArgs(process.argv.slice(2));
   const selected = selectComponents(spec);
   const selectedSource = selected.filter((name) => owned.includes(name));
   const selectedContract = selected.filter((name) => allContract.includes(name));
-  // Follow transitive imports; cycles among agents/evals/reporting are intentional.
-  const required = new Set(selectedSource);
-  const pending = [...selectedSource, ...selectedContract.flatMap(name => contractComponents[name].needs)];
-  const visited = new Set();
-  while (pending.length) {
-    const name = pending.pop();
-    if (visited.has(name)) continue;
-    visited.add(name); required.add(name);
-    pending.push(...(sourceDependencies[name] ?? []));
-  }
-  const support = [...required].filter(name => !selectedSource.includes(name));
-
-  // Fail before staging when any required input is absent. Nothing is skipped silently.
+  // Only selected directories seed the graph. Imports add individual source files,
+  // never entire support directories or their unrelated tests.
   const problems = [];
-  for (const name of [...selectedSource, ...support]) {
-    if (!(await exists(join(source, name)))) problems.push(`Track B source directory not integrated: ${name}`);
-  }
   for (const name of selectedSource) {
-    if (!problems.some((problem) => problem.endsWith(`: ${name}`)) && !(await listFiles(join(source, name))).some((file) => testFile.test(file))) {
-      problems.push(`No test files found in ${name}`);
-    }
+    if (!(await exists(join(source, name)))) problems.push(`Track B source directory not integrated: ${name}`);
+    else if (!(await listFiles(join(source, name))).some(file => testFile.test(file))) problems.push(`No test files found in ${name}`);
   }
   const compatDir = join(here, 'contract-checks');
   for (const name of selectedContract) {
@@ -157,49 +143,105 @@ async function main() {
     process.exit(1);
   }
 
+  const dependencyDir = await realpath(resolve(dependencyOption ?? join(here, 'node_modules')));
+  // Validate the dependency tree before staging; no fallback or package installation.
+  for (const path of ['typescript/package.json', 'typescript/bin/tsc', 'vitest/package.json', 'vitest/vitest.mjs']) {
+    const full = join(dependencyDir, path);
+    if (path.endsWith('package.json')) JSON.parse(await readFile(full, 'utf8'));
+    else if (!await exists(full)) throw new Error(`Missing dependency executable: ${full}`);
+  }
+  const fallbackDir = fallbackOption ? await realpath(resolve(fallbackOption)) : undefined;
+  const ts = createRequire(import.meta.url)(join(dependencyDir, 'typescript'));
   const staging = await mkdtemp(join(tmpdir(), 'ae-track-b-'));
   const stagedTests = [];
   try {
     await mkdir(join(staging, 'src'));
+    const queued = [];
+    const staged = new Map();
+    const pinned = new Map((contracts?.files ?? []).map(file => [`contracts/${file.relative}`, file.content]));
+    const aBlobs = new Map();
+    const safeRelative = relative => {
+      if (!/^(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(relative) || relative.split('/').some(p => p === '..' || p === '.')) throw new Error(`Unsafe source path: ${relative}`);
+      const root = relative.split('/')[0].replace(/\.ts$/, '');
+      if (![...owned, 'contracts', 'sandbox', 'ai'].includes(root)) throw new Error(`Unaudited source root: ${relative}`);
+    };
+    const contentAt = async relative => {
+      safeRelative(relative);
+      if (pinned.has(relative)) return pinned.get(relative);
+      const isA = !owned.includes(relative.split('/')[0]);
+      if (contracts && isA) {
+        const listing = git(['ls-tree', contracts.sha, '--', `packages/core/src/${relative}`]);
+        const entry = /^100(?:644|755) blob ([a-f0-9]+)\t[^\n]+\n?$/.exec(listing.stdout);
+        if (!entry) return undefined;
+        const blob = git(['cat-file', 'blob', entry[1]], 'buffer');
+        if (blob.status !== 0) throw new Error(`Cannot read pinned source: ${relative}`);
+        aBlobs.set(relative, entry[1]);
+        return blob.stdout;
+      }
+      if (!await exists(join(source, relative))) return undefined;
+      return readFile(join(source, relative));
+    };
+    const enqueue = async relative => {
+      if (staged.has(relative)) return;
+      const content = await contentAt(relative);
+      if (content === undefined) throw new Error(`Missing source dependency: ${relative}`);
+      staged.set(relative, content); queued.push(relative);
+    };
     for (const directory of selectedSource) {
-      await cp(join(source, directory), join(staging, 'src', directory), { recursive: true });
-      for (const file of await listFiles(join(staging, 'src', directory))) if (testFile.test(file)) stagedTests.push(file);
-    }
-    for (const directory of support) {
-      await cp(join(source, directory), join(staging, 'src', directory), { recursive: true, filter: (path) => !testFile.test(path) });
-    }
-    if (contracts) {
-      for (const file of contracts.files) {
-        const destination = join(staging, 'src/contracts', file.relative);
-        if (!destination.startsWith(join(staging, 'src/contracts') + sep)) throw new Error('Contract path escaped staging.');
-        await mkdir(dirname(destination), { recursive: true });
-        await writeFile(destination, file.content);
+      for (const file of await listFiles(join(source, directory))) {
+        if (!file.endsWith('.ts')) continue;
+        const relative = file.slice(source.length + 1);
+        await enqueue(relative);
+        if (testFile.test(file)) stagedTests.push(join(staging, 'src', relative));
       }
-    } else if (localContracts) {
-      await cp(join(source, 'contracts'), join(staging, 'src/contracts'), { recursive: true, filter: (path) => !testFile.test(path) });
     }
-    // Sandbox engine modules share Track A's exact spec, separate from legacy contracts.
-    if (await exists(join(staging, 'src/evals/sandbox'))) {
-      const specPath = 'packages/core/src/sandbox/spec.ts';
-      let content;
-      if (contracts) {
-        const listing = git(['ls-tree', contracts.sha, '--', specPath]);
-        if (listing.status !== 0 || !/^100644 blob [a-f0-9]+\tpackages\/core\/src\/sandbox\/spec\.ts\n?$/.test(listing.stdout)) {
-          throw new Error(`Sandbox engine requires ${specPath} in the selected Track A ref; select a revision containing sandbox-spec-v1.`);
+    if (contracts) for (const file of contracts.files) await enqueue(`contracts/${file.relative}`);
+    else if (localContracts) for (const file of await listFiles(join(source, 'contracts'))) {
+      if (file.endsWith('.ts') && !testFile.test(file)) await enqueue(file.slice(source.length + 1));
+    }
+    // Compatibility roots participate in the same graph but remain outside core source.
+    for (const name of selectedContract) for (const file of contractComponents[name].files) {
+      const relative = `contract-checks/${file}`;
+      staged.set(relative, await readFile(join(compatDir, file))); queued.push(relative);
+    }
+    while (queued.length) {
+      const relative = queued.shift();
+      const text = staged.get(relative).toString('utf8');
+      const resolveRelative = specifier => {
+        const absolute = resolve('/core', dirname(relative), specifier);
+        if (!absolute.startsWith('/core/')) throw new Error(`Import escaped core source: ${relative}: ${specifier}`);
+        return absolute.slice('/core/'.length);
+      };
+      for (const imported of ts.preProcessFile(text, true, true).importedFiles) {
+        if (!imported.fileName.startsWith('.')) continue;
+        const base = resolveRelative(imported.fileName);
+        const stem = base.replace(/\.[cm]?js$/, '');
+        const candidates = /\.(?:ts|json)$/.test(base) ? [base] : [`${stem}.ts`, `${stem}/index.ts`];
+        let found;
+        for (const candidate of candidates) {
+          if (testFile.test(candidate) && !stagedTests.includes(join(staging, 'src', candidate))) throw new Error(`Unselected test imported by ${relative}: ${candidate}`);
+          if (staged.has(candidate) || await contentAt(candidate) !== undefined) { found = candidate; break; }
         }
-        const blob = git(['show', `${contracts.sha}:${specPath}`], 'buffer');
-        if (blob.status !== 0) throw new Error('Cannot read pinned sandbox spec');
-        content = blob.stdout;
-      } else {
-        if (!await exists(join(source, 'sandbox/spec.ts'))) throw new Error('Sandbox engine requires --track-a-ref or a local sandbox/spec.ts');
-        content = await readFile(join(source, 'sandbox/spec.ts'));
+        if (!found) throw new Error(`Unresolved relative import: ${relative}: ${imported.fileName}`);
+        await enqueue(found);
       }
-      await mkdir(join(staging, 'src/sandbox'), { recursive: true });
-      await writeFile(join(staging, 'src/sandbox/spec.ts'), content);
-      console.log(`Sandbox spec digest sha256:${createHash('sha256').update(content).digest('hex')}`);
+      // Audited resource shape: literal relative SQL/JSON fixture paths. This also
+      // handles the migration array in calendar-integration/services.test.ts.
+      for (const match of text.matchAll(/['"](\.[^'"\r\n]*\.(?:sql|json))['"]/g)) {
+        // The trace corpus is supplied through TRACE_ACCEPTANCE_PATH below.
+        if (relative === 'evals/trace/__tests__/trace-audit.test.ts' && match[1] === '../../../../../../tests/track-b/trace-acceptance.json') continue;
+        await enqueue(resolveRelative(match[1]));
+      }
     }
+    for (const [relative, content] of staged) {
+      const destination = join(staging, 'src', relative);
+      await mkdir(dirname(destination), { recursive: true });
+      await writeFile(destination, content);
+    }
+    console.log(`Source graph: ${staged.size} files; dependencies ${dependencyDir}`);
+    if (contracts) console.log(`Pinned Track A support blobs at ${contracts.sha}: ${JSON.stringify(Object.fromEntries([...aBlobs].sort()))}`);
     if (selectedContract.length) {
-      await mkdir(join(staging, 'src/contract-checks'));
+      await mkdir(join(staging, 'src/contract-checks'), { recursive: true });
       for (const name of selectedContract) {
         for (const file of contractComponents[name].files) {
           await cp(join(compatDir, file), join(staging, 'src/contract-checks', file));
@@ -207,7 +249,26 @@ async function main() {
         }
       }
     }
-    await symlink(join(here, 'node_modules'), join(staging, 'node_modules'), 'dir');
+    if (!fallbackDir) await symlink(dependencyDir, join(staging, 'node_modules'), 'dir');
+    else {
+      // Merge only package links into disposable staging, first directory wins.
+      // The existing dependency trees are read-only inputs.
+      const linked = new Set();
+      for (const directory of [dependencyDir, fallbackDir]) {
+        for (const entry of await readdir(directory, { withFileTypes: true })) {
+          if (entry.name.startsWith('.')) continue;
+          const names = entry.name.startsWith('@')
+            ? (await readdir(join(directory, entry.name))).map(name => `${entry.name}/${name}`)
+            : [entry.name];
+          for (const name of names) {
+            if (linked.has(name)) continue;
+            linked.add(name);
+            await mkdir(dirname(join(staging, 'node_modules', name)), { recursive: true });
+            await symlink(join(directory, name), join(staging, 'node_modules', name), 'dir');
+          }
+        }
+      }
+    }
     await writeFile(join(staging, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
     await writeFile(join(staging, 'tsconfig.json'), JSON.stringify({
       compilerOptions: {
@@ -223,16 +284,17 @@ async function main() {
       : localContracts ? 'local working tree packages/core/src/contracts (no revision recorded)' : 'none';
     console.log(`Shared contracts: ${contractSource}`);
 
+    const failures = [];
     const run = (program, args, env = {}) => {
       const result = spawnSync(process.execPath, [program, ...args], { cwd: staging, stdio: 'inherit', env: { ...process.env, ...env } });
       if (result.error) throw result.error;
-      if (result.status !== 0) throw new Error(`Check failed with exit ${result.status ?? result.signal}`);
+      if (result.status !== 0) failures.push(`Check ${program} failed with exit ${result.status ?? result.signal}`);
     };
-    run(join(here, 'node_modules/typescript/bin/tsc'), ['--project', join(staging, 'tsconfig.json')]);
+    run(join(dependencyDir, 'typescript/bin/tsc'), ['--project', join(staging, 'tsconfig.json')]);
     const resultsFile = join(staging, 'vitest-results.json');
     // Bound per-harness workers: several agent checkouts may validate concurrently,
     // and each PGlite worker starts its own PostgreSQL WASM instance.
-    run(join(here, 'node_modules/vitest/vitest.mjs'), ['run', '--root', staging, '--maxWorkers=2', '--reporter=default', '--reporter=json', `--outputFile.json=${resultsFile}`], {
+    run(join(dependencyDir, 'vitest/vitest.mjs'), ['run', '--root', staging, '--maxWorkers=2', '--reporter=default', '--reporter=json', `--outputFile.json=${resultsFile}`], {
       TRACK_A_CONTRACT_SHA: contracts?.sha ?? '',
       TRACE_ACCEPTANCE_PATH: join(here, 'trace-acceptance.json'),
     });
@@ -251,7 +313,8 @@ async function main() {
       else if (entry.status !== 'passed' || entry.assertionResults.some((test) => test.status !== 'passed')) incomplete.push(`${label}: failed, skipped, or todo tests`);
       else knownGaps += entry.assertionResults.filter((test) => test.title.startsWith('KNOWN GAP')).length;
     }
-    if (incomplete.length) throw new Error(`Test completeness check failed:\n${incomplete.map((line) => `- ${line}`).join('\n')}`);
+    if (incomplete.length) failures.push(`Test completeness check failed:\n${incomplete.map((line) => `- ${line}`).join('\n')}`);
+    if (failures.length) throw new Error(failures.join('\n'));
     console.log(`Track B checked components: ${selected.join(', ')}. Strict type-check passed; ${stagedTests.length} test files, ${report.numPassedTests} tests passed, none skipped.`);
     if (selectedContract.length) {
       console.log(`Documented Track A contract gaps asserted as still open: ${knownGaps}. A failing KNOWN GAP test means the contract changed; update docs/track-b-contract-compatibility.md and the check together. Live-provider checks are separate.`);
