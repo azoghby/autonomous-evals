@@ -1,0 +1,290 @@
+--- /dev/null
++++ b/apps/web/src/server/judge-accounting.ts
+@@ -0,0 +1,96 @@
++import type { AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++import { PostgresRemediationAccounting, type RemediationAccountingDeps, type RemediationOperation } from '@ae/core/evals/remediation/accounting/index';
++import type { JudgeUsage } from '@ae/core/judges/gateway';
++import type { ObservedUsage } from '@ae/core/targets/remediation';
++
++type Operation = RemediationOperation & { kind: 'judge' };
++interface Row {
++  job_id: string; kind: string; input_digest: string; allowed: boolean | null;
++  dispatch_evidence: unknown | null; usage: ObservedUsage; settlement: unknown | null;
++}
++const conflict = (): never => { throw new Error('judge_reconciliation_required'); };
++function checked(raw: RemediationOperation): Operation {
++  if (raw.kind !== 'judge' || !raw.operationId || raw.operationId.length > 4096
++    || /[\u0000\uD800-\uDFFF]/u.test(raw.operationId) || !/^[a-f0-9]{64}$/.test(raw.inputDigest)) conflict();
++  return { operationId: raw.operationId, inputDigest: raw.inputDigest, kind: 'judge' };
++}
++
++/** Joins the existing reservation, settlement and globally keyed cost delivery protocol.
++ * The same operations row fences dispatch across processes and restarts. A claim is
++ * permanent even if the process dies before HTTP: owner reconciliation is required.
++ * No lease expiry, automatic retry, local spend estimate or runtime DDL is used.
++ */
++export class JudgeAccounting {
++  private readonly core: PostgresRemediationAccounting;
++  constructor(private readonly deps: RemediationAccountingDeps) {
++    this.core = new PostgresRemediationAccounting(deps);
++  }
++  authorize(raw: RemediationOperation): Promise<boolean> {
++    return this.core.authorize(checked(raw));
++  }
++  private async locked(tx: AgentSqlExecutor, op: Operation): Promise<Row> {
++    const row = (await tx.query<Row>(
++      'SELECT * FROM remediation_accounting.operations WHERE operation_id=$1 FOR UPDATE', [op.operationId])).rows[0];
++    if (!row || row.job_id !== this.deps.jobId || row.kind !== 'judge'
++      || row.input_digest !== op.inputDigest || row.allowed !== true) return conflict();
++    return row;
++  }
++  private async outbox(tx: AgentSqlExecutor, id: string, reason: string) {
++    await tx.query(`INSERT INTO remediation_accounting.reconciliation_outbox(operation_id,pending,reason)
++      VALUES($1,true,$2) ON CONFLICT(operation_id) DO UPDATE SET pending=true,reason=EXCLUDED.reason`, [id, reason]);
++  }
++  async claim(raw: RemediationOperation): Promise<void> {
++    const op = checked(raw);
++    await this.deps.sql.transaction(async tx => {
++      const row = await this.locked(tx, op);
++      if (row.dispatch_evidence !== null || row.settlement !== null) return conflict();
++      // Local intent receipt, never remote/provider attestation. The bound input digest
++      // includes model/config and payload in the trusted app resolver.
++      await tx.query('UPDATE remediation_accounting.operations SET dispatch_evidence=$2::jsonb WHERE operation_id=$1',
++        [op.operationId, JSON.stringify({ ...op, jobId: this.deps.jobId })]);
++      await this.outbox(tx, op.operationId, 'dispatched');
++    });
++  }
++  async observed(raw: RemediationOperation, usage: JudgeUsage): Promise<void> {
++    const op = checked(raw);
++    if (usage.operationId !== op.operationId || usage.source !== 'ai_gateway'
++      || usage.costMicroUsd !== null || !['unknown', 'received'].includes(usage.result)) return conflict();
++    for (const n of [usage.promptTokens, usage.completionTokens]) {
++      if (n !== null && (!Number.isSafeInteger(n) || n < 0)) return conflict();
++    }
++    const measured: ObservedUsage = usage.promptTokens === null || usage.completionTokens === null ? null : {
++      promptTokens: usage.promptTokens, completionTokens: usage.completionTokens,
++      totalTokens: usage.promptTokens + usage.completionTokens,
++    };
++    if (measured && !Number.isSafeInteger(measured.totalTokens)) return conflict();
++    await this.deps.sql.transaction(async tx => {
++      const row = await this.locked(tx, op);
++      if (row.dispatch_evidence === null) return conflict();
++      if (measured !== null) {
++        if (row.usage !== null && (row.usage.promptTokens !== measured.promptTokens
++          || row.usage.completionTokens !== measured.completionTokens || row.usage.totalTokens !== measured.totalTokens)) return conflict();
++        await tx.query('UPDATE remediation_accounting.operations SET usage=$2::jsonb WHERE operation_id=$1', [op.operationId, JSON.stringify(measured)]);
++      }
++      if (!row.settlement) await this.outbox(tx, op.operationId,
++        usage.result === 'unknown' ? 'ambiguous' : measured || row.usage ? 'usage_observed' : 'usage_unknown');
++      if (usage.result === 'unknown') await tx.query('UPDATE remediation_accounting.operations SET ambiguous=true WHERE operation_id=$1', [op.operationId]);
++    });
++  }
++  async ambiguous(raw: RemediationOperation): Promise<void> {
++    const op = checked(raw);
++    await this.deps.sql.transaction(async tx => {
++      const row = await this.locked(tx, op);
++      if (row.dispatch_evidence === null) return conflict();
++      await tx.query('UPDATE remediation_accounting.operations SET ambiguous=true WHERE operation_id=$1', [op.operationId]);
++      if (!row.settlement) await this.outbox(tx, op.operationId, 'ambiguous');
++    });
++  }
++  /** Authenticated provider receipt only. Null money retains the original hold;
++   * numeric money settles the ledger and keyed delivery in the same transaction.
++   * A lost acknowledgement is safely replayed through the existing core protocol.
++   */
++  reconcile(input: Parameters<PostgresRemediationAccounting['reconcile']>[0]): Promise<void> {
++    return this.core.reconcile(input);
++  }
++  pending(): Promise<unknown[]> { return this.core.pending(); }
++}
+--- /dev/null
++++ b/apps/web/src/server/rich-judge.ts
+@@ -0,0 +1,119 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { createGatewayJudge, type JudgeInput } from '@ae/core/judges/gateway';
++import { containsSecret } from '@ae/core/agents/redact';
++import { ROLE_DEFINITIONS } from '@ae/core/agents/roles';
++import { PRICE_TABLE } from '@ae/core/evals/pricing';
++import type { JobRef } from '@ae/core/evals/types';
++import type { TextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import type { RemediationAccountingDeps } from '@ae/core/evals/remediation/accounting/index';
++import { canonicalJson } from '@ae/core/evals/text/index';
++import { JudgeAccounting } from './judge-accounting';
++
++export interface JudgePolicy {
++  model: string; configVersion: string; privateKeyRef: string; reservationMicroUsd: number;
++  periodId: string; auth: 'api_key' | 'oidc';
++}
++export interface TrustedJudgeRuntime {
++  signal: AbortSignal;
++  beforeDispatch(intent: { kind: 'gateway'; operationId: string }): Promise<void>;
++  token(ref: string, auth: JudgePolicy['auth']): Promise<string>;
++  /** Offline fixtures only; production uses the secured, fixed Gateway URL in createGatewayJudge. */
++  fetch?: typeof fetch;
++}
++const refuse = (): never => { throw new Error('judge_reconciliation_required'); };
++export function createTrustedJudgeResolver(deps: {
++  sql: RemediationAccountingDeps['sql']; checkpoints: TextCheckpointStore;
++  canonical(): Promise<{ job: JobRef; knownSecrets: readonly string[]; targetVersion: string }>;
++  policy: JudgePolicy; runtime: TrustedJudgeRuntime; deliverCost: RemediationAccountingDeps['deliverCost'];
++}) {
++  const policy = Object.freeze({ ...deps.policy });
++  if (!policy.model.trim() || !policy.configVersion || !policy.privateKeyRef || !/^[A-Za-z0-9_-]+$/.test(policy.periodId)
++    || !Number.isSafeInteger(policy.reservationMicroUsd) || policy.reservationMicroUsd <= 0
++    || !['api_key','oidc'].includes(policy.auth)) refuse();
++  return async (raw: JudgeInput) => {
++    const input = structuredClone(raw);
++    let privateToken: string | undefined;
++    const a = await deps.canonical();
++    function safe(value: unknown, secrets = a.knownSecrets) { if (containsSecret(JSON.stringify(value), [...secrets, ...(privateToken ? [privateToken] : [])])) refuse(); }
++    safe(input);
++    const digest = createHash('sha256').update(canonicalJson({ input, policy, job: a.job, targetVersion: a.targetVersion })).digest('hex');
++    const operationId = `workflow-judge:${a.job.jobId}:${input.operationId}`;
++    const op = { operationId, kind: 'judge' as const, inputDigest: digest };
++    const key = { jobId: a.job.jobId, kind: 'gateway_judge', id: operationId, inputDigest: digest };
++    const accounting = new JudgeAccounting({ sql: deps.sql, jobId: a.job.jobId, deliverCost: deps.deliverCost,
++      reservation: () => ({ reservationId: operationId, jobId: a.job.jobId, amountMicroUsd: policy.reservationMicroUsd, scopes: [
++        { key: `job:${a.job.jobId}`, capMicroUsd: PRICE_TABLE[a.job.package].jobBudgetMicroUsd },
++        { key: `agent:evaluation_engineer:${policy.periodId}`, capMicroUsd: ROLE_DEFINITIONS.evaluation_engineer.periodCapMicroUsd },
++      ] }) });
++    async function current() {
++      deps.runtime.signal.throwIfAborted();
++      const latest = await deps.canonical();
++      if (canonicalJson(latest.job) !== canonicalJson(a.job) || latest.targetVersion !== a.targetVersion) refuse();
++      safe(input, latest.knownSecrets);
++      return latest;
++    }
++    const claim = await deps.checkpoints.claim(key);
++    if (claim.state === 'completed') { const latest = await current(); safe(claim.value, latest.knownSecrets); return claim.value as Awaited<ReturnType<ReturnType<typeof createGatewayJudge>>>; }
++    if (claim.state !== 'claimed') return refuse();
++    let dispatched = false;
++    try {
++      const judge = createGatewayJudge({ model: policy.model,
++        token: async () => { await current(); privateToken = await deps.runtime.token(policy.privateKeyRef, policy.auth); safe(input); return privateToken; },
++        authorize: async () => {
++          await current();
++          if (!await accounting.authorize(op)) refuse();
++          await accounting.claim(op);
++        },
++        fetch: async (url, init) => {
++          // Core fixes URL/model/max_tokens/redirect; combine its timeout with parent cancellation.
++          if (url !== 'https://ai-gateway.vercel.sh/v1/chat/completions' || !init?.signal) return refuse();
++          const signal = AbortSignal.any([deps.runtime.signal, init.signal]);
++          await current();
++          await deps.runtime.beforeDispatch({ kind: 'gateway', operationId });
++          const latest = await current();
++          safe(init.body, latest.knownSecrets);
++          signal.throwIfAborted();
++          dispatched = true;
++          return (deps.runtime.fetch ?? fetch)(url, { ...init, signal });
++        },
++        recordUsage: async usage => {
++          const receipt = { ...usage, operationId }; safe(receipt);
++          await accounting.observed(op, receipt);
++          // Retain the actual provider ID/model/tokens for owner reconciliation in the existing store.
++          const usageKey = { ...key, kind: 'gateway_judge_usage' };
++          const saved = await deps.checkpoints.claim(usageKey);
++          if (saved.state === 'claimed') await deps.checkpoints.complete(usageKey, saved.token, receipt);
++          else if (saved.state !== 'completed' || canonicalJson(saved.value) !== canonicalJson(receipt)) refuse();
++        },
++      });
++      const verdict = await judge(input);
++      const latest = await current(); safe(verdict, latest.knownSecrets);
++      await deps.checkpoints.complete(key, claim.token, verdict);
++      return verdict;
++    } catch {
++      if (dispatched) await accounting.ambiguous(op).catch(() => undefined);
++      await deps.checkpoints.markAmbiguous(key, claim.token).catch(() => undefined);
++      return refuse();
++    }
++  };
++}
++
++/** Only server deployment configuration selects the model and private credential reference.
++ * No customer input or route accepts this policy or credentials. */
++export function workflowJudgePolicy(): JudgePolicy {
++  const auth = process.env.WORKFLOW_JUDGE_AUTH;
++  if (auth !== 'api_key' && auth !== 'oidc') return refuse();
++  return { model: process.env.WORKFLOW_JUDGE_MODEL ?? '', configVersion: process.env.WORKFLOW_JUDGE_CONFIG_VERSION ?? '',
++    reservationMicroUsd: Number(process.env.WORKFLOW_JUDGE_RESERVATION_MICRO_USD), periodId: process.env.NAIVE_BUDGET_PERIOD_ID ?? '',
++    auth, privateKeyRef: auth === 'api_key' ? 'AI_GATEWAY_API_KEY' : 'VERCEL_OIDC_TOKEN' };
++}
++export function workflowJudgeRuntime(): TrustedJudgeRuntime {
++  let dispatched = 0;
++  return { signal: AbortSignal.timeout(180000), beforeDispatch: async () => { if (++dispatched > 16) refuse(); }, token: async (ref, auth) => {
++    if (ref !== (auth === 'api_key' ? 'AI_GATEWAY_API_KEY' : 'VERCEL_OIDC_TOKEN')) return refuse();
++    const token = process.env[ref];
++    if (!token) return refuse();
++    return token;
++  } };
++}
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -1,3 +1,5 @@
++import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
++import { deliverRemediationCost } from './rich-remediation';
+ import 'server-only';
+ import { createHash } from 'node:crypto';
+ import { Pool } from '@neondatabase/serverless';
+@@ -33,7 +35,7 @@
+ const refused = (): never => { throw new TrackBBlockedError('needs_operator', 'Canonical Workflow binding unavailable or changed; operator reconciliation required.'); };
+
+ /** Internal Workflow authority only; no route accepts this value from a customer body. */
+-export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string }) {
++export async function createRichWorkflowServices(ctx: ServiceContext, authority: { workflowRunId: string; judgeRuntime?: TrustedJudgeRuntime }) {
+   const sql = workflowSql();
+   async function canonical() {
+     const loaded = await getJobWithDecryptedCredentials(ctx.jobId);
+@@ -63,6 +65,12 @@
+         return amount;
+       })() } };
+   }
++  const judgeRuntime = authority.judgeRuntime ?? workflowJudgeRuntime();
++  const judge = createTrustedJudgeResolver({ sql, checkpoints: new PostgresTextCheckpointStore(sql), canonical,
++    policy: workflowJudgePolicy(), runtime: { ...judgeRuntime, beforeDispatch: async intent => {
++      if (ctx.budgetMicroUsd <= 0) return refused();
++      await judgeRuntime.beforeDispatch(intent);
++    } }, deliverCost: deliverRemediationCost });
+   const initial = await canonical();
+   const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
+   const checkpoints = inventory.wrap(new PostgresTextCheckpointStore(sql));
+@@ -90,9 +98,9 @@
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+     const a = await canonical();
+     return { job: a.job, target: createTextTarget(a.intake.endpoint), targetVersion: a.targetVersion,
+-      judge: null, knownSecrets: a.knownSecrets }; // Explicit unassessed rubric; no unreserved Gateway call.
++      judge, knownSecrets: a.knownSecrets };
+   } });
+-  const remediation = createRichRemediation({ sql, runner, checkpoints, canonical, text });
++  const remediation = createRichRemediation({ sql, runner, checkpoints, canonical, text, judge });
+   let branchBinding: { connection: string; pool: Pool } | undefined;
+   const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+--- a/apps/web/src/server/rich-remediation.ts
++++ b/apps/web/src/server/rich-remediation.ts
+@@ -1,3 +1,4 @@
++import type { createTrustedJudgeResolver } from './rich-judge';
+ import 'server-only';
+ import type { AgentTaskRunner } from '@ae/core/agents/session-service';
+ import type { AgentTransactionalSql, AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
+@@ -41,6 +42,7 @@
+   sql: AgentTransactionalSql; runner: AgentTaskRunner; checkpoints: TextCheckpointStore;
+   canonical(): Promise<RemediationCanonical>;
+   text: ReturnType<typeof createTextEvaluationServices>;
++  judge?: ReturnType<typeof createTrustedJudgeResolver>;
+ }) {
+   return createRemediationServices({ runner: deps.runner, checkpoints: deps.checkpoints, resolve: async (ctx, findingId) => {
+     const a = await deps.canonical();
+@@ -77,8 +79,8 @@
+         return latest.knownSecrets;
+       }, accounting: { beforeDispatch: accounting.beforeDispatch.bind(accounting), observed: accounting.observed.bind(accounting), ambiguous: accounting.ambiguous.bind(accounting) }, limits: { timeoutMs: 15000, maxCompletionTokens: 512, maxRequestBytes: 256000, maxResponseBytes: 1000000 },
+     }) : null;
+-    // No Gateway judge is configured: rubric checks stay unassessed, never silently passed.
+-    return { job: a.job, finding, knownSecrets: a.knownSecrets, binding, original, trial, judge: null,
+-      authorize: async op => op.kind === 'target' && enabled ? accounting.authorize(op) : false };
++    // The shared secured judge owns its durable reservation, usage and keyed delivery.
++    return { job: a.job, finding, knownSecrets: a.knownSecrets, binding, original, trial, judge: deps.judge ? async input => ({ value: await deps.judge!(input), costs: [] }) : null,
++      authorize: async op => op.kind === 'judge' ? Boolean(deps.judge) : enabled ? accounting.authorize(op) : false };
+   } });
+ }

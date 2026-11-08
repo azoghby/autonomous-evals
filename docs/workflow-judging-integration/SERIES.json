@@ -1,0 +1,37 @@
+{
+  "parent": "883d186a94ea38aeb122afeb9d9e9bd2ee0c6e24",
+  "taskBase": "bf7e63a69bae89c63e1159803635fc65c912c905",
+  "comparison": "bf7e63a69bae89c63e1159803635fc65c912c905",
+  "resumption": [
+    "03cfde5b3a98f015cf32df95502dafe4ff82ea83",
+    "da5dda95e7c35a918f9e02c18f26c3c03542ee13"
+  ],
+  "order": [
+    "parent stageFinal",
+    "comparison 004-rich-comparison.patch",
+    "app/005-judging.patch",
+    "app/006-comparison-judging.patch"
+  ],
+  "coreOverlay": false,
+  "newSqlMigrations": [],
+  "comparisonPrerequisiteMigration": {
+    "id": "app.workflow-comparison.006",
+    "source": "bf7e63a:docs/workflow-comparison-integration/app/files/apps/web/migrations/004-rich-comparison.sql",
+    "ownerPath": "owner-migrations/app.workflow-comparison.006.sql",
+    "sha256": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+    "after": [
+      "app.workflow-packs.005"
+    ],
+    "deploymentPerformed": false
+  },
+  "sha256": {
+    "app/005-judging.patch": "332c110576052bc5b1339bb1ab9723600f61ad07e17c735d6670e3fe35048e88",
+    "app/006-comparison-judging.patch": "2d532a77616fa773f315b8b24a053c105099cd9d6bc3ee8c87d61c7bde29226e",
+    "app/files/apps/web/src/server/judge-accounting.ts": "ed23cec8f4e73bf222965560e3ed99a3f976e7ecc7a2c14bea2fa3493bd1aa34",
+    "app/files/apps/web/src/server/rich-judge.ts": "0d289225e803acce476d7a8308709da42e2ce3b02ad403bfa73eb770407f80f7",
+    "app/files/apps/web/src/server/rich-services.ts": "049f3261db8c6950e89de0cddc6177292b7e4f8225ce4051a1a517ea6ea20ac7",
+    "app/files/apps/web/src/server/rich-remediation.ts": "67607d7a21f19fa00ae5f3e34ae55913488e73634059392078db9f82278e4353",
+    "app/files/apps/web/src/server/rich-comparison.ts": "79d3e109ad8b3cefe378c67a981fe29a3503be5a6e3dc1fde2d076080ca19383",
+    "app/files/apps/web/src/server/comparison-production.ts": "9aaf97bd83b20f7a368e900399ebc9ed3fc6d145c1e14ef0b5b0c4fc10129f9d"
+  }
+}

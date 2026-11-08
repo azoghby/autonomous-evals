@@ -1,0 +1,40 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-mU2XeG
+
+ ✓ judging-verification/judge.test.ts (11 tests) 7587ms
+   ✓ applied trusted app Gateway judge with serialized SQL (11)
+     ✓ reserves both scopes before actual adapter dispatch, binds meter, and replays across restart without cost fabrication 1072ms
+     ✓ settles only authenticated measured money through the shared keyed protocol and replays a lost acknowledgement once 662ms
+     ✓ denies exhausted global budget before any outbound call 627ms
+     ✓ fences concurrent claims and refuses same identity with changed input 632ms
+     ✓ rechecks current secret guards after token resolution and before dispatch 696ms
+     ✓ holds ambiguous transport results and never repeats them on restart 635ms
+     ✓ rejects fabricated citations while retaining measured usage and unknown monetary hold 600ms
+     ✓ refuses a rejected parent meter and secret-bearing prompt/reference before network 682ms
+     ✓ aborts before dispatch and leaves factual checks without reference unassessed 660ms
+     ✓ retains all twelve original scenarios/objectives while actual judges assess valid reference rubrics 631ms
+     ✓ executes the immutable accepted live-designed base12 with every original rubric and objective retained 686ms
+ ✓ remediation-verification/app-remediation.test.ts (5 tests) 3482ms
+   ✓ app saved-baseline remediation composition (5)
+     ✓ retains all twelve actual serialized payload receipts, durable unknown usage, and replay without dispatch 1032ms
+     ✓ keeps unsupported isolation unverified with no target dispatch or usage fabrication 673ms
+     ✓ keeps tool-schema proposals unverified and refuses Trace-only canonical jobs 603ms
+     ✓ refuses request finding substitution and target revision drift before proposal/dispatch 580ms
+     ✓ uses global cost keys and rejects cross-job/changed monetary facts atomically 593ms
+ ✓ packages/core/src/evals/remediation/remediation.test.ts (23 tests) 1375ms
+ ✓ packages/core/src/evals/remediation/accounting/accounting.test.ts (6 tests) 1062ms
+ ✓ packages/core/src/evals/text/__tests__/behavioral-gateway.test.ts (17 tests) 94ms
+ ✓ packages/core/src/evals/text/__tests__/admission.test.ts (50 tests) 97ms
+ ✓ packages/core/src/evals/text/__tests__/rubric-admission.test.ts (15 tests) 69ms
+ ✓ packages/core/src/evals/text/__tests__/design-investigate.test.ts (10 tests) 48ms
+ ✓ packages/core/src/evals/text/__tests__/objective-execution.test.ts (29 tests) 41ms
+ ✓ packages/core/src/judges/gateway.test.ts (15 tests) 23ms
+ ✓ packages/core/src/evals/text/__tests__/safety-monitoring.test.ts (3 tests) 21ms
+ ✓ packages/core/src/evals/text/__tests__/live-v3.test.ts (16 tests) 14ms
+
+ Test Files  12 passed (12)
+      Tests  200 passed (200)
+   Start at  17:53:42
+   Duration  15.63s (tests 94%, import 4%, transform 2%)
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-e55c36b7/docs/workflow-judging-integration/verification/tests.json

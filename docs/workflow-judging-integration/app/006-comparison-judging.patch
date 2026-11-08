@@ -1,0 +1,57 @@
+--- a/apps/web/src/server/rich-comparison.ts
++++ b/apps/web/src/server/rich-comparison.ts
+@@ -1,3 +1,4 @@
++import type { createTrustedJudgeResolver } from './rich-judge';
+ import 'server-only';
+ import { createHash } from 'node:crypto';
+ import { z } from 'zod';
+@@ -31,6 +32,7 @@
+ export interface ComparisonPrincipal { tenantId: string; environment: 'test' | 'live' }
+ export interface ComparisonRuntime {
+   runner: AgentTaskRunner;
++  judge?(binding: ComparisonBinding['current']): ReturnType<typeof createTrustedJudgeResolver>;
+   knownSecrets: readonly string[];
+   verify(jobId: string, binding: ComparisonBinding, retained: RichRunArtifact): Promise<{scenarioIds:string[]}>;
+   /** Called again immediately before every target operation; closure loads decrypted canonical intake. */
+@@ -99,7 +101,7 @@
+           }};
+           const services = createTextEvaluationServices({checkpoints,runner:runtime.runner,resolveApprovedSuite:async()=>suite,resolve:async()=>{
+             await reauthorize();
+-            return {job:{jobId:ctx.jobId,customerId:principal.tenantId,environment:ctx.environment,package:'text_eval' as const,isFixture:a.is_internal_fixture,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,knownSecrets:runtime.knownSecrets,judge:null,
++            return {job:{jobId:ctx.jobId,customerId:principal.tenantId,environment:ctx.environment,package:'text_eval' as const,isFixture:a.is_internal_fixture,linkedRetestOf:null,quoteVersion:null},targetVersion:v.version,knownSecrets:runtime.knownSecrets,judge:runtime.judge?.(v) ?? null,
+               target:{send:async req=>{await guard(`${req.runId}:${req.scenarioId}`);return (await runtime.target(v)).send(req);}}};
+           }});
+           return createTextComparisonAdapter({services,ctx:scopedCtx,suiteDigest:suite.digest,readCosts:costs});
+--- a/apps/web/src/server/comparison-production.ts
++++ b/apps/web/src/server/comparison-production.ts
+@@ -1,3 +1,6 @@
++import { createTrustedJudgeResolver, workflowJudgePolicy, workflowJudgeRuntime, type TrustedJudgeRuntime } from './rich-judge';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { deliverRemediationCost } from './rich-remediation';
+ import 'server-only';
+ import { createHash } from 'node:crypto';
+ import { Pool } from '@neondatabase/serverless';
+@@ -17,7 +20,7 @@
+ import { createRichComparisonApp, comparisonDigest, type ComparisonBinding, type ComparisonRuntime } from './rich-comparison';
+ const deny=():never=>{throw new Error('rich_comparison_configuration_refused');};
+ /** No network performed by construction. Credentials remain in this internal closure. */
+-export async function comparisonProduction(jobId:string) {
++export async function comparisonProduction(jobId:string, judgeRuntime?:TrustedJudgeRuntime) {
+  const sql=workflowSql(); const initial=await getJobWithDecryptedCredentials(jobId); if(!initial) return deny();
+  const runner=(await buildAgentDeps()).runner; const pools:Pool[]=[];
+  const endpoint=async(v:ComparisonBinding['current'])=>{
+@@ -28,7 +31,14 @@
+   if(!ep || comparisonDigest({endpoint:{...ep,apiKey:undefined},credentialCiphertext:cred.rows[0]?.ciphertext??null})!==v.configurationDigest) return deny();
+   return {latest,ep};
+  };
++ const sharedJudgeRuntime=judgeRuntime ?? workflowJudgeRuntime();
+  const config:ComparisonRuntime={
++  judge: v => createTrustedJudgeResolver({sql,checkpoints:new PostgresTextCheckpointStore(sql),policy:workflowJudgePolicy(),runtime:judgeRuntime ?? sharedJudgeRuntime,deliverCost:deliverRemediationCost,canonical:async()=>{
++   const {latest}=await endpoint(v);
++   if(latest.job.state!=='delivered' || latest.job.isMock) return deny();
++   const fixture=await sql.query<{fixture:boolean}>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1',[latest.job.customerId]);
++   return {job:{jobId,customerId:latest.job.customerId,environment:latest.job.environment,package:'text_eval' as const,isFixture:fixture.rows[0]?.fixture===true,linkedRetestOf:latest.job.retestOfJobId,quoteVersion:null},targetVersion:v.version,knownSecrets:Object.values(latest.credentials).filter((s):s is string=>typeof s==='string')};
++  }}),
+   runner,knownSecrets:Object.values(initial.credentials).filter((s):s is string=>typeof s==='string'),
+   verify:async(id,b,retained)=>{
+    if(id!==jobId || Object.values(initial.credentials).some(s=>typeof s==='string'&&s.length<4) || containsSecret(JSON.stringify({binding:b,retained}),Object.values(initial.credentials))) return deny();
