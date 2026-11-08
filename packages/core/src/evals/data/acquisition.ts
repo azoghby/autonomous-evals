@@ -119,7 +119,7 @@ export async function acquireEvaluationData(
     // A generator is never an authenticated reviewer, including when its output claims otherwise.
     batch = {
       sources: batch.sources.map((source) => ({ ...source, provenance: { ...source.provenance, origin: "synthetic" as const }, review: { ...source.review, status: "pending" as const } })),
-      cases: batch.cases.map(({ verification: _verification, ...item }) => ({ ...item, synthetic: true, generatorId: operationKey })),
+      cases: batch.cases.map(({ verification: _verification, ...item }) => ({ ...item, synthetic: true, generatorId: item.generatorId ?? operationKey })),
     };
   }
   if (phase !== "generation") {
@@ -147,8 +147,9 @@ export async function acquireEvaluationData(
       });
       sources = sources.map(item => {
         const reviewedSource = sourceReviews.get(item.id);
-        const matches = reviewedSource && hash({ ...reviewedSource, review: item.review }) === hash(item);
-        return matches ? { ...item, review: reviewedSource.review } : item;
+        // Permission is a review determination; content and retrieval lineage stay immutable.
+        const matches = reviewedSource && hash({ ...reviewedSource, license: item.license, review: item.review }) === hash(item);
+        return matches ? { ...item, license: reviewedSource.license, review: reviewedSource.review } : item;
       });
       // Independent evidence fetched by the authenticated reviewer may be added with distinct IDs.
       sources = merge(sources, reviewed.sources);
