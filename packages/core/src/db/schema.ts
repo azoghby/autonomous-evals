@@ -679,3 +679,129 @@ export const founderNotes = pgTable("founder_notes", {
   reportedAt: ts("reported_at"),
   createdAt,
 }, (t) => [uniqueIndex("founder_notes_message_uq").on(t.messageId), index("founder_notes_created_idx").on(t.createdAt)]);
+
+/* ---------------- Agent-run company (packages/core/src/company, apps/web/src/server/company) ---------------- */
+
+/** Per-agent on/off toggle set from the operator console. Absent row = registry default for the environment. */
+export const companyAgentSettings = pgTable("company_agent_settings", {
+  /** Registry id (packages/core/src/company/registry.ts CompanyAgentId). */
+  agentId: text("agent_id").primaryKey(),
+  enabled: boolean("enabled").notNull(),
+  updatedBy: text("updated_by"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** One row per agent run (cron tick, webhook turn, manual trigger). Summary/detail must not carry secrets. */
+export const companyAgentActivity = pgTable("company_agent_activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agentId: text("agent_id").notNull(),
+  /** cron | manual | webhook | planner | chat */
+  trigger: text("trigger").notNull(),
+  /** running | ok | skipped | failed | budget */
+  status: text("status").notNull().default("running"),
+  /** Operator-facing summary (may name leads; the public /company view never shows it). */
+  summary: text("summary"),
+  /** Public-safe one-liner (no PII, no company names) shown on /company. */
+  publicSummary: text("public_summary"),
+  /** Counters for the org chart, e.g. { leads: 12, drafts: 3 }. */
+  counts: jsonb("counts").notNull().$type<Record<string, number>>().default(sql`'{}'::jsonb`),
+  detail: jsonb("detail").notNull().$type<Record<string, unknown>>().default(sql`'{}'::jsonb`),
+  costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+  budgetMicroUsd: bigint("budget_micro_usd", { mode: "number" }).notNull().default(0),
+  error: text("error"),
+  dryRun: boolean("dry_run").notNull().default(false),
+  startedAt: ts("started_at").notNull().defaultNow(),
+  finishedAt: ts("finished_at"),
+}, (t) => [index("company_agent_activity_agent_idx").on(t.agentId, t.startedAt), index("company_agent_activity_started_idx").on(t.startedAt)]);
+
+/** Dated market brief written by the market research agent. */
+export const marketBriefs = pgTable("market_briefs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** YYYY-MM-DD (UTC). One brief per day (re-runs overwrite). */
+  briefDate: text("brief_date").notNull(),
+  activityId: uuid("activity_id").references(() => companyAgentActivity.id, { onDelete: "set null" }),
+  /** MarketBrief (packages/core/src/company/schemas.ts). */
+  brief: jsonb("brief").notNull().$type<unknown>(),
+  sources: jsonb("sources").notNull().$type<Array<{ url: string; title?: string }>>().default(sql`'[]'::jsonb`),
+  costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+  createdAt,
+}, (t) => [uniqueIndex("market_briefs_date_uq").on(t.briefDate)]);
+
+/** Companies shipping customer-facing AI agents, found from PUBLIC sources only. Nothing here is ever contacted directly. */
+export const prospectLeads = pgTable("prospect_leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Normalized registrable domain, the dedupe key (e.g. acme.ai). */
+  domain: text("domain").notNull(),
+  company: text("company").notNull(),
+  segment: text("segment").notNull(),
+  agentDescription: text("agent_description").notNull(),
+  /** Public evidence URLs (product pages, launch posts, docs). */
+  evidence: jsonb("evidence").notNull().$type<Array<{ url: string; note?: string }>>().default(sql`'[]'::jsonb`),
+  /** 0..100 */
+  fitScore: integer("fit_score").notNull(),
+  fitReason: text("fit_reason").notNull().default(""),
+  /** PlanId from packages/core/src/pricing/plans.ts. */
+  recommendedPlan: text("recommended_plan").notNull(),
+  /** Publicly listed work email (via Monid), with the URL where it was published. */
+  contactEmail: text("contact_email"),
+  contactName: text("contact_name"),
+  contactRole: text("contact_role"),
+  contactSource: text("contact_source"),
+  /** new | drafted | contacted | replied | opted_in | disqualified | suppressed */
+  status: text("status").notNull().default("new"),
+  outreachDraftId: uuid("outreach_draft_id").references(() => outreachDrafts.id, { onDelete: "set null" }),
+  activityId: uuid("activity_id").references(() => companyAgentActivity.id, { onDelete: "set null" }),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("prospect_leads_domain_uq").on(t.domain), index("prospect_leads_status_idx").on(t.status, t.fitScore)]);
+
+/** Tasks the CEO/Planner agent assigns to other company agents. */
+export const companyTasks = pgTable("company_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** YYYY-MM-DD plan this task belongs to. */
+  planDate: text("plan_date").notNull(),
+  assignee: text("assignee").notNull(),
+  title: text("title").notNull(),
+  rationale: text("rationale").notNull().default(""),
+  /** 1 (highest) .. 5 */
+  priority: integer("priority").notNull().default(3),
+  /** open | running | done | skipped | failed */
+  status: text("status").notNull().default("open"),
+  /** Activity row of the run that executed it. */
+  activityId: uuid("activity_id").references(() => companyAgentActivity.id, { onDelete: "set null" }),
+  createdBy: text("created_by").notNull().default("planner"),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("company_tasks_plan_idx").on(t.planDate, t.assignee)]);
+
+/** The planner's daily plan (one per day), included in the operator digest. */
+export const companyPlans = pgTable("company_plans", {
+  planDate: text("plan_date").primaryKey(),
+  summary: text("summary").notNull(),
+  metrics: jsonb("metrics").notNull().$type<Record<string, unknown>>().default(sql`'{}'::jsonb`),
+  activityId: uuid("activity_id").references(() => companyAgentActivity.id, { onDelete: "set null" }),
+  createdAt,
+});
+
+/** Customer Success conversations: a signed-up customer asked for help setting up a run (email thread or in-app chat). */
+export const onboardingConversations = pgTable("onboarding_conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  /** email | chat */
+  channel: text("channel").notNull(),
+  /** AgentMail thread id for email conversations. */
+  threadId: text("thread_id"),
+  /** collecting | building | running | reported | blocked | closed */
+  status: text("status").notNull().default("collecting"),
+  /** OnboardingRequirements collected so far (no secrets: API keys are refused and never stored here). */
+  collected: jsonb("collected").notNull().$type<Record<string, unknown>>().default(sql`'{}'::jsonb`),
+  /** [{role: customer|agent, text, at}] trimmed transcript. */
+  transcript: jsonb("transcript").notNull().$type<Array<{ role: string; text: string; at: string }>>().default(sql`'[]'::jsonb`),
+  environmentId: text("environment_id"),
+  suiteId: text("suite_id"),
+  runId: text("run_id"),
+  reportedAt: ts("reported_at"),
+  costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [index("onboarding_conversations_customer_idx").on(t.customerId, t.createdAt), uniqueIndex("onboarding_conversations_thread_uq").on(t.threadId)]);

@@ -109,6 +109,67 @@ describe("handleInbound", () => {
       expect(await handleInbound(msg(), store)).toBe("unmatched");
     });
   });
+
+  describe("unknown threads: onboarding and prospect replies", () => {
+    function withExtras(opts: { customer?: boolean; prospect?: boolean; prospectThrows?: boolean; thread?: null | { jobId: null; expertEngagementId: null } } = {}) {
+      const { store } = fakeStore({ thread: opts.thread === undefined ? null : opts.thread });
+      const onboarding: unknown[] = [];
+      const recorded: string[] = [];
+      const prospects: string[] = [];
+      const full: InboundStore = {
+        ...store,
+        customerByEmail: async (e) => (opts.customer && e === "pat@example.com" ? { id: "cust-1" } : null),
+        recordOnboardingThread: async (t) => { recorded.push(t); },
+        handleOnboarding: async (i) => { onboarding.push(i); },
+        recordProspectReply: async (e) => {
+          if (opts.prospectThrows) throw new Error("db down");
+          prospects.push(e);
+          return { matched: !!opts.prospect, optedOut: false };
+        },
+      };
+      return { store: full, onboarding, recorded, prospects };
+    }
+
+    it("routes a customer's message on an unknown thread to onboarding and records the thread", async () => {
+      const x = withExtras({ customer: true });
+      expect(await handleInbound(msg(), x.store)).toBe("onboarding");
+      expect(x.recorded).toEqual(["t1"]);
+      expect(x.onboarding).toEqual([expect.objectContaining({ customerId: "cust-1", threadId: "t1", body: "my answer" })]);
+    });
+
+    it("routes replies on a recorded onboarding thread (row with no refs) the same way", async () => {
+      const x = withExtras({ customer: true, thread: { jobId: null, expertEngagementId: null } });
+      expect(await handleInbound(msg(), x.store)).toBe("onboarding");
+    });
+
+    it("records a prospect reply and stays unmatched for non-customers", async () => {
+      const x = withExtras({ prospect: true });
+      expect(await handleInbound(msg(), x.store)).toBe("prospect_reply");
+      expect(x.prospects).toEqual(["pat@example.com"]);
+      expect(x.onboarding).toEqual([]);
+    });
+
+    it("survives recordProspectReply failing", async () => {
+      const err = vi.spyOn(console, "error").mockImplementation(() => {});
+      const x = withExtras({ prospectThrows: true });
+      expect(await handleInbound(msg(), x.store)).toBe("unmatched");
+      err.mockRestore();
+    });
+
+    it("leaves unknown senders unmatched", async () => {
+      const x = withExtras();
+      expect(await handleInbound(msg(), x.store)).toBe("unmatched");
+      expect(x.recorded).toEqual([]);
+    });
+
+    it("does not onboard a known job thread from a customer", async () => {
+      const { store, calls } = fakeStore();
+      const onboarding = vi.fn();
+      await handleInbound(msg(), { ...store, customerByEmail: async () => ({ id: "c" }), handleOnboarding: onboarding });
+      expect(onboarding).not.toHaveBeenCalled();
+      expect(calls.messages).toEqual(["my answer"]);
+    });
+  });
 });
 
 describe("handleInbound: founder email replies", () => {

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Eyebrow, Reveal, Section } from "../ui";
 
 const STEPS = [
@@ -25,6 +26,9 @@ export function HowItWorks() {
             </li>
           ))}
         </ol>
+        <p className="mt-12 text-[14px]">
+          <Link href="/company" className="text-fg-2 underline decoration-line-3 underline-offset-4 transition-colors hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">See the agents that run this company →</Link>
+        </p>
       </Reveal>
     </Section>
   );

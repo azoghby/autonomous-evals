@@ -7,6 +7,11 @@
     { "path": "/api/cron/monitoring", "schedule": "0 9 * * *" },
     { "path": "/api/cron/follow-ups", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/public-agents", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/founder-report", "schedule": "0 15 * * *" }
+    { "path": "/api/cron/founder-report", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/company/market-research", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/company/prospecting", "schedule": "30 5 * * *" },
+    { "path": "/api/cron/company/outreach", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/company/planner", "schedule": "30 6 * * *" },
+    { "path": "/api/cron/company/onboarding", "schedule": "*/15 * * * *" }
   ]
 }

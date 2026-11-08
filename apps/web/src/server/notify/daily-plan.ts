@@ -1,10 +1,24 @@
 import "server-only";
 
+/** Pure: the CEO planner's daily plan as short bullet lines for the founder's daily report. */
+export function planToBullets(plan: { summary: string; tasks: Array<{ assignee: string; title: string; status: string }> } | null): string[] | null {
+  if (!plan) return null;
+  const lines = plan.summary.split("\n").map((l) => l.replace(/^[-*\s]+/, "").trim()).filter(Boolean);
+  const tasks = plan.tasks.map((t) => `${t.assignee}: ${t.title} (${t.status})`);
+  const out = [...lines, ...tasks].slice(0, 12);
+  return out.length ? out : null;
+}
+
 /**
- * Hook for the company CEO planner agent (apps/web/src/server/company/**): return today's plan as short
- * bullet lines and it is included in the founder's daily report. Returning null omits the section.
- * Replace the body with a call into the planner once it exists; keep it fast (< 5s) and never throw.
+ * Today's plan from the company CEO planner agent (apps/web/src/server/company/planner.ts), or null.
+ * Fast (one small query) and never throws.
  */
-export async function getTodaysPlan(_now: Date): Promise<string[] | null> {
-  return null;
+export async function getTodaysPlan(now: Date): Promise<string[] | null> {
+  try {
+    const { getDailyPlanSummary } = await import("../company/planner");
+    return planToBullets(await getDailyPlanSummary(now));
+  } catch (err) {
+    console.error("daily plan lookup failed", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
