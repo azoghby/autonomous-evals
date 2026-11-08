@@ -7,15 +7,26 @@
   "buggy": {
     "url": "${TRACK_A_APPROVED_HTTPS_ORIGIN}/api/internal/track-b-acceptance/buggy/chat/completions",
     "model": "track-b-lumen-buggy-v1",
-    "tokenRef": { "env": "TRACK_B_ACCEPTANCE_TOKEN" }
+    "tokenRef": {
+      "env": "TRACK_B_ACCEPTANCE_TOKEN"
+    }
   },
   "fixed": {
     "url": "${TRACK_A_APPROVED_HTTPS_ORIGIN}/api/internal/track-b-acceptance/fixed/chat/completions",
     "model": "track-b-lumen-fixed-v1",
-    "tokenRef": { "env": "TRACK_B_ACCEPTANCE_TOKEN" }
+    "tokenRef": {
+      "env": "TRACK_B_ACCEPTANCE_TOKEN"
+    }
   },
   "gateway": {
     "model": "PARENT_APPROVED_EXPLICIT_GATEWAY_MODEL",
-    "tokenRef": { "env": "AI_GATEWAY_API_KEY" }
+    "tokenRef": {
+      "env": "AI_GATEWAY_API_KEY"
+    }
+  },
+  "targetEvidence": {
+    "kind": "controlled_fixture",
+    "deploymentRevision": "REPLACE_WITH_DEPLOYED_40_HEX_GIT_SHA",
+    "patchSha256": "REPLACE_WITH_REVIEWED_64_HEX_PATCH_SHA256"
   }
 }

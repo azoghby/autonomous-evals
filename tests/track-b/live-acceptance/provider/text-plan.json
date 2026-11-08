@@ -24,7 +24,8 @@
     "gateway.model",
     "gateway.tokenRef",
     "runId",
-    "evidenceFile"
+    "evidenceFile",
+    "targetEvidence"
   ],
   "liveRunPerformed": false
 }

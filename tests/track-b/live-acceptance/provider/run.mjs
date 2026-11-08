@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path';
 import { stageCore } from './stage-core.mjs';
 
 export const SCENARIOS = ['S01', 'S09'];
-export const CONFIG_NAMES = ['buggy.url', 'buggy.model', 'buggy.tokenRef', 'fixed.url', 'fixed.model', 'fixed.tokenRef', 'gateway.model', 'gateway.tokenRef', 'runId', 'evidenceFile'];
+export const CONFIG_NAMES = ['buggy.url', 'buggy.model', 'buggy.tokenRef', 'fixed.url', 'fixed.model', 'fixed.tokenRef', 'gateway.model', 'gateway.tokenRef', 'runId', 'evidenceFile', 'targetEvidence'];
 export function plan(artifact) {
   const suite = artifact.outcome.suite;
   const selected = suite.scenarios.filter(s => SCENARIOS.includes(s.id));
@@ -13,6 +13,22 @@ export function plan(artifact) {
   return { scope: 'provider_text_only', acceptedDesignReused: true, scenarioIds: SCENARIOS, targetCalls: 4, gatewayCalls: selected.reduce((n,s) => n + s.rubricChecks.length, 0) * 2, maxTargetCompletionTokensPerCall: 512, maxGatewayCompletionTokensPerCall: 2048, retries: 0, naiveSessions: 0, cloudMutations: 0, costMicroUsd: null, monetaryCap: 'Provider billing remains unknown; parent must authorize the operation/token caps separately.' };
 }
 function required(ok, code) { if (!ok) throw Error(code); }
+// This is an operator declaration, never remote model/deployment attestation.
+export function evidenceScope(config) {
+  const source = config.targetEvidence;
+  required(source && typeof source === 'object' && !Array.isArray(source), 'target_evidence_declaration_required');
+  required(['controlled_fixture', 'external_target'].includes(source.kind), 'invalid_target_evidence_kind');
+  const fixture = source.kind === 'controlled_fixture';
+  required(Object.keys(source).every(key => ['kind', 'deploymentRevision', 'patchSha256'].includes(key)), 'invalid_target_evidence_fields');
+  for (const key of ['deploymentRevision', 'patchSha256']) {
+    required((!fixture && source[key] === undefined) || (typeof source[key] === 'string' && new RegExp(key === 'patchSha256' ? '^[a-f0-9]{64}$' : '^[a-f0-9]{40}$').test(source[key])), 'invalid_target_evidence_digest');
+  }
+  const controlledModel = ['buggy', 'fixed'].some(version => config[version]?.model?.startsWith('track-b-lumen-'));
+  required(!controlledModel || fixture, 'controlled_model_requires_fixture_evidence');
+  return Object.freeze({ scope: fixture ? 'controlled_fixture_text_only' : 'external_target_text_only',
+    provenance: Object.freeze({ ...source, authority: 'operator_declared', remoteAttestation: false }),
+    provesCustomerModelBehavior: false });
+}
 export async function secret(reference) {
   required(reference && typeof reference === 'object' && Object.keys(reference).length === 1, 'invalid_secret_reference');
   if (reference.env) { required(/^[A-Z][A-Z0-9_]*$/.test(reference.env), 'invalid_env_reference'); const value = process.env[reference.env]; required(value?.length && !/[\r\n]/.test(value), 'unavailable_env_reference'); return value; }
@@ -34,6 +50,7 @@ export async function main(argv = process.argv.slice(2)) {
   required(/^[A-Za-z0-9_-]{1,48}$/.test(config.runId), 'invalid_run_id');
   required(typeof config.evidenceFile === 'string' && typeof config.gateway?.model === 'string' && config.gateway.model.trim(), 'missing_configuration');
   required(config.approvedTargetCalls === bounded.targetCalls && config.approvedGatewayCalls === bounded.gatewayCalls, 'explicit_operation_caps_required');
+  const evidenceIdentity = evidenceScope(config);
   // Secret resolution occurs only after the explicit live gate and approved caps.
   const tokens = {};
   for (const version of ['buggy', 'fixed']) {
@@ -52,7 +69,7 @@ export async function main(argv = process.argv.slice(2)) {
       load('targets/text.js'), load('targets/transport.js'), load('judges/gateway.js'), load('evals/text/execute.js'), load('evals/text/objective.js'),
     ]);
     for (const version of ['buggy','fixed']) targetUrl(config[version].url);
-    await record({ kind: 'start', plan: bounded, runId: config.runId, scope: 'actual_provider_text', fallback: false });
+    await record({ kind: 'start', plan: bounded, runId: config.runId, ...evidenceIdentity, fallback: false });
     const authorized = new Set();
     const judge = createGatewayJudge({ model: config.gateway.model, token: async () => tokens.gateway,
       authorize: async operationId => { required(!authorized.has(operationId) && judges < bounded.gatewayCalls, 'judge_dispatch_denied'); authorized.add(operationId); judges++; await record({ kind: 'judge_intent', operationId }); },
@@ -71,8 +88,8 @@ export async function main(argv = process.argv.slice(2)) {
     }
     required(targets === bounded.targetCalls && judges === bounded.gatewayCalls, 'incomplete_dispatch_evidence');
     required(verdicts.buggy.includes('fail') && verdicts.fixed.every(v => v === 'pass'), 'known_buggy_fixed_expectations_not_met');
-    await record({ kind: 'accepted', scope: 'actual_provider_text_only', targets, judges, costMicroUsd: null, appAcceptance: 'not_run' });
-    console.log(JSON.stringify({ accepted: true, scope: 'actual_provider_text_only', targets, judges, costMicroUsd: null }));
+    await record({ kind: 'accepted', ...evidenceIdentity, targets, judges, costMicroUsd: null, appAcceptance: 'not_run' });
+    console.log(JSON.stringify({ accepted: true, ...evidenceIdentity, targets, judges, costMicroUsd: null }));
   } catch { await record({ kind: 'failed_or_ambiguous', targets, judges, retry: 'operator_reconciliation_required' }); throw Error('live_acceptance_failed_or_ambiguous_consult_private_journal'); }
   finally { await evidence.close(); await staged?.cleanup(); }
 }

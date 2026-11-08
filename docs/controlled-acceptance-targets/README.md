@@ -32,7 +32,7 @@ Accepted artifact: `packages/core/src/evals/text/__tests__/evidence/text-design-
 
 [runner-config.example.json](runner-config.example.json) is a **template**, not active configuration. Replace the origin and filesystem placeholders with parent-approved values, select an explicitly approved Gateway model, and save the filled config outside the repository as a private regular file (0600, at most 16 KiB). Environment references contain names only. No credential value belongs in this file or evidence.
 
-Parent owns the separate private `AI_GATEWAY_API_KEY` form and live execution. The existing runner and all assertions remain unchanged:
+Parent owns the separate private `AI_GATEWAY_API_KEY` form and live execution. The runner retains its execution assertions and operation caps; parent integration added mandatory evidence provenance labels:
 
 ```sh
 node tests/track-b/live-acceptance/provider/run.mjs --plan
@@ -42,7 +42,7 @@ node tests/track-b/live-acceptance/provider/run.mjs --live --config /private/app
 
 The runner selects S01 and S09 from the unchanged all12 artifact: **4 target calls ×512 maximum completion tokens; 8 Gateway calls ×2048; 0 retries, 0 Naive sessions, 0 cloud mutations**. These are operation/token caps, not a dollar cap. No extra connectivity probes are authorized. Expected objective behavior: buggy has failures; fixed has none. A real Gateway must independently return pass for both fixed executions without rubric gaps; unknown, inconclusive and transport errors must remain failures to establish acceptance. Do not claim a guaranteed Gateway verdict from offline tests.
 
-The route returns explicit fixture provenance. Core's Text adapter ignores extra completion metadata, and the existing runner uses legacy labels such as `actual_provider_text`. Those labels do **not** turn canned responses into LLM evidence. Retain a separate private run sidecar using [evidence-provenance.example.json](evidence-provenance.example.json), binding the runner runId/journal digest to the deployment source/patch digest and this fixture origin. Do not edit the journal to relabel or weaken assertions. Server-provided metadata is self-description, not independent deployment or remote prompt attestation. Endpoint logs and prompts/auth/raw payloads must never be copied into evidence.
+The route returns explicit fixture provenance. Core's Text adapter ignores extra completion metadata, and the runner now requires an explicit `targetEvidence` declaration before secret resolution. Start/accepted records and terminal output use `controlled_fixture_text_only`, with operator-declared deployment/patch digests and `remoteAttestation:false`. This does **not** turn canned responses into LLM evidence. Retain a separate private run sidecar using [evidence-provenance.example.json](evidence-provenance.example.json), binding the runner runId/journal digest to the deployment source/patch digest and this fixture origin. Do not edit the journal to relabel or weaken assertions. Server-provided metadata is self-description, not independent deployment or remote prompt attestation. Endpoint logs and prompts/auth/raw payloads must never be copied into evidence.
 
 Successful hosted Text acceptance proves real secure transport and real Gateway grading of a deterministic fixture. It does not prove Calendar, SQL persistence, restart, reports, private chat, customer inference or generic repair. SQL/Calendar handoff is exact and separate in [CALENDAR-HANDOFF.md](CALENDAR-HANDOFF.md).
 

@@ -18,6 +18,7 @@ Parent must authorize that exact second command and its caps. Config file must b
   "runId": "parent_approved_unique_run",
   "dependenciesDirectory": "/tmp/track-b-harness/node_modules",
   "evidenceFile": "/private/unique-text-run.jsonl",
+  "targetEvidence": { "kind": "external_target" },
   "approvedTargetCalls": 4,
   "approvedGatewayCalls": 8,
   "buggy": {"url": "https://approved-target.example/v1/chat/completions", "model": "approved-buggy-model", "tokenRef": {"env": "BUGGY_TARGET_API_KEY"}},
@@ -96,3 +97,10 @@ ACCEPTANCE_DEPENDENCIES=/tmp/track-b-harness/node_modules node --test tests/trac
 ```
 
 Uses installed TypeScript5.9.3, Zod and ipaddr.js. `stage-core.mjs` transpiles actual checked-out source to a disposable temp directory; the source-import test verifies admitted suite digest and loads all direct runtime entry points without network. This is runtime import verification, not a replacement for the repository strict typecheck. **20 tests passed,0 skipped/todo**, including refusal of missing live flag, permissive credential file, fallback/fixture evidence, inconclusive Calendar, different suite, same-process restart, duplicate dispatch, lost receipt, changed report and chat disclosure. No secrets or external providers are exercised by these tests.
+
+Target evidence is now mandatory before secret resolution. For controlled fixtures use
+`kind: "controlled_fixture"` with full `deploymentRevision` (40 hex) and
+`patchSha256` (64 hex). Journals and terminal summaries label this
+`controlled_fixture_text_only`; other targets use `external_target_text_only`.
+These declarations are operator-supplied provenance, not remote attestation or
+proof of customer model behavior. Existing journals are never rewritten.
