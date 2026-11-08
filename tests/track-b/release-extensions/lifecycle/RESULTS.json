@@ -1,0 +1,27 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-CHFaDM",
+  "pins": {
+    "trackA": "530af32067279497161c22ab00006247851d9200",
+    "trackB": "687b5086e6bd204fe82809672c0511e2ee3e6f52",
+    "applicationBaseline": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+    "historicalCore": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b",
+    "acceptanceIntegration": "449c05df550afa0ac1f8b6030cc9fc8bbadbf52e"
+  },
+  "results": [
+    {
+      "config": "vitest.final.config.mjs",
+      "status": 0,
+      "passed": 214,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "config": "vitest.final-chat.config.mjs",
+      "status": 0,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "originalResumptionTests": 140
+}
