@@ -1,0 +1,108 @@
+{
+  "base": "6ff8a0642fc14dfd23842456d124a4b84f5e040a",
+  "trackA": "8634ceb30f3d98de7ec24b240a4f7549dce80033",
+  "testedHead": "a942ff98bfc751752cb35cf704cc195e10758a59",
+  "node": "v24.21.0",
+  "sourceUnchangedFromBase": true,
+  "components": [
+    {
+      "name": "exports",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "exports.stdout.txt",
+      "stderr": "exports.stderr.txt",
+      "observations": {
+        "accepted": false,
+        "probes": 34,
+        "consumerBindings": 329,
+        "bundleOutputs": 34,
+        "manifestProblems": 66,
+        "dependencyPairs": [
+          [
+            "apps/web:@neondatabase/serverless",
+            1
+          ],
+          [
+            "apps/web:@x402/core",
+            2
+          ],
+          [
+            "apps/web:drizzle-orm",
+            42
+          ],
+          [
+            "apps/web:stripe",
+            2
+          ],
+          [
+            "apps/web:zod",
+            17
+          ],
+          [
+            "packages/core:dotenv",
+            1
+          ],
+          [
+            "packages/core:resend",
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sql",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "sql.stdout.txt",
+      "stderr": "sql.stderr.txt"
+    },
+    {
+      "name": "services",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "services.stdout.txt",
+      "stderr": "services.stderr.txt"
+    },
+    {
+      "name": "packs",
+      "exitCode": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "packs.stdout.txt",
+      "stderr": "packs.stderr.txt"
+    }
+  ],
+  "serviceGates": {
+    "releaseAccepted": false,
+    "gatedMethods": [
+      "qualify",
+      "auditTrace",
+      "renderReport",
+      "checkTarget",
+      "createJobBranch",
+      "deleteJobBranch",
+      "getJobBranchConnection",
+      "designSuite",
+      "runSuite",
+      "investigate",
+      "proposeAndVerifyFix",
+      "rerunFinding"
+    ],
+    "gatedRequirements": [
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B6",
+      "B7",
+      "B8",
+      "B9",
+      "B10"
+    ]
+  },
+  "releaseAccepted": false
+}

@@ -1,0 +1,19 @@
+PACKS --strict; HEAD=a942ff98bfc751752cb35cf704cc195e10758a59; Track A=8634ceb30f3d98de7ec24b240a4f7549dce80033; deps=/tmp/autonomous-evals-checks.m10du4/node_modules
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-packs-8EGM0N
+
+ ❯ checks/gaps.test.ts (4 tests | 4 failed) 16ms
+   × RELEASE BLOCKER PACK-REPORT: missing appended evidence must not produce a clean generic report 3ms
+   × RELEASE BLOCKER PACK-SERVICE-REPORT: contract report accepts no execution inventory 4ms
+   × RELEASE BLOCKER PACK-PROGRESS: resolver omitting appended cases can project delivered 5ms
+   × RELEASE BLOCKER PACK-COMPARISON: base-only evidence cannot prove complete application coverage 4ms
+ ✓ checks/acceptance.test.ts (15 tests) 16ms
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 15 passed (19)
+   Start at  17:06:44
+   Duration  462ms (import 45%, transform 44%, tests 10%, worker 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-packs-8EGM0N/results.json
+{"mode":"--strict","files":2,"total":19,"passed":15,"failed":4,"skippedOrTodo":0}
+STRICT release gate: every unsafe path must reject or remain unresolved.

@@ -1,0 +1,113 @@
+{
+  "runtime": "v24.21.0",
+  "dependencies": {
+    "core": {
+      "vitest": "3.2.7",
+      "typescript": "5.9.3",
+      "zod": "4.6.7",
+      "@electric-sql/pglite": "0.5.15"
+    },
+    "ui": {
+      "vitest": "3.2.4",
+      "typescript": "5.9.3",
+      "react": "19.2.0",
+      "jsdom": "26.1.0"
+    }
+  },
+  "artifactAppPin": "2dff9d8af8cccdd171d78760a0d74136d138fcb4",
+  "priorAppPin": "96cb4adcea8c55ae4d8cc353deb059996245aa77",
+  "corePin": "de6a7985e72b57fce79ef7f69f533b0b2da126a7",
+  "observedHead": "eb285be3e13bbc34abf483e4819773b19f8448d2",
+  "observedTrackA": "8634ceb30f3d98de7ec24b240a4f7549dce80033",
+  "sha256": {
+    "docs/progress-chat-integration/core-security.patch": "875f3855fd8940ffc4e7173cc8bc3c9c916e53f21e32b31ca64b50b6512bb629",
+    "docs/progress-chat-integration/server.patch": "ce1e3a2d7db2ed7403cb42ce5e812786b78ea624a4310c53fbe8ab277d3cb84d",
+    "docs/progress-chat-integration/client.patch": "3bc70d97edfa808f3888d3f53f1d5de583765ab3a5c95fa08999ddb659f6942b",
+    "docs/progress-chat-integration/combined.patch": "df804eac5b27f299f4b742dd5ada18f72ed6d3fba79c7790b9c25ae97d067773",
+    "docs/progress-chat-integration/server/001-private-conversations.sql": "711924d1929179e5c5fef3a4bea79e6976b2d9756541bb1c6a8d3d05eb6e2cdc",
+    "docs/structured-progress-integration/backend/structured-progress.patch": "f789fdda53766b7f08fded92b28452f9472a7a09abd03fcd82f87150eee42995",
+    "docs/structured-progress-integration/backend/001-structured-progress.sql": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+    "docs/structured-progress-integration/verification/validate.mjs": "08edc2599fc35dd63ddc4c121e8233d6ebea5ed9d99eb434ed42a98caabef0b6",
+    "tests/track-b/chat-release/app-ui/compatibility.mjs": "0a232bb6fbac64f761e1cbf367cf133f33be0bdba11d0dd933582c006fa823b1",
+    "tests/track-b/chat-release/app-ui/correct-existing.mjs": "6bb990e82bff402baec2593cc8f0a76cb60e5c5f52c40e05b76db77887ed8358",
+    "tests/track-b/chat-release/app-ui/reauth.test.tsx": "ff15d2f5a64c56a34b476a11bdcc29406323470d98f6bb1007f46c0c1864c5c4",
+    "tests/track-b/chat-release/app-ui/render.mjs": "7a42e107ecaf75f66fe5bc5fe2670a26eee291e5b68f561a55c4be299004056f",
+    "tests/track-b/chat-release/app-ui/run.mjs": "839e10e27e1c101ce0b338655fc07f6c94921bcd4ec02bf70fdfec50b819249d",
+    "tests/track-b/chat-release/run.mjs": "08acb4cbd8ac8a808d7ae9f7b11d0471a89a07d24f0b7507e86a2a20344e5593",
+    "tests/track-b/chat-release/security/empty.ts": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+    "tests/track-b/chat-release/security/fixture-pool.ts": "9533166a55bb0559e22af0b9c31b2ec18a92f44b1ff7053cea39957ddd21bc58",
+    "tests/track-b/chat-release/security/fixture-session.ts": "248908246444f7c919b04ada292b91689475e06b487433712bd6be21fa6cad9c",
+    "tests/track-b/chat-release/security/route-security.test.ts": "989b677738e58a54d8703e915e03071cdeac4d2d07bb6dbf1c982c61945a1c54",
+    "tests/track-b/chat-release/security/run.mjs": "12507b8125d782c043fa6fd1728114d53b24dd83eaea165ded73ab4952ae3219",
+    "docs/chat-release-verification/app-ui/next-esm-compatibility.patch": "111c7cda082a4682a8d9a9e008f02604d9520b037dbb36a28092768f00488072",
+    "docs/chat-release-verification/app-ui/restore-history.patch": "6d3833101637a232d90049767135a6469e950eaa043805e576e0709b96143455"
+  },
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-X4RzG0",
+  "createdAt": "2026-11-08T01:05:10.489Z",
+  "steps": [
+    {
+      "name": "structured",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "structured.log",
+      "testSummaries": [
+        "96 passed (96)"
+      ]
+    },
+    {
+      "name": "baseline-current-policy-sql",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "baseline-current-policy-sql.log",
+      "testSummaries": [
+        "15 passed (15)"
+      ]
+    },
+    {
+      "name": "server-regression",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "server-regression.log",
+      "testSummaries": [
+        "17 passed (17)"
+      ]
+    },
+    {
+      "name": "structured-targeted-types",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "structured-targeted-types.log",
+      "testSummaries": []
+    },
+    {
+      "name": "client-interactions-types",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "client-interactions-types.log",
+      "testSummaries": [
+        "9 passed (9)"
+      ]
+    },
+    {
+      "name": "independent-ui-regressions",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "independent-ui-regressions.log",
+      "testSummaries": [
+        "13 passed (13)"
+      ]
+    },
+    {
+      "name": "independent-security",
+      "status": "passed",
+      "exitCode": 0,
+      "log": "independent-security.log",
+      "testSummaries": [
+        "7 passed (7)"
+      ]
+    }
+  ],
+  "offlinePassed": true,
+  "releaseAccepted": false,
+  "boundary": "Local SQL, fixture auth/pool, and jsdom only. Full app and rendered/live evidence reported separately."
+}

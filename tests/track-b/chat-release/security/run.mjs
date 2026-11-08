@@ -1,0 +1,14 @@
+import {execFileSync} from 'node:child_process';
+import {mkdtempSync,cpSync,symlinkSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {resolve,join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const here=dirname(fileURLToPath(import.meta.url));
+const stage=resolve(process.argv[2]??'');const deps=resolve(process.argv[3]??process.env.STRUCTURED_NODE_MODULES??'/tmp/track-b-harness/node_modules');
+if(!process.argv[2])throw Error('Usage: node run.mjs PATCHED_STAGE [EXISTING_NODE_MODULES]');
+const scratch=mkdtempSync(join(tmpdir(),'chat-release-security-'));cpSync(here,scratch,{recursive:true});symlinkSync(deps,join(scratch,'node_modules'),'dir');
+const alias=[['@route','apps/web/src/app/api/jobs/[jobId]/chat/route.ts'],['@/server/progress-chat','apps/web/src/server/progress-chat.ts']].map(([find,path])=>({find,replacement:join(stage,path)}));
+for(const [find,file] of [['./session','fixture-session.ts'],['@neondatabase/serverless','fixture-pool.ts'],['server-only','empty.ts']])alias.push({find,replacement:join(scratch,file)});
+writeFileSync(join(scratch,'vitest.config.mjs'),`export default {resolve:{alias:[...${JSON.stringify(alias)},{find:/^@ae\\/core\\/(.*)$/,replacement:${JSON.stringify(join(stage,'packages/core/src/$1'))}}]},test:{include:[${JSON.stringify(join(scratch,'*.test.ts'))}],maxWorkers:1,minWorkers:1,testTimeout:30000}}`);
+execFileSync(process.execPath,[join(deps,'vitest/vitest.mjs'),'run','--config',join(scratch,'vitest.config.mjs')],{cwd:scratch,stdio:'inherit',env:{...process.env,SECURITY_STAGE:stage,SECURITY_REPO:resolve(here,'../../../..')}});
+console.log('Retained SQL/security harness:',scratch);

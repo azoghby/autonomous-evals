@@ -1,0 +1,18 @@
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-security-Zzi547
+
+ ✓ ../../../../../../../var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-security-Zzi547/route-security.test.ts (7 tests) 4005ms
+   ✓ dispatches actual route/adapter/core/SQL while running and delivered, with immutable retry and paginated history  1174ms
+   ✓ uses actual SQL ownership, keeps operator conversation distinct, and denies public-share authentication  608ms
+   ✓ rescreens stored history and stable retries against newly configured current credentials  455ms
+   ✓ rejects cross-origin, injected caller identity, oversized body and invalid pagination without writing  432ms
+   ✓ fails closed without authoritative structured inventory; missing checkpoint becomes a bounded blocker  465ms
+   ✓ delivers persisted confirmed text findings through actual authenticated route without checkpoint prose  431ms
+   ✓ delivers persisted confirmed calendar findings through actual authenticated route without checkpoint prose  440ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  16:52:31
+   Duration  4.83s (transform 233ms, setup 0ms, collect 555ms, tests 4.00s, environment 0ms, prepare 67ms)
+
+Retained SQL/security harness: /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-security-Zzi547

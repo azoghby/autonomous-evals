@@ -1,0 +1,27 @@
+HEAD a942ff98bfc751752cb35cf704cc195e10758a59; Track A 8634ceb30f3d98de7ec24b240a4f7549dce80033; PGlite /tmp/autonomous-evals-checks.m10du4/node_modules; mode --strict
+PASS complete tracked SQL inventory (9 files, no unreviewed migration)
+PASS standalone migration agent
+PASS standalone migration data
+PASS standalone migration text
+PASS standalone migration chat
+PASS standalone migration ledger
+PASS standalone migration calendar
+PASS standalone migration journal
+PASS standalone migration chatCopy
+PASS standalone migration inventory
+PASS Track A 15 migrations + application migrations coexist in forward/reverse order
+PASS simulator seed stays separate and calendar FKs cascade
+PASS outer rollback removes every canonical migration (including schemas)
+PASS chat FK, scoped sequence uniqueness and rollback preserve committed scope
+PASS checkpoint completion and journal shape reject invalid SQL writes
+PASS idempotent artifacts replay; once-only artifacts require migration ledger
+PASS agent/data integer bounds, ledger lifecycle and private inventory constraints
+PASS CHARACTERIZATION: duplicate chat artifacts fail in either order (42P07)
+PASS CHARACTERIZATION: chat copy COMMIT escapes caller transaction
+PASS CHARACTERIZATION: IF NOT EXISTS silently preserves incompatible existing schema
+PASS CHARACTERIZATION: unqualified application tables follow session search_path
+21 checks passed; no skipped tests. Single-session disposable PGlite only; no advisory lock/concurrency/cloud acceptance.
+RELEASE CONDITION: Both chat artifacts cannot be applied: duplicate reporting_chat_scopes (42P07). Choose one.
+RELEASE CONDITION: chatCopy commits an outer migration transaction; rollback leaves its tables committed.
+RELEASE CONDITION: IF NOT EXISTS is replay convenience, not schema validation (checkpoint missing column 42703).
+RELEASE CONDITION: Pin trusted matching search_path for migrations/runtime: chat, ledger, journal, simulator use unqualified tables.

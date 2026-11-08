@@ -1,0 +1,181 @@
+PACKS --strict; HEAD=6ff8a0642fc14dfd23842456d124a4b84f5e040a; Track A=8634ceb30f3d98de7ec24b240a4f7549dce80033; deps=/tmp/autonomous-evals-checks.m10du4/node_modules
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-packs-X87Ji7
+
+ ❯ checks/gaps.test.ts (4 tests | 4 failed) 77ms
+   × RELEASE BLOCKER PACK-REPORT: missing appended evidence must not produce a clean generic report 23ms
+   × RELEASE BLOCKER PACK-SERVICE-REPORT: contract report accepts no execution inventory 13ms
+   × RELEASE BLOCKER PACK-PROGRESS: resolver omitting appended cases can project delivered 21ms
+   × RELEASE BLOCKER PACK-COMPARISON: base-only evidence cannot prove complete application coverage 18ms
+ ✓ checks/acceptance.test.ts (15 tests) 98ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  checks/gaps.test.ts > RELEASE BLOCKER PACK-REPORT: missing appended evidence must not produce a clean generic report
+AssertionError: expected 'No problems were found in what was ex…' not to contain 'No problems were found'
+
+Expected: "No problems were found"
+Received: "No problems were found in what was examined. See the limitations for what this does not cover."
+
+ ❯ checks/gaps.test.ts:13:39
+     11| it(`${label} PACK-REPORT: missing appended evidence must not produce a…
+     12|   const out = renderReport(reportInput());
+     13|   if (strict) expect(out.summary).not.toContain('No problems were foun…
+       |                                       ^
+     14|   else {
+     15|     expect(out.summary).toContain('No problems were found');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  checks/gaps.test.ts > RELEASE BLOCKER PACK-SERVICE-REPORT: contract report accepts no execution inventory
+AssertionError: promise resolved "{ …(6) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "findings": [],
++   "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Text Eval report</title></head><body><article>
++ <h1>Text Eval report</h1><p><strong>Internal fixture job.</strong> Not a customer result.</p>
++ <p>Job 11111111-1111-4111-8111-111111111111 · 2026-11-07T20:00:00.000Z · $5 (pilot pricing)</p>
++ <h2>Summary</h2><p>No problems were found in what was examined. See the limitations for what this does not cover.</p>
++ <h2>Findings</h2><p>No findings.</p>
++ <h2>Limitations</h2><ul><li>Appended pack evidence unavailable.</li></ul>
++ <h2>Costs</h2><p>Known costs are tracked per job in the operator console.</p><ul><li>Not included: Your own model-provider usage during the evaluation</li><li>Not included: Hosting and infrastructure</li></ul>
++ <h2>Monitoring</h2><p>Want this re-checked automatically? The Monitoring pilot re-runs your frozen suite nightly and emails you when a result regresses: $49/month (pilot pricing).</p>
++ </article></body></html>",
++   "jobId": "11111111-1111-4111-8111-111111111111",
++   "markdown": "# Text Eval report
++
++ > **Internal fixture job.** Not a customer result.
++
++ > Test-mode job.
++
++ Job `11111111-1111-4111-8111-111111111111` · generated 2026\\-11\\-07T20:00:00.000Z · $5 \\(pilot pricing\\)
++
++ ## Summary
++
++ No problems were found in what was examined. See the limitations for what this does not cover.
++
++ | Confirmed | Rubric concern | Inconclusive |
++ |---|---|---|
++ | 0 | 0 | 0 |
++
++ ## Findings
++
++ No findings.
++
++ ## Limitations
++
++ - Appended pack evidence unavailable.
++
++ ## Costs
++
++ Known costs are tracked per job in the operator console.
++
++ Not included (unknown):
++ - Your own model\\-provider usage during the evaluation
++ - Hosting and infrastructure
++
++ ## Monitoring
++
++ Want this re\\-checked automatically? The Monitoring pilot re\\-runs your frozen suite nightly and emails you when a result regresses: $49/month \\(pilot pricing\\).
++ ",
++   "monitoringPitch": "Want this re-checked automatically? The Monitoring pilot re-runs your frozen suite nightly and emails you when a result regresses: $49/month (pilot pricing).",
++   "summary": "No problems were found in what was examined. See the limitations for what this does not cover.",
+  }
+
+ ❯ checks/gaps.test.ts:26:33
+     24|     resolveJob: async () => ({ customerId: 'local', package: 'text_eva…
+     25|   const task = service.renderReport(ctx, { intake, findings: [], limit…
+     26|   if (strict) await expect(task).rejects.toMatchObject({ code: 'reject…
+       |                                 ^
+     27|   else {
+     28|     const out = await task; expect(out.summary).toContain('No problems…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  checks/gaps.test.ts > RELEASE BLOCKER PACK-PROGRESS: resolver omitting appended cases can project delivered
+AssertionError: promise resolved "{ snapshot: { …(9) }, …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "acquisition": [],
++   "phases": [
++     {
++       "evidenceRef": "ev_6ff1d1564953e61c689075a2581811e710de8ccc39332de30616232ff6df0ed0",
++       "outcomes": [
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++         "passed",
++       ],
++       "phase": "running",
++       "state": "completed",
++     },
++   ],
++   "snapshot": {
++     "blockers": [],
++     "costs": [],
++     "findings": [],
++     "jobId": "11111111-1111-4111-8111-111111111111",
++     "milestones": [
++       {
++         "at": "2026-11-07T20:00:00.000Z",
++         "evidenceRef": "ev_6ff1d1564953e61c689075a2581811e710de8ccc39332de30616232ff6df0ed0",
++         "id": "ev_6ff1d1564953e61c689075a2581811e710de8ccc39332de30616232ff6df0ed0",
++         "milestone": "running",
++       },
++     ],
++     "observedAt": "2026-11-07T20:00:00.000Z",
++     "status": "delivered",
++     "statusEvidenceRef": "ev_566cd2350bd1411f9651a7f4fc629711079eaa70e6239e3b1b01822c204ae106",
++     "unknownCosts": true,
++   },
+  }
+
+ ❯ checks/gaps.test.ts:35:33
+     33|   const f = progressFixture();
+     34|   const task = createDurableProgressProjection(f.ports).project(f.scop…
+     35|   if (strict) await expect(task).rejects.toMatchObject({ code: 'invali…
+       |                                 ^
+     36|   else {
+     37|     const out = await task; expect(out.snapshot.status).toBe('delivere…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  checks/gaps.test.ts > RELEASE BLOCKER PACK-COMPARISON: base-only evidence cannot prove complete application coverage
+AssertionError: expected [Function] to throw an error
+ ❯ checks/gaps.test.ts:46:63
+     44|   const checks = richChecks(artifact());
+     45|   const out = compareRichChecks(checks, checks);
+     46|   if (strict) expect(() => compareRichChecks(checks, checks)).toThrow(…
+       |                                                               ^
+     47|   else {
+     48|     expect(out.totalChecks).toBe(frozen.scenarios.length); expect(out.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 15 passed (19)
+   Start at  17:04:09
+   Duration  2.94s (transform 55%, import 37%, tests 7%, worker 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-packs-X87Ji7/results.json
+{"mode":"--strict","files":2,"total":19,"passed":15,"failed":4,"skippedOrTodo":0}
+STRICT release gate: every unsafe path must reject or remain unresolved.

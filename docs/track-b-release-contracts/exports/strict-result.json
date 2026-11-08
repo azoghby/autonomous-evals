@@ -1,0 +1,664 @@
+{
+  "base": "6ff8a0642fc14dfd23842456d124a4b84f5e040a",
+  "trackA": "8634ceb30f3d98de7ec24b240a4f7549dce80033",
+  "mode": "--strict",
+  "tools": {
+    "node": "v24.21.0",
+    "typescript": "6.0.3",
+    "esbuild": "0.28.2"
+  },
+  "checks": {
+    "resolution": {
+      "consumerSubpaths": 23,
+      "explicitBarrels": 15,
+      "probes": 34,
+      "unresolved": []
+    },
+    "consumerBindings": {
+      "checked": 329,
+      "problems": []
+    },
+    "rootExportAvailable": false,
+    "directoryAliases": [
+      {
+        "specifier": "@ae/core/adapters",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/contracts/fixtures",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/contracts",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/evals/calendar-integration",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/evals/data/adapters",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/evals/data",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/evals/integration",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/evals/text",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/lite",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/monitoring",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/redteam",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/reporting/chat",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/simulator",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/simulator/workflow",
+        "resolved": false
+      },
+      {
+        "specifier": "@ae/core/targets",
+        "resolved": false
+      }
+    ],
+    "bundle": {
+      "errors": [],
+      "warnings": [],
+      "outputFiles": 34
+    },
+    "manifests": {
+      "productionFiles": 343,
+      "problems": [
+        {
+          "package": "packages/core",
+          "file": "packages/core/src/auth/email.ts",
+          "line": 1,
+          "specifier": "resend",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "packages/core",
+          "file": "packages/core/src/email/setup-inboxes.ts",
+          "line": 6,
+          "specifier": "dotenv/config",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/auth/request-link/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/auth/verify/route.ts",
+          "line": 2,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/cron/cleanup/route.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/cron/stale-jobs/recovery.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/cron/stale-jobs/route.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/dev/simulate-payment/route.ts",
+          "line": 2,
+          "specifier": "stripe",
+          "typeOnly": true,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/dev/simulate-payment/route.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/experts/signup/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/accept-quote/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/accept-quote/route.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/cancel/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/cancel/route.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/messages/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/monitoring/route.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/retest/route.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/share/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/jobs/[jobId]/share/route.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/keys/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/mcp/[transport]/route.ts",
+          "line": 4,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/operator/experts/invite/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/operator/interventions/route.ts",
+          "line": 1,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/operator/outreach/[id]/approve/route.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/operator/outreach/[id]/reject/route.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/stripe/webhook/route.ts",
+          "line": 1,
+          "specifier": "stripe",
+          "typeOnly": true,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/app/api/stripe/webhook/route.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/api-keys.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/create-job.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/expert-calls-logic.ts",
+          "line": 6,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/expert-calls.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/experts.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/follow-ups.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/github-pr.ts",
+          "line": 2,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/github-service.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/http.ts",
+          "line": 2,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/idempotency.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/inbound-email.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/infra.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/job-actions.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/job-store.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/leaderboard-agents.ts",
+          "line": 4,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/leaderboard-db.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/leaderboard-db.ts",
+          "line": 13,
+          "specifier": "@neondatabase/serverless",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/mcp-tools.ts",
+          "line": 2,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/mcp-tools.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/monitoring.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/queries.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/rate-limit.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/regression-api.ts",
+          "line": 3,
+          "specifier": "zod",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/regression-store.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/rerun-slots.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/revenue.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/share.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/x402-pay.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/x402-pay.ts",
+          "line": 3,
+          "specifier": "@x402/core/http",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/server/x402-pay.ts",
+          "line": 4,
+          "specifier": "@x402/core/types",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/restart.ts",
+          "line": 2,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/resume.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/billing.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/common.ts",
+          "line": 3,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/evaluate.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/lifecycle.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/notify.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/quote.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        },
+        {
+          "package": "apps/web",
+          "file": "apps/web/src/workflows/steps/resume.ts",
+          "line": 1,
+          "specifier": "drizzle-orm",
+          "typeOnly": false,
+          "reason": "dependency absent from owning manifest"
+        }
+      ],
+      "summary": [
+        [
+          "apps/web:@neondatabase/serverless",
+          1
+        ],
+        [
+          "apps/web:@x402/core",
+          2
+        ],
+        [
+          "apps/web:drizzle-orm",
+          42
+        ],
+        [
+          "apps/web:stripe",
+          2
+        ],
+        [
+          "apps/web:zod",
+          17
+        ],
+        [
+          "packages/core:dotenv",
+          1
+        ],
+        [
+          "packages/core:resend",
+          1
+        ]
+      ]
+    },
+    "lockManifests": {
+      "checked": 3,
+      "matched": true
+    }
+  },
+  "defects": [
+    {
+      "kind": "manifest-dependency",
+      "count": 66
+    }
+  ],
+  "accepted": false
+}

@@ -1,0 +1,113 @@
+
+> web@0.1.0 build
+> next build --webpack
+
+▲ Next.js 16.4.5 (webpack)
+✓ Compiled workflows in 664ms (44 steps, 1 workflow)
+✓ Running next.config.ts took 1019ms
+- Experiments (use with caution):
+  · extensionAlias
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 29.7s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 3ms
+  Running TypeScript ...
+  Finished TypeScript in 13.9s ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/32) ...
+  Generating static pages using 9 workers (8/32) 
+  Generating static pages using 9 workers (16/32) 
+  Generating static pages using 9 workers (24/32) 
+✓ Generating static pages using 9 workers (32/32) in 2.5s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)                                            Revalidate  Expire
+┌ ○ /                                                          5m      1y
+├ ○ /_not-found
+├ ƒ /.well-known/workflow/v1/flow
+├ ƒ /.well-known/workflow/v1/webhook/[token]
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/request-link
+├ ƒ /api/auth/verify
+├ ƒ /api/cron/cleanup
+├ ƒ /api/cron/follow-ups
+├ ƒ /api/cron/monitoring
+├ ƒ /api/cron/reconcile-payments
+├ ƒ /api/cron/stale-jobs
+├ ƒ /api/dev/simulate-payment
+├ ƒ /api/expert/opt-out/[token]
+├ ƒ /api/expert/r/[token]
+├ ƒ /api/expert/r/[token]/book
+├ ƒ /api/expert/r/[token]/cancel-booking
+├ ƒ /api/expert/r/[token]/ics
+├ ƒ /api/expert/r/[token]/slots
+├ ƒ /api/experts/signup
+├ ƒ /api/jobs
+├ ƒ /api/jobs/[jobId]
+├ ƒ /api/jobs/[jobId]/accept-quote
+├ ƒ /api/jobs/[jobId]/artifacts/[kind]
+├ ƒ /api/jobs/[jobId]/cancel
+├ ƒ /api/jobs/[jobId]/chat
+├ ƒ /api/jobs/[jobId]/findings/[findingId]/rerun
+├ ƒ /api/jobs/[jobId]/github
+├ ƒ /api/jobs/[jobId]/live
+├ ƒ /api/jobs/[jobId]/messages
+├ ƒ /api/jobs/[jobId]/monitoring
+├ ƒ /api/jobs/[jobId]/progress
+├ ƒ /api/jobs/[jobId]/remediations/[remediationId]/pr
+├ ƒ /api/jobs/[jobId]/retest
+├ ƒ /api/jobs/[jobId]/share
+├ ƒ /api/keys
+├ ƒ /api/keys/[id]
+├ ƒ /api/leaderboard
+├ ƒ /api/mcp/[transport]
+├ ƒ /api/operator/experts
+├ ƒ /api/operator/experts/engagements/[id]/mark-paid
+├ ƒ /api/operator/experts/engagements/[id]/notes
+├ ƒ /api/operator/experts/invite
+├ ƒ /api/operator/experts/requests
+├ ƒ /api/operator/experts/slots
+├ ƒ /api/operator/experts/slots/[id]
+├ ƒ /api/operator/infra
+├ ƒ /api/operator/interventions
+├ ƒ /api/operator/live
+├ ƒ /api/operator/outreach/[id]/approve
+├ ƒ /api/operator/outreach/[id]/reject
+├ ƒ /api/operator/overview
+├ ƒ /api/stats/revenue
+├ ƒ /api/stripe/webhook
+├ ƒ /api/v1/regression-runs
+├ ƒ /api/v1/regression-runs/[runId]
+├ ƒ /api/webhooks/agentmail
+├ ƒ /api/x402/jobs/[jobId]/pay
+├ ƒ /expert/book/[token]
+├ ƒ /expert/opt-out/[token]
+├ ƒ /expert/r/[token]
+├ ○ /experts
+├ ƒ /jobs
+├ ƒ /jobs/[jobId]
+├ ○ /leaderboard                                               5m      1y
+├ ƒ /leaderboard/[slug]
+├ ƒ /leaderboard/[slug]/badge.svg
+├ ○ /opengraph-image
+├ ƒ /operator
+├ ƒ /r/[token]
+├ ƒ /r/[token]/badge.svg
+├ ○ /robots.txt
+├ ○ /sample
+├ ○ /sample/suite.json
+├ ƒ /settings/keys
+├ ƒ /signin
+├ ƒ /signin/confirm
+├ ○ /sitemap.xml
+└ ƒ /start
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[leaderboard] load failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set
+[leaderboard] load failed DATABASE_URL is not set

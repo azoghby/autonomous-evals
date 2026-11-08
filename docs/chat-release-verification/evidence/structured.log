@@ -1,0 +1,38 @@
+Track A 2dff9d8af8cccdd171d78760a0d74136d138fcb4
+Core prerequisite de6a7985e72b57fce79ef7f69f533b0b2da126a7
+Applied prior combined.patch then core prerequisite then /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-bcb2cd21/docs/structured-progress-integration/backend/structured-progress.patch
+Staging /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-X4RzG0
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-X4RzG0
+
+ ✓ structured-verification/structured.test.ts (18 tests) 23015ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > keeps Trace path and refuses structured jobs without authoritative inventory  4130ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > reads a persisted Text checkpoint through core projection without exposing response/prose  1679ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > keeps missing text_investigation as a blocker  1264ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > keeps missing calendar_investigation as a blocker  1493ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > projects saved blocked Text investigation without copying sensitive explanations  1386ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > projects persisted confirmed text findings through actual SQL without private prose  970ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > projects persisted confirmed calendar findings through actual SQL without private prose  1001ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > preserves Calendar infrastructure uncertainty and rejects frozen branch mismatch  873ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > rejects saved run digest mismatch instead of returning a clean partial count  905ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > scopes inventory to tenant/job and exposes stable viewer-specific opaque references  786ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > treats missing evaluation-data records as durable input blockers  1217ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > reads SQL waiting_for_data blockers without leaking data  1357ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > reads SQL waiting_for_expert blockers without leaking data  1344ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > rejects a stale inventory watermark behind included job or app cost rows  839ms
+   ✓ actual app durable SQL reader over local PostgreSQL engine > uses a stored watermark and refuses delivery while a checkpoint remains unresolved  851ms
+   ✓ server Workflow inventory publisher on actual SQL > publishes actual stable identity and uses CAS revisions with immutable frozen associations  957ms
+   ✓ server Workflow inventory publisher on actual SQL > records trusted expected missing checkpoints and tasks without fabricating completion  1071ms
+   ✓ server Workflow inventory publisher on actual SQL > rejects observed checkpoint identity disagreement and wrong tenant before publication  890ms
+ ✓ packages/core/src/reporting/chat/projection/projection.test.ts (43 tests) 49ms
+ ✓ packages/core/src/reporting/chat/projection/negative.test.ts (22 tests) 77ms
+ ✓ packages/core/src/reporting/chat/service.test.ts (10 tests) 24ms
+ ✓ structured-verification/dispatcher.test.ts (3 tests) 29ms
+
+ Test Files  5 passed (5)
+      Tests  96 passed (96)
+   Start at  17:04:20
+   Duration  25.41s (transform 447ms, setup 0ms, collect 1.04s, tests 23.19s, environment 1ms, prepare 359ms)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-X4RzG0/structured-results.json
+96 selected tests passed, none skipped. Local SQL/fixture boundaries only; no deployed or rendered acceptance. Stage retained.

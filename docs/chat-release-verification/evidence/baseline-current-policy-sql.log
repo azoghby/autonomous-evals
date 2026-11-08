@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/structured-progress-X4RzG0
+
+ ✓ validation/sql.test.ts (1 test) 2962ms
+   ✓ separate transactional migration and conversation SQL preserve caller+job scope and replay  2960ms
+ ✓ packages/core/src/reporting/chat/file-conversations.test.ts (5 tests) 414ms
+ ✓ validation/current-policy.test.ts (1 test) 15ms
+ ✓ packages/core/src/reporting/chat/answers.test.ts (8 tests) 8ms
+
+ Test Files  4 passed (4)
+      Tests  15 passed (15)
+   Start at  17:04:47
+   Duration  4.83s (transform 113ms, setup 0ms, collect 432ms, tests 3.40s, environment 0ms, prepare 282ms)
+

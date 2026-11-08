@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "track-b-service-gates.v1",
+  "trackA": "8634ceb30f3d98de7ec24b240a4f7549dce80033",
+  "baseParent": "6ff8a0642fc14dfd23842456d124a4b84f5e040a",
+  "scope": "Exact pinned composition/app wrappers/lite code; external host/provider boundaries are doubles; no live acceptance",
+  "methods": {
+    "qualify": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S02"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "auditTrace": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S02"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "renderReport": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S02"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "checkTarget": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S04"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "createJobBranch": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "placeholder",
+      "release": "gated",
+      "evidence": [
+        "S03",
+        "S07"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "deleteJobBranch": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "placeholder",
+      "release": "gated",
+      "evidence": [
+        "S03",
+        "S07"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "getJobBranchConnection": {
+      "real": "delegated",
+      "appReal": "real-delegated",
+      "lite": "placeholder",
+      "release": "gated",
+      "evidence": [
+        "S03",
+        "S07"
+      ],
+      "gate": "Authorize/configure and verify production dependencies; method existence is not release acceptance."
+    },
+    "designSuite": {
+      "real": "unavailable",
+      "appReal": "lite-fallback",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S01",
+        "S05",
+        "S06"
+      ],
+      "gate": "Bind authorized durable rich engine factories and preserve blocked/pending/unassessed state; lite fallback does not close this integration gap.",
+      "reason": "Track B text-eval engine is not yet mapped to the EvalServices contract (see docs/INTEGRATION.md)"
+    },
+    "runSuite": {
+      "real": "unavailable",
+      "appReal": "lite-fallback",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S01",
+        "S05",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "gate": "Bind authorized durable rich engine factories and preserve blocked/pending/unassessed state; lite fallback does not close this integration gap.",
+      "reason": "Track B text-eval engine is not yet mapped to the EvalServices contract (see docs/INTEGRATION.md)"
+    },
+    "investigate": {
+      "real": "unavailable",
+      "appReal": "lite-fallback",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S01",
+        "S05",
+        "S08"
+      ],
+      "gate": "Bind authorized durable rich engine factories and preserve blocked/pending/unassessed state; lite fallback does not close this integration gap.",
+      "reason": "Track B text-eval engine is not yet mapped to the EvalServices contract (see docs/INTEGRATION.md)"
+    },
+    "proposeAndVerifyFix": {
+      "real": "unavailable",
+      "appReal": "lite-fallback",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S01",
+        "S05"
+      ],
+      "gate": "Bind authorized durable rich engine factories and preserve blocked/pending/unassessed state; lite fallback does not close this integration gap.",
+      "reason": "Track B has no verified-remediation engine yet"
+    },
+    "rerunFinding": {
+      "real": "unavailable",
+      "appReal": "lite-fallback",
+      "lite": "implemented-with-reduced-semantics",
+      "release": "gated",
+      "evidence": [
+        "S01",
+        "S05"
+      ],
+      "gate": "Bind authorized durable rich engine factories and preserve blocked/pending/unassessed state; lite fallback does not close this integration gap.",
+      "reason": "rerun needs frozen state/credentials resolved from durable job storage"
+    }
+  },
+  "requirements": [
+    {
+      "id": "B1",
+      "requirement": "Four schema-valid Naive roles and durable budgets",
+      "release": "gated",
+      "evidence": [
+        "S02"
+      ],
+      "gate": "Run real SDK with SQL persistence, role/schema and budget checks; lite uses Gateway rather than Naive.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B2",
+      "requirement": "Commercial, Operator, outreach and follow-ups",
+      "release": "gated",
+      "evidence": [
+        "S02"
+      ],
+      "gate": "Verify durable role outputs and approved external transport separately; no outreach is authorized here.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B3",
+      "requirement": "Trace evidence and investigator re-check",
+      "release": "gated",
+      "evidence": [
+        "S02"
+      ],
+      "gate": "Run real composed Trace audit with persisted sessions and evidence; provider path not exercised here.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B4",
+      "requirement": "Secure HTTP and connection check",
+      "release": "gated",
+      "evidence": [
+        "S04"
+      ],
+      "gate": "Verify public DNS rebinding, redirect, timeout, byte and concurrency controls separately; HTTP refusal alone is insufficient.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B5",
+      "requirement": "Frozen twelve Text checks, factual admission and bounded reproduction",
+      "release": "gated",
+      "evidence": [
+        "S09"
+      ],
+      "gate": "Bind durable rich text factories; lite judge pass does not prove objective checks or factual reference admission.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B6",
+      "requirement": "Neon isolated branches and lifecycle",
+      "release": "gated",
+      "evidence": [
+        "S07"
+      ],
+      "gate": "Verify owned real branches, seeding, reset, export and deletion; lite placeholders have no database.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B7",
+      "requirement": "Calendar tool loop and SQL graders",
+      "release": "gated",
+      "evidence": [
+        "S11"
+      ],
+      "gate": "Bind real simulator tool executor/SQL state grading and buggy/fixed acceptance; lite uses unavailable tool stub.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B8",
+      "requirement": "Comparison, rerun and monitoring with isolated frozen state",
+      "release": "gated",
+      "evidence": [
+        "S10"
+      ],
+      "gate": "Bind durable authorized version/run inventory and scheduling; repeated lite execution is not checkpoint replay.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B9",
+      "requirement": "Report, suite, evidence and cost exports survive cleanup",
+      "release": "gated",
+      "evidence": [
+        "S08"
+      ],
+      "gate": "Verify full rich artifacts, complete cost ledger, authorized persistence and Blob/download retention; boolean result is insufficient.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    },
+    {
+      "id": "B10",
+      "requirement": "Budget, malformed-output, security and recovery tests plus real SDK",
+      "release": "gated",
+      "evidence": [
+        "S05"
+      ],
+      "gate": "Run scoped persistent acceptance and live SDK checks separately; wrapper error routing is only local acceptance.",
+      "evidenceScope": "Boundary characterization or local rejection only; full requirement acceptance not executed."
+    }
+  ],
+  "deploymentGates": {
+    "authenticatedWorkflow": "not_executed",
+    "stripeTestAndRecovery": "not_executed",
+    "paymentAccessRedeploySecurity": "not_executed",
+    "liveCustomerDelivery": "not_executed"
+  },
+  "releaseAccepted": false
+}

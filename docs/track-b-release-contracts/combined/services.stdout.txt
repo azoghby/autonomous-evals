@@ -1,0 +1,13 @@
+Track B a942ff98bfc751752cb35cf704cc195e10758a59; Track A 8634ceb30f3d98de7ec24b240a4f7549dce80033; dependencies /tmp/autonomous-evals-checks.m10du4/node_modules; providers blocked
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-services-kVHoRA
+
+ ✓ services.test.ts (14 tests) 18ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  17:06:43
+   Duration  262ms (transform 56%, import 34%, tests 9%, worker 1%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-services-kVHoRA/results.json
+Strict scoped TypeScript passed; 14 tests executed, none skipped. Characterizations do not close release gates.

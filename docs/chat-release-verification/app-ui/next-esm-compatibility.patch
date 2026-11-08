@@ -1,0 +1,26 @@
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -4,7 +4,7 @@
+   "private": true,
+   "scripts": {
+     "dev": "next dev",
+-    "build": "next build",
++    "build": "next build --webpack",
+     "start": "next start",
+     "lint": "eslint",
+     "typecheck": "tsc --noEmit"
+--- a/apps/web/next.config.ts
++++ b/apps/web/next.config.ts
+@@ -11,6 +11,12 @@
+ ];
+ 
+ const nextConfig: NextConfig = {
++  experimental: { extensionAlias: { ".js": [".ts", ".tsx", ".js"] } },
++  webpack(config) {
++    // Apply the existing Tailwind loader when selecting webpack for ESM aliases.
++    config.module.rules.push({ oneOf: [{ test: /\.css$/, exclude: /node_modules/, enforce: "pre", use: [{ loader: "@tailwindcss/turbopack", options: {} }] }] });
++    return config;
++  },
+   transpilePackages: ["@ae/core"],
+   serverExternalPackages: ["stripe", "agentmail"],
+   async headers() {

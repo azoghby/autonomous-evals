@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-uYcibW
+
+ ✓ reauth.test.tsx (4 tests) 790ms
+   ✓ reloads private history from sequence zero after access restoration  479ms
+ ✓ chat.test.tsx (9 tests) 846ms
+   ✓ Private progress chat > paginates ascending history and displays plain text without evidence or digest  391ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  16:59:15
+   Duration  2.22s (transform 97ms, setup 0ms, collect 467ms, tests 1.64s, environment 1.24s, prepare 180ms)
+

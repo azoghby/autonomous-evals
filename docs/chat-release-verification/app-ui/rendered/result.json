@@ -1,0 +1,61 @@
+{
+  "boundary": "Actual Chromium + Next16.4.5 + React19.3.0, synthetic API fixture; no authenticated session/database/deployment",
+  "desktop": [
+    1440,
+    1100
+  ],
+  "mobile": [
+    390,
+    844
+  ],
+  "computedStyles": {
+    "borderTopWidth": "1px",
+    "background": "rgb(17, 18, 20)",
+    "padding": "24px",
+    "fontFamily": "Geist, \"Geist Fallback\", ui-sans-serif, system-ui, sans-serif"
+  },
+  "stableRetry": true,
+  "mobileOverflow": false,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": "?afterSequence=0&limit=20"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": "?mode=poll"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": "?afterSequence=0&limit=20"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": "?mode=poll"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": ""
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": "?mode=poll&cursor=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/synthetic-owned-job/chat",
+      "query": "?afterSequence=0&limit=20"
+    }
+  ]
+}

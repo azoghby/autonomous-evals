@@ -1,0 +1,49 @@
+▲ Next.js 16.4.5 (webpack)
+✓ Compiled workflows in 2.1s (44 steps, 1 workflow)
+✓ Running next.config.ts took 2.4s
+
+  Creating an optimized production build ...
+Failed to compile.
+
+../../packages/core/src/reporting/chat/index.ts
+Module not found: Can't resolve './types.js'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/chat/route.ts
+
+../../packages/core/src/reporting/chat/index.ts
+Module not found: Can't resolve './service.js'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/chat/route.ts
+
+../../packages/core/src/reporting/chat/index.ts
+Module not found: Can't resolve './answers.js'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/chat/route.ts
+
+../../packages/core/src/reporting/chat/index.ts
+Module not found: Can't resolve './file-conversations.js'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/chat/route.ts
+
+../../packages/core/src/reporting/chat/index.ts
+Module not found: Can't resolve './postgres-conversations.js'
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./src/app/api/jobs/[jobId]/chat/route.ts
+
+
+> Build failed because of webpack errors

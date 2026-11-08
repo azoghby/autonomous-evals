@@ -1,0 +1,15 @@
+PACKS --characterize; HEAD=6ff8a0642fc14dfd23842456d124a4b84f5e040a; Track A=8634ceb30f3d98de7ec24b240a4f7549dce80033; deps=/tmp/autonomous-evals-checks.m10du4/node_modules
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-packs-nNuh5L
+
+ ✓ checks/gaps.test.ts (4 tests) 27ms
+ ✓ checks/acceptance.test.ts (15 tests) 98ms
+
+ Test Files  2 passed (2)
+      Tests  19 passed (19)
+   Start at  17:04:09
+   Duration  2.72s (transform 54%, import 40%, tests 6%)
+
+JSON report written to /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/release-packs-nNuh5L/results.json
+{"mode":"--characterize","files":2,"total":19,"passed":19,"failed":0,"skippedOrTodo":0}
+CHARACTERIZATION ONLY: green confirms known gaps, not release acceptance.
