@@ -1,5 +1,112 @@
 # Real open-source agents, evaluated by Standard Evals
 
+## 2026-11-08: 10 open-source agents x 4 models on the public leaderboard
+
+Every agent below is a public sample whose source is published under an OSI licence (MIT or Apache-2.0). We ran each
+one **locally, from its own code at a pinned commit**, behind a localhost shim in `scripts/demo/shims/`. Only the
+agent's model client was redirected, to our own Vercel AI Gateway key. No hosted third-party agent endpoint or product
+API was called. Each leaderboard row records `termsUrl` = the licence at that commit and an `authorizedNote` citing the
+licence and commit (`data/public-agents.json`). Runs used `scripts/public-agents.ts run <slug> --allow-local` against
+the frozen `standard-v1` suite (32 single-turn scenarios: 12 designed + 20 red-team). Results are in the leaderboard DB
+through the runner's normal writes.
+
+Pass rate on `standard-v1` (passed / 32). Red-team pass rate in brackets.
+
+| Agent (licence, commit) | Claude Sonnet 5.5 | GPT-5.5 | Gemini 3.8 Flash | Claude Opus 5.5 |
+|---|---|---|---|---|
+| [OpenAI Agents SDK (JS) customer-service example](https://github.com/openai/openai-agents-js/tree/252236c32d30010ef974db77395e19dfb03bbeff/examples/customer-service) (MIT, `252236c`) | 30/32 (95%) | 31/32 (95%) | 32/32 (100%) | 29/32 (85%) |
+| [OpenAI Agents SDK customer_service example](https://github.com/openai/openai-agents-python/tree/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/examples/customer_service) (MIT, `27c75c5`) | 29/32 (95%) | 32/32 (100%) | 29/32 (90%) | 29/32 (85%) |
+| [Pydantic AI bank_support example](https://github.com/pydantic/pydantic-ai/blob/0f7648a1b0685389ea368ea4f7b754b393cea8c7/examples/pydantic_ai_examples/bank_support.py) (MIT, `0f7648a`) | 29/32 (95%) | 30/32 (100%) | 30/32 (100%) | 27/32 (85%) |
+| [LangGraph customer-support tutorial bot (Part 1)](https://github.com/langchain-ai/langgraph/blob/23961cff61a42b52525f3b20b4094d8d2fba1744/docs/docs/tutorials/customer-support/customer-support.ipynb) (MIT, `23961cf`) | not run | 29/32 (100%) | 27/32 (100%) | not run |
+| [Semantic Kernel handoff support sample](https://github.com/microsoft/semantic-kernel/blob/df1cb33d0d32699c8d6a2e5b3ea7e5f8990d86d5/python/samples/getting_started_with_agents/multi_agent_orchestration/step4_handoff.py) (MIT, `df1cb33`) | 26/32 (85%) | 30/32 (95%) | 29/32 (100%) | 27/32 (80%) |
+| [Microsoft Agent Framework handoff support sample](https://github.com/microsoft/agent-framework/blob/924a6e50ec0336f3c965ee8b1151c54085888b6e/python/samples/03-workflows/orchestrations/handoff_simple.py) (MIT, `924a6e5`) | 28/32 (90%) | 31/32 (100%) | 29/32 (95%) | 23/32 (80%) |
+| [smolagents text_to_sql CodeAgent](https://github.com/huggingface/smolagents/blob/96f33faaf028479119ec8d34507b47694cf14e34/examples/text_to_sql.py) (Apache-2.0, `96f33fa`) | 25/32 (65%) | 29/32 (95%) | not run | not run |
+| [Anthropic claude-quickstarts customer-support-agent](https://github.com/anthropics/claude-quickstarts/tree/4a4224bdf0e9cfb3332167b69c90457403813625/customer-support-agent) (MIT, `4a4224b`) | 22/32 (80%) on Sonnet 4.5\* | 20/32 (75%) | not run | not run |
+
+Previously listed and unchanged in this pass: `openai-cs-agents` (openai/openai-cs-agents-demo, MIT) and
+`adk-customer-service` (google/adk-samples, Apache-2.0).
+
+"not run": the run was not possible, or its result was discarded (see Spend). \* claude-quickstarts sends an assistant prefill (`{`). Claude Sonnet 5.5, Claude Opus 5.5 and Gemini 3.8 Flash reject
+prefill on the gateway, so this agent ran on GPT-5.5 and Claude Sonnet 4.5, the model family it was written for.
+
+### How scoring was kept fair
+
+- **Provider refusals are mapped.** When a model provider's safety system blocks a reply (an exception, a
+  `content_filter`/`refusal` finish reason, or a framework turning the block into reply text), the shim returns the
+  standard refusal reply, so it is graded like any other refusal and not as an agent error.
+- **Harness timeouts are not counted against agents.** Slow multi-step turns (smolagents' 20-step CodeAgent, multi-agent
+  handoffs) hit the 120s per-request loopback cap. The runner now re-sends only on transport timeouts
+  (`PatientLoopbackTransport`, 10 x 120s), and the shim joins a re-sent turn onto the one already in flight, so the
+  agent's work is not repeated. Shims cap a turn at 1180s. Affected runs were re-run after each fix, until the key
+  budget ran out (see Spend).
+- **Agent-caused errors still count.** Microsoft Agent Framework on Claude Opus 5.5 had one turn fail with "model does
+  not support assistant message prefill", raised by the framework's own request. claude-quickstarts' route handler
+  returned its own error reply on 5 turns. Both are the agent's behaviour, so they stay in the score.
+
+### Harness bugs found and fixed during this pass
+
+- Loopback per-request timeout (120s) failed slow-but-working agents. Fixed as above.
+- LangGraph tutorial: its `Assistant` re-prompts "Respond with a real output." forever on an empty reply. A provider
+  refusal arrives as an empty reply, so those turns hung until the harness timeout and scored as errors. The shim now
+  maps that finish reason to the refusal reply.
+- Timed-out turns kept running. `asyncio.wait_for` cannot stop the worker thread, so the LangGraph loop above kept
+  calling the model after the harness had given up. This is what most of the extra spend below went to. A per-turn
+  deadline now stops the model client.
+
+### Caveats
+
+- **System prompts are ignored.** Shims drop client system messages and run each agent with its own prompt, so the
+  suite's planted system-prompt secrets are never in play. Red-team data-exfiltration scores are inflated accordingly.
+- **Samples, not products.** These are framework examples (an airline, a bank, a SQL DB, a travel agency), not vendor
+  products. The suite is domain-generic, so part of each score measures domain mismatch.
+- **Stand-ins.** The LangGraph tutorial's Tavily web-search tool is replaced by a same-named tool that returns "Web
+  search is unavailable." (we do not call third-party product APIs). claude-quickstarts runs without its optional Bedrock
+  knowledge base. The Hugging Face hosted model in smolagents, the Azure chat service in Semantic Kernel and the
+  OpenAI/Anthropic clients elsewhere are swapped for the gateway.
+- **Shared state.** The LangGraph tutorial's tools write to its SQLite DB, which every conversation shares (as in the
+  tutorial). It is reset when the shim starts.
+- **Single run.** One run per agent x model, not a pass^k study. Differences of one or two scenarios are noise.
+
+### Agents considered and rejected
+
+| Candidate | Reason |
+|---|---|
+| crewAIInc/crewAI-examples | No licence file. |
+| deepset-ai/haystack-cookbook | No licence file. |
+| microsoft/autogen | Repo licence reports CC-BY-4.0 (not OSI). Used its MIT successor, microsoft/agent-framework. |
+| strands-agents/samples | Apache-2.0, but the customer-facing samples are notebooks tied to Bedrock/AWS services. |
+| Further google/adk-samples agents | Need GCP services and do document processing; do not fit a chat suite. |
+| mastra-ai examples | Mixed licensing and a heavy node install. |
+| Vercel AI SDK examples | Not customer-facing agents. |
+| LlamaIndex examples | Skipped for time. |
+
+### Spend
+
+The Vercel AI Gateway `total_used` counter went from $65.31 to $91.18: **$25.87** for this pass (cap: $40). That
+covers every run here, the shim smoke tests, re-runs after the harness fixes, and the suite's grader calls. The key is
+shared, so treat it as an upper bound.
+
+About $12 of it was waste. Timed-out LangGraph turns kept looping in their worker threads for roughly 25 minutes before
+we found and fixed the leak (see the harness bugs above).
+
+At 11:45 UTC the shared gateway key reached its own **$50 per-key budget** (`402 API key budget exceeded`). Every model
+call failed after that. Five runs that were in flight then or started after were invalid, and we deleted those run rows
+from the leaderboard DB:
+- LangGraph on Opus and on Sonnet;
+- smolagents on Gemini and on Opus;
+- the earlier LangGraph Sonnet run, which had two harness-hang errors.
+
+That is why those four cells say "not run". Raising the key budget and re-running them is a follow-up:
+`scripts/public-agents.ts run <slug> --allow-local` with the shim up.
+
+**Empty replies count against agents.** 17 scenarios across 10 runs were graded `error` because the agent's reply was
+empty (`invalid_completion`). Most are Semantic Kernel and smolagents on Claude, many on red-team prompts, where an
+unmapped provider refusal reaching the framework as empty text is the likely cause. We could not re-run them once the key
+was exhausted, so those scores are a lower bound. Next step: map an empty reply with a `content_filter`/`refusal`
+finish reason in every shim, as the LangGraph shim now does.
+
+## 2026-11-07: first real-agent runs
+
 Run date: 2026-11-07. Everything below ran **on our own machine with our own model key**. We did not call any hosted
 third-party agent endpoint, and nothing was written to the production leaderboard DB. Raw results:
 `scratchpad/real-agents/results.json` (not committed; it holds full transcripts).

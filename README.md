@@ -197,24 +197,24 @@ Also a `sample_report` resource and prompt, and a `hire_eval` playbook prompt. H
 
 ## Public leaderboard
 
-Reference baselines are **our own calls** to models through the AI Gateway with one fixed Acme support prompt. They are not vendor products, and no third-party endpoint is tested without recorded terms or written permission. Live results: **[/leaderboard](https://standard-evals.vercel.app/leaderboard)**.
+The leaderboard ranks **real open-source agents**. Each is a public sample under an OSI licence (MIT or Apache-2.0). We run it locally from its own code at a pinned commit, behind a localhost shim (`scripts/demo/shims/`), and point only its model client at our AI Gateway key. No hosted third-party agent or product API is called. Each row records the licence URL and commit (`data/public-agents.json`). Live results: **[/leaderboard](https://standard-evals.vercel.app/leaderboard)**.
 
-Live snapshot from `/api/leaderboard` (10 reference agents, suite `standard-v1`, 32 scenarios each):
+Suite `standard-v1`: 32 scenarios, 12 designed and 20 red-team. Cells show passed/32, with the red-team pass rate in brackets:
 
-| # | Reference agent | Pass rate | Red-team pass | Critical findings |
+| Agent (licence, commit) | Claude Sonnet 5.5 | GPT-5.5 | Gemini 3.8 Flash | Claude Opus 5.5 |
 |---|---|---|---|---|
-| 1 | Claude Sonnet | 75% | 90% | 0 |
-| 2 | GPT-5 mini | 75% | 70% | 1 |
-| 3 | Llama 3.3 70B | 72% | 65% | 1 |
-| 4 | Claude Haiku | 69% | 85% | 0 |
-| 5 | GPT-5 | 69% | 75% | 1 |
-| 6 | Llama 4 Maverick | 69% | 65% | 0 |
-| 7 | Gemini 3 Flash | 66% | 75% | 1 |
-| 8 | Gemini 2.5 Flash | 62% | 80% | 1 |
-| 9 | DeepSeek V3.2 | 62% | 55% | 1 |
-| 10 | GPT-5 nano | 28% | 30% | 3 |
+| [OpenAI Agents SDK (JS) customer-service example](https://github.com/openai/openai-agents-js/tree/252236c32d30010ef974db77395e19dfb03bbeff/examples/customer-service) (MIT, `252236c`) | 30/32 (95%) | 31/32 (95%) | 32/32 (100%) | 29/32 (85%) |
+| [OpenAI Agents SDK customer_service example](https://github.com/openai/openai-agents-python/tree/27c75c5f9c5fd957d28c04fb7e9eeacaad4630a9/examples/customer_service) (MIT, `27c75c5`) | 29/32 (95%) | 32/32 (100%) | 29/32 (90%) | 29/32 (85%) |
+| [Pydantic AI bank_support example](https://github.com/pydantic/pydantic-ai/blob/0f7648a1b0685389ea368ea4f7b754b393cea8c7/examples/pydantic_ai_examples/bank_support.py) (MIT, `0f7648a`) | 29/32 (95%) | 30/32 (100%) | 30/32 (100%) | 27/32 (85%) |
+| [LangGraph customer-support tutorial bot (Part 1)](https://github.com/langchain-ai/langgraph/blob/23961cff61a42b52525f3b20b4094d8d2fba1744/docs/docs/tutorials/customer-support/customer-support.ipynb) (MIT, `23961cf`) | not run | 29/32 (100%) | 27/32 (100%) | not run |
+| [Semantic Kernel handoff support sample](https://github.com/microsoft/semantic-kernel/blob/df1cb33d0d32699c8d6a2e5b3ea7e5f8990d86d5/python/samples/getting_started_with_agents/multi_agent_orchestration/step4_handoff.py) (MIT, `df1cb33`) | 26/32 (85%) | 30/32 (95%) | 29/32 (100%) | 27/32 (80%) |
+| [Google ADK customer-service agent](https://github.com/google/adk-samples/tree/main/python/agents/customer-service) (Apache-2.0) | 28/32 (95%) | 31/32 (100%) | 28/32 (90%) | 24/32 (85%) |
+| [Microsoft Agent Framework handoff support sample](https://github.com/microsoft/agent-framework/blob/924a6e50ec0336f3c965ee8b1151c54085888b6e/python/samples/03-workflows/orchestrations/handoff_simple.py) (MIT, `924a6e5`) | 28/32 (90%) | 31/32 (100%) | 29/32 (95%) | 23/32 (80%) |
+| [smolagents text_to_sql CodeAgent](https://github.com/huggingface/smolagents/blob/96f33faaf028479119ec8d34507b47694cf14e34/examples/text_to_sql.py) (Apache-2.0, `96f33fa`) | 25/32 (65%) | 29/32 (95%) | not run | not run |
+| [Anthropic claude-quickstarts customer-support-agent](https://github.com/anthropics/claude-quickstarts/tree/4a4224bdf0e9cfb3332167b69c90457403813625/customer-support-agent) (MIT, `4a4224b`) | 22/32 (80%) on Sonnet 4.5\* | 20/32 (75%) | not run | not run |
+| [OpenAI CS Agents demo](https://github.com/openai/openai-cs-agents-demo) (MIT) | 21/32 (85%) | 21/32 (85%) | 20/32 (85%) | 21/32 (85%) |
 
-These are a single run, not a pass^k study, and the live board may have moved since. The reference list lives in [`data/public-agents.json`](data/public-agents.json).
+"Not run" means the run was not possible or was discarded when the gateway key hit its budget. \* claude-quickstarts sends an assistant prefill, which Sonnet 5.5, Opus 5.5 and Gemini 3.8 reject, so it ran on Sonnet 4.5. Each cell is a single run, not a pass^k study, and the live board may have moved since. Method, caveats and rejected candidates: [`docs/REAL_AGENT_RESULTS.md`](docs/REAL_AGENT_RESULTS.md).
 
 <br>
 
