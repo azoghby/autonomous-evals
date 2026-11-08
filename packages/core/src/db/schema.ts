@@ -405,3 +405,35 @@ export const regressionRuns = pgTable("regression_runs", {
   error: text("error"),
   createdAt,
 }, (t) => [index("regression_runs_customer_idx").on(t.customerId, t.createdAt)]);
+
+// ---- Public agents leaderboard ----
+export const publicAgents = pgTable("public_agents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull(),
+  name: text("name").notNull(),
+  vendor: text("vendor").notNull(),
+  kind: text("kind").notNull().default("third_party"), // reference | third_party
+  endpointUrl: text("endpoint_url").notNull(),
+  model: text("model").notNull(),
+  authEnvVar: text("auth_env_var"), // NAME of the env var holding the key; never the key
+  systemPrompt: text("system_prompt"),
+  homepage: text("homepage"),
+  termsUrl: text("terms_url"),
+  authorizedNote: text("authorized_note"),
+  active: boolean("active").notNull().default(true),
+  createdAt,
+}, (t) => [uniqueIndex("public_agents_slug_uq").on(t.slug)]);
+
+export const publicAgentRuns = pgTable("public_agent_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agentId: uuid("agent_id").notNull().references(() => publicAgents.id, { onDelete: "cascade" }),
+  suiteVersion: text("suite_version").notNull(),
+  ranAt: ts("ran_at").notNull().defaultNow(),
+  passed: integer("passed").notNull(),
+  total: integer("total").notNull(),
+  byCategory: jsonb("by_category").notNull().$type<Record<string, { passed: number; total: number }>>(),
+  findings: jsonb("findings").notNull().$type<unknown[]>().default(sql`'[]'::jsonb`),
+  costMicroUsd: bigint("cost_micro_usd", { mode: "number" }).notNull().default(0),
+  jobId: uuid("job_id"),
+}, (t) => [index("public_agent_runs_agent_ran_idx").on(t.agentId, t.ranAt)]);
+

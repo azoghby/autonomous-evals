@@ -1,0 +1,71 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Eyebrow, Frame, PageShell, Reveal } from "@/components/ui";
+import { getLeaderboard } from "@/server/leaderboard-db";
+import { SUITE_VERSION, percent, type RankedEntry } from "@/server/leaderboard";
+import { suiteCounts } from "@/server/leaderboard-suite";
+import { KindTag, LEADERBOARD_NAV, RateBar, Th, fmtDate } from "./parts";
+import { Methodology } from "./Methodology";
+
+export const revalidate = 300;
+export const metadata: Metadata = {
+  title: "Public agent leaderboard · Standard Evals",
+  description: "Public AI agents ranked on one frozen evaluation suite: everyday tasks, instruction following and red-team safety.",
+};
+
+function Row({ e }: { e: RankedEntry }) {
+  return (
+    <tr className="border-t border-line transition-colors duration-150 hover:bg-bg-hover">
+      <td className="t-data w-12 px-4 py-4 text-subtle">{String(e.rank).padStart(2, "0")}</td>
+      <td className="px-4 py-4">
+        <Link href={`/leaderboard/${e.slug}`} className="group text-[15px] text-fg underline-offset-4 hover:underline focus-visible:underline">{e.name}</Link>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13px] text-muted"><span>{e.vendor}</span><KindTag kind={e.kind} /></div>
+      </td>
+      <td className="w-56 px-4 py-4"><RateBar value={e.passRate} label="Pass rate" /></td>
+      <td className="hidden w-48 px-4 py-4 md:table-cell">{e.redTeamRate === null ? <span className="t-data text-subtle">n/a</span> : <RateBar value={e.redTeamRate} label="Red-team pass rate" />}</td>
+      <td className="t-data hidden w-24 px-4 py-4 text-right sm:table-cell">
+        <span className={e.criticalCount > 0 ? "text-danger" : "text-fg-2"}>{e.criticalCount}</span>
+      </td>
+      <td className="t-data hidden w-28 px-4 py-4 text-right text-muted lg:table-cell">{fmtDate(e.run.ranAt)}</td>
+    </tr>
+  );
+}
+
+export default async function LeaderboardPage() {
+  const { entries, ok } = await getLeaderboard();
+  const c = suiteCounts();
+  return (
+    <PageShell nav={LEADERBOARD_NAV} active="/leaderboard">
+      <Reveal>
+        <Eyebrow>Leaderboard</Eyebrow>
+        <h1 className="t-h1 mt-5 max-w-4xl text-fg">Public agents, one suite. <span className="text-muted">Ranked on tasks, instructions and red-team safety.</span></h1>
+        <p className="t-lead mt-6 max-w-2xl">{c.total} frozen scenarios, deterministic graders, identical prompt and budget for every agent. <a href="#methodology" className="text-accent-text underline underline-offset-4">How we score</a>.</p>
+      </Reveal>
+
+      <Frame className="mt-14 bg-bg-raised" aria-labelledby="board-h">
+        <h2 id="board-h" className="sr-only">Ranking, suite {SUITE_VERSION}</h2>
+        {entries.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="font-mono text-[11px] uppercase text-subtle">{ok ? "No runs yet" : "Results unavailable"}</p>
+            <p className="t-h3 mx-auto mt-4 max-w-md text-fg">{ok ? "The first agents are being evaluated now." : "We could not load results right now."}</p>
+            <p className="mx-auto mt-3 max-w-md text-[14px] text-muted">{ok ? `Scores appear here as each agent completes the ${SUITE_VERSION} suite. Check back soon.` : "Try again in a few minutes."}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] border-collapse">
+              <caption className="sr-only">Agents ranked by pass rate on suite {SUITE_VERSION}</caption>
+              <thead><tr>
+                <Th>#</Th><Th>Agent</Th><Th>Pass rate</Th><Th className="hidden md:table-cell">Red-team</Th>
+                <Th className="hidden text-right sm:table-cell">Critical</Th><Th className="hidden text-right lg:table-cell">Last run</Th>
+              </tr></thead>
+              <tbody>{entries.map((e) => <Row key={e.slug} e={e} />)}</tbody>
+            </table>
+          </div>
+        )}
+      </Frame>
+      <p className="t-small mt-4 text-subtle">Suite {SUITE_VERSION}. Reference baselines are our own model calls with a fixed Acme support prompt, shown for comparison; they are not vendor products.</p>
+
+      <Methodology />
+    </PageShell>
+  );
+}
