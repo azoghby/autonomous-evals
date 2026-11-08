@@ -27,6 +27,8 @@ export const customers = pgTable("customers", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   planCurrentPeriodEnd: ts("plan_current_period_end"),
+  /** End of the Stripe free trial while plan_status = trialing; null otherwise. */
+  planTrialEnd: ts("plan_trial_end"),
   planUpdatedAt: ts("plan_updated_at"),
   createdAt,
 }, (t) => [uniqueIndex("customers_email_uq").on(sql`lower(${t.email})`)]);
@@ -705,6 +707,24 @@ export const overageCharges = pgTable("overage_charges", {
   billedAt: ts("billed_at"),
   createdAt,
 }, (t) => [uniqueIndex("overage_charges_customer_period_uq").on(t.customerId, t.periodStart)]);
+
+/**
+ * One row per (customer, usage month, threshold) usage warning email (80 or 100 percent of included trials).
+ * The unique key is the idempotency marker: claim first, then send; a failed send deletes the claim so the next run retries.
+ * status "skipped" marks a lower threshold that was crossed in the same run as a higher one (no email sent).
+ */
+export const usageWarnings = pgTable("usage_warnings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  periodStart: ts("period_start").notNull(),
+  threshold: integer("threshold").notNull(),
+  plan: text("plan").notNull(),
+  trialsUsed: integer("trials_used").notNull(),
+  includedTrials: integer("included_trials").notNull(),
+  /** sent | skipped */
+  status: text("status").notNull().default("sent"),
+  createdAt,
+}, (t) => [uniqueIndex("usage_warnings_customer_period_threshold_uq").on(t.customerId, t.periodStart, t.threshold)]);
 
 /* ---------------- Agent-run company (packages/core/src/company, apps/web/src/server/company) ---------------- */
 
