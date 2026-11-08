@@ -1,5 +1,5 @@
-import { ChatCompletionsClient, type TargetConfig } from './chat.js';
-import { HttpsJsonTransport, TargetError, type JsonTransport } from './transport.js';
+import { ChatCompletionsClient, type TargetConfig } from './chat';
+import { HttpsJsonTransport, TargetError, type JsonTransport } from './transport';
 /** Structurally compatible with Track A endpoint contracts; no contract import required. */
 export interface PlatformTarget { url: string; model: string; apiKey?: string; systemPrompt?: string; maxCompletionTokens?: number }
 export function targetConfig(input: PlatformTarget): TargetConfig {

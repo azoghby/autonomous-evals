@@ -1,0 +1,251 @@
+import { paymentMatchesQuote, type Finding, type JobEvent, type JobState, type Package } from "@ae/core/contracts/index";
+
+/** Pure decision logic for jobWorkflow, kept free of I/O so it is unit-testable. */
+
+export const MAX_CLARIFICATION_ROUNDS = 3;
+export const CREDENTIALS_TTL_MS = 24 * 3600_000;
+export const BRANCH_TTL_MS = 48 * 3600_000;
+
+export type PaymentDecision =
+  | { action: "accept" }
+  | { action: "ignore"; reason: "quote_version_mismatch" | "duplicate" | "amount_mismatch" };
+
+type PaymentEvent = Extract<JobEvent, { type: "payment_confirmed" }>;
+
+export interface PaymentAmountCheck {
+  payment: { amountCents: number; currency: string };
+  quote: { pricingMode: string; priceCents: number; capCents: number | null };
+}
+
+/**
+ * A payment unlocks the job only if it is for the latest quote, not a replay, and (when `amountCheck`
+ * is supplied) its amount/currency matches the quote: fixed = priceCents, per_finding = capCents, usd.
+ * confirmAndResume enforces the same rule before the event is ever sent.
+ */
+export function decidePayment(
+  event: PaymentEvent, latestQuoteVersion: number, seenPaymentIds: readonly string[], amountCheck?: PaymentAmountCheck,
+): PaymentDecision {
+  if (seenPaymentIds.includes(event.paymentId)) return { action: "ignore", reason: "duplicate" };
+  if (event.quoteVersion !== latestQuoteVersion) return { action: "ignore", reason: "quote_version_mismatch" };
+  if (amountCheck && !paymentMatchesQuote(amountCheck.payment, amountCheck.quote)) return { action: "ignore", reason: "amount_mismatch" };
+  return { action: "accept" };
+}
+
+export function isQuoteAcceptance(event: JobEvent, latestQuoteVersion: number): boolean {
+  return event.type === "quote_accepted" && event.quoteVersion === latestQuoteVersion;
+}
+
+export type ClarifyDecision = "quote" | "ask" | "decline" | "give_up";
+
+/** Maps a Commercial qualify decision plus rounds already used to the workflow's next move. */
+export function decideAfterQualify(decision: "quote" | "clarify" | "decline", roundsUsed: number): ClarifyDecision {
+  if (decision === "quote") return "quote";
+  if (decision === "decline") return "decline";
+  return roundsUsed >= MAX_CLARIFICATION_ROUNDS ? "give_up" : "ask";
+}
+
+export const isTracePackage = (pkg: Package) => pkg === "trace_audit";
+
+/** Credential and branch deletion deadlines are independent, both anchored at delivery. */
+export function deliveryDeadlines(deliveredAt: Date) {
+  return {
+    deliveredAt,
+    credentialsDeleteAfter: new Date(deliveredAt.getTime() + CREDENTIALS_TTL_MS),
+    branchDeleteAfter: new Date(deliveredAt.getTime() + BRANCH_TTL_MS),
+  };
+}
+
+export type BudgetAgent = "commercial" | "engineer" | "investigator" | "operator" | "judge";
+
+/** Share of the per-job cap reserved before each agent-calling step. Shares sum to 1. */
+export const BUDGET_SHARE: Record<BudgetAgent, number> = {
+  commercial: 0.1, engineer: 0.25, judge: 0.25, investigator: 0.25, operator: 0.15,
+};
+
+export function budgetCheck(cap: number, spent: number, otherReserved: number, agent: BudgetAgent):
+  { ok: true; reserve: number } | { ok: false; reserve: number; available: number } {
+  const reserve = Math.floor(cap * BUDGET_SHARE[agent]);
+  const available = cap - spent - otherReserved;
+  return available >= reserve && spent < cap ? { ok: true, reserve } : { ok: false, reserve, available };
+}
+
+/** Connection pre-check applies to every package that runs against a customer endpoint. */
+export const needsConnectionCheck = (pkg: Package) => pkg !== "trace_audit";
+export const MAX_CONNECTION_CHECK_ROUNDS = 5;
+const MAX_DETAIL_CHARS = 300;
+
+/** Strips credentials from a connection-check detail before it reaches the customer. */
+/** Credential-shaped substrings -> [redacted]. Shared with the public share-page scrubber. */
+export function redactSecretPatterns(text: string): string {
+  return text
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, "$1 [redacted]")
+    .replace(/\b(sk|pk|rk|key|tok|token)[-_][A-Za-z0-9_-]{8,}/gi, "[redacted]")
+    .replace(/\b(api[-_ ]?key|authorization|x-api-key)\s*[:=]\s*\S+/gi, "$1: [redacted]");
+}
+
+export function sanitizeCheckDetail(detail: string, secrets: readonly string[] = []): string {
+  let out = detail;
+  for (const s of secrets) if (s.length >= 4) out = out.split(s).join("[redacted]");
+  out = redactSecretPatterns(out)
+    .replace(/\s+/g, " ").trim();
+  return out.length > MAX_DETAIL_CHARS ? `${out.slice(0, MAX_DETAIL_CHARS)}...` : out;
+}
+
+export interface EndpointCheckFailure { label: string; detail: string }
+
+/** Customer-facing message asking them to fix unreachable endpoints. Contains no secrets. */
+export function connectionFailureMessage(failures: readonly EndpointCheckFailure[]): string {
+  const lines = failures.map((f) => `- ${f.label}: ${f.detail || "connection failed"}`);
+  return [
+    "We could not reach your endpoint with the details provided, so we have not issued a quote yet.",
+    ...lines,
+    "Please check the URL, model name and API key, make sure the endpoint is publicly reachable over HTTPS, then reply here once it is fixed and we will test the connection again.",
+  ].join("\n");
+}
+
+const CANCEL_BEFORE_PLANNING: readonly JobState[] = ["draft", "needs_clarification", "quoted", "awaiting_payment"];
+const TERMINAL_STATES: readonly JobState[] = ["cancelled", "failed", "delivered"];
+
+export type CancelDecision =
+  | { allowed: true; asOperator: boolean }
+  | { allowed: false; status: 403 | 404 | 409; error: string };
+
+/** Owners may cancel only before planning starts; operators may cancel any non-terminal job. */
+export function decideCancel(job: { customerId: string; state: JobState }, viewer: { id: string; isOperator: boolean }): CancelDecision {
+  const isOwner = job.customerId === viewer.id;
+  if (!isOwner && !viewer.isOperator) return { allowed: false, status: 404, error: "Job not found" };
+  if (TERMINAL_STATES.includes(job.state)) return { allowed: false, status: 409, error: "Job is already finished" };
+  if (viewer.isOperator && !isOwner) return { allowed: true, asOperator: true };
+  if (!CANCEL_BEFORE_PLANNING.includes(job.state)) {
+    return { allowed: false, status: 409, error: "Work has already started and can no longer be cancelled here; contact support" };
+  }
+  return { allowed: true, asOperator: viewer.isOperator };
+}
+
+export const MAX_FIXES_PER_JOB = 5;
+const SEVERITY_RANK: Record<Finding["severity"], number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+/** Which findings get a proposed + verified fix: confirmed only, unique ids, most severe first, capped. Pure. */
+export function selectFindingsForFix<T extends Pick<Finding, "id" | "status" | "severity">>(
+  findings: readonly T[], max: number = MAX_FIXES_PER_JOB,
+): T[] {
+  const seen = new Set<string>();
+  const eligible = findings.filter((f) => {
+    if (f.status !== "confirmed" || seen.has(f.id)) return false;
+    seen.add(f.id);
+    return true;
+  });
+  // Array.prototype.sort is stable, so equal severities keep their original order.
+  return [...eligible].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]).slice(0, Math.max(0, max));
+}
+
+/** Customer-facing progress line for a settled per-finding payment. */
+export function settlementMessage(confirmedCount: number, amountCents: number): string {
+  if (amountCents <= 0) return "No confirmed findings: authorization released, you pay $0.";
+  return `Charged $${(amountCents / 100).toFixed(2)} for ${confirmedCount} confirmed finding${confirmedCount === 1 ? "" : "s"}.`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Restart / resume: derive where jobWorkflow starts from persisted DB state, so a fresh run started after a dead
+// one skips completed phases instead of re-qualifying and waiting for events that already happened.
+
+/** Payment statuses that still unlock work (needs_refund / released never do). */
+const UNLOCKING_PAYMENT_STATUSES: readonly string[] = ["paid", "authorized", "captured"];
+
+/** Everything decideResumePlan needs, read from the DB by loadResumeSnapshotStep. Contains no secrets. */
+export interface ResumeSnapshot {
+  state: JobState;
+  package: Package;
+  /** jobs.report_blob_path is set: persistReportStep finished. */
+  reportStored: boolean;
+  latestQuote: { version: number; accepted: boolean; pricingMode: string; priceCents: number; capCents: number | null } | null;
+  payments: ReadonlyArray<{ id: string; quoteVersion: number; status: string; kind: string; amountCents: number; currency: string }>;
+  /** Customer clarification answers in order (cancellation requests excluded). */
+  clarificationAnswers: readonly string[];
+  /** Count of 'qualified' progress events: successful qualify calls so far. */
+  qualifyCount: number;
+  /** Count of 'connection_check_failed' progress events. */
+  connectionCheckFailures: number;
+  /** A previous run already recorded 'received': this run is a restart. */
+  receivedRecorded: boolean;
+  findingsCount: number;
+  remediationsCount: number;
+}
+
+interface ScopingStart { clarifications: string[]; clarifyRounds: number; checkRounds: number }
+
+export type ResumePlan =
+  | { phase: "finished"; reason: string }
+  | { phase: "hold"; reason: string }
+  | ({ phase: "qualify" } & ScopingStart)
+  | ({ phase: "await_clarification" } & ScopingStart)
+  | { phase: "await_quote_acceptance"; quoteVersion: number }
+  | { phase: "await_payment"; quoteVersion: number }
+  | { phase: "execute"; quoteVersion: number; paymentId: string; announcePayment: boolean; discardPartialResults: boolean }
+  | { phase: "deliver" };
+
+export type ResumePhase = ResumePlan["phase"];
+
+/** The payment that unlocks the latest quote: one-time, same version, still held/paid, amount and currency match. */
+export function findUnlockingPayment(
+  payments: ResumeSnapshot["payments"], quote: NonNullable<ResumeSnapshot["latestQuote"]>,
+): { id: string } | null {
+  const p = payments.find((x) => x.kind === "one_time" && x.quoteVersion === quote.version
+    && UNLOCKING_PAYMENT_STATUSES.includes(x.status) && paymentMatchesQuote(x, quote));
+  return p ? { id: p.id } : null;
+}
+
+/**
+ * Scoping counters rebuilt from history. Every qualify call is followed by exactly one wait for an answer
+ * (a clarification round or a failed connection check), so waits so far = qualifyCount and the
+ * clarification rounds are those waits that were not connection-check failures.
+ */
+function scopingStart(s: ResumeSnapshot): ScopingStart {
+  const checkRounds = Math.max(0, s.connectionCheckFailures);
+  return { clarifications: [...s.clarificationAnswers], clarifyRounds: Math.max(0, s.qualifyCount - checkRounds), checkRounds };
+}
+
+/** Pure: where a (re)started jobWorkflow begins, given persisted state. Exhaustive over JobState. */
+export function decideResumePlan(s: ResumeSnapshot): ResumePlan {
+  const quote = s.latestQuote;
+  const payment = quote ? findUnlockingPayment(s.payments, quote) : null;
+  const partial = s.findingsCount > 0 || s.remediationsCount > 0;
+  switch (s.state) {
+    case "delivered":
+    case "cancelled":
+    case "failed":
+      return { phase: "finished", reason: `job is already ${s.state}` };
+    case "paused_budget":
+      return { phase: "hold", reason: "job is paused on budget; an operator must review before work continues" };
+    case "payment_review":
+      return { phase: "hold", reason: "payment is under operator review" };
+    case "draft":
+      return { phase: "qualify", ...scopingStart(s) };
+    case "needs_clarification": {
+      const start = scopingStart(s);
+      // An answer saved while no run was listening (route returned 502) is already in the DB: re-qualify now.
+      return s.clarificationAnswers.length >= s.qualifyCount ? { phase: "qualify", ...start } : { phase: "await_clarification", ...start };
+    }
+    case "quoted":
+      if (!quote) return { phase: "qualify", ...scopingStart(s) };
+      if (payment) return { phase: "execute", quoteVersion: quote.version, paymentId: payment.id, announcePayment: true, discardPartialResults: partial };
+      return quote.accepted ? { phase: "await_payment", quoteVersion: quote.version } : { phase: "await_quote_acceptance", quoteVersion: quote.version };
+    case "awaiting_payment":
+      if (!quote) return { phase: "hold", reason: "inconsistent: awaiting_payment without a quote" };
+      if (payment) return { phase: "execute", quoteVersion: quote.version, paymentId: payment.id, announcePayment: true, discardPartialResults: partial };
+      return { phase: "await_payment", quoteVersion: quote.version };
+    case "planning":
+    case "running":
+    case "investigating":
+      if (!quote || !payment) return { phase: "hold", reason: `inconsistent: ${s.state} without a valid payment for the latest quote` };
+      if (s.reportStored) return { phase: "deliver" };
+      return { phase: "execute", quoteVersion: quote.version, paymentId: payment.id, announcePayment: false, discardPartialResults: partial };
+    default: {
+      const never: never = s.state;
+      return { phase: "hold", reason: `unknown state ${String(never)}` };
+    }
+  }
+}
+
+/** Phases a restart may start a fresh run for (anything except finished / hold). */
+export const isRestartablePlan = (p: ResumePlan): boolean => p.phase !== "finished" && p.phase !== "hold";

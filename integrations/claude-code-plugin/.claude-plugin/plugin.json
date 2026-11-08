@@ -1,0 +1,8 @@
+{
+  "name": "standard-evals",
+  "description": "Hire Standard Evals from Claude Code: audit your agent's system prompt or trace with /audit-my-agent, or run sandbox evals against your agent with /sandbox-eval. Sign in with OAuth, no API key.",
+  "version": "0.2.0",
+  "author": { "name": "Standard Evals" },
+  "homepage": "https://standard-evals.vercel.app",
+  "keywords": ["evals", "agents", "audit", "mcp"]
+}

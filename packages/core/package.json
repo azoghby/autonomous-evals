@@ -1,0 +1,36 @@
+{
+  "name": "@ae/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/gateway": "^4.0.138",
+    "@ai-sdk/openai-compatible": "^3.0.87",
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@aws-sdk/s3-request-presigner": "^3.1164.0",
+    "@neondatabase/serverless": "^1.2.0",
+    "@usenaive-sdk/managed-agents": "0.12.3",
+    "@vercel/blob": "^2.8.2",
+    "@x402/core": "^2.30.0",
+    "@x402/evm": "^2.30.0",
+    "agentmail": "^0.5.53",
+    "ai": "^7.0.165",
+    "drizzle-orm": "^0.45.4",
+    "ipaddr.js": "2.5.0",
+    "js-yaml": "^4.1.0",
+    "sharp": "^0.35.5",
+    "stripe": "^23.1.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
+  }
+}

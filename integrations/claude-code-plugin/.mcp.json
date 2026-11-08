@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "standard-evals": {
+      "type": "http",
+      "url": "https://standard-evals.vercel.app/api/mcp/mcp"
+    }
+  }
+}

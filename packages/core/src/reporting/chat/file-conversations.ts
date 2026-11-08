@@ -7,7 +7,7 @@ import { z } from "zod";
 import {
   ChatError, ChatScopeSchema, ChatExchangeSchema, ChatAppendInputSchema, ChatHistoryQuerySchema,
   type ConversationPort, type ChatScope,
-} from "./types.js";
+} from "./types";
 
 const MAX_EXCHANGES = 1_000;
 const MAX_FILE_BYTES = 16 * 1024 * 1024;

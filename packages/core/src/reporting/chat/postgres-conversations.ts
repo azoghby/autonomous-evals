@@ -1,7 +1,7 @@
 import {
   ChatError, ChatScopeSchema, ChatExchangeSchema, ChatAppendInputSchema, ChatHistoryQuerySchema,
   type ConversationPort, type ChatScope, type ChatExchange,
-} from './types.js';
+} from './types';
 
 /** Structurally compatible with AgentTransactionalSql and pooledCalendarDatabase.
  * transaction MUST pin one connection, use READ COMMITTED, commit only on success,

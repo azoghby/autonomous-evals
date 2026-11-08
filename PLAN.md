@@ -45,6 +45,8 @@ Test-mode payments are never counted as revenue.
 | Auth | Email magic link (Neon Auth if it sets up in < 30 min) | Job ownership enforced server-side. Operator access by email allowlist. |
 | Validation / tests | Zod, Vitest | Playwright only for the single happy-path smoke test. |
 
+Track A implementation decisions, provisioned resources and frozen API surface: [docs/TRACK_A_PLAN.md](docs/TRACK_A_PLAN.md).
+
 Architecture in one line: browser → Next.js route handlers (Vercel) → `start(jobWorkflow)` → steps call Naïve sessions, AI Gateway, customer endpoints, and the Neon branch → results in Neon + Blob → progress page reads Neon.
 
 ---
@@ -188,7 +190,9 @@ The console tracks three columns separately: **revenue** (live Stripe only), **k
 | **8–9:30 AM** | Bug fixes from real customers | Bug fixes; monitoring upsell pitch in reports | **Feature freeze 9:30 AM** |
 | **9:30–11 AM** | Record backup demo video; final numbers | Rehearse demo twice | Ready for judging |
 
-If behind schedule, cut in this order: version comparison → monitoring Cron → calendar simulator (Trace Audit plus Text Eval alone still make a complete company). Never cut real payment, evidence quality, or the intervention log.
+**Proposed addition:** agent-run **Expert Network** (Mercor-style): agents recruit industry professionals by approved email or scheduled calls to supply domain ground truth. See [docs/EXPERT_NETWORK.md](docs/EXPERT_NETWORK.md). Priority: after Text Eval, before the calendar simulator.
+
+If behind schedule, cut in this order: version comparison → monitoring Cron → expert-network calls → calendar simulator (Trace Audit plus Text Eval alone still make a complete company). Never cut real payment, evidence quality, or the intervention log.
 
 ---
 

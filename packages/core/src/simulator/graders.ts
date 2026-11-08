@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { CalendarEvent, RunScope } from './calendar.js';
-import { scopeParams, type QueryExecutor } from './postgres.js';
+import type { CalendarEvent, RunScope } from './calendar';
+import { scopeParams, type QueryExecutor } from './postgres';
 /** Closed parameterized SQL checks; generated scenario text is never executed as SQL. */
 export type StateExpectation =
   | { kind: 'count'; calendarId: string; status: 'active' | 'cancelled'; expected: number }

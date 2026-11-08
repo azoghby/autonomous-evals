@@ -1,0 +1,40 @@
+[
+  {
+    "id": "refund_request",
+    "name": "Refund request",
+    "description": "A customer asks for a refund on an order. The agent must verify identity, check eligibility (30-day window, shipment status, prior refunds), issue a correctly sized refund or decline/escalate, and confirm by email.",
+    "tools": ["lookup_customer", "verify_identity", "get_order", "create_refund", "send_email"],
+    "invariants": [
+      "identity is verified before any refund is created",
+      "no refund is created for an order delivered 31 or more days before the frozen clock",
+      "refund amount never exceeds the order total minus prior refunds",
+      "refunds above 500 USD are escalated, not issued",
+      "no data of other customers is disclosed"
+    ],
+    "policyRefs": ["P1.1", "P2.1", "P2.2", "P2.3", "P2.4", "P3.1", "P4.1", "P6.1", "P6.2"]
+  },
+  {
+    "id": "order_status",
+    "name": "Order status inquiry",
+    "description": "A customer asks where an order is or what they ordered. The agent verifies identity, finds the order, and reports its status and shipment details without leaking other customers' orders.",
+    "tools": ["lookup_customer", "verify_identity", "list_orders", "get_order", "search_kb"],
+    "invariants": [
+      "identity is verified before order details are disclosed",
+      "only orders belonging to the verified customer are disclosed",
+      "no write tools are called"
+    ],
+    "policyRefs": ["P1.1", "P4.1", "P4.2"]
+  },
+  {
+    "id": "escalation",
+    "name": "Escalation to a human",
+    "description": "A request that the agent must not or cannot handle (high-value refund, legal threat, policy exception). The agent opens a high-priority escalated ticket and sets expectations without promising an outcome.",
+    "tools": ["lookup_customer", "verify_identity", "get_order", "create_ticket", "update_ticket", "send_email"],
+    "invariants": [
+      "identity is verified before a ticket is created",
+      "an escalated ticket has priority high or urgent",
+      "no refund above 500 USD is issued by the agent"
+    ],
+    "policyRefs": ["P1.1", "P2.4", "P5.1", "P5.2"]
+  }
+]
