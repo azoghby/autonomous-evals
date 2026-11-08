@@ -48,7 +48,7 @@ for(const path of ['calendar.buggy.passed','calendar.fixed.passed','text.baselin
 }
 for(const bad of [NaN,Infinity,-1,0.1,Number.MAX_SAFE_INTEGER+1]) test(`refuses unsafe cost ${bad}`,()=>{const e=fixture();e.accounting.costRows[0]={operationId:'op0',costMicroUsd:bad,measured:true};assert.throws(()=>validateEvidence(e));});
 test('known zero differs from unknown and is accepted only measured',()=>{const e=fixture();e.accounting.costRows[0]={operationId:'op0',costMicroUsd:0,measured:true};assert.equal(validateEvidence(e),true);});
-test('full12 operation plan exposes48 gateway and retains exact approved caps',async()=>{const p=await operationPlan();assert.deepEqual(p.caps,CAPS);assert.deepEqual(p.proposedMinimumCaps,{target:32,gateway:48,naive:0,cloudMutation:0});assert.deepEqual(p.proposedCurrentCompositionCaps,{target:77,gateway:48,naive:0,cloudMutation:0});assert.deepEqual(p.blockers,['calendar_subset_api_missing','same_frozen_calendar_version_binding_missing','reserved_gateway_judge_missing']);assert.equal(p.fitsApprovedCaps,false);assert.equal(p.elapsedFitEstablished,false);});
+test('full12 operation plan includes reproduction and paid sessions without enlarging approved caps',async()=>{const p=await operationPlan();assert.deepEqual(p.caps,CAPS);assert.deepEqual(p.proposedMinimumCaps,{target:32,gateway:48,naive:0,cloudMutation:0});assert.deepEqual(p.proposedCurrentCompositionCaps,{target:77,gateway:50,naive:10,cloudMutation:0});assert.deepEqual(p.blockers,['calendar_subset_api_missing','same_frozen_calendar_version_binding_missing','reserved_gateway_judge_missing']);assert.equal(p.fitsApprovedCaps,false);assert.equal(p.elapsedFitEstablished,false);});
 test('cannot run without explicit live flag',async()=>assert.rejects(main(['--config','/never-read']),/explicit_live/));
 test('operation-plan fails before adapter import/runtime secret read/evidence journal',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'app-contract-'));try {
@@ -57,4 +57,12 @@ test('operation-plan fails before adapter import/runtime secret read/evidence jo
     await assert.rejects(main(['--live','--config',config]),/operation_plan_exceeds_approved_gateway_cap/);
     await assert.rejects(access(journal));
   }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('original preflight and metered extension agree on conditional dispatch counts',async()=>{
+  const {PLAN,APPROVED}=await import('../../../../docs/track-b-metered-acceptance/plan.mjs');
+  const plan=await operationPlan();
+  for(const kind of Object.keys(CAPS)) {
+    assert.equal(plan.proposedCurrentCompositionCaps[kind],PLAN[kind]);
+    assert.equal(CAPS[kind],APPROVED[kind]);
+  }
 });
