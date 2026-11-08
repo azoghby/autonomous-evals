@@ -72,6 +72,8 @@ export type WorkflowSpec = z.infer<typeof WorkflowSpec>;
 export const StateSpec = z.object({
   /** Postgres DDL for the sandbox world (validated by executing on a scratch branch). No extensions, no roles, no COPY. */
   ddl: z.string().min(1).max(200_000),
+  /** Frozen clock for determinism; tools read now() from sandbox_clock, never the wall clock. */
+  frozenNow: z.string().datetime().default("2026-06-01T15:00:00Z"),
   /** Deterministic seed SQL (INSERTs). Fake data only. */
   seedSql: z.string().max(2_000_000),
   /** Tables graders may read; everything is diffed but only these appear in reports. */
@@ -84,6 +86,10 @@ export const IntegrationMode = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("tool_loop"), endpointUrl: z.string().url(), model: z.string().max(200), credentialRef: z.string().max(100).optional(), systemPrompt: z.string().max(50_000).optional() }),
   /** A: agent runs its own loop and calls OUR sandbox tool API / MCP server (per-run base URL + token). We drive the user side via its chat endpoint. */
   z.object({ mode: z.literal("sandbox_api"), chatEndpointUrl: z.string().url(), credentialRef: z.string().max(100).optional() }),
+  /** D: bring your repo — we boot their agent from source inside an isolated microVM (Vercel Sandbox) with tool URLs pointed at our sandbox API. */
+  z.object({ mode: z.literal("repo"), repoUrl: z.string().url(), ref: z.string().max(200).default("main"), installCommand: z.string().max(500), startCommand: z.string().max(500), chatPath: z.string().max(200).default("/v1/chat/completions"), port: z.number().int().min(1).max(65535).default(3000), envRefs: z.array(z.string().max(100)).max(30).default([]) }),
+  /** V: voice agent over a realtime audio socket. We stream simulated-user speech (gateway TTS / realtime models) and transcribe replies (gateway STT). */
+  z.object({ mode: z.literal("realtime_voice"), wsUrl: z.string().url(), protocol: z.enum(["openai_realtime", "gemini_live", "pipecat", "livekit", "custom_pcm"]), sampleRateHz: z.number().int().default(16_000), credentialRef: z.string().max(100).optional() }),
   /** C: their staging stack; tools are passthrough bindings; grading via read-only checks they authorize. */
   z.object({ mode: z.literal("staging"), chatEndpointUrl: z.string().url(), credentialRef: z.string().max(100).optional() }),
 ]);
@@ -104,6 +110,23 @@ export type EnvironmentSpec = z.infer<typeof EnvironmentSpec>;
 
 /* ---------------- scenarios (generated, oracle-validated) ---------------- */
 
+/** Synthetic media the simulated user sends, with ground truth so graders can check what the agent should have read/heard. */
+export const MediaAttachment = z.object({
+  id: z.string().max(40),
+  kind: z.enum(["image", "document", "audio", "video"]),
+  /** render = deterministic HTML/template → PNG/PDF (exact text, e.g. receipts, IDs, invoices); generate = gateway image/TTS model (photos, scenes, voices). */
+  source: z.enum(["render", "generate", "fixture"]),
+  prompt: z.string().max(4_000),
+  model: z.string().max(120).optional(),
+  /** Facts the media contains (e.g. {"total":"47.20","merchant":"Acme"}). Media is accepted only if a gateway vision/STT model reads these back (media oracle). */
+  groundTruth: z.record(z.string(), z.string()).default({}),
+  /** Robustness perturbations: blur, rotate, low_light, crop, jpeg, noise, accent, speed, packet_loss, background_noise. */
+  perturbations: z.array(z.string().max(40)).max(6).default([]),
+  /** Visual/audio prompt injection payload hidden in the media (with canary). */
+  injection: z.string().max(1_000).optional(),
+});
+export type MediaAttachment = z.infer<typeof MediaAttachment>;
+
 export const Persona = z.object({
   name: z.string().max(80),
   goal: z.string().max(1_000),
@@ -111,6 +134,9 @@ export const Persona = z.object({
   knowledge: z.array(z.object({ fact: z.string().max(500), revealWhen: z.enum(["upfront", "when_asked", "never"]).default("when_asked") })).max(20),
   style: z.string().max(500),
   adversarial: z.boolean().default(false),
+  modality: z.enum(["text", "voice", "multimodal"]).default("text"),
+  /** For voice: gateway TTS model + voice id + accent/pace; for realtime: a gateway realtime model drives the user. */
+  voice: z.object({ ttsModel: z.string().max(120), voiceId: z.string().max(120).optional(), accent: z.string().max(60).optional(), pace: z.enum(["slow", "normal", "fast"]).default("normal"), interrupts: z.boolean().default(false) }).optional(),
   maxTurns: z.number().int().min(1).max(30).default(12),
 });
 export type Persona = z.infer<typeof Persona>;
@@ -143,11 +169,19 @@ export const SandboxScenario = z.object({
   /** Scenario-specific rows inserted after the base seed (e.g. the order that is exactly 31 days old). */
   fixtureSql: z.string().max(50_000).default(""),
   faults: z.array(FaultInjection).max(5).default([]),
+  attachments: z.array(MediaAttachment).max(8).default([]),
   stateAssertions: z.array(StateAssertion).max(15).default([]),
   trajectoryAssertions: z.array(TrajectoryAssertion).max(15).default([]),
   rubric: z.array(RubricItem).max(10).default([]),
   /** Tables any write outside of is "collateral damage" (auto-fail high). Empty = no writes expected. */
   allowedWriteTables: z.array(Id).max(20).default([]),
+  /** AppWorld-style diff contract: changes that MUST appear vs MAY appear; anything else = collateral damage. Each is a SQL predicate over the diff view. */
+  expectedChanges: z.array(z.object({ id: z.string().max(40), description: z.string().max(500), sql: z.string().max(4_000) })).max(15).default([]),
+  allowedChanges: z.array(z.object({ table: Id, description: z.string().max(300) })).max(20).default([]),
+  /** tau-bench r_output: facts the agent must communicate (e.g. the refund amount). Checked deterministically, judge only as fallback. */
+  requiredOutputs: z.array(z.object({ id: z.string().max(40), mustMention: z.array(z.string().max(200)).min(1).max(5), description: z.string().max(300) })).max(10).default([]),
+  /** Impossible-by-design: success = explicit refusal/escalation, never "nothing changed". */
+  expectRefusal: z.boolean().default(false),
   /** Set by the oracle check: a privileged reference agent achieved all assertions → scenario is satisfiable. */
   oracleValidated: z.boolean().default(false),
 });
@@ -181,6 +215,8 @@ export interface SandboxRuntime {
 
 /* ---------------- results ---------------- */
 
-export interface CheckResult { id: string; kind: "state" | "trajectory" | "rubric" | "collateral" | "injection"; passed: boolean; severity: "critical" | "high" | "medium" | "low"; detail: string; policyRef?: string }
-export interface TrialResult { scenarioId: string; trial: number; variant: string; passed: boolean; checks: CheckResult[]; transcript: Array<{ role: "user" | "assistant" | "tool"; content: string }>; toolCalls: ToolCallRecord[]; diff: StateDiff[]; costMicroUsd: number; error?: string }
+export interface CheckResult { id: string; kind: "state" | "trajectory" | "rubric" | "collateral" | "injection" | "perception" | "latency"; passed: boolean; severity: "critical" | "high" | "medium" | "low"; detail: string; policyRef?: string }
+/** Everything that can move a score is pinned and reported (scores across versions are not comparable). */
+export interface EvalVersions { spec: typeof SANDBOX_SPEC_VERSION; suiteHash: string; simulatorModel: string; judgeModel: string; envHash: string; runtime: string }
+export interface TrialResult { scenarioId: string; trial: number; variant: string; versions: EvalVersions; failureAttribution?: "agent" | "simulator" | "environment" | "grader" | "unknown"; passed: boolean; checks: CheckResult[]; transcript: Array<{ role: "user" | "assistant" | "tool"; content: string }>; toolCalls: ToolCallRecord[]; diff: StateDiff[]; costMicroUsd: number; error?: string }
 export interface ScenarioResult { scenarioId: string; workflowId: string; trials: TrialResult[]; passRate: number; /** pass^k: every trial passed */ reliable: boolean; ci95: [number, number] }
