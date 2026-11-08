@@ -147,6 +147,7 @@ export async function retainRuntimeRun(options: {
     gateSnapshot: snapshot,
     /** Structurally implements SandboxEngineAuthority.finalSnapshot for this run. */
     async finalSnapshot(artifact: SnapshotArtifact): Promise<RuntimeSnapshot> {
+      artifact = structuredClone(artifact);
       await seal();
       if (forgotten) throw new Error('snapshot_forgotten');
       const r = retained!;

@@ -41,3 +41,9 @@ This bridge resolves the local immutable SQL/lifecycle and complete exact-row pe
 4. A parameter-fix adoption, explicit executed-flag production evidence, secured provider/media transport, durable shared budgets and authoritative settled cost/attribution. This bridge does not convert unknown money to zero or make an overall statistical success eligible.
 
 No secrets, cloud/provider calls, migrations, deployments, purchases, outreach or pushes occur in this work.
+
+## Parent integration check
+
+Parent reran the original 18 SQL tests, then reproduced one direct-caller mutation gap: an invalid execution artifact could be changed during asynchronous sealing and accepted. `finalSnapshot` now detaches its argument at entry. The new regression requires rejection of the original foreign-world identity even when its caller changes the object before capture completes. This is an in-process boundary correction; no external caller exploit or hosted isolation claim follows.
+
+After the entry-snapshot fix: strict TypeScript and **19 SQL tests passed**, none skipped, against exact A `875ceef` with the parameter patch confined to temporary staging.

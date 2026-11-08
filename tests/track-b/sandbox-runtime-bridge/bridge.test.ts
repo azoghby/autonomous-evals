@@ -154,3 +154,13 @@ it('retention cleanup counts opening leases before asynchronous image recovery',
  const s=await opening;await s.release();await f.bridge.forget();
  }finally{proceed();await f.bridge.run.dispose();}
 });
+it('snapshots the supplied execution artifact before asynchronous sealing',async()=>{
+ const f=await fixture();try{
+  const artifact=await f.artifact();
+  artifact.worldId='foreign-world';
+  const pending=f.bridge.finalSnapshot(artifact);
+  // A direct caller cannot swap an invalid identity for a valid one while sealing awaits SQL.
+  artifact.worldId=f.binding.worldId;
+  await expect(pending.then(async value=>{await value.release();return value;})).rejects.toThrow('snapshot_execution_mismatch');
+ }finally{await f.bridge.run.dispose();}
+});
