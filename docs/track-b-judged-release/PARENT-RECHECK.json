@@ -1,0 +1,18 @@
+{
+  "artifactCommit": "b8cce34",
+  "verification": "parent-stage-and-inventory-reproduction",
+  "command": "node docs/track-b-judged-release/stage.mjs",
+  "applicationFiles": 791,
+  "committedInventoryMatches": true,
+  "inventorySha256": "9064060a8d51b52555ddc6f301fc04325669c57ef96014143624be68b1901d0a",
+  "applicationMigrations": 31,
+  "migrationHashesAndDependencyOrder": "passed",
+  "ddlExecuted": false,
+  "providersCalled": false,
+  "releaseAccepted": false,
+  "limitations": [
+    "Does not rerun the child build/test suites",
+    "No deployed authorization, database, or provider acceptance",
+    "Autonomy and sandbox engine adoption remain separate"
+  ]
+}
