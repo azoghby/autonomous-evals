@@ -8,7 +8,7 @@ vi.mock("./notify/founder-email", () => ({ findFounderThread: vi.fn(), founderRe
 
 const msg = (over: Record<string, unknown> = {}) => ({
   eventType: "message.received", inboxId: "ae-commercial@agentmail.to", threadId: "t1", messageId: "m1",
-  from: "Pat <Pat@Example.com>", subject: "Re: x", text: "my answer", ...over,
+  from: "Pat <Pat@Example.com>", subject: "Re: x", text: "my answer", auth: { spf: "pass", dkim: "pass", dmarc: "pass" }, ...over,
 });
 
 function fakeStore(opts: { thread?: { jobId: string | null; expertEngagementId: string | null; publicAgentId?: string | null } | null; owner?: { ownerEmail: string | null; verifiedAt: Date | null; status: string } | null; state?: string; expertInvited?: boolean } = {}) {
@@ -160,6 +160,36 @@ describe("handleInbound", () => {
       const x = withExtras();
       expect(await handleInbound(msg(), x.store)).toBe("unmatched");
       expect(x.recorded).toEqual([]);
+    });
+
+    it("refuses to onboard a spoofed customer address without an explicit SPF/DKIM/DMARC pass", async () => {
+      for (const auth of [undefined, {}, { spf: "none" }, { spf: "pass", dmarc: "fail" }]) {
+        const x = withExtras({ customer: true });
+        expect(await handleInbound(msg({ auth }), x.store)).toBe("unauthenticated");
+        expect(x.onboarding).toEqual([]);
+        expect(x.recorded).toEqual([]);
+      }
+    });
+
+    it("refuses unauthenticated mail on job, expert and owner threads too", async () => {
+      const job = fakeStore();
+      expect(await handleInbound(msg({ auth: undefined, state: "needs_clarification" }), job.store)).toBe("unauthenticated");
+      expect(job.calls.messages).toEqual([]);
+      const expert = fakeStore({ thread: { jobId: null, expertEngagementId: "e1" } });
+      expect(await handleInbound(msg({ auth: { dkim: "none" } }), expert.store)).toBe("unauthenticated");
+      expect(expert.calls.expertReplies).toEqual([]);
+      const owner = fakeStore({ thread: { jobId: null, expertEngagementId: null, publicAgentId: "a1" } });
+      expect(await handleInbound(msg({ auth: undefined }), owner.store)).toBe("unauthenticated");
+      expect(owner.calls.ownerReplies).toEqual([]);
+    });
+
+    it("releases the claim and throws when onboarding is busy so AgentMail retries", async () => {
+      const x = withExtras({ customer: true });
+      let busy = true;
+      const store: InboundStore = { ...x.store, handleOnboarding: async () => ({ status: busy ? "locked" : "collecting" }) };
+      await expect(handleInbound(msg(), store)).rejects.toThrow(/busy/);
+      busy = false;
+      expect(await handleInbound(msg(), store)).toBe("onboarding");
     });
 
     it("does not onboard a known job thread from a customer", async () => {

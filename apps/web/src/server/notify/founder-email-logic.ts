@@ -30,6 +30,16 @@ export function authAllows(auth: InboundAuth | undefined): boolean {
   return verdicts.some((x) => x === "pass");
 }
 
+/**
+ * Strict variant for every non-founder inbound path (customers, experts, owners, prospects): verdicts must be present,
+ * none may fail, and at least one of SPF/DKIM/DMARC must explicitly pass. Missing verdicts are refused.
+ */
+export function authVerified(auth: InboundAuth | undefined): boolean {
+  if (!auth) return false;
+  const verdicts = [auth.spf, auth.dkim, auth.dmarc];
+  return verdicts.some((x) => x === "pass") && authAllows(auth);
+}
+
 export type FounderCommand =
   | { kind: "decide"; decision: "approve" | "reject"; seq: number | null }
   | { kind: "approve_all" }
