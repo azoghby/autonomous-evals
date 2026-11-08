@@ -39,9 +39,9 @@ from fastapi.responses import JSONResponse
 GATEWAY = "https://ai-gateway.vercel.sh/v1"
 PROVIDER_REFUSAL = "Sorry, I can't help with that request."
 MAX_CACHED = 300
-# Per-turn wall-clock cap. Generous: multi-agent graphs on reasoning models can take a while; the TS transport for local
-# agents waits 120s, so stay under it to return a clean 502 instead of a client-side timeout.
-TURN_TIMEOUT_S = float(os.environ.get("SHIM_TURN_TIMEOUT_S", "110"))
+# Per-turn wall-clock cap. Generous: multi-agent graphs and CodeAgent loops can take minutes; the TS transport for local
+# agents waits 600s (LOCAL_TARGET_TIMEOUT_MS), so stay under it and return a clean 504 instead of a client-side timeout.
+TURN_TIMEOUT_S = float(os.environ.get("SHIM_TURN_TIMEOUT_S", "580"))
 
 # USD per token, gateway list prices (GET /v1/models). Estimates only, for /stats.
 PRICES = {
@@ -144,15 +144,32 @@ def serve(adapter: Adapter, args: argparse.Namespace) -> None:
     async def get_stats():
         return {**stats, "est_cost_usd": round(stats["est_cost_usd"], 6), "cached_states": len(cache)}
 
+    # In-flight turns keyed by hash(model + messages). A slow agent turn can outlive the client's per-request timeout;
+    # the client then re-sends the SAME request and joins the running turn here instead of starting a second one, so
+    # the harness's request timeout never fails (or double-runs) a slow-but-working agent. TURN_TIMEOUT_S still caps
+    # the turn itself.
+    inflight: dict[str, asyncio.Task] = {}
+
     @app.post("/v1/chat/completions")
     async def chat(req: Request):
         body = await req.json()
         stats["requests"] += 1
         model = body.get("model") or "anthropic/claude-sonnet-5.5"
         msgs = [{"role": m["role"], "content": _text(m)} for m in body.get("messages") or [] if m.get("role") in ("user", "assistant")]
-        last = max((i for i, m in enumerate(msgs) if m["role"] == "user"), default=None)
-        if last is None:
+        if not any(m["role"] == "user" for m in msgs):
             return JSONResponse({"error": {"message": "no user message", "type": "invalid_request_error"}}, status_code=400)
+        key = _h(model, msgs)
+        task = inflight.get(key)
+        if task is None:
+            task = inflight[key] = asyncio.create_task(process(model, msgs))
+        else:
+            stats["joined_retries"] = stats.get("joined_retries", 0) + 1
+        result = await asyncio.shield(task)
+        inflight.pop(key, None)
+        return result
+
+    async def process(model: str, msgs: list[dict]):
+        last = max(i for i, m in enumerate(msgs) if m["role"] == "user")
         prefix, user_text = msgs[:last], msgs[last]["content"]
         state = cache.pop(_h(model, prefix), None) if prefix else None
         if state is None:
