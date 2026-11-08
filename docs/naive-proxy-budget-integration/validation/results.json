@@ -1,0 +1,55 @@
+{
+  "status": "verified_unapplied_incremental_candidate",
+  "reviewedRepositoryCommit": "1cf90a5",
+  "originMain": "5da0635",
+  "incrementalPaths": 4,
+  "composedUniquePaths": 37,
+  "baselinePins": 2234,
+  "focused": {
+    "passed": 32,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullSuite": {
+    "passed": 4044,
+    "failed": 0,
+    "skipped": 2,
+    "maxWorkers": 2
+  },
+  "webTypesExitCode": 0,
+  "productionBuild": {
+    "exitCode": 0,
+    "steps": 57,
+    "workflows": 4,
+    "offlineFontFixture": true
+  },
+  "allPrePostimagesVerified": true,
+  "independentIncrementalPatch": true,
+  "reproducibleAssembly": true,
+  "manifestSha256": "b2802a021b6e0379835bbbbca0d20a438c6ce8c3d048567bfc8aaaa2636139f2",
+  "retainedDependencies": true,
+  "newSqlFiles": 0,
+  "nativePostgresConcurrencyVerified": false,
+  "actualPublicationRevocationTested": false,
+  "verdictIndependentAccountingTested": true,
+  "attemptAwareAdmissionMounted": false,
+  "sourceAdopted": false,
+  "providerCalls": 0,
+  "liveMigrationApplied": false,
+  "deployed": false,
+  "rootVerification": {
+    "passed": 3932,
+    "failed": 0,
+    "skipped": 2,
+    "webTypesExitCode": 0
+  },
+  "remainingGates": [
+    "Durable Workflow stage ownership and parent envelopes",
+    "Attempt-aware proxy shared admission if mounted",
+    "Combined customer daily authority",
+    "Unknown Gateway reconciliation and pending/history UX",
+    "Factual/sourcing rebase and full combined verification",
+    "Native PostgreSQL contention and hosted acceptance",
+    "Copilot conversation sends, cumulative accounting, streaming and authenticated idle"
+  ]
+}

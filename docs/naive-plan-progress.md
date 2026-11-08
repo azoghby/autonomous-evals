@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Latest exact proxy receipt candidate (2026-11-08)
+
+`naive-proxy-budget-integration` adds four incremental source/test postimages to the shared-budget chain (37 unique paths). It verifies exact retained intent/received/billing checkpoints and request/reservation/cost identity before substituting measured proxy spend. Both proxy and session direct linkage reject receipt keys on the wrong provider source. Tests use the real billing reconciler, SQL checkpoint store, shared ledger and cost sink with fake provider usage. Final verification: 32 focused and 4,044 full staged tests pass (zero failures/two skips), web types and production build (57 steps/four workflows), independent patch/reproducible assembly and 2,234 baseline pins. Source remains unapplied and production unchanged.
+
+V1 is the current runtime path. V2 proof validation is implemented but its attempt-aware admission sidecar is not mounted or bridged by this increment. Missing historical bindings remain conservative; unknown usage is not released. `naive-workflow-stage-fencing.md` records the next design, verified against installed Workflow metadata: invocation identity, separate logical business-stage identity, generation fencing, retained completion and proof-driven recovery. That design is not implemented. Full phase/hosted gates remain open.
+
 ## Latest shared job budget candidate (2026-11-08)
 
 `naive-shared-budget-integration` adds 20 source/test postimages and two SQL files over internal MCP13/copilot dispatch6 (36 unique composed paths). Canonical package caps, atomic job admission, model-ledger composition, Workflow reservations, Gateway job-turn reservation/measurement and exact retained session-receipt substitution are wired in staged source. It preserves unknown holds and records overages. 66 focused and 4,025 full staged tests pass (zero failures/two skips), web types and production build (57 steps/four workflows); independent patch, reproducible assembly and 2,234 baseline pins verified. Actual source and production are unchanged.

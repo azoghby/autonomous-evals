@@ -1,0 +1,36 @@
+{
+  "reviewedRepositoryCommit": "1cf90a5",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-shared-budget-integration",
+  "dependencyHashes": {
+    "manifest.json": "c54cc5af31877916bfb3232454ea68f21f10f7583cd1f256d2d5e260be341faa",
+    "assemble.py": "b67b0ef65e1872821b2ab1f2cab9fbd64917d20a49b67ce6c0eab66e18ae819b"
+  },
+  "files": [
+    {
+      "path": "packages/core/src/db/job-budget-authority.test.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-authority.test.ts",
+      "beforeSha256": "7c48606759a74d278b2f3ea8beb7349acc9ca38bda9e8a1b18752c50c946ca2d",
+      "afterSha256": "6362d9a613ac01bd823d11fe49a0424313215847d46d2d12c0d81136354dcf75"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-authority.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-authority.ts",
+      "beforeSha256": "cfffb1a96e705ba2e96c95bd9185ea88136c95e0893dcc317b0edfee08ba73e1",
+      "afterSha256": "89360852b3d6fed7524099736541bdcfbaf01d1dd5481032d85a8442c9b69b78"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-proxy-receipts.test.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-proxy-receipts.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "71077b25c521a95ab2a0247ea24b9a5a040f0e5cf3aab79b8c459e6e72db0f11"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-receipts.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-receipts.ts",
+      "beforeSha256": "87c46e27dcc2cb11a2355a092e5f8232e879912051f5e8634b05b1e443a89bb2",
+      "afterSha256": "ad6ada5ae89353263e0e82f60c3462fa4f1440af6837a161c7f4905342cd8cfc"
+    }
+  ],
+  "sql": []
+}

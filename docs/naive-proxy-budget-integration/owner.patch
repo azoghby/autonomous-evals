@@ -1,0 +1,293 @@
+diff --git a/packages/core/src/db/job-budget-authority.test.ts b/packages/core/src/db/job-budget-authority.test.ts
+--- a/packages/core/src/db/job-budget-authority.test.ts
++++ b/packages/core/src/db/job-budget-authority.test.ts
+@@ -10,19 +10,19 @@
+ const run=<T>(fn:(tx:JobBudgetTx)=>Promise<T>)=>pg.transaction(t=>fn({query:(s,p)=>t.query(s,p)}));
+ beforeEach(async()=>{pg=new PGlite();await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,budget_reserved_micro_usd bigint DEFAULT 0);
+ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
+-CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);
++CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text,source text DEFAULT 'naive');
+ CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');
+ `);await pg.exec(readFileSync(resolve(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));await pg.query('INSERT INTO jobs(id,package) VALUES($1,$2)',[job,'trace_audit']);});
+ afterEach(async()=>{await pg.close();});
+-it('uses canonical cap and combines ordinary holds, all costs, and model holds',async()=>{await pg.query('INSERT INTO budget_reservations VALUES($1,$2,$3,$4,NULL)',[cost,job,'engineer',100]);await pg.query('INSERT INTO costs VALUES($1,$2,$3,NULL)',[cost,job,200]);await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('model',$1,300,NULL,'{"ok":true}')`,[job]);expect(await run(tx=>jobBudgetExposure(tx,job))).toEqual({capMicroUsd:cap,committedMicroUsd:600,remainingMicroUsd:cap-600});expect(await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'large',amountMicroUsd:cap-599}))).toMatchObject({ok:false});});
++it('uses canonical cap and combines ordinary holds, all costs, and model holds',async()=>{await pg.query('INSERT INTO budget_reservations VALUES($1,$2,$3,$4,NULL)',[cost,job,'engineer',100]);await pg.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key) VALUES($1,$2,$3,NULL)',[cost,job,200]);await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('model',$1,300,NULL,'{"ok":true}')`,[job]);expect(await run(tx=>jobBudgetExposure(tx,job))).toEqual({capMicroUsd:cap,committedMicroUsd:600,remainingMicroUsd:cap-600});expect(await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'large',amountMicroUsd:cap-599}))).toMatchObject({ok:false});});
+ it('retains replay identity and refuses postdispatch refund',async()=>{const input={jobId:job,operationId:'op',amountMicroUsd:100};expect(await run(tx=>reserveJobBudget(tx,input))).toMatchObject({ok:true,replayed:false});expect(await run(tx=>reserveJobBudget(tx,input))).toMatchObject({ok:true,replayed:true});await expect(run(tx=>reserveJobBudget(tx,{...input,amountMicroUsd:101}))).rejects.toThrow();await run(tx=>markJobBudgetDispatched(tx,job,'op'));await expect(run(tx=>refundUndispatchedJobBudget(tx,job,'op'))).rejects.toThrow();expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
+ it('refunds only undispatched and retains the operation',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await run(tx=>refundUndispatchedJobBudget(tx,job,'op'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(0);await expect(run(tx=>markJobBudgetDispatched(tx,job,'op'))).rejects.toThrow();});
+-it('covers running measured costs exactly once and releases residual only at known completion',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await run(tx=>markJobBudgetDispatched(tx,job,'op'));await run(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,40,NULL)',[cost,job]);await linkRunningJobBudgetCost(tx,{jobId:job,operationId:'op',costId:cost});});expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);await run(tx=>completeJobBudget(tx,job,'op'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(40);});
++it('covers running measured costs exactly once and releases residual only at known completion',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await run(tx=>markJobBudgetDispatched(tx,job,'op'));await run(async tx=>{await tx.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key) VALUES($1,$2,40,NULL)',[cost,job]);await linkRunningJobBudgetCost(tx,{jobId:job,operationId:'op',costId:cost});});expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);await run(tx=>completeJobBudget(tx,job,'op'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(40);});
+ it('rolls reservation and model write back together on admission conflict',async()=>{await expect(run(async tx=>{await admitModelReservationInTransaction(tx,{jobId:job,reservationId:'r',amountMicroUsd:100,requestDigest:'digest'},async()=>{await tx.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('r',$1,101,NULL,'{"ok":true}')`,[job]);return {ok:true};});})).rejects.toThrow();expect((await pg.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);});
+ it('reuses open workflow stage then creates fresh hold after success',async()=>{const a=await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));expect(await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}))).toMatchObject({reservationId:a.reservationId,replayed:true});await run(tx=>releaseWorkflowJobBudget(tx,job,a.reservationId));const b=await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));expect(b.reservationId).not.toBe(a.reservationId);expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
+-it('rolls back cost insertion when a retained link conflicts',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await expect(run(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,40,NULL)',[cost,job]);await linkRunningJobBudgetCost(tx,{jobId:job,operationId:'op',costId:cost});})).rejects.toThrow();expect((await pg.query('SELECT * FROM costs')).rows).toHaveLength(0);});
++it('rolls back cost insertion when a retained link conflicts',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await expect(run(async tx=>{await tx.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key) VALUES($1,$2,40,NULL)',[cost,job]);await linkRunningJobBudgetCost(tx,{jobId:job,operationId:'op',costId:cost});})).rejects.toThrow();expect((await pg.query('SELECT * FROM costs')).rows).toHaveLength(0);});
+ it('excludes separately capped expert promises while keeping ordinary model commitments',async()=>{await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,first_result,scopes) VALUES('expert',$1,999999999,'{"ok":true}','[{"key":"expert-job:x"}]')`,[job]);expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(0);});
+-it('refuses stage reuse once recorded usage overruns the canonical cap',async()=>{await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));await pg.query('INSERT INTO costs VALUES($1,$2,$3,NULL)',[cost,job,cap]);expect(await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}))).toMatchObject({ok:false});});
++it('refuses stage reuse once recorded usage overruns the canonical cap',async()=>{await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));await pg.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key) VALUES($1,$2,$3,NULL)',[cost,job,cap]);expect(await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}))).toMatchObject({ok:false});});
+ it('retains canonical denials across capacity changes and rejects changed scope digest',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'full',amountMicroUsd:cap}));const input={jobId:job,reservationId:'denied',amountMicroUsd:10,requestDigest:'scopes-one'};let callbacks=0;const reserve=async()=>{callbacks++;return {ok:true};};expect(await run(tx=>admitModelReservationInTransaction(tx,input,reserve))).toEqual({ok:false,remainingMicroUsd:0});await run(tx=>refundUndispatchedJobBudget(tx,job,'full'));expect(await run(tx=>admitModelReservationInTransaction(tx,input,reserve))).toEqual({ok:false,remainingMicroUsd:0});await expect(run(tx=>admitModelReservationInTransaction(tx,{...input,requestDigest:'scopes-two'},reserve))).rejects.toThrow();expect(callbacks).toBe(0);});
+ 
+ it('deduplicates model settlement only with exact retained session binding and receipt',async()=>{
+@@ -31,7 +31,7 @@
+  await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'model:r',amountMicroUsd:100,agentReservationId:'r'}));
+  await run(tx=>markJobBudgetDispatched(tx,job,'model:r'));
+  const receipt='naive:ses_00000000000000000000000000';
+- await pg.query('INSERT INTO costs VALUES($1,$2,40,$3)',[cost,job,receipt]);
++ await pg.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key) VALUES($1,$2,40,$3)',[cost,job,receipt]);
+  const input={jobId:job,operationId:'model:r',costId:cost,expectedReceiptKey:receipt};
+  await expect(run(tx=>linkJobBudgetCost(tx,input))).rejects.toThrow();
+  expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(80);
+@@ -42,4 +42,16 @@
+ });
+ it('database rejects rewriting or deleting retained operation and admission evidence',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:cap}));await run(tx=>admitModelReservationInTransaction(tx,{jobId:job,reservationId:'denied',amountMicroUsd:1,requestDigest:'digest'},async()=>({ok:true})));await expect(pg.query("DELETE FROM job_budget.operations WHERE operation_id='op'")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query("UPDATE job_budget.operations SET amount_micro_usd=1 WHERE operation_id='op'")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query("UPDATE job_budget.model_admissions SET admitted=true WHERE reservation_id='denied'")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query('DELETE FROM job_budget.model_admissions')).rejects.toThrow('job_budget_evidence_immutable');});
+ 
+-it('rejects negative persisted cost offsets instead of using them as spending credit',async()=>{await pg.query('INSERT INTO costs VALUES($1,$2,-1,NULL)',[cost,job]);await expect(run(tx=>jobBudgetExposure(tx,job))).rejects.toThrow('job_budget_conflict');});
++it('rejects negative persisted cost offsets instead of using them as spending credit',async()=>{await pg.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key) VALUES($1,$2,-1,NULL)',[cost,job]);await expect(run(tx=>jobBudgetExposure(tx,job))).rejects.toThrow('job_budget_conflict');});
++
++it('refuses a session receipt key attached to a different provider source',async()=>{
++ await pg.exec('CREATE TABLE agent_persistence.tasks(task_key text,record jsonb)');
++ await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('r',$1,100,40,'{"ok":true}')`,[job]);
++ await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'model:r',amountMicroUsd:100,agentReservationId:'r'}));
++ await run(tx=>markJobBudgetDispatched(tx,job,'model:r'));
++ const receipt='naive:ses_00000000000000000000000000';
++ await pg.query('INSERT INTO costs(id,job_id,micro_usd,receipt_key,source) VALUES($1,$2,40,$3,$4)',[cost,job,receipt,'ai_gateway']);
++ await pg.query('INSERT INTO agent_persistence.tasks VALUES($1,$2)', ['task',JSON.stringify({reservationId:'r',jobId:job,sessionId:receipt.slice(6)})]);
++ await expect(run(tx=>linkJobBudgetCost(tx,{jobId:job,operationId:'model:r',costId:cost,expectedReceiptKey:receipt}))).rejects.toThrow('job_budget_conflict');
++ expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(80);
++});
+diff --git a/packages/core/src/db/job-budget-authority.ts b/packages/core/src/db/job-budget-authority.ts
+--- a/packages/core/src/db/job-budget-authority.ts
++++ b/packages/core/src/db/job-budget-authority.ts
+@@ -1,4 +1,6 @@
+ import { randomUUID } from 'node:crypto';
++import { z } from 'zod';
++import { proxyBillingDigest } from '../judges/naive-proxy-reconcile';
+ import { JOB_BUDGET_MICRO_USD } from '../contracts/index';
+ 
+ /** Pinned READ COMMITTED transaction; rollback on exception, no automatic callback retry.
+@@ -85,21 +87,66 @@
+  if(o.workflow_reservation_id)await releaseWorkflowJobBudget(tx,jobId,o.workflow_reservation_id);
+  await tx.query('UPDATE job_budget.operations SET refunded_at=COALESCE(refunded_at,clock_timestamp()) WHERE operation_id=$1',[operationId]);
+ }
++const proxyCount=z.number().refine(n=>Number.isSafeInteger(n)&&n>=0);
++const proxyHex=z.string().regex(/^[a-f0-9]{64}$/);
++const proxyIntentV1=z.object({schemaVersion:z.literal('naive_proxy_intent.v1'),jobId:z.string().regex(/^[A-Za-z0-9_-]{1,96}$/),operationId:z.string().regex(/^[A-Za-z0-9_.:-]{1,200}$/),model:z.string().min(1),inputDigest:proxyHex,requestDigest:proxyHex,maxOutputTokens:z.number().int().min(1).max(4096)}).strict();
++const proxyIntent=z.discriminatedUnion('schemaVersion',[proxyIntentV1,proxyIntentV1.extend({schemaVersion:z.literal('naive_proxy_intent.v2'),attempt:z.number().int().min(1).max(2147483647),checkpointId:proxyHex,reservationId:z.string()}).strict()]);
++const proxyRequest=z.string().regex(/^req_[0-9a-hjkmnp-tv-z]{26}$/);
++const proxyReceived=z.object({requestId:proxyRequest,usage:z.object({input:proxyCount,output:proxyCount,cache_read:proxyCount,cache_write:proxyCount}).strict().nullable()}).strict();
++const proxyReceipt=z.object({source:z.literal('naive_proxy'),jobId:proxyIntentV1.shape.jobId,operationId:proxyIntentV1.shape.operationId,model:z.string().min(1),requestId:proxyRequest,microUsd:proxyCount,measured:z.literal(true),idempotencyKey:z.string()}).strict();
++/** Resolve only the retained owner reconciliation chain. Amount and public cost metadata
++ * cannot establish identity. Missing historical checkpoints remain additive. */
++export async function retainedProxyReservation(tx:JobBudgetTx,jobId:string,receiptKey:string,expectedCostId?:string):Promise<string|null>{
++ if(!/^naive_proxy:req_[0-9a-hjkmnp-tv-z]{26}$/.test(receiptKey))return null;
++ const installed=(await tx.query<{present:unknown}>("SELECT to_regclass('text_integration.checkpoints') AS present")).rows[0];
++ if(!installed?.present)return null;
++ const bills=(await tx.query<{id:string;input_digest:string;value:unknown}>(`SELECT id,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_proxy_billing' AND state='completed' AND (value->>'requestId'=$2 OR value->>'idempotencyKey'=$3)`,[jobId,receiptKey.slice('naive_proxy:'.length),receiptKey])).rows;
++ if(!bills.length)return null;
++ if(bills.length!==1)fail();
++ const bill=bills[0]!;const parsedReceipt=proxyReceipt.safeParse(bill.value);if(!parsedReceipt.success)return fail();const receipt=parsedReceipt.data;
++ if(receipt.jobId!==jobId||receipt.idempotencyKey!==receiptKey||receiptKey!==`naive_proxy:${receipt.requestId}`)fail();
++ const rows=(await tx.query<{kind:string;input_digest:string;value:unknown}>(`SELECT kind,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND id=$2 AND kind IN ('naive_proxy_intent','naive_proxy_received') AND state='completed'`,[jobId,bill.id])).rows;
++ if(rows.length!==2)return fail();
++ const intentRow=rows.find(r=>r.kind==='naive_proxy_intent'),receivedRow=rows.find(r=>r.kind==='naive_proxy_received');
++ if(!intentRow||!receivedRow||intentRow.input_digest!==bill.input_digest||receivedRow.input_digest!==bill.input_digest)return fail();
++ const parsedIntent=proxyIntent.safeParse(intentRow.value),received=proxyReceived.safeParse(receivedRow.value);
++ if(!parsedIntent.success||!received.success)return fail();const intent=parsedIntent.data;
++ const id=proxyBillingDigest({jobId,operationId:intent.operationId,...(intent.schemaVersion==='naive_proxy_intent.v2'?{attempt:intent.attempt}:{})});
++ const reservationId=`naive-proxy:${id}`;
++ if(intent.jobId!==jobId||intent.inputDigest!==bill.input_digest||bill.id!==id||intent.operationId!==receipt.operationId||intent.model!==receipt.model||received.data.requestId!==receipt.requestId)return fail();
++ if(intent.schemaVersion==='naive_proxy_intent.v2'){
++  if(intent.checkpointId!==id||intent.reservationId!==reservationId)return fail();
++  const attempts=(await tx.query<{present:unknown}>("SELECT to_regclass('naive_proxy_dispatch.attempts') AS present")).rows[0];
++  if(!attempts?.present)return fail();
++  const retained=(await tx.query(`SELECT 1 FROM naive_proxy_dispatch.attempts a JOIN naive_proxy_dispatch.operations o USING(job_id,operation_id) WHERE a.job_id=$1 AND a.operation_id=$2 AND a.attempt=$3 AND a.checkpoint_id=$4 AND a.reservation_id=$5 AND a.state='dispatched' AND a.reserved AND o.input_digest=$6`,[jobId,intent.operationId,intent.attempt,id,reservationId,intent.inputDigest])).rows;
++  if(retained.length!==1)return fail();
++ }
++ const cost=(await tx.query<{id:string;micro_usd:string|number;agent:string|null;session_id:string|null;meta:unknown;receipt_identity:unknown}>("SELECT id,micro_usd,agent,session_id,meta,receipt_identity FROM costs WHERE job_id=$1 AND source='naive_proxy' AND receipt_key=$2",[jobId,receiptKey])).rows;
++ if(cost.length!==1||(expectedCostId!==undefined&&cost[0]!.id!==expectedCostId)||BigInt(cost[0]!.micro_usd)!==BigInt(receipt.microUsd)||cost[0]!.agent!=='judge'||cost[0]!.session_id!==null)return fail();
++ const c=cost[0]!,meta=c.meta as Record<string,unknown>|null,identity=c.receipt_identity as Record<string,unknown>|null;
++ if(!meta||meta.purpose!==intent.operationId||meta.operationId!==intent.operationId||meta.kind!=='rubric_judge'||meta.model!==intent.model||meta.measured!==true||meta.idempotencyKey!==receiptKey||!identity||identity.source!=='naive_proxy'||identity.agent!=='judge'||identity.sessionId!==null||identity.requestId!==receipt.requestId||identity.microUsd!==receipt.microUsd||proxyBillingDigest(identity.meta)!==proxyBillingDigest(meta))return fail();
++ const scope=identity.scope as Record<string,unknown>|null;
++ if(!scope||scope.kind!=='job'||scope.id!==jobId)return fail();
++ return reservationId;
++}
++
+ /** Receipt identity must already be validated by settleCost in this SAME transaction.
+  * Exact retained model settlement + cost row is necessary; no metadata-based guessing. */
+ export async function linkJobBudgetCost(tx:JobBudgetTx,input:{jobId:string;operationId:string;costId:string;expectedReceiptKey:string}){
+  await lockJobBudget(tx,input.jobId);const o=await operation(tx,input.operationId);if(!o||o.job_id!==input.jobId||!o.admitted||o.refunded_at||!o.dispatched_at||o.workflow_reservation_id||(o.cost_id&&o.cost_id!==input.costId))fail();
+- const c=(await tx.query<{micro_usd:string|number;receipt_key:string|null}>('SELECT micro_usd,receipt_key FROM costs WHERE id=$1 AND job_id=$2 FOR UPDATE',[input.costId,input.jobId])).rows[0];if(!c||!c.receipt_key||c.receipt_key!==input.expectedReceiptKey||!c.receipt_key.startsWith('naive:ses_'))fail();
++ const c=(await tx.query<{micro_usd:string|number;receipt_key:string|null;source:string}>('SELECT micro_usd,receipt_key,source FROM costs WHERE id=$1 AND job_id=$2 FOR UPDATE',[input.costId,input.jobId])).rows[0];if(!c||!c.receipt_key||c.receipt_key!==input.expectedReceiptKey||!/^(?:naive:ses_|naive_proxy:req_)[0-9a-hjkmnp-tv-z]{26}$/.test(c.receipt_key))fail();
++ const isProxy=c!.receipt_key!.startsWith('naive_proxy:');
++ if(c!.source!==(isProxy?'naive_proxy':'naive'))return fail();
+  const sessionId=c!.receipt_key!.slice('naive:'.length);
+- let bound=false;
+- if(o.agent_reservation_id){
++ let bound=isProxy&&o.agent_reservation_id!==null&&(await retainedProxyReservation(tx,input.jobId,c!.receipt_key!,input.costId))===o.agent_reservation_id;
++ if(o.agent_reservation_id&&!isProxy){
+  const tasks=(await tx.query<{present:string|null}>("SELECT to_regclass('agent_persistence.tasks')::text AS present")).rows[0];
+  if(tasks?.present)bound=(await tx.query("SELECT task_key FROM agent_persistence.tasks WHERE record->>'reservationId'=$1 AND record->>'sessionId'=$2 AND record->>'jobId'=$3 LIMIT 1",[o.agent_reservation_id,sessionId,input.jobId])).rows.length===1;
+  const copilot=(await tx.query<{present:string|null}>("SELECT to_regclass('naive_copilot.dispatches')::text AS present")).rows[0];
+  if(!bound&&copilot?.present)bound=(await tx.query("SELECT id FROM naive_copilot.dispatches WHERE identity->>'reservationId'=$1 AND session_id=$2 AND identity->'task'->>'jobId'=$3 LIMIT 1",[o.agent_reservation_id,sessionId,input.jobId])).rows.length===1;
+  }
+  if(!bound||(await tx.query('SELECT cost_id FROM job_budget.cost_links WHERE cost_id=$1',[input.costId])).rows.length)fail();
+- if(o.agent_reservation_id){const r=(await tx.query<{settled_micro_usd:string|number|null}>('SELECT settled_micro_usd FROM agent_persistence.reservations WHERE id=$1 FOR UPDATE',[o.agent_reservation_id])).rows[0];if(!r||r.settled_micro_usd===null||BigInt(r.settled_micro_usd)!==BigInt(c.micro_usd))fail();}
++ if(o.agent_reservation_id){const r=(await tx.query<{settled_micro_usd:string|number|null}>('SELECT settled_micro_usd FROM agent_persistence.reservations WHERE id=$1 AND job_id=$2 FOR UPDATE',[o.agent_reservation_id,input.jobId])).rows[0];if(!r||r.settled_micro_usd===null||BigInt(r.settled_micro_usd)!==BigInt(c.micro_usd))fail();}
+  await tx.query('UPDATE job_budget.operations SET cost_id=$2 WHERE operation_id=$1',[input.operationId,input.costId]);
+ }
+ 
+diff --git a/packages/core/src/db/job-budget-proxy-receipts.test.ts b/packages/core/src/db/job-budget-proxy-receipts.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/job-budget-proxy-receipts.test.ts
+@@ -0,0 +1,114 @@
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,expect,it,vi } from 'vitest';
++import { readFileSync } from 'node:fs';
++import type { AgentTransactionalSql } from '../agents/postgres-ports';
++import { PostgresTextCheckpointStore } from '../evals/integration/checkpoints';
++import { createNaiveProxyBudget } from '../judges/naive-proxy-budget';
++import { reconcileNaiveProxyBilling,proxyBillingDigest } from '../judges/naive-proxy-reconcile';
++import { naiveProxyCostEntry } from '../judges/naive-proxy-service';
++import type { VettaClient } from '@usenaive-sdk/managed-agents';
++import { SharedJobBudgetLedger } from './job-budget-ledger';
++import { jobBudgetExposure,linkJobBudgetCost,retainedProxyReservation } from './job-budget-authority';
++import { settleCost } from './cost-settlement';
++const opened:PGlite[]=[];
++afterEach(async()=>{for(const pg of opened.splice(0))await pg.close();});
++const jobId='00000000-0000-4000-8000-000000000123',requestId='req_'+'a'.repeat(26),operationId='judge-1',model='fixture-model';
++async function fixture(attempt?:number,dispatchAttempt=true){
++ const pg=new PGlite();opened.push(pg);
++ await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,budget_reserved_micro_usd bigint DEFAULT 0);
++ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++ CREATE TABLE costs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid,source text,agent text,session_id text,micro_usd bigint,meta jsonb,receipt_key text,receipt_identity jsonb);
++ CREATE UNIQUE INDEX cost_receipt ON costs(source,receipt_key) WHERE receipt_key IS NOT NULL;`);
++ await pg.exec(readFileSync(new URL('../agents/persistence-migrations/001-agent-persistence.sql',import.meta.url),'utf8'));
++ await pg.exec(readFileSync(new URL('../evals/integration/migrations/001-text-integration.sql',import.meta.url),'utf8'));
++ await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
++ await pg.query("INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,'trace_audit',$1,'test')",[jobId]);
++ const db:AgentTransactionalSql={query:(s,p)=>pg.query(s,p),transaction:fn=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))};
++ const checkpoints=new PostgresTextCheckpointStore(db),ledger=new SharedJobBudgetLedger(db);
++ const budget=createNaiveProxyBudget(ledger,{jobId,period:'2026-11',jobCapMicroUsd:3000000,judgeCapMicroUsd:3000000});
++ const id=proxyBillingDigest({jobId,operationId,...(attempt===undefined?{}:{attempt})}),reservationId=`naive-proxy:${id}`,inputDigest='b'.repeat(64);
++ const body={model,system:'fixture',max_output_tokens:100,messages:[{role:'user',content:'fixture'}]};
++ const base={jobId,operationId,model,inputDigest,requestDigest:proxyBillingDigest(body),maxOutputTokens:100};
++ const intent=attempt===undefined?{...base,schemaVersion:'naive_proxy_intent.v1'}:{...base,schemaVersion:'naive_proxy_intent.v2',attempt,checkpointId:id,reservationId};
++ for(const [kind,value] of [['naive_proxy_intent',intent],['naive_proxy_received',{requestId,usage:null}]] as const){
++  const key={jobId,id,inputDigest,kind};const claim=await checkpoints.claim(key);if(claim.state!=='claimed')throw Error('claim');await checkpoints.complete(key,claim.token,value);
++ }
++ // v2 sidecar currently reserves through its own legacy ledger. Its shared adoption
++ // here is a fixture of an explicit bridge, not a claim that production mounts one.
++ if(attempt!==undefined){
++  await pg.exec(readFileSync(new URL('../judges/migrations/001-proxy-dispatch.sql',import.meta.url),'utf8'));
++  await pg.query(`INSERT INTO naive_proxy_dispatch.operations VALUES($1,$2,$3,'{}',1,$4)`,[jobId,operationId,inputDigest,proxyBillingDigest({jobId,operationId})]);
++  await pg.query("INSERT INTO naive_proxy_dispatch.attempts VALUES($1,$2,$3,'token',$4,$5,'prepared',true)",[jobId,operationId,attempt,id,reservationId]);
++  if(dispatchAttempt)await pg.query("UPDATE naive_proxy_dispatch.attempts SET state='dispatched' WHERE reservation_id=$1",[reservationId]);
++ }
++ await budget.reserve({jobId,operationId,inputDigest,reservationId,amountMicroUsd:100,...(attempt===undefined?{}:{attempt})});
++ const proxy={call:vi.fn(async()=>({id:requestId,source:'proxy',session_id:null,dialect:'anthropic',model,window:'immediate',billed_micro_usd:17,content_scope:'full',truncated:false,usage:{input:10,output:5,cache_read:0,cache_write:0},request:{model,system:body.system,max_output_tokens:100,messages:body.messages}}))} as unknown as VettaClient['proxy'];
++ const recordCost=vi.fn(async(receipt:unknown)=>{await settleCost(db,{kind:'job',id:jobId},naiveProxyCostEntry(receipt,{jobId,model}));});
++ const reconcile=()=>reconcileNaiveProxyBilling({jobId,operationId,...(attempt===undefined?{}:{attempt})},{checkpoints,proxy,budget,recordCost});
++ const exposure=()=>db.transaction(tx=>jobBudgetExposure(tx,jobId));
++ return {pg,db,reconcile,exposure,id,inputDigest,reservationId,proxy,recordCost};
++}
++it('real retained reconciliation and cost sink replace one settled debit, independently of a judge verdict',async()=>{
++ const f=await fixture();expect((await f.exposure()).committedMicroUsd).toBe(100);
++ await f.reconcile();expect((await f.exposure()).committedMicroUsd).toBe(17);
++ await f.reconcile();expect((await f.exposure()).committedMicroUsd).toBe(17);
++ expect(f.proxy.call).toHaveBeenCalledTimes(1);expect((await f.pg.query("SELECT * FROM text_integration.checkpoints WHERE kind='naive_proxy_judge'")).rows).toHaveLength(0);
++});
++it('v2 requires the exact retained dispatched attempt',async()=>{const f=await fixture(1);await f.reconcile();expect((await f.exposure()).committedMicroUsd).toBe(17);});
++it('unlinked equal-amount historical public cost stays additive',async()=>{
++ const f=await fixture();await f.pg.query('INSERT INTO costs(job_id,source,agent,micro_usd,meta,receipt_key) VALUES($1,$2,$3,17,$4,$5)',[jobId,'naive_proxy','judge',{operationId,measured:true},'naive_proxy:req_'+'c'.repeat(26)]);
++ expect((await f.exposure()).committedMicroUsd).toBe(117);
++});
++for(const [label,query,params] of [
++ ['received request mismatch',"UPDATE text_integration.checkpoints SET value=jsonb_set(value,'{requestId}',to_jsonb($1::text)) WHERE kind='naive_proxy_received'",['req_'+'c'.repeat(26)]],
++ ['row digest mismatch',"UPDATE text_integration.checkpoints SET input_digest=$1 WHERE kind='naive_proxy_received'",['c'.repeat(64)]],
++ ['intent model mismatch',"UPDATE text_integration.checkpoints SET value=jsonb_set(value,'{model}',to_jsonb($1::text)) WHERE kind='naive_proxy_intent'",['other']],
++ ['settlement mismatch',"UPDATE agent_persistence.reservations SET settled_micro_usd=18",[]],
++ ['reservation job mismatch',"UPDATE agent_persistence.reservations SET job_id=$1",['other-job']],
++ ['cost metadata substitution',"UPDATE costs SET meta=jsonb_set(meta,'{model}',to_jsonb($1::text))",['other']],
++] as const)it(`refuses ${label} without losing the retained debit`,async()=>{
++ const f=await fixture();await f.reconcile();await f.pg.query(query,[...params]);
++ await expect(f.reconcile()).rejects.toThrow();
++});
++it('conflicting billing chain rolls back first public cost insert while preserving settlement for retry',async()=>{
++ const f=await fixture();
++ const original=f.recordCost.getMockImplementation()!;
++ f.recordCost.mockImplementation(async receipt=>{
++  await f.pg.query("UPDATE text_integration.checkpoints SET input_digest='wrong' WHERE kind='naive_proxy_received'");
++  await original(receipt);
++ });
++ await expect(f.reconcile()).rejects.toThrow();
++ expect((await f.pg.query('SELECT * FROM costs')).rows).toHaveLength(0);expect((await f.exposure()).committedMicroUsd).toBe(17);
++ await f.pg.query("UPDATE text_integration.checkpoints SET input_digest=$1 WHERE kind='naive_proxy_received'",[f.inputDigest]);f.recordCost.mockImplementation(original);
++ await f.reconcile();expect((await f.exposure()).committedMicroUsd).toBe(17);
++});
++it('two retained billing chains cannot use one public request to replace two reservations',async()=>{
++ const f=await fixture();await f.reconcile();
++ await f.pg.query("INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) SELECT job_id,kind,'duplicate',input_digest,token,state,value FROM text_integration.checkpoints WHERE kind='naive_proxy_billing'");
++ await expect(f.reconcile()).rejects.toThrow();
++});
++it('direct linkage must independently validate the retained proxy chain',async()=>{
++ const f=await fixture();await f.reconcile();const c=(await f.pg.query<{id:string}>('SELECT id FROM costs')).rows[0]!;
++ await f.pg.query("UPDATE text_integration.checkpoints SET input_digest='wrong' WHERE kind='naive_proxy_received'");
++ await expect(f.db.transaction(tx=>linkJobBudgetCost(tx,{jobId,operationId:`model:${f.reservationId}`,costId:c.id,expectedReceiptKey:`naive_proxy:${requestId}`}))).rejects.toThrow();
++});
++
++it('a prepared v2 attempt cannot replace the shared debit and cost insertion rolls back',async()=>{
++ const f=await fixture(1,false);await expect(f.reconcile()).rejects.toThrow();
++ expect((await f.pg.query('SELECT * FROM costs')).rows).toHaveLength(0);
++ expect((await f.exposure()).committedMicroUsd).toBe(17);
++});
++for(const [field,value] of [['attempt',2],['reservationId','naive-proxy:wrong'],['checkpointId','c'.repeat(64)],['inputDigest','c'.repeat(64)]] as const)
++it(`direct v2 linkage refuses mismatched ${field}`,async()=>{
++ const f=await fixture(1);await f.reconcile();
++ await f.pg.query("UPDATE text_integration.checkpoints SET value=jsonb_set(value,ARRAY[$1]::text[],$2::jsonb) WHERE kind='naive_proxy_intent'",[field,JSON.stringify(value)]);
++ const c=(await f.pg.query<{id:string}>('SELECT id FROM costs')).rows[0]!;
++ await expect(f.db.transaction(tx=>linkJobBudgetCost(tx,{jobId,operationId:`model:${f.reservationId}`,costId:c.id,expectedReceiptKey:`naive_proxy:${requestId}`}))).rejects.toThrow();
++});
++
++it('direct linkage cannot substitute a different source row using the same receipt text and amount',async()=>{
++ const f=await fixture();await f.reconcile();
++ const other=(await f.pg.query<{id:string}>("INSERT INTO costs(job_id,source,agent,session_id,micro_usd,meta,receipt_key,receipt_identity) SELECT job_id,'other',agent,session_id,micro_usd,meta,receipt_key,receipt_identity FROM costs RETURNING id")).rows[0]!;
++ await expect(f.db.transaction(tx=>retainedProxyReservation(tx,jobId,`naive_proxy:${requestId}`,other.id))).rejects.toThrow();
++ await expect(f.db.transaction(tx=>linkJobBudgetCost(tx,{jobId,operationId:`model:${f.reservationId}`,costId:other.id,expectedReceiptKey:`naive_proxy:${requestId}`}))).rejects.toThrow();
++});
+diff --git a/packages/core/src/db/job-budget-receipts.ts b/packages/core/src/db/job-budget-receipts.ts
+--- a/packages/core/src/db/job-budget-receipts.ts
++++ b/packages/core/src/db/job-budget-receipts.ts
+@@ -1,13 +1,15 @@
+-import { linkJobBudgetCost, type JobBudgetTx } from './job-budget-authority';
++import { linkJobBudgetCost, retainedProxyReservation, type JobBudgetTx } from './job-budget-authority';
+ 
+ /** Called only by the cost sink inside its canonical job transaction, AFTER its
+  * immutable receipt validation. No linkage is inferred from equal amounts alone. */
+ export async function linkRetainedModelReceipt(tx:JobBudgetTx,jobId:string,receiptKey:string) {
+-  if(!/^naive:ses_[0-9a-hjkmnp-tv-z]{26}$/.test(receiptKey))return;
++  const proxy=/^naive_proxy:req_[0-9a-hjkmnp-tv-z]{26}$/.test(receiptKey);
++  if(!proxy&&!/^naive:ses_[0-9a-hjkmnp-tv-z]{26}$/.test(receiptKey))return;
+   const installed=(await tx.query<{present:unknown}>("SELECT to_regclass('job_budget.operations') AS present")).rows[0];
+   if(!installed?.present)return; // Legacy-only installations have no bridge debit to substitute.
+   const sessionId=receiptKey.slice('naive:'.length);
+   const ids=new Set<string>();
++  if(proxy){const id=await retainedProxyReservation(tx,jobId,receiptKey);if(id)ids.add(id);}else{
+   const native=(await tx.query<{reservation_id:string}>(`SELECT record->>'reservationId' AS reservation_id
+     FROM agent_persistence.tasks WHERE record->>'jobId'=$1 AND record->>'sessionId'=$2`,[jobId,sessionId])).rows;
+   for(const row of native)if(row.reservation_id)ids.add(row.reservation_id);
+@@ -16,6 +18,7 @@
+     const copilot=(await tx.query<{reservation_id:string}>(`SELECT identity->>'reservationId' AS reservation_id
+       FROM naive_copilot.dispatches WHERE identity->'task'->>'jobId'=$1 AND session_id=$2`,[jobId,sessionId])).rows;
+     for(const row of copilot)if(row.reservation_id)ids.add(row.reservation_id);
++  }
+   }
+   const operations=[];
+   for(const id of ids){
+@@ -26,7 +29,7 @@
+   if(!operations.length)return; // Unlinked historical usage remains conservatively additive.
+   if(operations.length!==1)throw Error('job_budget_receipt_conflict');
+   const cost=(await tx.query<{id:string}>(
+-    "SELECT id FROM costs WHERE job_id=$1 AND source='naive' AND receipt_key=$2",[jobId,receiptKey])).rows[0];
++    "SELECT id FROM costs WHERE job_id=$1 AND source=$3 AND receipt_key=$2",[jobId,receiptKey,proxy?'naive_proxy':'naive'])).rows[0];
+   if(!cost)throw Error('job_budget_receipt_conflict');
+   await linkJobBudgetCost(tx,{jobId,operationId:operations[0]!.operation_id,costId:cost.id,expectedReceiptKey:receiptKey});
+ }
