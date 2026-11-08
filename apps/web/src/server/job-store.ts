@@ -1,4 +1,5 @@
 import "server-only";
+import { recordSettledCost } from "./cost-settlement";
 import { createServiceAdapters } from "@ae/core/adapters/index";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
@@ -38,11 +39,9 @@ export async function recordProgress(jobId: string, milestone: string, message: 
   await db().insert(schema.progressEvents).values({ jobId, milestone: milestone.slice(0, 100), message: message.slice(0, 1000) });
 }
 
-export async function recordCost(entry: CostEntry): Promise<void> {
+export async function recordCost(entry: CostEntry, expected?: { ownerId: string; environment: Environment }): Promise<void> {
   const e = CostEntry.parse(entry);
-  await db().insert(schema.costs).values({
-    jobId: e.jobId, source: e.source, agent: e.agent ?? null, sessionId: e.sessionId ?? null, microUsd: e.microUsd, meta: e.meta,
-  });
+  await recordSettledCost({ kind: "job", id: e.jobId, ...expected }, e);
 }
 
 /** Persists findings. Idempotent per (jobId, findingKey): existing keys are left untouched (originals are never overwritten). */
@@ -129,7 +128,7 @@ export async function makeServiceContext(jobId: string): Promise<ServiceContext>
   return {
     jobId, environment,
     budgetMicroUsd: Math.max(0, cap - spent),
-    recordCost: (entry) => recordCost({ ...entry, jobId }),
+    recordCost: (entry) => recordCost({ ...entry, jobId }, { ownerId: job.customerId, environment }),
     recordProgress: (milestone, message) => recordProgress(jobId, milestone, message),
     ...createServiceAdapters(jobId),
   };

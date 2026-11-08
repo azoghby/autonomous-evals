@@ -211,9 +211,10 @@ export type Remediation = z.infer<typeof Remediation>;
 
 export const CostEntry = z.object({
   jobId: z.uuid(),
-  source: z.enum(["naive", "ai_gateway"]),
+  source: z.enum(["naive", "naive_proxy", "ai_gateway"]),
   agent: z.enum(["commercial", "engineer", "investigator", "operator", "judge"]).optional(),
   sessionId: z.string().optional(),
+  requestId: z.string().optional(),
   microUsd: z.int().nonnegative(),
   meta: z.record(z.string(), z.unknown()).default({}),
 });

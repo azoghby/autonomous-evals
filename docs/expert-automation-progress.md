@@ -41,3 +41,13 @@ The current-base [owner bridge artifact](expert-automation-integration/README.md
 Parent checks: strict combined agents/evals/judges **956 tests / 65 files**, none skipped. Independent reproduction of the applied owner bridge: **28 SQL tests**, focused strict types, four postimages and separately pinned B support verified. Eight original legacy approval assertions pass with a documented fixture for the new SQL routing boundary; unchanged old fixtures alone have six missing-boundary failures. Provider/email transports and extraction runner are fakes; hosted contention, real email, automatic response review and Workflow mounting remain unverified.
 
 Both `18527a1` CI repair and `eaf7f69` implementation passed complete GitHub CI (web/core types, unit tests and production build). These results predate this checkpoint's uncommitted additions; they are not deployment evidence.
+
+## Approved application source adoption
+
+Alex approved the reviewed combined 15-file patch. The concrete accounting/expert SQL adapters, managed founder approval routing, response reader, cost contract/sinks and coherent 0023/0024 migrations are now applied to actual application source and hash-verified. The older standalone owner patches remain historical artifacts. No live migration or deployment was performed, so production behavior is not changed by this source adoption.
+
+Parent independently reproduced 52 SQL tests plus 8 original outreach tests on the exact adopted source. Full core types and schema/snapshot coherence passed; supplementary web types/webpack build passed using a documented temporary analytics-version substitution, so that build is not exact dependency evidence.
+
+Core `resumeGeneration` and `resumeFreeze` now opt into durable same-session reconciliation; legacy providers remain fenced. Final combined strict agents/evals/judges check passed 959 tests / 66 files with no skips.
+
+The separate [Workflow gate artifact](expert-workflow-integration/README.md) is **not applied**. Its actual job Workflow fixtures pass 12 tests and six staged postimages are hash-verified. It includes seven-day durable polling, cancellation events, canonical plan/secret rechecks and real-mode enforcement. It still holds reviewed frozen data for the missing rich execution consumer. Canonical plan/grant/review provisioning, Workflow source adoption, 0025 registration, rich execution, hosted acceptance and live migrations remain open.

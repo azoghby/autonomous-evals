@@ -60,3 +60,7 @@ Capture applied migration identity, exact source commit, test database scope and
 ## Current-base adoption artifact
 
 A concrete owner patch now exists at [naive-cost-settlement-integration/README.md](naive-cost-settlement-integration/README.md), pinned to `4d9842b`. It extends the contract, schema/migration and both actual sink implementations in an isolated candidate. Parent reproduction passes strict focused types and 13 applied-source SQL tests, with nine postimage hashes verified. Full core types also passed; retained full web types lack `@ai-sdk/react`. This is still not adopted app source or a live migration. Existing historical unkeyed receipts require reconciliation before activation.
+
+## Adopted source update
+
+The current-behavior inventory above describes the pre-adoption source. Alex explicitly approved the combined [expert-adoption-integration](expert-adoption-integration/README.md) patch: actual job/sandbox sinks now use atomic keyed settlement and the contract supports Naïve proxy receipts. Migration 0023 remains unapplied to live databases; historical receipt reconciliation and hosted replay are still activation gates. The source implementation is no longer merely proposed.

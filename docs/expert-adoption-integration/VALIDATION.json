@@ -1,0 +1,47 @@
+{
+  "reviewedStage": "/tmp/expert-owner-wCxqMV",
+  "readonlyReview": "passed",
+  "coreTypecheck": 0,
+  "nextTypegen": {
+    "status": 0,
+    "steps": 53,
+    "workflows": 4
+  },
+  "supplementaryWebTypecheck": 0,
+  "supplementaryWebpackBuild": {
+    "status": 0,
+    "staticPages": 47
+  },
+  "exactDependencyBuildVerified": false,
+  "limitations": [
+    "Declared @vercel/analytics@2.1.0 unavailable from registry; supplementary web/build validation used temporary 1.6.1.",
+    "Default Turbopack rejects retained dependencies symlinked outside stage; webpack build passed."
+  ],
+  "drizzleGenerate": "No schema changes, nothing to migrate",
+  "snapshotChain": "0022 -> 0023 -> 0024",
+  "assertionsUnchanged": true,
+  "immutableTriggers": 3,
+  "sourceOrExternalMutations": false,
+  "hardenedFullWebTypecheck": 0,
+  "hardenedFullWebTypecheckLog": "/tmp/expert-owner-wCxqMV/web-types-hardened.log",
+  "currentAuthorityRegressions": 11,
+  "currentAppliedSqlTests": 52,
+  "hardenedSupplementaryWebpackBuild": {
+    "status": 0,
+    "log": "/tmp/expert-owner-wCxqMV/build-webpack-hardened.log",
+    "exactDependencies": false
+  },
+  "hardenedOwnerPostimageSha256": "788c8b2ac7a4644ace0cf4733888fd46a9f46c5851ed1e362b07d5b11ede199d",
+  "hardenedReadonlyReview": {
+    "status": "passed",
+    "reviewer": "expert_workflow_mount",
+    "findings": [],
+    "verified": [
+      "Fresh callback awaited by SQL authority",
+      "Canonical blocked job state predicate",
+      "Current safety before dispatch",
+      "Current credentials before contribution publication",
+      "Async producer assertCurrent callback contract"
+    ]
+  }
+}

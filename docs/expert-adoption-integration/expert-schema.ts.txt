@@ -1,0 +1,60 @@
+export const expertAutomationPolicies = pgTable("expert_automation_policies", {
+  id: text("id").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  job_cap_micro_usd: bigint("job_cap_micro_usd", { mode: "number" }).notNull(),
+  daily_cap_micro_usd: bigint("daily_cap_micro_usd", { mode: "number" }).notNull(),
+}, (t) => [check("expert_automation_policies_job_cap_micro_usd_check", sql`job_cap_micro_usd=25000000`), check("expert_automation_policies_daily_cap_micro_usd_check", sql`daily_cap_micro_usd=50000000`)]);
+
+export const expertAutomationScopes = pgTable("expert_automation_scopes", {
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  task_id: text("task_id").notNull(),
+  tenant_id: uuid("tenant_id").notNull().references(() => customers.id),
+  request_hash: text("request_hash").notNull(),
+  policy_id: text("policy_id").notNull().references(() => expertAutomationPolicies.id),
+  topic: text("topic").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  customer_sharing_consent: boolean("customer_sharing_consent").notNull().default(false),
+}, (t) => [primaryKey({ columns: [t.job_id, t.task_id] })]);
+
+export const expertAutomationQualifications = pgTable("expert_automation_qualifications", {
+  expert_id: uuid("expert_id").notNull().references(() => experts.id),
+  topic: text("topic").notNull(),
+  qualified: boolean("qualified").notNull().default(false),
+  evidence: jsonb("evidence").notNull(),
+  allowed_uses: jsonb("allowed_uses").notNull(),
+  consent_receipt: text("consent_receipt").notNull(),
+  contribution_source: jsonb("contribution_source"),
+}, (t) => [primaryKey({ columns: [t.expert_id, t.topic] })]);
+
+export const expertAutomationOperations = pgTable("expert_automation_operations", {
+  operation_id: text("operation_id").primaryKey(),
+  job_id: uuid("job_id").notNull().references(() => jobs.id),
+  task_id: text("task_id").notNull(),
+  tenant_id: uuid("tenant_id").notNull().references(() => customers.id),
+  request_hash: text("request_hash").notNull(),
+  request_id: uuid("request_id").notNull().unique().references(() => expertRequests.id),
+  first_promise_day: date("first_promise_day"),
+});
+
+export const expertAutomationInvitations = pgTable("expert_automation_invitations", {
+  operation_id: text("operation_id").notNull().references(() => expertAutomationOperations.operation_id),
+  expert_id: uuid("expert_id").notNull().references(() => experts.id),
+  engagement_id: uuid("engagement_id").notNull().unique().references(() => expertEngagements.id),
+  draft_id: uuid("draft_id").notNull().unique().references(() => outreachDrafts.id),
+  invitation_digest: text("invitation_digest").notNull(),
+  promise_key: text("promise_key").unique(),
+  amount_micro_usd: bigint("amount_micro_usd", { mode: "number" }).notNull(),
+  promised: boolean("promised").notNull().default(false),
+  promise_day: date("promise_day"),
+  founder_approved_by: text("founder_approved_by"),
+  send_state: text("send_state").notNull().default("prepared"),
+  message_id: text("message_id"),
+  thread_id: text("thread_id"),
+}, (t) => [check("expert_automation_invitations_amount_micro_usd_check", sql`amount_micro_usd BETWEEN 0 AND 25000000`), check("expert_automation_invitations_send_state_check", sql`send_state IN ('prepared','claimed','sent')`), primaryKey({ columns: [t.operation_id, t.expert_id] })]);
+
+export const expertAutomationResponseBindings = pgTable("expert_automation_response_bindings", {
+  operation_id: text("operation_id").notNull().references(() => expertAutomationOperations.operation_id),
+  engagement_id: uuid("engagement_id").notNull().references(() => expertEngagements.id),
+  response_id: uuid("response_id").notNull().references(() => expertResponses.id),
+  response_digest: text("response_digest").notNull(),
+}, (t) => [primaryKey({ columns: [t.operation_id, t.engagement_id] })]);

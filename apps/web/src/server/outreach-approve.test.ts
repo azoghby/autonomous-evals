@@ -8,6 +8,11 @@ const h = vi.hoisted(() => {
   return { state, chain };
 });
 vi.mock("server-only", () => ({}));
+// Legacy drafts bypass the SQL-managed operation boundary; managed SQL is exercised separately.
+vi.mock("./automated-expert-owner", () => ({
+  approveSqlManagedExpertDraft: async () => false,
+  expertOwnerDatabase: () => ({ transaction: async (fn: (tx: { query: () => Promise<{ rows: unknown[] }> }) => unknown) => fn({ query: async () => ({ rows: [] }) }) }),
+}));
 vi.mock("drizzle-orm", () => ({ and: () => ({}), eq: () => ({}) }));
 vi.mock("@ae/core/db/client", () => {
   const t = new Proxy({}, { get: (_x, k) => String(k) });

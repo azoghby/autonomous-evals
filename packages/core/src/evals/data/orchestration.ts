@@ -18,6 +18,9 @@ export interface AuthenticatedDataReview {
   decision: 'approved' | 'rejected';
   data: DataBatch;
 }
+export type DataFreezePort = (request: { operationKey: string; mapping: Extract<ReturnType<typeof mapApprovedDataToTextDesign>, { status: 'ready' }> }) => Promise<
+  { status: 'pending' } | { status: 'complete'; suite: FrozenTextSuite }>;
+
 export interface DataOrchestrationPorts {
   acquisition: Omit<EvaluationDataPorts, 'reviewCandidates' | 'knownSecrets'>;
   operations: DataOperationLedger;
@@ -25,12 +28,16 @@ export interface DataOrchestrationPorts {
    * persisted dispatch intent/CAS and read-only reconciliation for ambiguous sends. Never
    * supply a stateless mail sender here. Absent this port, pending effects remain fenced. */
   resumeExpert?: EvaluationDataPorts['expert'];
+  /** Explicit reconciliation using the same durable AgentSessionService task identity.
+   * Never supply a stateless generator; absent this port pending generation stays fenced. */
+  resumeGeneration?: EvaluationDataPorts['generate'];
+  /** Explicit reconciliation of durable suite design sessions under the same operation scope. */
+  resumeFreeze?: DataFreezePort;
   /** Server-only immutable review ledger. Never pass a generator/model implementation here. */
   readReview(request: { digest: string; task: DataTaskSpec; data: DataBatch }): Promise<
     { status: 'pending' } | { status: 'decided'; review: AuthenticatedDataReview }>;
   /** Existing design/review/freeze service; must honor key and enforce its own suite review gates. */
-  freeze(request: { operationKey: string; mapping: Extract<ReturnType<typeof mapApprovedDataToTextDesign>, { status: 'ready' }> }): Promise<
-    { status: 'pending' } | { status: 'complete'; suite: FrozenTextSuite }>;
+  freeze: DataFreezePort;
   /** Durable idempotent upsert by taskKey + cost.externalId, never an increment-on-retry sink. */
   deliverCost(entry: GenerationMeasuredCost): Promise<void>;
   knownSecrets?: readonly string[];
@@ -86,6 +93,7 @@ export async function advanceDataOrchestration(
     if (!claim.claimed) {
       if (claim.record.state === 'complete') return structuredClone(claim.record.result) as AcquisitionResult;
       if (phase === 'expert' && ports.resumeExpert) provider = ports.resumeExpert;
+      else if (phase === 'generation' && ports.resumeGeneration) provider = ports.resumeGeneration;
       else {
         needsReconciliation = true;
         return { status: 'pending' };
@@ -93,7 +101,7 @@ export async function advanceDataOrchestration(
     }
     // Crash/exception/pending leaves an owned ambiguous operation. Only explicit reconciliation
     // with the underlying durable provider ledger may complete it; time never authorizes retry.
-    // The opt-in expert resume port advances that provider's durable state machine, not a send.
+    // Opt-in resume ports advance the provider's durable state machine under the same identity.
     try {
       const result = await provider(structuredClone(request));
       screen(result);
@@ -180,12 +188,14 @@ export async function advanceDataOrchestration(
   const digest = reviewDigest({ context: { ...context, knownSecrets: undefined }, provenance: mapping.provenance });
   const claim = await ports.operations.claim(key, digest);
   screen(claim.record);
+  if (claim.record.digest !== digest) throw new Error('Data operation identity conflict');
   let suite: FrozenTextSuite;
   if (claim.record.state === 'complete') suite = claim.record.result as FrozenTextSuite;
-  else if (!claim.claimed) return result('reconciliation_required');
+  else if (!claim.claimed && !ports.resumeFreeze) return result('reconciliation_required');
   else {
     try {
-      const frozen = await ports.freeze({ operationKey: key, mapping: { ...structuredClone(mapping), designInput: { ...mapping.designInput, knownSecrets: undefined } } });
+      const freeze = claim.claimed ? ports.freeze : ports.resumeFreeze!;
+      const frozen = await freeze({ operationKey: key, mapping: { ...structuredClone(mapping), designInput: { ...mapping.designInput, knownSecrets: undefined } } });
       if (frozen.status === 'pending') return result('reconciliation_required');
       suite = frozen.suite;
       screen(suite);

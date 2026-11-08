@@ -1,4 +1,5 @@
 import "server-only";
+import { recordSettledCost } from "../cost-settlement";
 /**
  * Sandbox Evals persistence (sandbox_environments / sandbox_suites / sandbox_runs). Owner-scoped reads return null
  * for rows that belong to someone else, so ids are not probeable. *ById variants are for workflow steps only.
@@ -52,7 +53,7 @@ export interface SandboxStore {
    */
   usageSince(ownerId: string, since: Date): Promise<{ trials: number; costMicroUsd: number }>;
   /** Records one cost row (costs table, job_id null) and adds it to the suite/run total. */
-  addCost(target: { kind: "suite" | "run"; id: string }, entry: Parameters<GatewayContext["recordCost"]>[0]): Promise<void>;
+  addCost(target: { kind: "suite" | "run"; id: string }, entry: Parameters<GatewayContext["recordCost"]>[0]): Promise<void | { inserted: boolean }>;
 }
 
 const one = <T>(rows: T[]): T | null => rows[0] ?? null;
@@ -112,10 +113,7 @@ export function createDbSandboxStore(): SandboxStore {
       return { trials: Number(r?.trials ?? 0), costMicroUsd: Number(r?.cost ?? 0) + Number(s?.cost ?? 0) };
     },
     async addCost(target, entry) {
-      const meta = { ...(entry.meta ?? {}), [target.kind === "run" ? "sandboxRunId" : "sandboxSuiteId"]: target.id };
-      await db().insert(schema.costs).values({ jobId: null, source: entry.source, agent: entry.agent ?? null, sessionId: entry.sessionId ?? null, microUsd: entry.microUsd, meta });
-      const table = target.kind === "run" ? R : S;
-      await db().update(table).set({ costMicroUsd: sql`${table.costMicroUsd} + ${entry.microUsd}` }).where(eq(table.id, target.id));
+      return recordSettledCost(target, entry);
     },
   };
 }
@@ -131,8 +129,8 @@ export function stepBudgetContext(
   return {
     get budgetMicroUsd() { return Math.max(0, capMicroUsd - spentBeforeMicroUsd - spent); },
     async recordCost(entry) {
-      spent += entry.microUsd;
-      await store.addCost(target, entry);
+      const settlement = await store.addCost(target, entry);
+      if (settlement?.inserted !== false) spent += entry.microUsd;
     },
     spentMicroUsd: () => spent,
   };

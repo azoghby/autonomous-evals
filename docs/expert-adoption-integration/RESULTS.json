@@ -1,0 +1,26 @@
+{
+  "base": "eaf7f6967f0d227b9826232afa9c368a2464e1be",
+  "stage": "/tmp/expert-owner-1A4ai9",
+  "supportPins": [
+    {
+      "path": "packages/core/src/evals/data/adapters/expert-response.ts",
+      "sha256": "62a873349913257fd76dfac1f10ec9328d065c54d698e3d053e1bdeae08cf80c"
+    }
+  ],
+  "manifestSha256": "636c5f0bdec0fcc0c0c9f5893edabbb3b663e842428020c7d9cfa13870fd54af",
+  "patchSha256": "857c47c84188d8beca4d51642fb3e7f8216aeb7977300f23b8f1cf8bd4d57bf0",
+  "verifiedPostimages": 15,
+  "typecheck": 0,
+  "coreTypecheck": 0,
+  "tests": 0,
+  "legacyOriginalStatus": 0,
+  "legacyFixtureCompatibility": {
+    "status": 0,
+    "passed": 8,
+    "failed": 0,
+    "pending": 0
+  },
+  "passed": 52,
+  "failed": 0,
+  "pending": 0
+}

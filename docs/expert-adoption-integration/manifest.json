@@ -1,0 +1,90 @@
+{
+  "baseCommit": "eaf7f6967f0d227b9826232afa9c368a2464e1be",
+  "files": [
+    {
+      "path": "apps/web/src/server/automated-expert-owner.ts",
+      "beforeSha256": null,
+      "afterSha256": "788c8b2ac7a4644ace0cf4733888fd46a9f46c5851ed1e362b07d5b11ede199d"
+    },
+    {
+      "path": "apps/web/src/server/automated-expert-responses.ts",
+      "beforeSha256": null,
+      "afterSha256": "0390b470e16fceb9f35f8247099c821e694f56c3836d27492f42b8fe5e568de6"
+    },
+    {
+      "path": "apps/web/src/server/cost-settlement.ts",
+      "beforeSha256": null,
+      "afterSha256": "1c6097d8c7a9ee0b109491294c7c569894fb05d42f724d49d9dee76780ec361b"
+    },
+    {
+      "path": "apps/web/src/server/job-store.ts",
+      "beforeSha256": "0f6d9ea1d597335b9701e18a3f55e355592bb81b5f14268f688d6127ebee7a0a",
+      "afterSha256": "a758d267c6a0c134fede3d31f0a377d73b8d78c30d2f04a2b4d80f72c4efb0a3"
+    },
+    {
+      "path": "apps/web/src/server/outreach-approve.test.ts",
+      "beforeSha256": "9e9c3c0b751da177651713d247f2c49e009cefc869dabd4c4a01642f3b1dd8cc",
+      "afterSha256": "04fb8cde72c0fefc090c368e1cef83b7562fb4df4cd782f5306c1c1497ec27e7"
+    },
+    {
+      "path": "apps/web/src/server/outreach-approve.ts",
+      "beforeSha256": "0e17964bd46780b21f95ce75d846a0a7cfaf2200af85d32377a1846a19f55837",
+      "afterSha256": "e6708ebfabff6b34d75e18233f7863b58870538d49f5127ea52f8a534a65bfda"
+    },
+    {
+      "path": "apps/web/src/server/sandbox/store.ts",
+      "beforeSha256": "d782a48e9eec486f8700dd23f17efb0370bebeead14d05104ffc1c47c6d7bdce",
+      "afterSha256": "da7bc1dbc8c47eadd6f70c0ce0c50814f4c198e47060c24e1b6e87f00908d6b0"
+    },
+    {
+      "path": "packages/core/src/contracts/index.ts",
+      "beforeSha256": "611bac023ce00aa2a3e02c2bfb22a2c356a7c33c06a7510caab26c17f2d9def9",
+      "afterSha256": "03c9ba4a7bac844094cfb5d3b54406002b111e025ff09a17899240843bb72f9f"
+    },
+    {
+      "path": "packages/core/src/db/cost-settlement.ts",
+      "beforeSha256": null,
+      "afterSha256": "6601e712b210294f6a6e9ba30c1928ec3e753f81341f43eb8b4a5fb51ea91dca"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0023_cost_receipts.sql",
+      "beforeSha256": null,
+      "afterSha256": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0024_expert_automation.sql",
+      "beforeSha256": null,
+      "afterSha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0023_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "dfbb611c63e11334868240336393a9dce3e65e94fafb69b6edc315f0f6a11c8c"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0024_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "677ffa57c97233c0c697b4f290d2be4a880beb1df4f5041832b9aba395209519"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/_journal.json",
+      "beforeSha256": "0bd47147bb335643f2f806c1cb8ee5f91a3e11fb368d3fc5ca3c434731a4c702",
+      "afterSha256": "f5d40d4a4cd85baf8cf5805ef03bb0672bd8331884b3ec50634b71bd00192a68"
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "beforeSha256": "6d7922da1cb753de370368b0acbaa4e29ed1802253d2a5cdffa310aeca2eff19",
+      "afterSha256": "09568aedd91da6d7837f9d7cb56c9e05511b313905d757ada99b48204141376a"
+    }
+  ],
+  "patchSha256": "857c47c84188d8beca4d51642fb3e7f8216aeb7977300f23b8f1cf8bd4d57bf0",
+  "supportCommit": "80fdf4fca35ac5c71cbeb8414df7cd5125170230",
+  "supportFiles": [
+    {
+      "path": "packages/core/src/evals/data/adapters/expert-response.ts",
+      "sha256": "62a873349913257fd76dfac1f10ec9328d065c54d698e3d053e1bdeae08cf80c"
+    }
+  ],
+  "actualApplicationModified": false,
+  "productionActivated": false
+}

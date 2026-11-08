@@ -1,3 +1,4 @@
+import { approveSqlManagedExpertDraft, expertOwnerDatabase } from './automated-expert-owner';
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
@@ -18,7 +19,7 @@ export type ApproveResult =
  * Operator approval of one pending outreach draft: guardrails, atomic pending->approved claim, intervention row,
  * then send (if email is configured). Shared by the single-approve route and the one-click approve-all route.
  */
-export async function approveAndSendDraft(id: string, approverEmail: string, opts: { syncApproval?: boolean } = {}): Promise<ApproveResult> {
+async function approveLegacyDraft(id: string, approverEmail: string, opts: { syncApproval?: boolean } = {}): Promise<ApproveResult> {
   const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail, kind: schema.outreachDrafts.kind })
     .from(schema.outreachDrafts)
     .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).limit(1);
@@ -102,4 +103,15 @@ export function parseApproveAll(payload: ApproveAllPayload | null): { ids: strin
   if (!isOperator(payload.op)) return null;
   const ids = [...new Set(payload.ids.filter((x): x is string => typeof x === "string" && isUuid(x)))];
   return { ids, op: payload.op };
+}
+
+/** Shared lock covers legacy and managed approvals so the existing daily cold cap has one writer gate. */
+export async function approveAndSendDraft(id:string,approverEmail:string,opts:{syncApproval?:boolean}={}):Promise<ApproveResult>{
+ if(!isOperator(approverEmail))return {ok:false,status:403,error:'Operator access required'};
+ const sql=expertOwnerDatabase();
+ if(await approveSqlManagedExpertDraft(sql,id,approverEmail))return {ok:true,status:'approved'};
+ return sql.transaction(async tx=>{
+  await tx.query("SELECT pg_advisory_xact_lock(hashtext('expert-cold-contact-approvals'))");
+  return approveLegacyDraft(id,approverEmail,opts);
+ });
 }

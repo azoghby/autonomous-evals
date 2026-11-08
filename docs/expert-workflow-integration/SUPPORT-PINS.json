@@ -1,0 +1,14 @@
+{
+  "base": "80fdf4fca35ac5c71cbeb8414df7cd5125170230",
+  "support": [
+    {
+      "path": "packages/core/src/evals/data/orchestration.ts",
+      "sha256": "c17f229e17c752bfb8c5d8a0d25eba767b180ec0bc12ab0dae8f281ca258fd5f"
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/expert-response.ts",
+      "sha256": "62a873349913257fd76dfac1f10ec9328d065c54d698e3d053e1bdeae08cf80c"
+    }
+  ],
+  "note": "orchestration includes explicit resumeGeneration/resumeFreeze support; pin final source commit when parent commits this current support. No Track A adoption implied."
+}

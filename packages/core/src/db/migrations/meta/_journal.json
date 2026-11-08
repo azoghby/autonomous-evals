@@ -162,6 +162,20 @@
       "when": 1794117812952,
       "tag": "0022_uneven_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794117812953,
+      "tag": "0023_cost_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794117812954,
+      "tag": "0024_expert_automation",
+      "breakpoints": true
     }
   ]
 }

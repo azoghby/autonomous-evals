@@ -1,0 +1,43 @@
+{
+  "base": "80fdf4fca35ac5c71cbeb8414df7cd5125170230",
+  "files": [
+    {
+      "path": "apps/web/src/server/expert-data-production.ts",
+      "preimage_sha256": null,
+      "postimage_sha256": "66c20d0c042c0ded622cb0acd8c080af36f1d491afe41060964ef24bcf1db0ec"
+    },
+    {
+      "path": "apps/web/src/server/expert-workflow.ts",
+      "preimage_sha256": null,
+      "postimage_sha256": "8b98ae5d679276b2f2c85f3deb2d433f0b4d6f60308f12969c84f5b0e304be92"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "preimage_sha256": "67673b073da7e168ebc923dc4d65fda10bd9953e2e3e199a5c58078213bd5284",
+      "postimage_sha256": "4f4e0adbfb4ab529d424a52bf5a06a0c93afdbc0856b545def3485b04647b453"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/expert-data.ts",
+      "preimage_sha256": null,
+      "postimage_sha256": "c614d7c20c5f066107f69e089bf39c210f0322770c0a58e200d2a68593fb0ef9"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0025_expert_workflow.sql",
+      "preimage_sha256": null,
+      "postimage_sha256": "ca3a0280fadc121cc6dcb5e348cda977ddf3714f398979c2549d6c1d980b30cc"
+    },
+    {
+      "path": "packages/core/src/integration/eval-services.ts",
+      "preimage_sha256": "13b6510065b80295117ee85b5d2313fc6f91d794e7fba34e816fe2c843dcecc5",
+      "postimage_sha256": "cda660b0495dd0048baa6c5caf3530cb250a105d11ae2e3a60d4b6c156bb8508"
+    }
+  ],
+  "patch_sha256": "917bab183567791a68c668c45b3d30661a0b56667adb0e3bd38a8fc6914b6dc0",
+  "requires": [
+    "combined expert-automation-cost-adoption hardened async knownSecrets owner",
+    "current core data source including resumeGeneration/resumeFreeze",
+    "owner migration registration and data persistence SQL",
+    "explicit EVAL_SERVICES=real, operator task/policy/qualification/permission/review provisioning"
+  ],
+  "activation": "Ready frozen suite is held pending actual rich execution consumer adoption; no lite execution."
+}
