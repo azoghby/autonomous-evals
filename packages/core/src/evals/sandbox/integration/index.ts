@@ -1,3 +1,5 @@
+import { executeEngineMedia, pinMediaPlan, mediaPlanIdentity, validateMediaPlan, type EngineMediaPorts, type EngineMediaEvidence } from './media';
+export type { EngineMediaPorts, EngineMediaPlan, EngineMediaEvidence } from './media';
 import type { EvalVersions, EnvironmentSpec, SandboxScenario } from '../../../sandbox/spec';
 import { freezeSandboxInputs, verifySandboxInputs } from '../identity';
 import { createSandboxGenerationAdapter, type SandboxGenerationConfig, type SandboxGenerationRequest } from '../generation/adapter';
@@ -35,9 +37,11 @@ export interface SandboxEngineConfig {
   approvals: CustomerApprovalPort;
   execution: ExecutionPorts;
   authority: SandboxEngineAuthority;
+  media?: EngineMediaPorts;
 }
 export interface PrivateSandboxReport {
   schema: 'sandbox-private-report-v1';
+  media?: EngineMediaEvidence | null;
   suiteDigest: string;
   approvalId: string;
   execution: TrialArtifact;
@@ -127,8 +131,26 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
       const { scenarioId: _, ...trial } = request.trial;
       const input: TrialInput = { ...trial, jobId: scope.jobId, environment: frozen.environment, scenario, versions: request.versions };
       const identity = executionDigest(input);
-      const report = await config.authority.replay.once(`${scope.jobId}/integrated-trial/${trial.trialId}`, gateDigest({ input, suite: artifact.digest, approval: approval.approvalId }), async () => {
-        const execution = await executeToolLoopTrial(input, config.execution, signal);
+      const isMedia = scenario.persona.modality !== 'text' || scenario.attachments.length > 0;
+      const mediaPorts = config.media;
+      const plan = isMedia && mediaPorts ? pinMediaPlan(mediaPorts.plan(structuredClone(input))) : undefined;
+      if (isMedia && !plan) throw new Error('sandbox_media_not_configured');
+      const targetConfigDigest = plan ? validateMediaPlan(input, plan, mediaPorts!) : null;
+      if (plan && targetConfigDigest !== input.agentConfigDigest) throw new Error('sandbox_media_config_mismatch');
+      const mediaIdentity = plan ? mediaPlanIdentity(plan) : null;
+      const binding = plan ? { jobId: input.jobId, trialId: input.trialId, approvalId: approval.approvalId,
+        suiteDigest: artifact.digest, environmentDigest: executionDigest(frozen.environment), runtimeVersion: input.versions.runtime,
+        targetConfigDigest: targetConfigDigest!, mediaConfigDigest: executionDigest(mediaIdentity) } : undefined;
+      if (binding) await mediaPorts!.bridge.authorize(structuredClone(binding));
+      const report = await config.authority.replay.once(`${scope.jobId}/integrated-trial/${trial.trialId}`, gateDigest({ input, suite: artifact.digest, approval: approval.approvalId, ...(plan ? { media: mediaIdentity } : {}) }), async () => {
+        const result = plan ? await executeEngineMedia(input, plan, binding!, config.execution, { ...mediaPorts!,
+          bridge: { ...mediaPorts!.bridge, authorize: async b => {
+            await authorize('run', artifact.digest);
+            const current = await admitApprovedSandboxSuite(request.artifact, config.approvals);
+            if (current.approval.approvalId !== approval.approvalId) throw new Error('sandbox_media_approval_changed');
+            await mediaPorts!.bridge.authorize(b);
+          } } }, signal) : null;
+        const execution = result ? result.execution : await executeToolLoopTrial(input, config.execution, signal);
         const unresolved: string[] = [];
         let grade: GradeResult | null = null;
         if (execution.status !== 'completed' || execution.infrastructure !== 'known') unresolved.push('execution_incomplete');
@@ -145,6 +167,12 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
           } catch { unresolved.push('final_snapshot_unavailable'); }
           finally { if (snapshot) try { await snapshot.release(); } catch { unresolved.push('snapshot_release_unknown'); } }
         }
+        if (result) {
+          const evidence = result.media;
+          if (!evidence || evidence.artifact.perception.some(c => !c.passed)) unresolved.push('media_perception_unresolved_or_failed');
+          if (evidence?.kind === 'voice' && evidence.artifact.timing.latencyPassed === false) unresolved.push('media_latency_failed');
+          if (evidence?.kind === 'receipt' && evidence.artifact.latency.checks.some(c => !c.passed)) unresolved.push('media_latency_failed');
+        }
         if (!grade || grade.verdict === 'unknown') unresolved.push('grading_unknown');
         // Execution v1 has no authoritative settlement receipt; never invent known money.
         unresolved.push('cost_unsettled');
@@ -153,7 +181,7 @@ export function createSandboxEngine(config: SandboxEngineConfig) {
           agentVersion: gateDigest({ model: trial.agentModel, config: trial.agentConfigDigest }), versions: input.versions,
           status: 'unknown', failureAttribution: 'unknown' };
         return { schema: 'sandbox-private-report-v1' as const, suiteDigest: artifact.digest, approvalId: approval.approvalId,
-          execution, grade, outcome, unresolved, money: execution.money };
+          execution, grade, outcome, unresolved, money: execution.money, ...(result ? { media: result.media } : {}) };
       });
       if (report.execution.identityDigest !== identity || report.suiteDigest !== artifact.digest || report.approvalId !== approval.approvalId)
         throw new Error('sandbox_report_identity_conflict');
