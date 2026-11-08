@@ -1,0 +1,1230 @@
+diff --git a/apps/web/src/server/naive-remediation-runtime.test.ts b/apps/web/src/server/naive-remediation-runtime.test.ts
+--- a/apps/web/src/server/naive-remediation-runtime.test.ts
++++ b/apps/web/src/server/naive-remediation-runtime.test.ts
+@@ -21,14 +21,18 @@
+ // This runtime fixture intentionally excludes stage authority; real stage envelopes
+ // are verified by workflow-stage-budget-integration.test.ts.
+ vi.mock('./workflow-stage-budget',async()=>{const {SharedJobBudgetLedger}=await import('@ae/core/db/job-budget-ledger');return {createWorkflowStageBudgetLedger:(sql:import('@ae/core/agents/postgres-ports').AgentTransactionalSql)=>new SharedJobBudgetLedger(sql)};});
+-vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>({owner:{jobId}})}));
++const remediationStage=vi.hoisted(()=>({active:false}));
++// Design/run setup executes without a stage in this owner-runtime fixture. Only
++// remediation calls receive its existing mocked owner; real run fencing has its
++// own SQL composition coverage.
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>remediationStage.active?{owner:{jobId}}:undefined}));
+ // This fixture deliberately mocks stage ownership; real stage/checkpoint recovery is tested separately.
+ vi.mock('./workflow-design-checkpoints',()=>({fenceWorkflowDesignCheckpoints:(store:unknown)=>store}));
+ vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:async()=>{}}));
+ import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
+ const jobId='123e4567-e89b-42d3-a456-426614174000';
+ const databases:PGlite[]=[];
+-afterEach(async()=>{vi.unstubAllEnvs();for(const pg of databases.splice(0))await pg.close();});
++afterEach(async()=>{remediationStage.active=false;vi.unstubAllEnvs();for(const pg of databases.splice(0))await pg.close();});
+ async function fixture(rubric=false,fixtureJobId=jobId,shared?:{pg:PGlite;sql:AgentTransactionalSql;provider:ReturnType<typeof harness>;proxyFetch:typeof fetch},proxyOutcome:'passed'|'inconclusive'='passed',factual=false){
+  const jobId=fixtureJobId;
+  if(factual){vi.stubEnv('EVAL_NAIVE_FACTUAL_GAPS','1');vi.stubEnv('EVAL_SERVICES','real');}
+@@ -93,6 +97,7 @@
+    expect(request.messages[0].content).toBe('Return the exact expected literal.');
+    return {choices:[{message:{role:'assistant',content:'READY'},finish_reason:'stop'}],usage:{prompt_tokens:1,completion_tokens:1,total_tokens:2}};
+   });
++  remediationStage.active=true;
+   const methods=composeNaiveRemediationMethods(f.ctx,runtime,{post});
+   f.loseCostAck();
+   await expect(methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake})).rejects.toThrow('cost_ack_lost');
+@@ -116,6 +121,7 @@
+   const run=await runtime.methods.runSuite(f.ctx,suite,f.target);
+   const findings=await runtime.methods.investigate(f.ctx,suite,[run]);
+   const finding=findings.find(f=>f.status==='confirmed')!;
++  remediationStage.active=true;
+   const methods=composeNaiveRemediationMethods(f.ctx,runtime);
+   const result=await methods.proposeAndVerifyFix(f.ctx,{finding,suite,intake:f.intake});
+   expect(result.verification.status).toBe('not_verified');
+diff --git a/apps/web/src/server/naive-run-recovery-integration.test.ts b/apps/web/src/server/naive-run-recovery-integration.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-run-recovery-integration.test.ts
+@@ -0,0 +1,136 @@
++/** Offline composition: real stage/task/checkpoint/admission SQL and adapters; fake provider/Workflow/Pool only. */
++import {PGlite} from '@electric-sql/pglite';
++import {readFileSync,readdirSync} from 'node:fs';
++import {resolve} from 'node:path';
++import {beforeEach,afterEach,it,expect,vi} from 'vitest';
++import {AgentSessionService} from '@ae/core/agents/session-service';
++import {PostgresAgentTaskStore,type AgentTransactionalSql} from '@ae/core/agents/postgres-ports';
++import {FakeNaive,directory} from '@ae/core/agents/__tests__/fakes';
++import {makeScenarios} from '@ae/core/evals/text/__tests__/fixtures';
++import type {ServiceContext} from '@ae/core/contracts/services';
++import {TrackBPendingError} from '@ae/core/evals/service-adapter';
++import {createNaiveTextMethods} from './naive-text-methods';
++import {naiveRunRecoveryStage} from './naive-run-recovery';
++import {naiveDesignRecoveryStage} from './naive-design-recovery';
++import {executeWorkflowStage,currentWorkflowStageScope} from './workflow-stage-runtime';
++import {fenceWorkflowStageSessions} from './workflow-stage-children';
++import {fenceWorkflowDesignCheckpoints} from './workflow-design-checkpoints';
++import {PostgresTextCheckpointStore} from '@ae/core/evals/integration/checkpoints';
++const state=vi.hoisted(()=>({pg:undefined as PGlite|undefined,stepId:'first',crashAfterTarget:false}));
++vi.mock('workflow',()=>({getStepMetadata:()=>({stepId:state.stepId,attempt:0}),getWorkflowMetadata:()=>({workflowRunId:'design-fixture'}),FatalError:class extends Error{},RetryableError:class extends Error{}}));
++vi.mock('@neondatabase/serverless',()=>({Pool:class{async connect(){return {query:async(sql:string,params?:unknown[])=>{const result=await state.pg!.query(sql,params);if(sql==='COMMIT'&&state.crashAfterTarget){state.crashAfterTarget=false;throw Error('process lost after target committed');}return result;},release(){}};}}}));
++let pg:PGlite,sql:AgentTransactionalSql;
++const job='a1b2c3d4-e5f6-47a8-9b0c-d1e2f3a4b5c6',customer='b1c2d3e4-f5a6-47b8-9c0d-e1f2a3b4c5d6';
++const intake={package:'text_eval' as const,authorizedToTest:true,endpoint:{url:'https://example.com/chat',model:'fixture-model',systemPrompt:'Follow explicit constraints.',referenceText:'Canonical grounding text.'}};
++const profile={policyId:'generic-text-v1' as const,designId:'generic-text-v1',versionLabel:'generic-text-v1',admissionPolicyId:'automated-text-design-v1'};
++const migrationFiles=[
++ 'packages/core/src/agents/persistence-migrations/001-agent-persistence.sql',
++ 'packages/core/src/evals/integration/migrations/001-text-integration.sql',
++ 'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql',
++ 'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql',
++ 'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql',
++ 'docs/naive-cancellation-integration/sql/001-job-cancellation.sql',
++ 'docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql',
++ 'docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql',
++ 'docs/naive-budget-envelope-integration/sql/001-stage-model-envelopes.sql',
++ 'packages/core/src/judges/migrations/001-proxy-dispatch.sql',
++ 'docs/naive-run-recovery-integration/sql/001-run-recovery.sql',
++ 'docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql',
++];
++beforeEach(async()=>{
++ vi.stubEnv('DATABASE_URL','postgres://offline-design-fixture');vi.stubEnv('CREDENTIALS_ENCRYPTION_KEY',Buffer.alloc(32,7).toString('base64'));
++ vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('EVAL_NAIVE_METHODS','designSuite,runSuite,investigate');
++ vi.stubEnv('NAIVE_JUDGE_MODEL','fixture-model');vi.stubEnv('NAIVE_API_KEY','offline-proxy-key');vi.stubEnv('NAIVE_JUDGE_RESERVATION_MICRO_USD','10000');vi.stubEnv('NAIVE_JUDGE_MAX_OUTPUT_TOKENS','500');
++ pg=new PGlite();state.pg=pg;state.stepId='first';state.crashAfterTarget=false;
++ const dir='packages/core/src/db/migrations';
++ for(const file of readdirSync(dir).filter(f=>f.endsWith('.sql')).sort())await pg.exec(readFileSync(resolve(dir,file),'utf8'));
++ for(const file of migrationFiles)await pg.exec(readFileSync(resolve(file),'utf8'));
++ await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customer,'offline@example.test']);
++ await pg.query(`INSERT INTO jobs(id,customer_id,environment,package,is_mock,state,intake) VALUES($1,$2,'test','text_eval',false,'planning',$3::jsonb)`,[job,customer,JSON.stringify(intake)]);
++ sql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
++});
++afterEach(async()=>{await pg.close();vi.unstubAllEnvs();});
++async function fixture(){
++ const scenarios=makeScenarios();scenarios[0]!.rubricChecks=[{id:'S01.r1',kind:'rubric',description:'Reference meaning',rubric:'Accurately reflects the supplied reference.',assessesFactualCorrectness:true,requiresReference:true}];const naive=new FakeNaive(body=>({pollsUntilDone:1,structuredOutput:body.metadata.ae_output==='text_design'?{scenarios}:{verdicts:scenarios.map(s=>({scenarioId:s.id,accepted:true,reasons:[]}))}}));
++ const stage=await naiveDesignRecoveryStage(job,intake,{generic:true,identity:{jobId:job,customerId:customer,environment:'test'},profile,sql});
++ const input={jobId:job,ownerId:customer,environment:'test' as const,role:'engineer',share:.4,stage};
++ const recordCost:ServiceContext['recordCost']=async cost=>{await pg.query(`INSERT INTO costs(job_id,source,agent,session_id,micro_usd,meta,receipt_key) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7) ON CONFLICT DO NOTHING`,[job,cost.source,cost.agent??null,cost.sessionId??null,cost.microUsd,JSON.stringify(cost.meta??{}),String(cost.meta?.idempotencyKey)]);};
++ const generations:number[]=[];
++ const callback=vi.fn(async(amount:number)=>{
++ generations.push(currentWorkflowStageScope()!.owner.generation);
++ const ctx:ServiceContext={jobId:job,environment:'test',budgetMicroUsd:amount,recordCost,recordProgress:async()=>{}};
++ const api=await createNaiveTextMethods(ctx,{sql,executionProfile:profile,runnerFactory:ledger=>new AgentSessionService({naive:fenceWorkflowStageSessions(naive),store:new PostgresAgentTaskStore(sql),ledger,directory:Object.fromEntries(Object.entries(directory).map(([r,a])=>[r,{...a,agentVersion:1}])),budgetPeriodId:'fixture',idempotencyNamespace:'design-fixture',workerId:'reconstructed',maxWaitMs:0})});
++ return api.designSuite(ctx,intake);
++ });
++ return {naive,stage,input,callback,generations,recordCost};
++}
++
++it.each(['recover','uncertain','cancel','changed-suite','changed-target','stale-owner'] as const)('reconstructs objects after target commit acknowledgement loss and fences %s through real SQL',async mode=>{
++ const f=await fixture();
++ let designed:any;
++ for(let i=0;i<3;i++){state.stepId=`design-${i}`;try{const result=await executeWorkflowStage(f.input,f.callback);if(result.ok)designed=result.data;}catch(error){if(!(error instanceof TrackBPendingError))throw error;}}
++ expect(designed).toBeTruthy();
++ await pg.query("UPDATE jobs SET state='running' WHERE id=$1",[job]);
++ vi.stubEnv('NAIVE_JUDGE_ATTEMPTS','1');
++ const targetCalls=vi.fn(async()=>{if(mode==='uncertain')throw Error('connection lost after dispatch');return {choices:[{message:{role:'assistant',content:'READY'},finish_reason:'stop'}]};});
++ const selected={generic:true as const,identity:{jobId:job,customerId:customer,environment:'test' as const},profile,sql};
++ const target={url:intake.endpoint.url,model:intake.endpoint.model,systemPrompt:intake.endpoint.systemPrompt};
++ const stage=await naiveRunRecoveryStage(job,designed,target,'endpoint','default',undefined,selected);
++ if(mode==='changed-suite'){
++  const changed=structuredClone(designed);changed.scenarios[0].title='Changed after admission';
++  await expect(naiveRunRecoveryStage(job,changed,target,'endpoint','default',undefined,selected)).rejects.toThrow();expect(targetCalls).not.toHaveBeenCalled();return;
++ }
++ if(mode==='changed-target'){
++  await pg.query("UPDATE jobs SET intake=jsonb_set(intake,'{endpoint,model}','\"changed-model\"') WHERE id=$1",[job]);
++  await expect(naiveRunRecoveryStage(job,designed,target,'endpoint','default',undefined,selected)).rejects.toThrow();expect(targetCalls).not.toHaveBeenCalled();return;
++ }
++ let priorScope:ReturnType<typeof currentWorkflowStageScope>;
++ const input={jobId:job,ownerId:customer,environment:'test' as const,role:'judge',share:.4,stage};
++ const proxyBodies=new Map<string,any>();let proxySequence=0;
++ const proxyFetch=vi.fn<typeof fetch>(async(input,init)=>{
++  const url=String(input),text=JSON.stringify({outcome:'passed',explanation:'Fixture judged the exact response.',evidenceQuotes:['READY']});
++  if(url.includes('/anthropic/v1/messages')){const body=JSON.parse(String(init?.body));const id=`req_${String(++proxySequence).padStart(26,'0')}`;proxyBodies.set(id,body);return Response.json({id,type:'message',role:'assistant',model:body.model,content:[{type:'text',text}],stop_reason:'end_turn',stop_sequence:null,usage:{input_tokens:1,output_tokens:2,cache_read_input_tokens:0,cache_creation_input_tokens:0}});}
++  const id=url.split('/').at(-1)!,body=proxyBodies.get(id);if(!body)throw Error('unknown fixture proxy trace');
++  return Response.json({id,object:'proxy_call_trace',dialect:'anthropic',actor:{type:'system',id:'fixture'},model:body.model,window:'immediate',resolved_model:body.model,provider:'fixture',generation_id:null,stop:'end_turn',usage:{input:1,output:2,cache_read:0,cache_write:0,reasoning:0},billed_micro_usd:5,vendor_cost_micro_usd:null,duration_ms:1,content_scope:'full',source:'proxy',session_id:null,seq:null,board_card_id:null,tool_call_ids:[],tool_schema_hash:null,request_sha256:'a'.repeat(64),response_sha256:'b'.repeat(64),request_bytes:1,response_bytes:1,request:{model:body.model,system:body.system,max_output_tokens:body.max_tokens,messages:body.messages},response:{text,tool_calls:[]},truncated:false,created_at:'2026-11-07T20:00:00.000Z',expires_at:null});
++ });
++ const reconstructed=async()=>{
++  const renewedStage=await naiveRunRecoveryStage(job,designed,target,'endpoint','default',undefined,selected);
++  return executeWorkflowStage({...input,stage:renewedStage},async amount=>{
++   priorScope??=currentWorkflowStageScope();
++   const ctx:ServiceContext={jobId:job,environment:'test',budgetMicroUsd:amount,recordCost:f.recordCost,recordProgress:async()=>{}};
++   const methods=await createNaiveTextMethods(ctx,{sql,executionProfile:profile,runnerFactory:ledger=>new AgentSessionService({naive:fenceWorkflowStageSessions(f.naive),store:new PostgresAgentTaskStore(sql),ledger,directory,budgetPeriodId:'fixture',idempotencyNamespace:'design-fixture',workerId:'new-process',maxWaitMs:0}),proxyFetch,targetTransport:{post:targetCalls}});
++   return methods.runSuite(ctx,designed,target);
++  });
++ };
++ const complete=PostgresTextCheckpointStore.prototype.complete;
++ let crashed=false;
++ const spy=vi.spyOn(PostgresTextCheckpointStore.prototype,'complete').mockImplementation(async function(...args){
++  await complete.apply(this,args);
++  if(args[0].kind==='target'&&!crashed){crashed=true;state.crashAfterTarget=true;}
++ });
++ state.stepId='run-owner-one';await expect(reconstructed()).rejects.toThrow();spy.mockRestore();
++ expect(targetCalls).toHaveBeenCalledTimes(1);
++ if(mode==='uncertain'){
++  expect((await pg.query("SELECT state FROM text_integration.checkpoints WHERE kind='target'")).rows).toEqual([{state:'ambiguous'}]);
++  await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second' WHERE stage_key=$1",[stage.key]);
++  state.stepId='uncertain-reconstruction';await expect(reconstructed()).rejects.toThrow();expect(targetCalls).toHaveBeenCalledTimes(1);expect(proxySequence).toBe(0);return;
++ }
++ expect(crashed).toBe(true);
++ if(mode==='cancel'){
++  await pg.query("UPDATE jobs SET state='cancelled' WHERE id=$1",[job]);state.stepId='cancel-reconstruction';
++  await expect(reconstructed()).rejects.toThrow();expect(targetCalls).toHaveBeenCalledTimes(1);expect(proxySequence).toBe(0);return;
++ }
++ expect((await pg.query("SELECT state FROM text_integration.checkpoints WHERE kind='target'")).rows).toEqual([{state:'completed'}]);
++ await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second' WHERE stage_key=$1",[stage.key]);
++ state.stepId='run-owner-two';try{await reconstructed();}catch{}
++ expect(targetCalls).toHaveBeenCalledTimes(designed.scenarios.length);
++ expect((await pg.query("SELECT count(*)::int AS n FROM text_integration.checkpoints WHERE kind='run_result' AND state='completed'")).rows[0]).toEqual({n:1});
++ expect((await pg.query("SELECT generation,state FROM workflow_stage.stages WHERE stage_key=$1",[stage.key])).rows).toMatchObject([{generation:2,state:'pending'}]);
++ if(mode==='stale-owner')await expect(priorScope!.transaction(async()=>{throw Error('stale callback executed');})).rejects.toThrow(/revoked|closing/);
++ expect(proxySequence).toBe(1);expect((await pg.query('SELECT state FROM naive_proxy_dispatch.attempts')).rows).toEqual([{state:'dispatched'}]);
++ expect((await pg.query("SELECT released_at IS NULL AS held FROM budget_reservations WHERE agent='judge'")).rows).toEqual([{held:true}]);
++ expect((await pg.query("SELECT count(*)::int AS n FROM costs WHERE source='naive_proxy'")).rows).toEqual([{n:1}]);
++ state.stepId='run-owner-three';try{await reconstructed();}catch{}
++ expect(targetCalls).toHaveBeenCalledTimes(designed.scenarios.length);
++ expect((await pg.query("SELECT count(*)::int AS n FROM text_integration.checkpoints WHERE kind='run_result' AND state='completed'")).rows[0]).toEqual({n:1});
++},60000);
+diff --git a/apps/web/src/server/naive-run-recovery.ts b/apps/web/src/server/naive-run-recovery.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-run-recovery.ts
+@@ -0,0 +1,27 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { FatalError } from 'workflow';
++import { JOB_BUDGET_MICRO_USD, type Suite } from '@ae/core/contracts/index';
++import type { EvalServices, ServiceContext } from '@ae/core/contracts/services';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { TrackBPendingError } from '@ae/core/evals/service-adapter';
++import { judgeOperationId } from '@ae/core/evals/text/execute';
++import { createNaiveMethodAuthority } from './naive-method-authority';
++import { createNaiveEngineAdmissionPolicy } from './naive-engine-admission-policy';
++import { resolveJobNaiveExecution } from './naive-text-execution-runtime';
++import type { LogicalWorkflowStage } from './workflow-stage-runtime';
++const hash=(value:unknown)=>createHash('sha256').update(canonicalJson(value)).digest('hex');
++/** Derive the bounded plan from retained admission and current canonical target, without constructing providers. */
++export async function naiveRunRecoveryStage(jobId:string,suite:Suite,target:Parameters<EvalServices['runSuite']>[2],slot:string,versionLabel:string,branchId:string|undefined,selected:Awaited<ReturnType<typeof resolveJobNaiveExecution>>):Promise<LogicalWorkflowStage>{
++ if(!selected.generic||process.env.EVAL_SERVICES!=='real'||slot!=='endpoint'||branchId!==undefined||versionLabel!=='default')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ const ctx:ServiceContext={jobId,environment:selected.identity.environment,budgetMicroUsd:JOB_BUDGET_MICRO_USD.text_eval,recordCost:async()=>{},recordProgress:async()=>{}};
++ const authority=await createNaiveMethodAuthority(ctx,{sql:selected.sql,executionProfile:selected.profile,...createNaiveEngineAdmissionPolicy(selected.profile)});
++ const canonical=await authority.resolveSuite(suite);
++ if(canonicalJson(target)!==canonicalJson(canonical.target))throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ const children=canonical.frozen.scenarios.flatMap(scenario=>[
++  {kind:'text_run_target' as const,operationKey:hash([canonical.runId,scenario.id])},
++  ...scenario.rubricChecks.filter(check=>!((check.assessesFactualCorrectness||check.requiresReference)&&!canonical.frozen.referenceText?.trim())).map(check=>({kind:'text_run_judge' as const,operationKey:judgeOperationId(canonical.frozen.digest,canonical.runId,check.id)})),
++ ]);
++ const expectedChildPlan={profile:'naive-text-run-v1' as const,runId:canonical.runId,suiteDigest:canonical.frozen.digest,targetVersion:canonical.targetVersion,environment:canonical.job.environment,children};
++ return {key:`suite-run:${slot}:${versionLabel}`,input:{executionProfile:selected.profile,expectedChildPlan},recovery:'naive-text-run-v1',expectedChildPlan,isPendingError:error=>error instanceof TrackBPendingError||(error instanceof Error&&/^(NAIVE_OPERATION_PENDING:|NAIVE_ADMISSION_PENDING:)/.test(error.message))};
++}
+diff --git a/apps/web/src/server/naive-text-methods.ts b/apps/web/src/server/naive-text-methods.ts
+--- a/apps/web/src/server/naive-text-methods.ts
++++ b/apps/web/src/server/naive-text-methods.ts
+@@ -1,4 +1,5 @@
+ import { createWorkflowStageBudgetLedger } from './workflow-stage-budget';
++import { fenceWorkflowRunCheckpoints } from './workflow-run-checkpoints';
+ import { fenceWorkflowDesignCheckpoints } from './workflow-design-checkpoints';
+ import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
+ import 'server-only';
+@@ -151,7 +152,7 @@
+  const designRich=createTextEvaluationServices({runner,checkpoints:fenceWorkflowDesignCheckpoints(authority.checkpoints),clock:deps.clock,resolve:targetDependencies});
+  const design=createNaiveDesignService({...('factualGapPolicy' in profile?{factualGapPolicy:profile.factualGapPolicy}:{}),engine:designRich,admission:authority.artifacts.admission,authorize:authority.authorizeDesign});
+  async function resolved(){const a=await authority.resolveSuite(),ports=await targetDependencies();return {...ports,...a,knownSecrets:a.secrets,canonicalTarget:a.target,target:ports.target,judge};}
+- const run=createNaiveRunService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:resolved,persistRun:authority.artifacts.persistRun});
++ const run=createNaiveRunService({runner,checkpoints:fenceWorkflowRunCheckpoints(authority.checkpoints),clock:deps.clock,resolve:resolved,persistRun:authority.artifacts.persistRun});
+  const investigation=createNaiveInvestigationService({runner,checkpoints:authority.checkpoints,clock:deps.clock,resolve:async()=>{
+   const a=await resolved(),retainedRun=await authority.artifacts.loadRun(stable,a.scope,a.runId,a.targetVersion);if(!retainedRun)return fail();return {...a,retainedSuite:a.retained,retainedRun};
+  },persistInvestigation:authority.artifacts.persistInvestigation});
+diff --git a/apps/web/src/server/services-run-recovery.test.ts b/apps/web/src/server/services-run-recovery.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/services-run-recovery.test.ts
+@@ -0,0 +1,32 @@
++import {afterEach,expect,it,vi} from 'vitest';
++const mocks=vi.hoisted(()=>({resolve:vi.fn(),stage:vi.fn(),build:vi.fn(),run:vi.fn(),expert:vi.fn()}));
++vi.mock('./naive-text-execution-runtime',()=>({resolveJobNaiveExecution:mocks.resolve}));
++vi.mock('./naive-run-recovery',()=>({naiveRunRecoveryStage:mocks.stage}));
++vi.mock('./naive-text-methods',()=>({createNaiveTextMethodBuilder:()=>mocks.build}));
++vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),createRealEvalServices:()=>({runSuite:mocks.expert})}));
++afterEach(()=>{vi.resetAllMocks();vi.unstubAllEnvs();});
++const profile={policyId:'generic-text-v1',designId:'generic-text-v1',versionLabel:'generic-text-v1',admissionPolicyId:'automated-text-design-v1'};
++const ctx={jobId:'job',environment:'test',budgetMicroUsd:100,recordCost:async()=>{},recordProgress:async()=>{}} as const;
++const suite={versionLabel:'generic-text-v1',scenarios:[]} as never,target={url:'https://example.test',model:'fixture',systemPrompt:''};
++function selected(){vi.stubEnv('EVAL_SERVICES','real');mocks.resolve.mockResolvedValue({generic:true,identity:{jobId:'job',customerId:'customer',environment:'test'},profile,sql:{}});mocks.stage.mockResolvedValue({key:'suite-run:endpoint:default',recovery:'naive-text-run-v1'});mocks.build.mockResolvedValue({runSuite:mocks.run});}
++it('mounts the generic builder only after stage admission and preserves raw pending without expert fallback',async()=>{
++ selected();const {recoverableGenericTextRunStage}=await import('./services');
++ const {TrackBPendingError}=await import('@ae/core/evals/service-adapter');
++ const mounted=await recoverableGenericTextRunStage('job',suite,target,'endpoint','default');
++ expect(mocks.build).not.toHaveBeenCalled();expect(mocks.stage).toHaveBeenCalledWith('job',suite,target,'endpoint','default',undefined,expect.objectContaining({generic:true}));
++ const error=new TrackBPendingError(5000,'Retained judge is pending');mocks.run.mockRejectedValue(error);
++ await expect(mounted.services.runSuite(ctx,suite,target)).rejects.toBe(error);
++ expect(mocks.build).toHaveBeenCalledWith('runSuite',ctx);expect(mocks.run).toHaveBeenCalledWith(ctx,suite,target);expect(mocks.expert).not.toHaveBeenCalled();
++});
++it('propagates generic method failure without selecting expert fallback',async()=>{
++ selected();const {recoverableGenericTextRunStage}=await import('./services');
++ const error=new Error('generic unavailable');mocks.run.mockRejectedValue(error);
++ const mounted=await recoverableGenericTextRunStage('job',suite,target,'endpoint','default');
++ await expect(mounted.services.runSuite(ctx,suite,target)).rejects.toBe(error);expect(mocks.expert).not.toHaveBeenCalled();
++});
++it('refuses generic recovery for unselected calls and leaves the expert service direct',async()=>{
++ mocks.resolve.mockResolvedValue({generic:false});const {recoverableGenericTextRunStage,stageRealEvalServices}=await import('./services');
++ await expect(recoverableGenericTextRunStage('job',suite,target,'endpoint','default')).rejects.toThrow('NAIVE_EXECUTION_SELECTION_HOLD');
++ expect(mocks.stage).not.toHaveBeenCalled();expect(mocks.build).not.toHaveBeenCalled();
++ mocks.expert.mockResolvedValue({expert:true});expect(await stageRealEvalServices.runSuite(ctx,suite,target)).toEqual({expert:true});expect(mocks.build).not.toHaveBeenCalled();
++});
+diff --git a/apps/web/src/server/services.ts b/apps/web/src/server/services.ts
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -306,3 +306,16 @@
+  if(!selected.generic||evalServicesMode()!=='real')throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
+  return {services:stageRealEvalServices,stage:{key:'generic-text-report',input:{serviceMode:'real',method:'renderReport',executionProfile:selected.profile,input},recovery:'naive-single-child-v1',expectedChildKey:`${jobId}:company_operator:report_summary:1`,isPendingError:(error:unknown)=>error instanceof TrackBPendingError}};
+ }
++
++/** Selected generic runs use raw errors until the durable finite plan retains its parent hold. */
++export async function recoverableGenericTextRunStage(jobId:string,suite:import('@ae/core/contracts/index').Suite,target:Parameters<EvalServices['runSuite']>[2],slot:string,versionLabel:string,branchId?:string):Promise<{services:EvalServices;stage:import('./workflow-stage-runtime').LogicalWorkflowStage}> {
++ const selected=await resolveJobNaiveExecution(jobId);
++ if(!selected.generic)throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++ const {naiveRunRecoveryStage}=await import('./naive-run-recovery');
++ const services:EvalServices={...stageRealEvalServices,runSuite:async(ctx,...args)=>{
++  const built=await defaultNaiveBuilder('runSuite',ctx);
++  if(!built.runSuite)throw new FatalError('NAIVE_EXECUTION_SELECTION_HOLD');
++  return built.runSuite(ctx,...args);
++ }};
++ return {services,stage:await naiveRunRecoveryStage(jobId,suite,target,slot,versionLabel,branchId,selected)};
++}
+diff --git a/apps/web/src/server/workflow-run-checkpoints.test.ts b/apps/web/src/server/workflow-run-checkpoints.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-run-checkpoints.test.ts
+@@ -0,0 +1,58 @@
++import { PGlite } from '@electric-sql/pglite';
++import { readFileSync } from 'node:fs';
++import { beforeEach,afterEach,it,expect,vi } from 'vitest';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/checkpoints';
++import { proxyBillingDigest } from '@ae/core/judges/naive-proxy-reconcile';
++import { fenceWorkflowRunCheckpoints, workflowRunRecoveryReader } from './workflow-run-checkpoints';
++import type { WorkflowStageScope } from './workflow-stage-runtime';
++const state=vi.hoisted(()=>({generation:1}));
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>undefined,workflowStageDigest:(v:unknown)=>JSON.stringify(v)}));
++// Association protocol unit tests use real SQL; full integration additionally runs
++// the actual canonical job/budget/stage ownership guard.
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:async(_tx:unknown,owner:{generation:number})=>{if(owner.generation!==state.generation)throw Error('stale_stage');},registerWorkflowStageChild:async()=>{},markWorkflowStageChildDispatch:async()=>{}}));
++let pg:PGlite,scope:WorkflowStageScope,plain:PostgresTextCheckpointStore;
++const key={jobId:'job',kind:'scenario',id:'scenario',inputDigest:'d'.repeat(64)};
++const plan={profile:'naive-text-run-v1',runId:'run',suiteDigest:'a'.repeat(64),targetVersion:'v1',environment:'test',children:[{kind:'text_run_target',operationKey:'scenario'},{kind:'text_run_judge',operationKey:'judge'}]};
++const sql=()=>({query:<R>(s:string,p?:unknown[])=>pg.query<R>(s,p),transaction:<T>(fn:(tx:{query:<R>(s:string,p?:unknown[])=>Promise<{rows:R[]}>})=>Promise<T>)=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))});
++const wrapped=()=>fenceWorkflowRunCheckpoints(plain,()=>scope);
++beforeEach(async()=>{state.generation=1;pg=new PGlite();await pg.exec(readFileSync('packages/core/src/evals/integration/migrations/001-text-integration.sql','utf8'));await pg.exec('CREATE SCHEMA workflow_stage;CREATE TABLE workflow_stage.stages(job_id text,stage_key text,recovery_profile text,expected_child_plan jsonb,generation integer DEFAULT 1)');await pg.exec('CREATE TABLE workflow_stage.run_checkpoints(job_id text,kind text,id text,input_digest text,stage_key text,generation integer,token text,outer_id text,outer_digest text,PRIMARY KEY(job_id,kind,id))');await pg.query('INSERT INTO workflow_stage.stages(job_id,stage_key,recovery_profile,expected_child_plan) VALUES($1,$2,$3,$4::jsonb)',['job','design','naive-text-run-v1',JSON.stringify(plan)]);scope={owner:{jobId:'job',stageKey:'design',token:'owner',generation:1},transaction:sql().transaction};plain=new PostgresTextCheckpointStore(sql());});
++afterEach(async()=>{await pg.close();});
++async function claimed(store=wrapped(),k=key){const claim=await store.claim(k);if(claim.state!=='claimed')throw Error('claim');return claim.token;}
++it('recovers crash between atomic claim and completion; rotates token and fences stale owner',async()=>{const old=wrapped(),oldToken=await claimed(old);state.generation=2;const nextScope={...scope,owner:{...scope.owner,generation:2}};const next=fenceWorkflowRunCheckpoints(plain,()=>nextScope);const nextToken=await claimed(next);expect(nextToken).not.toBe(oldToken);await expect(old.complete(key,oldToken,{})).rejects.toThrow('stale_stage');await expect(next.complete(key,oldToken,{})).rejects.toThrow('checkpoint_conflict');await next.complete(key,nextToken,{done:true});expect(await next.get(key)).toEqual({state:'completed',value:{done:true}});});
++it('never adopts unassociated pending or ambiguous claims',async()=>{await claimed(plain);state.generation=2;scope.owner.generation=2;await expect(wrapped().claim(key)).rejects.toThrow('checkpoint_conflict');await pg.query("UPDATE text_integration.checkpoints SET state='ambiguous'");await expect(wrapped().claim(key)).rejects.toThrow('checkpoint_conflict');});
++it('holds another stage association and changed input',async()=>{await claimed();await pg.query("UPDATE workflow_stage.stages SET stage_key='other'");scope.owner.stageKey='other';await expect(wrapped().claim(key)).rejects.toThrow('checkpoint_conflict');scope.owner.stageKey='design';await pg.query("UPDATE workflow_stage.stages SET stage_key='design'");await expect(wrapped().claim({...key,inputDigest:'e'.repeat(64)})).rejects.toThrow('checkpoint_conflict');});
++it('never reclaims ambiguous associated checkpoint',async()=>{const token=await claimed();await wrapped().markAmbiguous(key,token);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(key)).toEqual({state:'ambiguous'});});
++it('rejects unenumerated children and never reclaims uncertain target dispatch',async()=>{await expect(wrapped().claim({...key,id:'other'})).rejects.toThrow('checkpoint_conflict');const target={...key,kind:'target'};await claimed(wrapped(),target);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(target)).toEqual({state:'pending'});});
++it('reuses the exact full retained target response after takeover',async()=>{const target={...key,kind:'target'},token=await claimed(wrapped(),target);const response={ok:true,text:'exact retained full response',latencyMs:10};await wrapped().complete(target,token,response);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(target)).toEqual({state:'completed',value:response});});
++it('guards every API after profile revocation and ownership loss',async()=>{const token=await claimed();await pg.query("UPDATE workflow_stage.stages SET recovery_profile='none',expected_child_plan=NULL");state.generation=2;for(const op of [()=>wrapped().claim(key),()=>wrapped().get(key),()=>wrapped().complete(key,token,{}),()=>wrapped().release(key,token),()=>wrapped().markAmbiguous(key,token)])await expect(op()).rejects.toThrow('stale_stage');expect(await plain.get(key)).toEqual({state:'pending'});});
++
++it('never reclaims ambiguous target or independently fenced provider dispatch',async()=>{const target={...key,kind:'target'},token=await claimed(wrapped(),target);await wrapped().markAmbiguous(target,token);const provider={...key,kind:'naive_proxy_judge',id:'provider'};await claimed(wrapped(),provider);state.generation=2;scope.owner.generation=2;expect(await wrapped().claim(target)).toEqual({state:'ambiguous'});expect(await wrapped().claim(provider)).toEqual({state:'pending'});});
++
++// Reader tests use the real immutable provider sidecar and reservation schema.
++const legacy=proxyBillingDigest({jobId:'job',operationId:'judge'});
++const attemptId=proxyBillingDigest({jobId:'job',operationId:'judge',attempt:1});
++const providerDigest='b'.repeat(64);
++async function readerSetup(){
++ await pg.exec(readFileSync('packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','utf8'));
++ await pg.exec(readFileSync('packages/core/src/judges/migrations/001-proxy-dispatch.sql','utf8'));
++ await claimed(wrapped(),{...key,kind:'judge',id:'judge'});
++}
++async function checkpoint(kind:string,id:string,value:unknown,inputDigest=providerDigest,state='completed'){
++ await pg.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES('job',$1,$2,$3,'provider-token',$4,$5::jsonb)`,[kind,id,inputDigest,state,JSON.stringify(value)]);
++}
++async function mode(){await checkpoint('naive_proxy_mode',legacy,{mode:'v2'},legacy);}
++async function operation(state='prepared',inputDigest=providerDigest){
++ await pg.query(`INSERT INTO naive_proxy_dispatch.operations(job_id,operation_id,input_digest,policy,active_attempt,legacy_checkpoint_id) VALUES('job','judge',$1,'{}',1,$2)`,[inputDigest,legacy]);
++ await pg.query(`INSERT INTO naive_proxy_dispatch.attempts(job_id,operation_id,attempt,token,checkpoint_id,reservation_id,state,reserved) VALUES('job','judge',1,'attempt-token',$1,$2,'prepared',true)`,[attemptId,`naive-proxy:${attemptId}`]);
++ if(state!=='prepared')await pg.query("UPDATE naive_proxy_dispatch.attempts SET state=$1",[state]);
++}
++async function proof(){return workflowRunRecoveryReader.read(sql(),{jobId:'job',stageKey:'design',kind:'text_run_judge',operationKey:'judge',requestDigest:key.inputDigest,dispatchIntent:true});}
++it('reader permits exact pre-mode outer pending only without provider evidence',async()=>{await readerSetup();expect((await proof()).state).toBe('resumable');});
++it.each(['legacy','v2'])('reader refuses missing mode with retained %s evidence',async which=>{await readerSetup();if(which==='legacy')await checkpoint('naive_proxy_intent',legacy,{});else await operation();expect((await proof()).state).toBe('unknown');});
++it('reader refuses conflicting legacy and v2 evidence',async()=>{await readerSetup();await checkpoint('naive_proxy_intent',legacy,{});await mode();await operation();expect((await proof()).state).toBe('unknown');});
++it('reader holds dispatched v2 without completed provider result',async()=>{await readerSetup();await mode();await operation('dispatched');expect((await proof()).state).toBe('unknown');});
++it('reader never adopts an abandoned attempt or invents its replacement',async()=>{await readerSetup();await mode();await operation('abandoned');expect((await proof()).state).toBe('unknown');expect((await pg.query('SELECT * FROM naive_proxy_dispatch.attempts')).rows).toHaveLength(1);});
++it('reader refuses operation and intent digest mismatch',async()=>{await readerSetup();await mode();await operation();await checkpoint('naive_proxy_intent',attemptId,{schemaVersion:'naive_proxy_intent.v2',jobId:'job',operationId:'judge',inputDigest:'c'.repeat(64),requestDigest:'d'.repeat(64),model:'model',maxOutputTokens:20,attempt:1,checkpointId:attemptId,reservationId:`naive-proxy:${attemptId}`},'c'.repeat(64));expect((await proof()).state).toBe('unknown');});
++it('reader classifies exact retained target response as behavioral resumable, never monetary terminal',async()=>{const target={...key,kind:'target'},token=await claimed(wrapped(),target);await wrapped().complete(target,token,{ok:true,text:'full original response',latencyMs:1});const result=await workflowRunRecoveryReader.read(sql(),{jobId:'job',stageKey:'design',kind:'text_run_target',operationKey:key.id,requestDigest:key.inputDigest,dispatchIntent:true});expect(result.state).toBe('resumable');});
++it('refuses completed run result reads without trusted lineage',async()=>{const result={...key,kind:'run_result',id:'run'},token=await claimed(plain,result);await plain.complete(result,token,{environment:'test',run:{retained:true}});await expect(wrapped().get({jobId:'job',kind:'run_result',id:'run'})).rejects.toThrow('checkpoint_conflict');});
++it('returns an associated completed run result and rejects corrupted checkpoint token',async()=>{const result={...key,kind:'run_result',id:'run'},token=await claimed(wrapped(),result),value={environment:'test',run:{retained:true}};await wrapped().complete(result,token,value);expect(await wrapped().get({jobId:'job',kind:'run_result',id:'run'})).toEqual({state:'completed',value});await pg.query("UPDATE text_integration.checkpoints SET token='corrupted' WHERE kind='run_result'");await expect(wrapped().get({jobId:'job',kind:'run_result',id:'run'})).rejects.toThrow('checkpoint_conflict');});
+diff --git a/apps/web/src/server/workflow-run-checkpoints.ts b/apps/web/src/server/workflow-run-checkpoints.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-run-checkpoints.ts
+@@ -0,0 +1,124 @@
++import { randomUUID } from 'node:crypto';
++import { PostgresTextCheckpointStore, type TextCheckpointStore, type CheckpointKey, type CheckpointLookup } from '@ae/core/evals/integration/checkpoints';
++import type { AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++import { assertWorkflowStageOwner, registerWorkflowStageChild, markWorkflowStageChildDispatch, type WorkflowStageRecoveryReader } from '@ae/core/db/workflow-stage-authority';
++import { retainedProxyReservation } from '@ae/core/db/job-budget-authority';
++import { proxyBillingDigest } from '@ae/core/judges/naive-proxy-reconcile';
++import { currentWorkflowStageScope, workflowStageDigest, type WorkflowStageScope } from './workflow-stage-runtime';
++
++type Plan={profile:'naive-text-run-v1';runId:string;suiteDigest:string;targetVersion:string;environment:string;children:{kind:string;operationKey:string}[]};
++type Association={stage_key:string;generation:number|string;token:string;input_digest:string;outer_id:string;outer_digest:string};
++type Row={state:string;token:string;input_digest:string;value:unknown};
++const fail=():never=>{throw Error('workflow_run_checkpoint_conflict');};
++const params=(k:CheckpointLookup)=>[k.jobId,k.kind,k.id];
++const childKind=(kind:string)=>kind==='target'?'text_run_target':kind==='judge'?'text_run_judge':null;
++function allowed(k:CheckpointLookup,p:Plan){
++ if(['run_identity','run_result'].includes(k.kind))return k.id===p.runId;
++ if(k.kind==='scenario')return p.children.some(c=>c.kind==='text_run_target'&&c.operationKey===k.id);
++ const kind=childKind(k.kind);return !!kind&&p.children.some(c=>c.kind===kind&&c.operationKey===k.id);
++}
++/** Only this mounted generic run protocol may reclaim safe outer memoization. Target
++ * dispatch claims never expire, and provider attempt/mode checkpoints are untouched. */
++export function fenceWorkflowRunCheckpoints(store:TextCheckpointStore,getScope:()=>WorkflowStageScope|undefined=currentWorkflowStageScope):TextCheckpointStore {
++ async function guarded<T>(k:CheckpointLookup,action:(inner:TextCheckpointStore,tx:AgentSqlExecutor,s:WorkflowStageScope,p:Plan|null)=>Promise<T>,fallback:()=>Promise<T>){
++  const s=getScope();if(!s)return fallback();
++  return s.transaction(async tx=>{await assertWorkflowStageOwner(tx,s.owner);if(k.jobId!==s.owner.jobId)return fail();
++   const stage=(await tx.query<{recovery_profile:string;expected_child_plan:Plan|null}>('SELECT recovery_profile,expected_child_plan FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[k.jobId,s.owner.stageKey])).rows[0];
++   const p=stage?.recovery_profile==='naive-text-run-v1'?stage.expected_child_plan:null;
++   if(p&&['run_identity','run_result','scenario','target','judge'].includes(k.kind)&&!allowed(k,p))return fail();
++   return action(new PostgresTextCheckpointStore({query:(q,v)=>tx.query(q,v),transaction:fn=>fn(tx)}),tx,s,p);
++  });
++ }
++ async function association(tx:AgentSqlExecutor,k:CheckpointLookup){return (await tx.query<Association>('SELECT * FROM workflow_stage.run_checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',params(k))).rows[0];}
++ function exact(a:Association,k:CheckpointLookup,s:WorkflowStageScope,p:Plan,token?:string){if(a.stage_key!==s.owner.stageKey||k.inputDigest!==undefined&&a.input_digest!==k.inputDigest||a.outer_id!==p.runId||a.outer_digest!==p.suiteDigest||token!==undefined&&(a.token!==token||Number(a.generation)!==s.owner.generation))return fail();}
++ async function write(k:CheckpointKey,t:string,action:(inner:TextCheckpointStore)=>Promise<void>){return guarded(k,async(inner,tx,s,p)=>{if(p&&allowed(k,p)){const a=await association(tx,k);if(!a)return fail();exact(a,k,s,p,t);}return action(inner);},()=>action(store));}
++ return {
++  claim:k=>guarded(k,async(inner,tx,s,p)=>{
++   if(!p||!allowed(k,p))return inner.claim(k);
++   const before=(await tx.query<Row>('SELECT state,token,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',params(k))).rows[0];
++   const a=await association(tx,k);if(a)exact(a,k,s,p);
++   if(before&&before.input_digest!==k.inputDigest)return fail();
++   // An unassociated historical claim has no trusted stage lineage.
++   if(before&&!a)return fail();
++   let result;
++   if(before?.state==='pending'&&a&&Number(a.generation)<s.owner.generation&&['run_identity','run_result','scenario','judge'].includes(k.kind)){
++    if(before.token!==a.token)return fail();
++    const token=randomUUID();await tx.query('UPDATE text_integration.checkpoints SET token=$4 WHERE job_id=$1 AND kind=$2 AND id=$3',[...params(k),token]);result={state:'claimed' as const,token};
++   }else result=await inner.claim(k);
++   if(result.state==='claimed'){
++    await tx.query(`INSERT INTO workflow_stage.run_checkpoints(job_id,kind,id,input_digest,stage_key,generation,token,outer_id,outer_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(job_id,kind,id) DO UPDATE SET generation=EXCLUDED.generation,token=EXCLUDED.token`,[...params(k),k.inputDigest,s.owner.stageKey,s.owner.generation,result.token,p.runId,p.suiteDigest]);
++   }
++   const kind=childKind(k.kind);
++   if(kind){const child={kind,operationKey:k.id,requestDigest:k.inputDigest};await registerWorkflowStageChild(tx,s.owner,child);
++    if(result.state==='claimed'&&!before)await markWorkflowStageChildDispatch(tx,s.owner,child);
++   }
++   return result;
++  },()=>store.claim(k)),
++  get:k=>guarded(k,async(inner,tx,s,p)=>{if(p&&allowed(k,p)){const a=await association(tx,k);const row=(await tx.query<Row>('SELECT state,token,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3',params(k))).rows[0];if(!!a!==!!row||row&&a&&(row.token!==a.token||row.input_digest!==a.input_digest))return fail();if(a)exact(a,k,s,p);}return inner.get(k);},()=>store.get(k)),
++  complete:(k,t,v)=>write(k,t,inner=>inner.complete(k,t,v)),release:(k,t)=>write(k,t,inner=>inner.release(k,t)),markAmbiguous:(k,t)=>write(k,t,inner=>inner.markAmbiguous(k,t)),
++ };
++}
++/** Read exact immutable checkpoint and attempt evidence. Behavioral target reuse does
++ * not certify target monetary usage; independent reservation/outbox holds survive. */
++export const workflowRunRecoveryReader:WorkflowStageRecoveryReader={async read(tx,c){
++ const unknown={state:'unknown' as const,evidenceKey:`run-unverified:${c.kind}:${c.operationKey}`};
++ const kind=c.kind==='text_run_target'?'target':c.kind==='text_run_judge'?'judge':null;if(!kind)return unknown;
++ const k={jobId:c.jobId,kind,id:c.operationKey};
++ const a=(await tx.query<Association>('SELECT * FROM workflow_stage.run_checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3',params(k))).rows[0];
++ const row=(await tx.query<Row>('SELECT state,token,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind=$2 AND id=$3',params(k))).rows[0];
++ const stage=(await tx.query<{generation:number;expected_child_plan:Plan}>('SELECT generation,expected_child_plan FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[c.jobId,c.stageKey])).rows[0];
++ if(!a||!row||!stage||stage.expected_child_plan?.profile!=='naive-text-run-v1'||!allowed(k,stage.expected_child_plan)||a.outer_id!==stage.expected_child_plan.runId||a.outer_digest!==stage.expected_child_plan.suiteDigest||Number(a.generation)>Number(stage.generation)||a.stage_key!==c.stageKey||a.input_digest!==c.requestDigest||row.input_digest!==c.requestDigest||a.token!==row.token)return unknown;
++ const evidenceKey=`run-checkpoint:${kind}:${c.operationKey}:${row.token}:${workflowStageDigest(row.value??null)}`;
++ const resumable={state:'resumable' as const,evidenceKey};
++ if(kind==='target'){
++  const response=row.value as {ok?:unknown;text?:unknown;latencyMs?:unknown;errorCode?:unknown}|null;
++  const valid=response&&typeof response.latencyMs==='number'&&Number.isFinite(response.latencyMs)&&response.latencyMs>=0&&(response.ok===true&&typeof response.text==='string'||response.ok===false&&response.errorCode==='credential_in_response');
++  // Completed response proves behavioral replay only. Unknown target money keeps completion held.
++  return row.state==='completed'&&valid?resumable:{...unknown,evidenceKey};
++ }
++ if(!['pending','ready','completed'].includes(row.state))return unknown;
++ const legacy=proxyBillingDigest({jobId:c.jobId,operationId:c.operationKey});
++ const mode=(await tx.query<{state:string;input_digest:string;value:{mode:string}}>("SELECT state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_proxy_mode' AND id=$2",[c.jobId,legacy])).rows[0];
++ const hasAttempts=!!(await tx.query<{present:boolean}>("SELECT to_regclass('naive_proxy_dispatch.operations') IS NOT NULL AS present")).rows[0]?.present;
++ const op=hasAttempts?(await tx.query<{active_attempt:number;input_digest:string;legacy_checkpoint_id:string}>('SELECT * FROM naive_proxy_dispatch.operations WHERE job_id=$1 AND operation_id=$2',[c.jobId,c.operationKey])).rows[0]:undefined;
++ const legacyEvidence=(await tx.query(`SELECT 1 FROM text_integration.checkpoints WHERE job_id=$1 AND id=$2 AND kind IN ('naive_proxy_judge','naive_proxy_intent','naive_proxy_received','naive_proxy_billing') UNION ALL SELECT 1 FROM agent_persistence.reservations WHERE job_id=$1 AND id=$3 LIMIT 1`,[c.jobId,legacy,`naive-proxy:${legacy}`])).rows.length>0;
++ // A fresh outer claim can resume only when no contradictory provider identity already exists.
++ if(!mode)return !op&&!legacyEvidence&&row.state!=='completed'?resumable:unknown;
++ if(mode.state!=='completed'||mode.input_digest!==legacy||!['v1','v2'].includes(mode.value?.mode)||Object.keys(mode.value).join(',')!=='mode')return unknown;
++ let checkpointId=legacy,attemptState:string|undefined,inputDigest:string|undefined;
++ if(mode.value.mode==='v2'){
++  if(!hasAttempts||legacyEvidence)return unknown;
++  if(!op)return row.state!=='completed'?resumable:unknown;
++  if(op.legacy_checkpoint_id!==legacy||!Number.isSafeInteger(op.active_attempt)||op.active_attempt<1||!/^[a-f0-9]{64}$/.test(op.input_digest))return unknown;
++  const attempt=(await tx.query<{attempt:number;checkpoint_id:string;reservation_id:string;state:string;reserved:boolean}>('SELECT * FROM naive_proxy_dispatch.attempts WHERE job_id=$1 AND operation_id=$2 AND attempt=$3',[c.jobId,c.operationKey,op.active_attempt])).rows[0];
++  checkpointId=proxyBillingDigest({jobId:c.jobId,operationId:c.operationKey,attempt:op.active_attempt});
++  if(!attempt||attempt.attempt!==op.active_attempt||attempt.checkpoint_id!==checkpointId||attempt.reservation_id!==`naive-proxy:${checkpointId}`||!['prepared','denied','dispatched'].includes(attempt.state)||attempt.reserved!==(attempt.state!=='denied'))return unknown;
++  attemptState=attempt.state;inputDigest=op.input_digest;
++ }else if(op)return unknown;
++ const rows=(await tx.query<Row & {kind:string}>("SELECT kind,state,token,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND id=$2 AND kind IN ('naive_proxy_judge','naive_proxy_intent','naive_proxy_received','naive_proxy_billing')",[c.jobId,checkpointId])).rows;
++ const main=rows.find(r=>r.kind==='naive_proxy_judge'),intent=rows.find(r=>r.kind==='naive_proxy_intent'),bill=rows.find(r=>r.kind==='naive_proxy_billing');
++ if(new Set(rows.map(r=>r.kind)).size!==rows.length)return unknown;
++ if(!inputDigest)inputDigest=main?.input_digest??intent?.input_digest;
++ if(rows.length&&(!inputDigest||!/^[a-f0-9]{64}$/.test(inputDigest)||rows.some(r=>r.input_digest!==inputDigest)))return unknown;
++ if(intent){
++  const v=intent.value as Record<string,unknown>|null;
++  if(intent.state!=='completed'||!v||v.jobId!==c.jobId||v.operationId!==c.operationKey||v.inputDigest!==inputDigest||v.schemaVersion!==`naive_proxy_intent.${mode.value.mode}`||typeof v.requestDigest!=='string'||!/^[a-f0-9]{64}$/.test(v.requestDigest)||typeof v.model!=='string'||!v.model||!Number.isSafeInteger(v.maxOutputTokens)||Number(v.maxOutputTokens)<1||Number(v.maxOutputTokens)>4096)return unknown;
++  if(mode.value.mode==='v2'&&(v.attempt!==op!.active_attempt||v.checkpointId!==checkpointId||v.reservationId!==`naive-proxy:${checkpointId}`))return unknown;
++ }
++ // A dispatched request without its completed result cannot be recreated by takeover.
++ if(attemptState==='dispatched'&&main?.state!=='completed')return unknown;
++ if(mode.value.mode==='v1'&&legacyEvidence&&main?.state!=='completed')return unknown;
++ if(main?.state==='completed'&&!intent)return unknown;
++ if(row.state==='completed'&&main?.state!=='completed')return unknown;
++ if(main?.state==='completed'&&row.state==='completed'&&bill?.state==='completed'){
++  const receipt=bill.value as {idempotencyKey?:unknown;microUsd?:unknown}|null;
++  if(receipt&&typeof receipt.idempotencyKey==='string'&&Number.isSafeInteger(receipt.microUsd)&&Number(receipt.microUsd)>=0){
++   try{
++    const reservationId=await retainedProxyReservation(tx,c.jobId,receipt.idempotencyKey);
++    const reservation=(await tx.query<{settled_micro_usd:string|number|null}>('SELECT settled_micro_usd FROM agent_persistence.reservations WHERE job_id=$1 AND id=$2',[c.jobId,`naive-proxy:${checkpointId}`])).rows[0];
++    if(reservationId===`naive-proxy:${checkpointId}`&&reservation?.settled_micro_usd!==null&&reservation?.settled_micro_usd!==undefined&&Number(reservation.settled_micro_usd)===receipt.microUsd)return {state:'terminal',evidenceKey:`${evidenceKey}:${checkpointId}:settled`};
++   }catch{return unknown;}
++  }
++ }
++ return {...resumable,evidenceKey:`${evidenceKey}:${mode.value.mode}:${checkpointId}:${main?.state??'absent'}`};
++}};
+diff --git a/apps/web/src/server/workflow-stage-children.ts b/apps/web/src/server/workflow-stage-children.ts
+--- a/apps/web/src/server/workflow-stage-children.ts
++++ b/apps/web/src/server/workflow-stage-children.ts
+@@ -5,6 +5,7 @@
+ import type { JobBudgetTx } from '@ae/core/db/job-budget-authority';
+ import { currentWorkflowStageScope, workflowStageDigest, type WorkflowStageScope } from './workflow-stage-runtime';
+ 
++import { workflowRunRecoveryReader } from './workflow-run-checkpoints';
+ const KIND='naive_session';
+ const refuse=():never=>{throw new NaiveCallError('ambiguous','workflow_stage_child_reconciliation_required');};
+ function childIdentity(record:AgentTaskRecord){return {kind:KIND,operationKey:record.taskKey,requestDigest:workflowStageDigest({idempotencyKey:record.idempotencyKey,requestBody:record.requestBody})};}
+@@ -51,6 +52,7 @@
+  * Lite/Gateway/target children have no durable recoverable protocol here and stay held. */
+ export const workflowStageRecoveryReader:WorkflowStageRecoveryReader={async read(tx,child){
+  const unknown={state:'unknown' as const,evidenceKey:`unverified:${child.kind}:${child.operationKey}`};
++ if(['text_run_target','text_run_judge'].includes(child.kind))return workflowRunRecoveryReader.read(tx,child);
+  if(child.kind!==KIND)return unknown;
+  const record=await retained(tx,child.operationKey);
+  if(!record||record.jobId!==child.jobId||record.taskKey!==child.operationKey||record.requestBody?.metadata?.ae_job_id!==child.jobId||record.requestBody?.metadata?.ae_task_key!==child.operationKey||!record.idempotencyKey||childIdentity(record).requestDigest!==child.requestDigest)return unknown;
+diff --git a/apps/web/src/server/workflow-stage-runtime.ts b/apps/web/src/server/workflow-stage-runtime.ts
+--- a/apps/web/src/server/workflow-stage-runtime.ts
++++ b/apps/web/src/server/workflow-stage-runtime.ts
+@@ -45,7 +45,7 @@
+ }
+ /** Recovery is opt-in only after ALL callback side effects have retained child authority.
+  * Current mixed Naive/lite/target callbacks intentionally stay held after interruption. */
+-export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children'|'naive-single-child-v1'|'naive-design-v1';expectedChildPlan?:{profile:'naive-design-v1';scope:string;outerDesignId:string;inputDigest:string};expectedChildKey?:string;isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
++export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children'|'naive-single-child-v1'|'naive-design-v1'|'naive-text-run-v1';expectedChildPlan?:import('@ae/core/db/workflow-stage-authority').WorkflowStageChildPlan;expectedChildKey?:string;isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
+ export async function executeWorkflowStage<T>(input:{jobId:string;ownerId:string;environment:'test'|'live';role:string;share:number;stage:LogicalWorkflowStage},run:(amountMicroUsd:number)=>Promise<T>):Promise<{ok:true;data:T}|{ok:false;remainingMicroUsd:number}> {
+  const inputDigest=workflowStageDigest(input.stage.input);
+  const step=getStepMetadata();
+diff --git a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+--- a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
++++ b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+@@ -1,5 +1,5 @@
+ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+-const p=vi.hoisted(()=>({resolve:vi.fn(),retry:vi.fn(),retain:vi.fn(),reservations:vi.fn(),release:vi.fn(),services:{designSuite:vi.fn(),runSuite:vi.fn(),createJobBranch:vi.fn()},intake:{package:'text_eval',endpoint:{url:'https://example.com',model:'m',apiKey:'secret'}},append:vi.fn(),coverage:vi.fn(),assert:vi.fn(),publish:vi.fn(),report:vi.fn(),put:vi.fn(),claim:vi.fn(),complete:vi.fn(),notify:vi.fn(),released:false}));
++const p=vi.hoisted(()=>({resolve:vi.fn(),runStage:vi.fn(),budgetStage:vi.fn(),retry:vi.fn(),retain:vi.fn(),reservations:vi.fn(),release:vi.fn(),services:{designSuite:vi.fn(),runSuite:vi.fn(),createJobBranch:vi.fn()},intake:{package:'text_eval',endpoint:{url:'https://example.com',model:'m',apiKey:'secret'}},append:vi.fn(),coverage:vi.fn(),assert:vi.fn(),publish:vi.fn(),report:vi.fn(),put:vi.fn(),claim:vi.fn(),complete:vi.fn(),notify:vi.fn(),released:false}));
+ vi.mock('@/server/naive-text-execution-runtime',()=>({resolveJobNaiveExecution:p.resolve}));
+ vi.mock('@/server/naive-factual-gap-workflow',()=>({retryNaiveFactualGapEntry:p.retry,retainNaiveFactualGapProposal:p.retain}));
+ vi.mock('@ae/core/db/client',()=>({db:()=>({select:()=>({from:()=>({where:p.reservations})}),execute:p.release}),schema:{budgetReservations:{id:'id',jobId:'job',agent:'agent',releasedAt:'released'}}}));
+@@ -7,9 +7,9 @@
+ vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),evalServices:{renderReport:()=>{throw Error('unfenced report runtime');}}}));
+ vi.mock('@/workflows/steps/notify',()=>({notifyCustomerStep:p.notify}));
+ vi.mock('@/server/naive-design-recovery',()=>({naiveDesignRecoveryStage:async()=>({key:'suite-design',input:{},recovery:'naive-design-v1',expectedChildPlan:{profile:'naive-design-v1'}})}));
+-vi.mock('@/server/services',()=>({workflowServiceCall:async(fn:()=>unknown)=>fn(),recoverableGenericTextReportStage:async()=>({services:{renderReport:p.report},stage:{key:'generic-text-report',input:{},recovery:'naive-single-child-v1'}}),getEvalServices:async()=>p.services,stageRealEvalServices:{renderReport:p.report},isWorkflowStagePendingError:()=>false}));
++vi.mock('@/server/services',()=>({workflowServiceCall:async(fn:()=>unknown)=>fn(),recoverableGenericTextRunStage:p.runStage,recoverableGenericTextReportStage:async()=>({services:{renderReport:p.report},stage:{key:'generic-text-report',input:{},recovery:'naive-single-child-v1'}}),getEvalServices:async()=>p.services,stageRealEvalServices:{renderReport:p.report},isWorkflowStagePendingError:()=>false}));
+ vi.mock('@/server/workflow-stage-runtime',()=>({assertWorkflowStageCurrent:async()=>{}}));
+-vi.mock('@/workflows/steps/common',()=>({loadIntake:async()=>p.intake,requireJob:async()=>({state:'planning'}),withBudget:async(_j:unknown,_a:unknown,stage:unknown,fn:(ctx:unknown)=>unknown)=>{expect(stage).toMatchObject({key:expect.any(String),input:expect.any(Object)});const data=await fn({recordProgress:async()=>{}});p.released=true;return {status:'ok',data};}}));
++vi.mock('@/workflows/steps/common',()=>({loadIntake:async()=>p.intake,requireJob:async()=>({state:'planning'}),withBudget:async(_j:unknown,_a:unknown,stage:unknown,fn:(ctx:unknown)=>unknown)=>{expect(stage).toMatchObject({key:expect.any(String),input:expect.any(Object)});p.budgetStage(stage);const data=await fn({recordProgress:async()=>{}});p.released=true;return {status:'ok',data};}}));
+ vi.mock('@ae/core/redteam/index',()=>({appendRedTeamToSuite:p.append}));
+ vi.mock('@ae/core/storage/blob',()=>({putJobArtifact:p.put}));
+ vi.mock('@/server/job-store',()=>({makeServiceContext:async()=>({jobId:'job',environment:'test',budgetMicroUsd:0}),recordProgress:vi.fn(),setJobState:vi.fn(),saveFindings:vi.fn(),saveRemediation:vi.fn(),findingRowIdByKey:vi.fn()}));
+@@ -17,11 +17,11 @@
+ import {factualGapEntryStep,createBranchStep,designSuiteStep,runSuiteStep,genericTextReportStep,genericTextNotifyStep} from '@/workflows/steps/evaluate';
+ afterEach(()=>vi.unstubAllEnvs());
+ describe('actual selected generic evaluation steps',()=>{
+- beforeEach(()=>{vi.clearAllMocks();p.reservations.mockResolvedValue([]);p.resolve.mockImplementation(async()=>process.env.EVAL_NAIVE_METHODS?{generic:true,profile:{factualGapPolicy:"propose_missing_reference.v1"},identity:{jobId:"job"},sql:{}}:{generic:false});p.retry.mockReset().mockResolvedValue({status:"absent"});p.retain.mockResolvedValue({status:"retained"});vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('EVAL_NAIVE_METHODS','designSuite,runSuite,investigate');vi.stubEnv('REDTEAM_PACK','1');p.released=false;p.put.mockResolvedValue('private-artifact');p.coverage.mockResolvedValue({assessed:12,remediations:[],summary:'12 assessed; remediation not performed'});p.assert.mockResolvedValue(undefined);p.publish.mockImplementation(async()=>{expect(p.released).toBe(true);return {deliveredAtIso:'2026-11-08T00:00:00.000Z'};});p.report.mockResolvedValue({jobId:'job',summary:'summary',markdown:'report',html:'<p>report</p>',findings:[]});p.claim.mockResolvedValue({status:'claimed',token:'canonical-token'});p.complete.mockResolvedValue(undefined);});
++ beforeEach(()=>{vi.clearAllMocks();p.runStage.mockImplementation(async()=>({services:p.services,stage:{key:'suite-run:endpoint:default',input:{expectedChildPlan:{profile:'naive-text-run-v1'}},recovery:'naive-text-run-v1',expectedChildPlan:{profile:'naive-text-run-v1'}}}));p.reservations.mockResolvedValue([]);p.resolve.mockImplementation(async()=>process.env.EVAL_NAIVE_METHODS?{generic:true,profile:{factualGapPolicy:"propose_missing_reference.v1"},identity:{jobId:"job"},sql:{}}:{generic:false});p.retry.mockReset().mockResolvedValue({status:"absent"});p.retain.mockResolvedValue({status:"retained"});vi.stubEnv('EVAL_SERVICES','real');vi.stubEnv('EVAL_NAIVE_METHODS','designSuite,runSuite,investigate');vi.stubEnv('REDTEAM_PACK','1');p.released=false;p.put.mockResolvedValue('private-artifact');p.coverage.mockResolvedValue({assessed:12,remediations:[],summary:'12 assessed; remediation not performed'});p.assert.mockResolvedValue(undefined);p.publish.mockImplementation(async()=>{expect(p.released).toBe(true);return {deliveredAtIso:'2026-11-08T00:00:00.000Z'};});p.report.mockResolvedValue({jobId:'job',summary:'summary',markdown:'report',html:'<p>report</p>',findings:[]});p.claim.mockResolvedValue({status:'claimed',token:'canonical-token'});p.complete.mockResolvedValue(undefined);});
+  it('text execution creates no simulator branch',async()=>{expect(await createBranchStep('job')).toEqual({});expect(p.services.createJobBranch).not.toHaveBeenCalled();});
+  it('does not append red-team cases after design admission',async()=>{const suite={scenarios:[],versionLabel:'admitted'};p.services.designSuite.mockResolvedValue(suite);expect((await designSuiteStep('job'))).toMatchObject({data:suite});expect(p.append).not.toHaveBeenCalled();});
+- it('retains legacy post-design augmentation and public version projection',async()=>{vi.stubEnv('EVAL_NAIVE_METHODS','');const suite={scenarios:[],jobId:'job',versionLabel:'admitted',frozenAt:'2026-01-01'};p.services.designSuite.mockResolvedValue(suite);p.append.mockReturnValue(suite);await designSuiteStep('job');expect(p.append).toHaveBeenCalledWith(suite,p.intake);p.services.runSuite.mockResolvedValue({results:[]});await runSuiteStep('job',suite,'endpoint','A');expect(p.services.runSuite.mock.calls[0][1]).toMatchObject({versionLabel:'A'});});
+- it('preserves exact suite identity across public version labels',async()=>{const suite={scenarios:[],jobId:'job',versionLabel:'admitted',frozenAt:'2026-01-01'};p.services.runSuite.mockResolvedValue({results:[]});await runSuiteStep('job',suite,'endpoint','default');expect(p.services.runSuite.mock.calls[0][1]).toBe(suite);});
++ it('retains legacy post-design augmentation and public version projection',async()=>{vi.stubEnv('EVAL_NAIVE_METHODS','');const suite={scenarios:[],jobId:'job',versionLabel:'admitted',frozenAt:'2026-01-01'};p.services.designSuite.mockResolvedValue(suite);p.append.mockReturnValue(suite);await designSuiteStep('job');expect(p.append).toHaveBeenCalledWith(suite,p.intake);p.services.runSuite.mockResolvedValue({results:[]});await runSuiteStep('job',suite,'endpoint','A');expect(p.services.runSuite.mock.calls[0][1]).toMatchObject({versionLabel:'A'});expect(p.runStage).not.toHaveBeenCalled();expect(p.budgetStage.mock.calls.at(-1)?.[0].recovery).toBeUndefined();});
++ it('preserves exact suite identity across public version labels',async()=>{const suite={scenarios:[],jobId:'job',versionLabel:'admitted',frozenAt:'2026-01-01'};p.services.runSuite.mockResolvedValue({results:[]});await runSuiteStep('job',suite,'endpoint','default');expect(p.services.runSuite.mock.calls[0][1]).toBe(suite);expect(p.runStage).toHaveBeenCalledExactlyOnceWith('job',suite,{url:p.intake.endpoint.url,model:p.intake.endpoint.model,apiKey:p.intake.endpoint.apiKey,systemPrompt:''},'endpoint','default',undefined);expect(p.budgetStage).toHaveBeenCalledWith(expect.objectContaining({key:'suite-run:endpoint:default',recovery:'naive-text-run-v1',expectedChildPlan:{profile:'naive-text-run-v1'}}));});
+  it('holds entirely unassessed results before paid rendering, blobs, or publication',async()=>{
+   p.coverage.mockResolvedValue({assessed:0,summary:'no assessment'});expect(await genericTextReportStep('job',[],{} as never)).toEqual({status:'ok',data:{assessed:false}});expect(p.report).not.toHaveBeenCalled();expect(p.put).not.toHaveBeenCalled();expect(p.publish).not.toHaveBeenCalled();
+  });
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -1,5 +1,5 @@
+ import { naiveDesignRecoveryStage } from '@/server/naive-design-recovery';
+-import { recoverableGenericTextReportStage } from '@/server/services';
++import { recoverableGenericTextRunStage, recoverableGenericTextReportStage } from '@/server/services';
+ import { TextFactualGapError } from '@ae/core/evals/text/factual-gap';
+ import { resolveJobNaiveExecution } from '@/server/naive-text-execution-runtime';
+ import { retainNaiveFactualGapProposal, retryNaiveFactualGapEntry } from '@/server/naive-factual-gap-workflow';
+@@ -128,19 +128,21 @@
+       throw new FatalError("Target credentials were deleted before the run");
+     }
+   }
+-  const services = await getEvalServices();
++  const selected=await resolveJobNaiveExecution(jobId);
++  const recovery=selected.generic?await recoverableGenericTextRunStage(jobId,suite,target,slot,versionLabel,branchId):null;
++  const services = recovery?.services ?? await getEvalServices();
+   const branchConnectionString = branchId ? await resolveBranchConnection(branchId) : undefined;
+-  const result = await withBudget(jobId, "judge", {key: `suite-run:${slot}:${versionLabel}`, input: {suite, slot, versionLabel, branchId, target}, isPendingError: isWorkflowStagePendingError}, async (ctx) => {
++  const result = await workflowServiceCall(() => withBudget(jobId, "judge", recovery?.stage ?? {key: `suite-run:${slot}:${versionLabel}`, input: {suite, slot, versionLabel, branchId, target}, isPendingError: isWorkflowStagePendingError}, async (ctx) => {
+     await ctx.recordProgress("running_suite", `Running ${suite.scenarios.length} scenario(s) against ${versionLabel}.`);
+     return services.runSuite(ctx, selectedNaiveEvaluation() ? suite : { ...suite, versionLabel }, target, branchConnectionString);
+-  });
++  }));
+   if (result.status === "ok") {
+     const counts = summarizeRunResults(result.data.results);
+     await recordProgress(jobId, "suite_run", `Run ${versionLabel} complete: ${counts.passed} objective passed, ${counts.failed} objective failed, ${counts.rubric} rubric, ${counts.inconclusive} inconclusive, ${counts.infrastructure} infrastructure.`);
+   }
+   return result;
+ }
+-runSuiteStep.maxRetries = 1;
++runSuiteStep.maxRetries = 120;
+ 
+ export async function investigateStep(jobId: string, suite: Suite, runs: RunResult[]): Promise<BudgetResult<Finding[]>> {
+   "use step";
+diff --git a/packages/core/src/db/workflow-stage-authority.test.ts b/packages/core/src/db/workflow-stage-authority.test.ts
+--- a/packages/core/src/db/workflow-stage-authority.test.ts
++++ b/packages/core/src/db/workflow-stage-authority.test.ts
+@@ -22,6 +22,9 @@
+  await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
+  await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
+ await pg.exec(readFileSync('docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql','utf8'));
++await pg.exec(readFileSync('docs/naive-run-recovery-integration/sql/001-run-recovery.sql','utf8'));
++await pg.exec(readFileSync('packages/core/src/evals/integration/migrations/001-text-integration.sql','utf8'));
++await pg.exec(readFileSync('docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql','utf8'));
+ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);});
+ afterEach(async()=>{await pg.close();});
+ it('exclusive claim rejects duplicate delivery, even same invocation and overlapping SDK retry',async()=>{await claim();expect(await run(tx=>claimWorkflowStage(tx,input))).toMatchObject({kind:'busy'});expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{...input.invocation,attempt:1}}))).toMatchObject({kind:'busy'});expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
+@@ -84,3 +87,14 @@
+  expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);
+  await pg.query("UPDATE jobs SET state='cancelled'");await expect(run(tx=>recoverWorkflowStage(tx,designInput,proof))).rejects.toThrow();
+ });
++
++const runPlan={profile:'naive-text-run-v1' as const,runId:'run:canonical',suiteDigest:'a'.repeat(64),targetVersion:'v1',environment:'test',children:[{kind:'text_run_target' as const,operationKey:'target:one'},{kind:'text_run_judge' as const,operationKey:'judge:one'}]};
++const runInput:WorkflowStageClaim={...input,recoveryProfile:'naive-text-run-v1',expectedChildPlan:runPlan};
++const runTarget={...runPlan.children[0],requestDigest:'target-body'};
++it('finite run plan recovers zero children and only exact remaining slots across generations',async()=>{const old=await claim(runInput);await expire();const next=await run(tx=>recoverWorkflowStage(tx,runInput,proof));if(next.kind!=='owned')throw Error('owner');await expect(run(tx=>registerWorkflowStageChild(tx,old,runTarget))).rejects.toThrow();await run(tx=>registerWorkflowStageChild(tx,next.owner,runTarget));await expect(run(tx=>registerWorkflowStageChild(tx,next.owner,{...runTarget,requestDigest:'changed'}))).rejects.toThrow();for(const change of [{operationKey:'target:two'},{kind:'naive_session'}])await expect(run(tx=>registerWorkflowStageChild(tx,next.owner,{...runTarget,...change}))).rejects.toThrow();});
++it('unknown or dispatched undispatched target cannot retry; completed behavioral target resumes without releasing holds',async()=>{const owner=await claim(runInput);await run(tx=>markWorkflowStageChildDispatch(tx,owner,runTarget));await expire();for(const state of ['unknown','undispatched'] as const)expect(await run(tx=>recoverWorkflowStage(tx,runInput,{read:async()=>({state,evidenceKey:'target-evidence'})}))).toMatchObject({kind:'recovery_required'});const resumed=await run(tx=>recoverWorkflowStage(tx,runInput,proof));if(resumed.kind!=='owned')throw Error('owner');expect(await run(tx=>workflowStageChildrenSettled(tx,resumed.owner,proof))).toBe(false);expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
++it('SQL validates finite plan shape and fences direct nonenumerated, stale, cancelled child insertions',async()=>{const owner=await claim(runInput);const insert=(key:string,generation=owner.generation)=>pg.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6)',[job,input.stageKey,'text_run_target',key,'body',generation]);await expect(insert('unplanned')).rejects.toThrow();await expect(insert('target:one',9)).rejects.toThrow();await pg.query("UPDATE jobs SET state='cancelled'");await expect(insert('target:one')).rejects.toThrow();await pg.query("UPDATE jobs SET state='running'");await insert('target:one');for(const p of [{...runPlan,children:[]},{...runPlan,extra:true},{...runPlan,children:[runPlan.children[0],runPlan.children[0]]},{...runPlan,children:[{kind:'arbitrary',operationKey:'x'}]}])expect((await pg.query<{valid:boolean}>('SELECT workflow_stage.valid_text_run_plan($1::jsonb) AS valid',[JSON.stringify(p)])).rows[0].valid).toBe(false);await expect(pg.query("UPDATE workflow_stage.stages SET expected_child_plan=jsonb_set(expected_child_plan,'{targetVersion}','\"v2\"')")).rejects.toThrow('workflow_stage_evidence_immutable');});
++
++it('run identity, frozen suite/version/environment and finite set are immutable and bounded',async()=>{await claim(runInput);for(const change of [{runId:'other'},{suiteDigest:'b'.repeat(64)},{targetVersion:'v2'},{environment:'live'},{children:[...runPlan.children,{kind:'text_run_judge' as const,operationKey:'new'}]}])await expect(run(tx=>claimWorkflowStage(tx,{...runInput,expectedChildPlan:{...runPlan,...change}}))).rejects.toThrow('workflow_stage_conflict');for(const children of [[],[runPlan.children[0],runPlan.children[0]],Array.from({length:257},(_,i)=>({kind:'text_run_target' as const,operationKey:`target:${i}`}))])await expect(run(tx=>claimWorkflowStage(tx,{...runInput,stageKey:'bad-plan',expectedChildPlan:{...runPlan,children}}))).rejects.toThrow('workflow_stage_conflict');});
++
++it('run checkpoint SQL binds exact lineage and permits only current generation token rotation for safe checkpoints',async()=>{await claim(runInput);const checkpoint=async(kind:string,id:string,token:string)=>pg.query("INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state) VALUES($1,$2,$3,'body',$4,'pending')",[job,kind,id,token]);const associate=(kind:string,id:string,token:string,generation=1)=>pg.query('INSERT INTO workflow_stage.run_checkpoints(job_id,kind,id,input_digest,stage_key,generation,token,outer_id,outer_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[job,kind,id,'body',input.stageKey,generation,token,runPlan.runId,runPlan.suiteDigest]);await checkpoint('scenario','target:one','token-1');await expect(associate('scenario','target:one','wrong-token')).rejects.toThrow();await associate('scenario','target:one','token-1');await expect(pg.query("DELETE FROM workflow_stage.run_checkpoints")).rejects.toThrow('workflow_run_checkpoint_immutable');await expect(pg.query("UPDATE workflow_stage.run_checkpoints SET outer_id='other'")).rejects.toThrow('workflow_run_checkpoint_immutable');await expect(pg.query("UPDATE workflow_stage.run_checkpoints SET token='new'")).rejects.toThrow('workflow_run_checkpoint_immutable');await checkpoint('target','target:one','target-token');await associate('target','target:one','target-token');await expire();const recovered=await run(tx=>recoverWorkflowStage(tx,runInput,proof));expect(recovered.kind).toBe('owned');await pg.query("UPDATE text_integration.checkpoints SET token='token-2' WHERE kind='scenario'");await pg.query("UPDATE workflow_stage.run_checkpoints SET generation=2,token='token-2' WHERE kind='scenario'");await pg.query("UPDATE text_integration.checkpoints SET token='target-token-2' WHERE kind='target'");await expect(pg.query("UPDATE workflow_stage.run_checkpoints SET generation=2,token='target-token-2' WHERE kind='target'")).rejects.toThrow('workflow_run_checkpoint_immutable');await checkpoint('scenario','unplanned','extra');await expect(associate('scenario','unplanned','extra',2)).rejects.toThrow('workflow_run_checkpoint_conflict');});
+diff --git a/packages/core/src/db/workflow-stage-authority.ts b/packages/core/src/db/workflow-stage-authority.ts
+--- a/packages/core/src/db/workflow-stage-authority.ts
++++ b/packages/core/src/db/workflow-stage-authority.ts
+@@ -1,8 +1,11 @@
+ import { randomUUID } from 'node:crypto';
+ import { lockJobBudget, reserveJobBudget, releaseWorkflowJobBudget, type JobBudgetTx } from './job-budget-authority';
+ export interface WorkflowStageInvocation {workflowRunId:string;stepId:string;attempt:number}
+-export type WorkflowStageRecoveryProfile = 'none'|'retained-children'|'naive-single-child-v1'|'naive-design-v1';
+-export interface WorkflowStageChildPlan {profile:"naive-design-v1";scope:string;outerDesignId:string;inputDigest:string}
++export type WorkflowStageRecoveryProfile = 'none'|'retained-children'|'naive-single-child-v1'|'naive-design-v1'|'naive-text-run-v1';
++export interface WorkflowStageDesignPlan {profile:"naive-design-v1";scope:string;outerDesignId:string;inputDigest:string}
++/** Canonical run/frozen-suite plan. Child request bodies are pinned at first registration. */
++export interface WorkflowStageTextRunPlan {profile:'naive-text-run-v1';runId:string;suiteDigest:string;targetVersion:string;environment:string;children:Array<{kind:'text_run_target'|'text_run_judge';operationKey:string}>}
++export type WorkflowStageChildPlan = WorkflowStageDesignPlan | WorkflowStageTextRunPlan;
+ export interface WorkflowStageClaim {expectedChildPlan?:WorkflowStageChildPlan|null;recoveryProfile?:WorkflowStageRecoveryProfile;expectedChildKey?:string|null;jobId:string;ownerId:string;environment:string;stageKey:string;inputDigest:string;role:string;amountMicroUsd:number;invocation:WorkflowStageInvocation;leaseMs:number}
+ export interface WorkflowStageOwner {jobId:string;stageKey:string;token:string;generation:number}
+ export interface WorkflowStageChild {kind:string;operationKey:string;requestDigest:string}
+@@ -11,12 +14,13 @@
+ export type WorkflowStageDecision=({kind:'owned';owner:WorkflowStageOwner;recovery?:'undispatched'|'resume'} & Details)|({kind:'completed';resultCiphertext:string} & Details)|({kind:'busy'} & Details)|({kind:'recovery_required'} & Details)|{kind:'budget_exceeded';remainingMicroUsd:number};
+ const fail=():never=>{throw Error('workflow_stage_conflict');};
+ function key(v:string){if(typeof v!=='string'||!v.length||v.length>4096||/[\u0000\uD800-\uDFFF]/u.test(v))fail();}
+-function validate(i:WorkflowStageClaim){const profile=i.recoveryProfile??'none';if(!['none','retained-children','naive-single-child-v1','naive-design-v1'].includes(profile))fail();if(profile==='naive-single-child-v1'){key(i.expectedChildKey!);}else if(i.expectedChildKey!=null)fail();if(profile==='naive-design-v1'){validatePlan(i.expectedChildPlan);}else if(i.expectedChildPlan!=null)fail();[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
+-function validatePlan(p:WorkflowStageChildPlan|null|undefined):asserts p is WorkflowStageChildPlan {if(!p)return fail();if(Object.keys(p).sort().join(',')!=='inputDigest,outerDesignId,profile,scope'||p.profile!=='naive-design-v1'||!/^([a-f0-9]{24})$/.test(p.scope)||!/^([a-f0-9]{64})$/.test(p.inputDigest))fail();key(p.outerDesignId);}
+-function samePlan(a:WorkflowStageChildPlan|null|undefined,b:WorkflowStageChildPlan|null|undefined){return (!a&&!b)||!!a&&!!b&&a.profile===b.profile&&a.scope===b.scope&&a.outerDesignId===b.outerDesignId&&a.inputDigest===b.inputDigest;}
++function validate(i:WorkflowStageClaim){const profile=i.recoveryProfile??'none';if(!['none','retained-children','naive-single-child-v1','naive-design-v1','naive-text-run-v1'].includes(profile))fail();if(profile==='naive-single-child-v1'){key(i.expectedChildKey!);}else if(i.expectedChildKey!=null)fail();if(profile==='naive-design-v1'||profile==='naive-text-run-v1'){validatePlan(i.expectedChildPlan);if(i.expectedChildPlan!.profile!==profile||(i.expectedChildPlan!.profile==='naive-text-run-v1'&&i.expectedChildPlan!.environment!==i.environment))fail();}else if(i.expectedChildPlan!=null)fail();[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
++function validatePlan(p:WorkflowStageChildPlan|null|undefined):asserts p is WorkflowStageChildPlan {if(!p)return fail();if(p.profile==='naive-text-run-v1'){if(Object.keys(p).sort().join(',')!=='children,environment,profile,runId,suiteDigest,targetVersion'||!Array.isArray(p.children)||p.children.length<1||p.children.length>256||!/^([a-f0-9]{64})$/.test(p.suiteDigest))fail();[p.runId,p.targetVersion,p.environment].forEach(key);const seen=new Set<string>();for(const c of p.children){if(!c||Object.keys(c).sort().join(',')!=='kind,operationKey'||!['text_run_target','text_run_judge'].includes(c.kind))fail();key(c.operationKey);const id=JSON.stringify([c.kind,c.operationKey]);if(seen.has(id))fail();seen.add(id);}if(!p.children.some(c=>c.kind==='text_run_target'))fail();return;}if(Object.keys(p).sort().join(',')!=='inputDigest,outerDesignId,profile,scope'||p.profile!=='naive-design-v1'||!/^([a-f0-9]{24})$/.test(p.scope)||!/^([a-f0-9]{64})$/.test(p.inputDigest))fail();key(p.outerDesignId);}
++function samePlan(a:WorkflowStageChildPlan|null|undefined,b:WorkflowStageChildPlan|null|undefined){if(!a||!b)return !a&&!b;validatePlan(a);validatePlan(b);if(a.profile!==b.profile)return false;if(a.profile==='naive-text-run-v1'&&b.profile==='naive-text-run-v1')return a.runId===b.runId&&a.suiteDigest===b.suiteDigest&&a.targetVersion===b.targetVersion&&a.environment===b.environment&&JSON.stringify(a.children)===JSON.stringify(b.children);return a.profile==='naive-design-v1'&&b.profile==='naive-design-v1'&&a.scope===b.scope&&a.outerDesignId===b.outerDesignId&&a.inputDigest===b.inputDigest;}
++export function workflowStageTextRunChild(plan:WorkflowStageChildPlan,c:WorkflowStageChild):boolean{validatePlan(plan);return plan.profile==='naive-text-run-v1'&&plan.children.some(e=>e.kind===c.kind&&e.operationKey===c.operationKey);}
+ /** Exact bounded task grammar; requestDigest pins the immutable task body within a slot. */
+ export function workflowStageDesignSlot(jobId:string,plan:WorkflowStageChildPlan,c:WorkflowStageChild):string|null{
+- validatePlan(plan);if(c.kind!=='naive_session')return null;
++ validatePlan(plan);if(plan.profile!=='naive-design-v1'||c.kind!=='naive_session')return null;
+  for(const revision of [0,1]){if(c.operationKey===`${jobId}:evaluation_engineer:text_design_${plan.scope}_${revision}:1`)return `engineer:${revision}`;
+  const prefix=`${jobId}:quality_investigator:text_review_${plan.scope}_${revision}_`;
+  if(c.operationKey.startsWith(prefix)&&/^[a-f0-9]{12}:1$/.test(c.operationKey.slice(prefix.length)))return `reviewer:${revision}`;}
+@@ -39,7 +43,7 @@
+  const token=randomUUID();await tx.query(`INSERT INTO workflow_stage.stages(job_id,stage_key,customer_id,environment,input_digest,role,operation_id,reservation_id,amount_micro_usd,owner_token,generation,workflow_run_id,step_id,attempt,state,lease_until,recovery_profile,expected_child_key,expected_child_plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$13,'running',clock_timestamp()+$14*interval '1 millisecond',$15,$16,$17)`,[i.jobId,i.stageKey,i.ownerId,i.environment,i.inputDigest,i.role,operationId,r.reservationId,i.amountMicroUsd,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs,i.recoveryProfile??'none',i.expectedChildKey??null,i.expectedChildPlan??null]);return owned((await row(tx,i.jobId,i.stageKey))!);
+ }
+ export async function assertWorkflowStageOwner(tx:JobBudgetTx,o:WorkflowStageOwner){await lockJobBudget(tx,o.jobId);const s=await row(tx,o.jobId,o.stageKey);if(!s)fail();await canonical(tx,o.jobId,s.customer_id,s.environment);if(s.owner_token!==o.token||Number(s.generation)!==o.generation||s.state!=='running'||s.expired)fail();return details(s);}
+-export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;const designSlot=stage.recovery_profile==='naive-design-v1'?workflowStageDesignSlot(o.jobId,stage.expected_child_plan!,c):null;if(stage.recovery_profile==='naive-design-v1'){if(!designSlot)fail();const existing=(await tx.query<{kind:string;operation_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2',[o.jobId,o.stageKey])).rows;for(const e of existing){const slot=workflowStageDesignSlot(o.jobId,stage.expected_child_plan!,{kind:e.kind,operationKey:e.operation_key,requestDigest:e.request_digest});if(!slot||slot===designSlot&&(e.operation_key!==c.operationKey||e.request_digest!==c.requestDigest))fail();}}const exactNaive=stage.recovery_profile==='naive-single-child-v1'&&c.kind==='naive_session'&&c.operationKey===stage.expected_child_key;if(stage.recovery_profile==='naive-single-child-v1'&&!exactNaive)fail();if(stage.recovery&&!exactNaive&&!designSlot&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
++export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;const designSlot=stage.recovery_profile==='naive-design-v1'?workflowStageDesignSlot(o.jobId,stage.expected_child_plan!,c):null;if(stage.recovery_profile==='naive-design-v1'){if(!designSlot)fail();const existing=(await tx.query<{kind:string;operation_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2',[o.jobId,o.stageKey])).rows;for(const e of existing){const slot=workflowStageDesignSlot(o.jobId,stage.expected_child_plan!,{kind:e.kind,operationKey:e.operation_key,requestDigest:e.request_digest});if(!slot||slot===designSlot&&(e.operation_key!==c.operationKey||e.request_digest!==c.requestDigest))fail();}}const runChild=stage.recovery_profile==='naive-text-run-v1'&&workflowStageTextRunChild(stage.expected_child_plan!,c);if(stage.recovery_profile==='naive-text-run-v1'&&!runChild)fail();const exactNaive=stage.recovery_profile==='naive-single-child-v1'&&c.kind==='naive_session'&&c.operationKey===stage.expected_child_key;if(stage.recovery_profile==='naive-single-child-v1'&&!exactNaive)fail();if(stage.recovery&&!exactNaive&&!designSlot&&!runChild&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
+ /** Called under the same transaction as the child's retained dispatch intent. The
+  * transaction commits before network I/O; it is not permission for a new child key. */
+ export async function markWorkflowStageChildDispatch(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await registerWorkflowStageChild(tx,o,c);const r=(await tx.query<{dispatch_intent_at:unknown}>('SELECT dispatch_intent_at FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4 FOR UPDATE',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows[0];if(r?.dispatch_intent_at)fail();await tx.query('UPDATE workflow_stage.children SET dispatch_generation=$5,dispatch_intent_at=clock_timestamp() WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey,o.generation]);}
+@@ -53,8 +57,8 @@
+ export interface WorkflowStageRecoveryReader {read(tx:JobBudgetTx,child:WorkflowStageChild & {jobId:string;stageKey:string;dispatchIntent:boolean}):Promise<{state:'undispatched'|'resumable'|'terminal'|'unknown';evidenceKey:string}>}
+ export async function recoverWorkflowStage(tx:JobBudgetTx,i:WorkflowStageClaim,reader:WorkflowStageRecoveryReader):Promise<WorkflowStageDecision>{validate(i);await canonical(tx,i.jobId,i.ownerId,i.environment);const s=await row(tx,i.jobId,i.stageKey);if(!s)fail();identity(s,i);if(s.state==='completed')return {kind:'completed',resultCiphertext:s.result_ciphertext!,...details(s)};if(s.state==='running'&&!s.expired)return {kind:'busy',...details(s)};
+  const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[i.jobId,i.stageKey])).rows;
+- // Only the immutable strict single-child composition may recover before registration.
+- let resume=false,unknown=children.length===0&&!['naive-single-child-v1','naive-design-v1'].includes(s.recovery_profile);if(s.recovery_profile==='naive-single-child-v1'&&children.some(c=>c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))unknown=true;for(const c of children){if(s.recovery_profile==='naive-design-v1'&&!workflowStageDesignSlot(i.jobId,s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))unknown=true;const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
++ // Only immutable finite compositions may recover before registration.
++ let resume=false,unknown=children.length===0&&!['naive-single-child-v1','naive-design-v1','naive-text-run-v1'].includes(s.recovery_profile);if(s.recovery_profile==='naive-single-child-v1'&&children.some(c=>c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))unknown=true;for(const c of children){if(s.recovery_profile==='naive-text-run-v1'&&!workflowStageTextRunChild(s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))unknown=true;if(s.recovery_profile==='naive-design-v1'&&!workflowStageDesignSlot(i.jobId,s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))unknown=true;const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
+  if(unknown){await tx.query("UPDATE workflow_stage.stages SET state='recovery_required' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey]);return {kind:'recovery_required',...details(s)};}
+  const token=randomUUID();await tx.query("UPDATE workflow_stage.stages SET owner_token=$3,generation=generation+1,recovery=true,workflow_run_id=$4,step_id=$5,attempt=$6,state='running',lease_until=clock_timestamp()+$7*interval '1 millisecond' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs]);return owned((await row(tx,i.jobId,i.stageKey))!,resume?'resume':'undispatched');}
+ 
+@@ -64,9 +68,10 @@
+  * unresolved accounting. Must be called in the completion transaction. */
+ export async function workflowStageChildrenSettled(tx:JobBudgetTx,o:WorkflowStageOwner,reader:WorkflowStageRecoveryReader):Promise<boolean>{
+  await assertWorkflowStageOwner(tx,o);const s=(await row(tx,o.jobId,o.stageKey))!;
+- if(!['naive-single-child-v1','naive-design-v1'].includes(s.recovery_profile))return true;
++ if(!['naive-single-child-v1','naive-design-v1','naive-text-run-v1'].includes(s.recovery_profile))return true;
+  const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[o.jobId,o.stageKey])).rows;
+  for(const c of children){
++  if(s.recovery_profile==='naive-text-run-v1'&&!workflowStageTextRunChild(s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))return false;
+   if(s.recovery_profile==='naive-single-child-v1'&&(c.kind!=='naive_session'||c.operation_key!==s.expected_child_key))return false;
+   if(s.recovery_profile==='naive-design-v1'&&!workflowStageDesignSlot(o.jobId,s.expected_child_plan!,{kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest}))return false;
+   const proof=await reader.read(tx,{jobId:o.jobId,stageKey:o.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});
+diff --git a/scripts/conformance-options.test.ts b/scripts/conformance-options.test.ts
+new file mode 100644
+--- /dev/null
++++ b/scripts/conformance-options.test.ts
+@@ -0,0 +1,46 @@
++import { expect, it, vi } from 'vitest';
++import { conformanceJobIds, parseConformanceOptions } from './conformance-options';
++const strict = ['--strict', '--services', 'real', '--target-url', 'https://target.example/api', '--target-model', 'provider/model'];
++it('preserves diagnostic defaults and documented skip modes', () => {
++  expect(parseConformanceOptions([], {})).toMatchObject({ services: 'real', strict: false, fixtureJobs: true });
++  expect(parseConformanceOptions(['--skip-suite', '--skip-branching'], { EVAL_SERVICES: 'lite' })).toMatchObject({ services: 'lite', skipSuite: true, skipBranching: true });
++  expect(parseConformanceOptions(['--services', 'real', '--no-fixture-job'], {})).toMatchObject({ fixtureJobs: false });
++  expect(parseConformanceOptions(['--target-url', 'https://target.example'], {})).toMatchObject({ targetModel: undefined });
++});
++it('accepts strict explicit real or effective real with complete target configuration', () => {
++  expect(parseConformanceOptions(strict, {})).toMatchObject({ strict: true, services: 'real' });
++  expect(parseConformanceOptions(strict.filter((_, i) => i !== 1 && i !== 2), { EVAL_SERVICES: 'real' })).toMatchObject({ strict: true });
++});
++it.each([
++  ['--services', 'ra el'], ['--services', 'mock'], ['--services'], ['--services', '--strict'], ['--wat'], ['--skip-suite', '--skip-suite'], ['--services', 'real', '--services', 'real'],
++  ['--target-url', 'http://target.example'], ['--target-url', 'not-url'], ['--target-url', 'https://user:secret@target.example'], ['--target-url', 'https://target.example/#secret'],
++  ['--target-url', 'https://target.example', '--target-key-env', 'KEY-NAME'], ['--target-model', 'model'], ['--target-key-env', 'KEY'],
++  ['--target-url', 'https://target.example', '--target-model', 'bad model'],
++])('rejects malformed options without echoing input (%j)', (...args) => {
++  expect(() => parseConformanceOptions(args, {})).toThrow('Invalid conformance options.');
++});
++it('rejects incomplete strict acceptance before any external work', () => {
++  for (const args of [ ['--strict'], [...strict, '--skip-suite'], [...strict, '--skip-branching'], strict.filter((_, i) => i !== 5 && i !== 6), strict.filter((_, i) => i !== 1 && i !== 2), ['--strict', '--services', 'lite', '--target-url', 'https://target.example', '--target-model', 'model'] ]) {
++    expect(() => parseConformanceOptions(args, {})).toThrow();
++  }
++});
++it('shares exactly the strict suite fixture, including concurrent requests', async () => {
++  let n = 0; const create = vi.fn(async () => `job-${++n}`); const ids = conformanceJobIds(true, create);
++  expect(await Promise.all(['designSuite', 'runSuite', 'investigate', 'rerunFinding'].map(g => ids(g, 'check')))).toEqual(Array(4).fill('job-1'));
++  expect(await ids('auditTrace', 'check')).toBe('job-2'); expect(await ids('qualify', 'check')).toBe('job-3');
++  expect(create).toHaveBeenCalledTimes(3);
++  const diagnostics = conformanceJobIds(false, create);
++  expect(await diagnostics('designSuite', 'check')).not.toBe(await diagnostics('runSuite', 'check'));
++});
++it('imports CLI without executing it and preflights before service loading', async () => {
++  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
++  const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
++  const argv = process.argv;
++  try {
++    const { main } = await import('./conformance');
++    expect(log).not.toHaveBeenCalled(); expect(error).not.toHaveBeenCalled();
++    process.argv = ['node', 'conformance.ts', '--strict'];
++    await expect(main()).rejects.toThrow('Invalid conformance options.');
++    expect(log).not.toHaveBeenCalled(); expect(error).not.toHaveBeenCalled();
++  } finally { process.argv = argv; log.mockRestore(); error.mockRestore(); }
++});
+diff --git a/scripts/conformance-options.ts b/scripts/conformance-options.ts
+new file mode 100644
+--- /dev/null
++++ b/scripts/conformance-options.ts
+@@ -0,0 +1,48 @@
++/** Pure CLI preflight: never reads credentials or loads services. */
++export interface ConformanceCliOptions {
++  services: 'real' | 'lite'; strict: boolean; skipBranching: boolean; skipSuite: boolean; fixtureJobs: boolean;
++  targetUrl?: string; targetModel?: string; targetKeyEnv?: string; targetSystem?: string;
++}
++const values = new Set(['--services', '--target-url', '--target-model', '--target-key-env', '--target-system']);
++const switches = new Set(['--strict', '--skip-branching', '--skip-suite', '--no-fixture-job']);
++export class ConformanceOptionsError extends Error {
++  constructor() {
++    super('Invalid conformance options. Strict mode requires --services real (or EVAL_SERVICES=real), --target-url https://..., --target-model MODEL, and no skip flags. Use only documented options once, with values where required.');
++    this.name = 'ConformanceOptionsError';
++  }
++}
++const invalid = (): never => { throw new ConformanceOptionsError(); };
++export function parseConformanceOptions(args: string[], env: Record<string, string | undefined> = process.env): ConformanceCliOptions {
++  const found = new Map<string, string | true>();
++  for (let i = 0; i < args.length; i++) {
++    const name = args[i];
++    if (found.has(name) || (!values.has(name) && !switches.has(name))) invalid();
++    if (values.has(name)) {
++      const value = args[++i];
++      if (!value?.trim() || value.startsWith('--')) invalid();
++      found.set(name, value);
++    } else found.set(name, true);
++  }
++  const get = (name: string) => found.get(name) as string | undefined;
++  const explicit = get('--services');
++  if (explicit !== undefined && explicit !== 'real' && explicit !== 'lite') invalid();
++  const strict = found.has('--strict');
++  // Preserve diagnostic defaults; strict requires an intentional real selection.
++  const services = explicit ?? (env.EVAL_SERVICES === 'lite' ? 'lite' : 'real');
++  const targetUrl = get('--target-url'), targetModel = get('--target-model'), targetKeyEnv = get('--target-key-env');
++  if (targetUrl) {
++    let url: URL; try { url = new URL(targetUrl); } catch { return invalid(); }
++    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password || url.hash || /\s/.test(targetUrl)) invalid();
++  }
++  if (targetKeyEnv && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(targetKeyEnv)) invalid();
++  if (targetModel && (targetModel !== targetModel.trim() || /[\s\x00-\x1f\x7f]/.test(targetModel))) invalid();
++  if (!targetUrl && (targetModel || targetKeyEnv || get('--target-system'))) invalid();
++  if (strict && ((explicit ?? env.EVAL_SERVICES) !== 'real' || !targetUrl || !targetModel || found.has('--skip-suite') || found.has('--skip-branching'))) invalid();
++  return { services: services as 'real' | 'lite', strict, skipBranching: found.has('--skip-branching'), skipSuite: found.has('--skip-suite'), fixtureJobs: services === 'real' && !found.has('--no-fixture-job'), targetUrl, targetModel, targetKeyEnv, targetSystem: get('--target-system') };
++}
++/** A strict suite is one business operation; unrelated checks retain isolated jobs. */
++export function conformanceJobIds(strict: boolean, create: () => Promise<string>): (group: string, name: string) => Promise<string> {
++  let suite: Promise<string> | undefined;
++  return (group) => strict && ['designSuite', 'runSuite', 'investigate', 'rerunFinding'].includes(group)
++    ? (suite ??= create()) : create();
++}
+diff --git a/scripts/conformance.ts b/scripts/conformance.ts
+--- a/scripts/conformance.ts
++++ b/scripts/conformance.ts
+@@ -1,23 +1,23 @@
+ /**
+  * Runs the EvalServices conformance harness.
+- * Usage: npx tsx scripts/conformance.ts [--services real|lite] [--skip-branching] [--skip-suite]
++ * Usage: npx tsx scripts/conformance.ts [--strict] [--services real|lite] [--skip-branching] [--skip-suite]
+  *          [--target-url https://... --target-model <id> [--target-key-env ENV_NAME] [--target-system "<prompt>"]]
+  * --services defaults to EVAL_SERVICES when it is "lite", else "real" (Track B).
+  * --target-* enables the live runSuite check; the key is read from the named env var and never printed.
++ * --strict requires an explicit/effective real selection, HTTPS target URL/model and all checks.
++ * Strict is contract evidence only; fixture jobs do not establish hosted app admission.
+  * Exits non-zero on any failed check, or if the services module is missing.
+  * --services real resolves ctx.jobId against the `jobs` table, so each check gets a fresh internal-fixture
+  * draft job (environment "test", customer sandbox-e2e@example.com); --no-fixture-job uses CONFORMANCE_JOB_ID.
+  * Typed "pending" errors (Naïve rate limits, async branch deletion) are retried as the Workflow would.
+  */
+ import { randomUUID } from "node:crypto";
++import { pathToFileURL } from "node:url";
++import { parseConformanceOptions, conformanceJobIds, ConformanceOptionsError } from "./conformance-options";
++import { createStrictConformanceServices } from "./naive-conformance-gate";
+ import { ensureFixtureJob, withPendingRetry } from "./real-services-lib";
+ import { runConformance, summarize } from "../packages/core/src/contracts/conformance";
+ import type { EvalServices, ServiceContext } from "../packages/core/src/contracts/services";
+-
+-function flag(args: string[], name: string): string | undefined {
+-  const i = args.indexOf(name);
+-  return i >= 0 ? args[i + 1] : undefined;
+-}
+ 
+ async function loadServices(kind: string): Promise<EvalServices> {
+   if (kind === "lite") {
+@@ -32,10 +32,10 @@
+   } catch (e) {
+     const err = e as { code?: string; message?: string };
+     if (err.code === "ERR_MODULE_NOT_FOUND" || err.code === "MODULE_NOT_FOUND" || /Cannot find (module|package)/.test(err.message ?? "")) {
+-      console.error(`Real services module not found: packages/core/src/integration/eval-services.ts (exporting \`evalServices\`). Nothing to check yet.\n${err.message}`);
++      console.error(`Real services module not found: packages/core/src/integration/eval-services.ts (exporting \`evalServices\`). Nothing to check yet.`);
+       process.exit(2);
+     }
+-    console.error("Failed to load real services:", e);
++    console.error("Failed to load real services.");
+     process.exit(2);
+   }
+ }
+@@ -59,26 +59,29 @@
+   return { services: out as unknown as EvalServices, spent: () => total };
+ }
+ 
+-async function main() {
+-  const args = process.argv.slice(2);
+-  const kind = flag(args, "--services") ?? (process.env.EVAL_SERVICES === "lite" ? "lite" : "real");
++export async function main() {
++  const options = parseConformanceOptions(process.argv.slice(2));
++  const kind = options.services;
+   const real = kind === "real";
+-  const fixtureJobs = real && !args.includes("--no-fixture-job");
++  const fixtureJobs = options.fixtureJobs;
+   const loaded = await loadServices(kind);
+-  const metered = withSpendMeter(real ? withPendingRetry(loaded) : loaded);
+-  const targetUrl = flag(args, "--target-url");
+-  const keyEnv = flag(args, "--target-key-env");
++  const gate = options.strict ? createStrictConformanceServices(loaded) : undefined;
++  const selected = gate?.services ?? loaded;
++  const metered = withSpendMeter(real ? withPendingRetry(selected) : selected);
++  const targetUrl = options.targetUrl;
++  const keyEnv = options.targetKeyEnv;
+   const runSuiteTarget = targetUrl ? {
+     url: targetUrl,
+-    model: flag(args, "--target-model") ?? "anthropic/claude-haiku-5.5",
++    model: options.targetModel ?? "anthropic/claude-haiku-5.5",
+     apiKey: keyEnv ? process.env[keyEnv] || undefined : undefined,
+-    systemPrompt: flag(args, "--target-system") ?? "Answer from the reference text only. Reference: Refunds are available within 30 days.",
++    systemPrompt: options.targetSystem ?? "Answer from the reference text only. Reference: Refunds are available within 30 days.",
+   } : undefined;
+-  console.log(`services=${kind}${runSuiteTarget ? ` target=${new URL(runSuiteTarget.url).host} model=${runSuiteTarget.model} key=${runSuiteTarget.apiKey ? "set" : "none"}` : ""}`);
+-  const checks = await runConformance(metered.services, {
+-    skipBranching: args.includes("--skip-branching"), skipSuite: args.includes("--skip-suite"), runSuiteTarget,
+-    ...(fixtureJobs ? { jobIdFor: () => ensureFixtureJob(randomUUID()) } : {}),
++  console.log(`services=${kind} strict=${options.strict} target=${runSuiteTarget ? "configured" : "none"}`);
++  const observed = await runConformance(metered.services, {
++    skipBranching: options.skipBranching, skipSuite: options.skipSuite, runSuiteTarget,
++    ...(fixtureJobs ? { jobIdFor: conformanceJobIds(options.strict, () => ensureFixtureJob(randomUUID())) } : {}),
+   });
++  const checks = (gate ? gate.validate(observed) : observed).map(c => options.strict ? { ...c, message: c.status === "fail" ? "Strict conformance check failed." : c.status === "skip" ? "Check skipped." : "Check passed." } : c);
+   const icon = { pass: "PASS", fail: "FAIL", skip: "SKIP" } as const;
+   const w = Math.max(...checks.map((c) => `${c.group}: ${c.name}`.length));
+   for (const c of checks) console.log(`${icon[c.status]}  ${`${c.group}: ${c.name}`.padEnd(w)}  ${c.message}`);
+@@ -86,4 +89,6 @@
+   console.log(`\n${s.passed} passed, ${s.failed} failed, ${s.skipped} skipped; recorded model spend $${(metered.spent() / 1e6).toFixed(4)}`);
+   process.exit(s.failed > 0 ? 1 : 0);
+ }
+-main();
++if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
++  main().catch(error => { console.error(error instanceof ConformanceOptionsError ? error.message : "Conformance could not complete; no acceptance result was produced."); process.exitCode = 2; });
++}
+diff --git a/scripts/naive-conformance-gate.test.ts b/scripts/naive-conformance-gate.test.ts
+new file mode 100644
+--- /dev/null
++++ b/scripts/naive-conformance-gate.test.ts
+@@ -0,0 +1,115 @@
++import { describe, expect, it, vi } from "vitest";
++import { mockServices } from "../apps/web/src/server/services";
++import { runConformance, type ConformanceCheck, type ConformanceOptions } from "../packages/core/src/contracts/conformance";
++import type { EvalServices } from "../packages/core/src/contracts/services";
++import { createStrictConformanceServices } from "./naive-conformance-gate";
++
++const jobId = "11111111-1111-4111-8111-111111111111";
++const options: ConformanceOptions = {
++  jobIdFor: () => jobId,
++  runSuiteTarget: { url: "https://offline.example/v1/chat/completions", model: "offline-fixture", systemPrompt: "fixture" },
++};
++
++// Deliberately offline contract fixtures. Passing these tests proves guard behavior,
++// not that a Naïve agent, target endpoint, or database was exercised.
++function fixture(overrides: Partial<EvalServices> = {}): EvalServices {
++  return {
++    ...mockServices,
++    async designSuite(ctx, intake) {
++      const suite = await mockServices.designSuite(ctx, intake);
++      return { ...suite, scenarios: [...suite.scenarios, { ...suite.scenarios[0], id: "second" }] };
++    },
++    async runSuite(_ctx, suite) {
++      return { runId: "offline-run", versionLabel: suite.versionLabel,
++        results: suite.scenarios.map(s => ({ scenarioId: s.id, passed: false, detail: "offline recorded failure" })) };
++    },
++    ...overrides,
++  };
++}
++
++async function exercise(overrides: Partial<EvalServices> = {}, opts: ConformanceOptions = options) {
++  const strict = createStrictConformanceServices(fixture(overrides));
++  const raw = await runConformance(strict.services, opts);
++  return { strict, raw, checked: strict.validate(raw) };
++}
++const failures = (checks: ConformanceCheck[]) => checks.filter(c => c.status === "fail");
++
++describe("strict Naïve conformance guard (offline contract evidence only)", () => {
++  it("accepts complete shared-job execution without provider or target calls", async () => {
++    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("unexpected live call"));
++    try {
++      const { raw, checked } = await exercise();
++      expect(failures(raw)).toEqual([]);
++      expect(failures(checked)).toEqual([]);
++      expect(checked.some(c => c.status === "skip")).toBe(false);
++      expect(fetchSpy).not.toHaveBeenCalled();
++    } finally { fetchSpy.mockRestore(); }
++  });
++
++  it("accepts blocked targets rejected by throwing without network calls", async () => {
++    const { raw, checked } = await exercise({ async checkTarget() { throw new Error("blocked target"); } });
++    expect(failures(raw)).toEqual([]);
++    expect(failures(checked)).toEqual([]);
++  });
++
++  it.each(["empty", "missing", "duplicate", "unknown", "wrong version"] as const)("rejects %s run results", async mode => {
++    const base = fixture();
++    const { raw, checked } = await exercise({ async runSuite(ctx, suite, target) {
++      const run = await base.runSuite(ctx, suite, target);
++      if (mode === "empty") run.results = [];
++      if (mode === "missing") run.results = run.results.slice(0, 1);
++      if (mode === "duplicate") run.results = [run.results[0], run.results[0]];
++      if (mode === "unknown") run.results[1] = { ...run.results[1], scenarioId: "unknown" };
++      if (mode === "wrong version") run.versionLabel = "another-version";
++      return run;
++    } });
++    expect(raw.find(c => c.group === "runSuite")?.status).toBe("fail");
++    expect(failures(checked).length).toBeGreaterThan(0);
++  });
++
++  it("rejects a suite assigned to a different job", async () => {
++    const base = fixture();
++    const { checked } = await exercise({ async designSuite(ctx, intake) {
++      return { ...await base.designSuite(ctx, intake), jobId: "22222222-2222-4222-8222-222222222222" };
++    } });
++    expect(failures(checked).length).toBeGreaterThan(0);
++  });
++
++  it("rejects the harness synthetic fallback when no target run executes", async () => {
++    const { raw, checked } = await exercise({}, { jobIdFor: () => jobId });
++    expect(raw.some(c => c.group === "runSuite" && c.status === "skip")).toBe(true);
++    expect(failures(checked).length).toBeGreaterThan(0);
++  });
++
++  it("does not count no findings to rerun as executed rerun coverage", async () => {
++    const rerunFinding = vi.fn(fixture().rerunFinding);
++    const { raw, checked } = await exercise({ async investigate() { return []; }, rerunFinding });
++    expect(raw.find(c => c.group === "rerunFinding")?.status).toBe("pass");
++    expect(rerunFinding).not.toHaveBeenCalled();
++    expect(failures(checked).length).toBeGreaterThan(0);
++  });
++
++  it.each(["missing", "duplicate", "skip", "unknown"] as const)("rejects %s required check identities", async mode => {
++    const { strict, raw } = await exercise();
++    const required = raw.find(c => c.group === "runSuite")!;
++    const altered = mode === "missing" ? raw.filter(c => c !== required)
++      : mode === "duplicate" ? [...raw, { ...required }]
++      : mode === "unknown" ? raw.map(c => c === required ? { ...c, name: "invented coverage" } : c)
++      : raw.map(c => c === required ? { ...c, status: "skip" as const } : c);
++    expect(failures(strict.validate(altered)).length).toBeGreaterThan(0);
++  });
++
++  it("rejects suite stages executed under different jobs", async () => {
++    const { raw, checked } = await exercise({}, {
++      ...options,
++      jobIdFor: group => group === "runSuite" ? "22222222-2222-4222-8222-222222222222" : jobId,
++    });
++    expect(raw.find(c => c.group === "runSuite")?.status).toBe("fail");
++    expect(failures(checked).length).toBeGreaterThan(0);
++  });
++
++  it("rejects skipped suite and branching paths", async () => {
++    const { checked } = await exercise({}, { ...options, skipSuite: true, skipBranching: true });
++    expect(failures(checked).length).toBeGreaterThan(0);
++  });
++});
+diff --git a/scripts/naive-conformance-gate.ts b/scripts/naive-conformance-gate.ts
+new file mode 100644
+--- /dev/null
++++ b/scripts/naive-conformance-gate.ts
+@@ -0,0 +1,129 @@
++/** Strict execution coverage for the existing conformance harness; not provider or Phase 0 attestation. */
++import type { ConformanceCheck } from '../packages/core/src/contracts/conformance';
++import type { EvalServices, RunResult } from '../packages/core/src/contracts/services';
++import type { Finding, Suite } from '../packages/core/src/contracts';
++import { BLOCKED_TARGET_URLS } from '../packages/core/src/contracts/fixtures';
++
++export interface StrictConformanceEvidence {
++  calls: Partial<Record<keyof EvalServices, number>>;
++  succeeded: Partial<Record<keyof EvalServices, number>>;
++  suitePipeline: { designed: number; run: number; investigated: number; rerun: number };
++}
++const identity = (group: string, name: string) => `${group}: ${name}`;
++const expectedChecks = [
++  ['qualify', 'output parses (trace_audit)'], ['qualify', 'output parses (text_eval)'],
++  ['qualify', 'never returns a price'],
++  ['auditTrace', 'unsupported-claim trace yields >=1 confirmed/rubric finding with evidence'],
++  ['auditTrace', 'clean trace yields zero confirmed findings'],
++  ...BLOCKED_TARGET_URLS.map(url => ['checkTarget', `rejects ${url} without network`]),
++  ['renderReport', 'non-empty markdown + html, no <script>, schema-valid'],
++  ['proposeAndVerifyFix', 'returns schema-valid Remediation for the finding'],
++  ['designSuite', 'returns schema-valid Suite for ctx.jobId'],
++  ['runSuite', 'results reference suite scenarios'], ['investigate', 'findings valid with evidence'],
++  ['rerunFinding', 'returns schema-valid Finding with same id'],
++  ['budget', 'ctx with budgetMicroUsd=0 throws a typed budget error or makes no paid calls'],
++  ['branching', 'create -> connection -> delete'],
++].map(([group, name]) => identity(group, name));
++const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
++function requireEvidence(ok: unknown, message: string): asserts ok {
++  if (!ok) throw new Error(`Strict conformance: ${message}`);
++}
++
++export function createStrictConformanceServices(underlying: EvalServices): {
++  services: EvalServices;
++  evidence: () => StrictConformanceEvidence;
++  validate: (checks: ConformanceCheck[]) => ConformanceCheck[];
++} {
++  const observed: StrictConformanceEvidence = {
++    calls: {}, succeeded: {}, suitePipeline: { designed: 0, run: 0, investigated: 0, rerun: 0 },
++  };
++  let retained: { jobId: string; suite: Suite; run?: RunResult; findings?: Finding[] } | undefined;
++  // Explicit forwarding also supports implementations whose methods live on the prototype.
++  const services: EvalServices = {
++    qualify: (...args) => underlying.qualify(...args),
++    auditTrace: (...args) => underlying.auditTrace(...args),
++    checkTarget: (...args) => underlying.checkTarget(...args),
++    renderReport: (...args) => underlying.renderReport(...args),
++    proposeAndVerifyFix: (...args) => underlying.proposeAndVerifyFix(...args),
++    createJobBranch: (...args) => underlying.createJobBranch(...args),
++    deleteJobBranch: (...args) => underlying.deleteJobBranch(...args),
++    ...(underlying.getJobBranchConnection ? { getJobBranchConnection: (id: string) => underlying.getJobBranchConnection!(id) } : {}),
++    async designSuite(ctx, intake) {
++      retained = undefined;
++      const suite = await underlying.designSuite(ctx, intake);
++      requireEvidence(suite.jobId === ctx.jobId, 'designed suite job differs from context');
++      requireEvidence(suite.scenarios.length > 0 && new Set(suite.scenarios.map(s => s.id)).size === suite.scenarios.length, 'suite scenarios must be nonempty and unique');
++      retained = { jobId: ctx.jobId, suite: structuredClone(suite) };
++      observed.suitePipeline.designed++;
++      return suite;
++    },
++    async runSuite(ctx, suite, target, branch) {
++      requireEvidence(retained && retained.jobId === ctx.jobId && suite.jobId === ctx.jobId && same(suite, retained.suite), 'run must use the retained suite and shared suite job');
++      const run = await underlying.runSuite(ctx, suite, target, branch);
++      requireEvidence(run.versionLabel === retained.suite.versionLabel, 'run version differs from suite');
++      const expected = new Set(retained.suite.scenarios.map(s => s.id));
++      const ids = run.results.map(r => r.scenarioId);
++      requireEvidence(ids.length > 0 && ids.length === expected.size && new Set(ids).size === ids.length && ids.every(id => expected.has(id)), 'run must cover every scenario exactly once');
++      requireEvidence(typeof run.runId === 'string' && run.runId.trim().length > 0, 'run identity missing');
++      retained.run = structuredClone(run);
++      retained.findings = undefined;
++      observed.suitePipeline.run++;
++      return run;
++    },
++    async investigate(ctx, suite, runs) {
++      requireEvidence(retained?.run && retained.jobId === ctx.jobId && same(suite, retained.suite) && same(runs, [retained.run]), 'investigation requires the actual retained run and shared suite job');
++      const findings = await underlying.investigate(ctx, suite, runs);
++      const ids = new Set(retained.suite.scenarios.map(s => s.id));
++      requireEvidence(findings.every(f => typeof f.scenarioId === 'string' && ids.has(f.scenarioId)), 'investigation finding scenario binding invalid');
++      retained.findings = structuredClone(findings);
++      observed.suitePipeline.investigated++;
++      return findings;
++    },
++    async rerunFinding(ctx, finding, scenario) {
++      requireEvidence(retained?.findings && retained.jobId === ctx.jobId && retained.findings.some(f => same(f, finding)), 'rerun requires an actual retained investigation finding');
++      const expected = retained.suite.scenarios.find(s => s.id === finding.scenarioId);
++      requireEvidence(expected && same(expected, scenario), 'rerun scenario differs from retained finding scenario');
++      const binding = { id: finding.id, scenarioId: finding.scenarioId };
++      const result = await underlying.rerunFinding(ctx, finding, scenario);
++      requireEvidence(result.id === binding.id && result.scenarioId === binding.scenarioId, 'rerun changed finding identity or scenario binding');
++      observed.suitePipeline.rerun++;
++      return result;
++    },
++  };
++  for (const key of Object.keys(services) as Array<keyof EvalServices>) {
++    const fn = services[key] as (...args: unknown[]) => Promise<unknown>;
++    Object.assign(services, { [key]: async (...args: unknown[]) => {
++      observed.calls[key] = (observed.calls[key] ?? 0) + 1;
++      const result = await fn(...args);
++      observed.succeeded[key] = (observed.succeeded[key] ?? 0) + 1;
++      return result;
++    } });
++  }
++  return {
++    services,
++    evidence: () => structuredClone(observed),
++    validate(checks) {
++      const out = checks.map(check => ({ ...check }));
++      const fail = (name: string, message: string) => out.push({ group: 'strict coverage', name, status: 'fail', message });
++      const identities = checks.map(check => identity(check.group, check.name));
++      if (identities.some(id => !expectedChecks.includes(id))) fail('unexpected checks', 'Unknown check identities cannot establish coverage');
++      if (checks.some(check => !['pass', 'fail', 'skip'].includes(check.status))) fail('unknown status', 'Unknown check status');
++      for (const expected of expectedChecks) {
++        const matches = checks.filter(check => identity(check.group, check.name) === expected);
++        if (matches.length !== 1 || matches[0].status !== 'pass') fail(expected, 'Exactly one passing required check is required');
++      }
++      if (new Set(identities).size !== identities.length) fail('duplicate checks', 'Repeated check identities cannot establish coverage');
++      if (checks.some(check => check.status === 'skip')) fail('skipped checks', 'Strict conformance requires full execution');
++      for (const key of Object.keys(services) as Array<keyof EvalServices>) {
++        // Safe-target rejection may legitimately throw; the harness checks no network escaped.
++        const count = key === 'checkTarget' ? observed.calls[key] : observed.succeeded[key];
++        if (!count) fail(`method ${key}`, 'Required method was not exercised as required');
++      }
++      if (!underlying.getJobBranchConnection) fail('method getJobBranchConnection', 'Branch connection method missing');
++      for (const [stage, count] of Object.entries(observed.suitePipeline)) {
++        if (!count) fail(`suite ${stage}`, 'Required retained suite pipeline stage was not exercised');
++      }
++      return out;
++    },
++  };
++}
+diff --git a/docs/naive-run-recovery-integration/sql/001-run-recovery.sql b/docs/naive-run-recovery-integration/sql/001-run-recovery.sql
+new file mode 100644
+--- /dev/null
++++ b/docs/naive-run-recovery-integration/sql/001-run-recovery.sql
+@@ -0,0 +1,40 @@
++-- Additive profile, after 001-design-stage-recovery.sql. Existing profile constraints retained.
++ALTER TABLE workflow_stage.stages DROP CONSTRAINT stages_recovery_profile_check;
++ALTER TABLE workflow_stage.stages ADD CONSTRAINT stages_recovery_profile_check CHECK(recovery_profile IN ('none','retained-children','naive-single-child-v1','naive-design-v1','naive-text-run-v1'));
++ALTER TABLE workflow_stage.stages DROP CONSTRAINT design_plan_shape;
++CREATE FUNCTION workflow_stage.valid_text_run_plan(p jsonb) RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
++DECLARE c jsonb; seen text[]='{}'; ident text; targets integer=0;
++BEGIN
++ IF p IS NULL OR jsonb_typeof(p)<>'object' OR NOT p ?& ARRAY['profile','runId','suiteDigest','targetVersion','environment','children'] OR p-ARRAY['profile','runId','suiteDigest','targetVersion','environment','children']<>'{}'::jsonb THEN RETURN false; END IF;
++ IF p->>'profile'<>'naive-text-run-v1' OR jsonb_typeof(p->'children')<>'array' THEN RETURN false; END IF;
++ FOREACH ident IN ARRAY ARRAY['profile','runId','suiteDigest','targetVersion','environment'] LOOP
++ IF jsonb_typeof(p->ident)<>'string' OR length(p->>ident) NOT BETWEEN 1 AND 4096 THEN RETURN false; END IF; END LOOP;
++ IF p->>'suiteDigest' !~ '^[a-f0-9]{64}$' OR jsonb_array_length(p->'children') NOT BETWEEN 1 AND 256 THEN RETURN false; END IF;
++ FOR c IN SELECT value FROM jsonb_array_elements(p->'children') LOOP
++ IF jsonb_typeof(c)<>'object' OR NOT c ?& ARRAY['kind','operationKey'] OR c-ARRAY['kind','operationKey']<>'{}'::jsonb OR jsonb_typeof(c->'kind')<>'string' OR jsonb_typeof(c->'operationKey')<>'string' OR c->>'kind' NOT IN ('text_run_target','text_run_judge') OR length(c->>'operationKey') NOT BETWEEN 1 AND 4096 THEN RETURN false; END IF;
++ ident=c::text; IF ident=ANY(seen) THEN RETURN false; END IF; seen=array_append(seen,ident); IF c->>'kind'='text_run_target' THEN targets=targets+1; END IF;
++ END LOOP; RETURN targets>0;
++END $$;
++ALTER TABLE workflow_stage.stages ADD CONSTRAINT design_plan_shape CHECK(
++ (recovery_profile='naive-design-v1' AND expected_child_plan IS NOT NULL AND jsonb_typeof(expected_child_plan)='object'
++ AND expected_child_plan ?& ARRAY['profile','scope','outerDesignId','inputDigest']
++ AND expected_child_plan - ARRAY['profile','scope','outerDesignId','inputDigest'] = '{}'::jsonb
++ AND jsonb_typeof(expected_child_plan->'profile')='string' AND jsonb_typeof(expected_child_plan->'scope')='string' AND jsonb_typeof(expected_child_plan->'outerDesignId')='string' AND jsonb_typeof(expected_child_plan->'inputDigest')='string'
++ AND expected_child_plan->>'profile'='naive-design-v1'
++ AND expected_child_plan->>'scope' ~ '^[a-f0-9]{24}$'
++ AND expected_child_plan->>'inputDigest' ~ '^[a-f0-9]{64}$'
++ AND length(expected_child_plan->>'outerDesignId') BETWEEN 1 AND 4096)
++ OR (recovery_profile='naive-text-run-v1' AND workflow_stage.valid_text_run_plan(expected_child_plan)) OR (recovery_profile NOT IN ('naive-design-v1','naive-text-run-v1') AND expected_child_plan IS NULL));
++CREATE FUNCTION workflow_stage.bound_text_run_child() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE s workflow_stage.stages;
++BEGIN
++ SELECT * INTO s FROM workflow_stage.stages WHERE job_id=NEW.job_id AND stage_key=NEW.stage_key FOR UPDATE;
++ IF s.recovery_profile<>'naive-text-run-v1' THEN RETURN NEW; END IF;
++ IF s.state<>'running' OR s.lease_until<=clock_timestamp() OR NEW.registered_generation<>s.generation
++ OR EXISTS(SELECT 1 FROM workflow_stage.cancellations WHERE job_id=NEW.job_id)
++ OR NOT EXISTS(SELECT 1 FROM jobs WHERE id=NEW.job_id AND state::text IN ('draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'))
++ OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(s.expected_child_plan->'children') c WHERE c->>'kind'=NEW.kind AND c->>'operationKey'=NEW.operation_key)
++ THEN RAISE EXCEPTION 'workflow_stage_conflict'; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER bounded_text_run_child BEFORE INSERT ON workflow_stage.children FOR EACH ROW EXECUTE FUNCTION workflow_stage.bound_text_run_child();
+diff --git a/docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql b/docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql
+new file mode 100644
+--- /dev/null
++++ b/docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql
+@@ -0,0 +1,46 @@
++-- Apply after 001-run-recovery.sql and text integration checkpoint migration.
++CREATE TABLE workflow_stage.run_checkpoints (
++ job_id text NOT NULL,
++ stage_job_id uuid GENERATED ALWAYS AS (job_id::uuid) STORED,
++ kind text NOT NULL CHECK(kind IN ('run_identity','run_result','scenario','target','judge')),
++ id text NOT NULL CHECK(length(id) BETWEEN 1 AND 4096),
++ input_digest text NOT NULL CHECK(length(input_digest) BETWEEN 1 AND 4096),
++ stage_key text NOT NULL,
++ generation bigint NOT NULL CHECK(generation>0),token text NOT NULL CHECK(length(token) BETWEEN 1 AND 4096),
++ outer_id text NOT NULL,outer_digest text NOT NULL,
++ PRIMARY KEY(job_id,kind,id),
++ FOREIGN KEY(job_id,kind,id) REFERENCES text_integration.checkpoints(job_id,kind,id),
++ FOREIGN KEY(stage_job_id,stage_key) REFERENCES workflow_stage.stages(job_id,stage_key)
++);
++CREATE INDEX run_checkpoints_stage ON workflow_stage.run_checkpoints(stage_job_id,stage_key);
++CREATE FUNCTION workflow_stage.bound_run_checkpoint() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE s workflow_stage.stages; checkpoint_token text; checkpoint_digest text; checkpoint_state text;
++BEGIN
++ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'workflow_run_checkpoint_immutable'; END IF;
++ IF TG_OP='UPDATE' THEN
++ IF ROW(NEW.job_id,NEW.kind,NEW.id,NEW.input_digest,NEW.stage_key,NEW.outer_id,NEW.outer_digest)
++ IS DISTINCT FROM ROW(OLD.job_id,OLD.kind,OLD.id,OLD.input_digest,OLD.stage_key,OLD.outer_id,OLD.outer_digest)
++ OR NEW.generation<OLD.generation
++ OR (NEW.generation=OLD.generation AND NEW.token<>OLD.token)
++ OR (NEW.generation>OLD.generation AND (NEW.token=OLD.token OR NEW.kind='target'))
++ THEN RAISE EXCEPTION 'workflow_run_checkpoint_immutable'; END IF;
++ END IF;
++ SELECT * INTO s FROM workflow_stage.stages WHERE job_id=NEW.job_id::uuid AND stage_key=NEW.stage_key FOR UPDATE;
++ IF NOT FOUND OR s.recovery_profile<>'naive-text-run-v1' OR s.state<>'running' OR s.lease_until<=clock_timestamp()
++ OR NEW.generation<>s.generation OR NEW.outer_id<>s.expected_child_plan->>'runId' OR NEW.outer_digest<>s.expected_child_plan->>'suiteDigest'
++ OR EXISTS(SELECT 1 FROM workflow_stage.cancellations WHERE job_id=s.job_id)
++ OR NOT EXISTS(SELECT 1 FROM jobs WHERE id=s.job_id AND state::text IN ('draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'))
++ THEN RAISE EXCEPTION 'workflow_run_checkpoint_conflict'; END IF;
++ IF NEW.kind IN ('run_identity','run_result') THEN
++ IF NEW.id<>NEW.outer_id THEN RAISE EXCEPTION 'workflow_run_checkpoint_conflict'; END IF;
++ ELSE
++ IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(s.expected_child_plan->'children') c
++ WHERE c->>'operationKey'=NEW.id AND c->>'kind'=CASE WHEN NEW.kind='judge' THEN 'text_run_judge' ELSE 'text_run_target' END)
++ THEN RAISE EXCEPTION 'workflow_run_checkpoint_conflict'; END IF;
++ END IF;
++ SELECT token,input_digest,state INTO checkpoint_token,checkpoint_digest,checkpoint_state FROM text_integration.checkpoints WHERE job_id=NEW.job_id AND kind=NEW.kind AND id=NEW.id FOR UPDATE;
++ IF NOT FOUND OR checkpoint_token<>NEW.token OR checkpoint_digest<>NEW.input_digest OR checkpoint_state<>'pending'
++ THEN RAISE EXCEPTION 'workflow_run_checkpoint_conflict'; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER bounded_run_checkpoint BEFORE INSERT OR UPDATE OR DELETE ON workflow_stage.run_checkpoints FOR EACH ROW EXECUTE FUNCTION workflow_stage.bound_run_checkpoint();

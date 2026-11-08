@@ -1,0 +1,24 @@
+{
+  "manifestSha256": "71d14c3fda321e8c133c7e72f97e40154aa20e98f91a73eb684675e6d7d6777c",
+  "ownerPatchSha256": "2dc3d6142c14c02b1d7f340b019fedadc15f74a188ed45d81e09a039c6ea0fdf",
+  "ownerPatchApplied": true,
+  "independentPatchCheckedFiles": 2409,
+  "inheritedSourceAndBaselinePaths": 2377,
+  "incrementalPaths": 19,
+  "composedSourceAndBaselinePaths": 2386,
+  "inheritedSqlPaths": 23,
+  "incrementalSqlPaths": 2,
+  "checks": [
+    {
+      "assembly": "/private/tmp/naive-run-recovery-final-v2",
+      "checkedFiles": 2409,
+      "mismatches": []
+    },
+    {
+      "assembly": "/private/tmp/naive-run-recovery-repro-v2",
+      "checkedFiles": 2409,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true
+}

@@ -2,6 +2,14 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Bounded generic run recovery candidate (2026-11-08)
+
+Read `docs/naive-run-recovery-integration/README.md` and its final validation receipt. This unapplied 19-file/two-SQL increment extends the exact judge candidate and preserves actual strict-conformance scripts. Finite canonical run plans, transactional checkpoint associations and exact mode/attempt evidence permit retained target replay after ownership recovery. Unknown target or dispatched-judge evidence stays held; cancellation, changed inputs and stale owners cannot publish or dispatch.
+
+Six composed SQL/runtime cases and three mount tests distinguish reconstructed behavioral progress from money settlement. A retained run result does not release the parent while target money is unknown. Source adoption, native PostgreSQL/hosted acceptance, target monetary reconciliation, investigation/remediation recovery, rerun, conversation/idle, budget/roster and full Phase 0 gates remain open. Approved39 actual source and Track A deployment receipts remain separate. Preserve unrelated customer-recruitment files.
+
+Final verification: **4,609 staged tests / zero failures / two documented skips**, final web types and unchanged core types pass. Offline-font production build compiles 63 steps/four workflows; only two inherited test fixtures changed afterward, with all 2,407 remaining source/SQL hashes identical. Independent patch and two final assemblies verify all 2,409 hashes. Required actual-source web types and 4,152 tests pass. The skipped cases require suite regeneration or a live Neon sandbox. All Sol workers finished. This is an unapplied candidate, and the full Naïve goal remains active.
+
 ## Strict conformance gate (2026-11-08)
 
 Actual scripts source now supports `scripts/conformance.ts --strict`. It rejects partial options before service loading, preserves a shared fixture job for the suite pipeline, and requires every expected check plus observed method execution. Empty/incomplete/duplicate target results, changed versions/jobs, synthetic investigation input and a rerun never called cannot establish conformance. New pure gate/options tests exercise these failure modes offline. See [the gate evidence](naive-strict-conformance.md).

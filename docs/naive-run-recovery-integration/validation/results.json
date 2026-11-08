@@ -1,0 +1,59 @@
+{
+  "status": "unapplied_candidate_not_deployed",
+  "reviewedRepositoryCommit": "b2acd1e906ed8d8fff407465e33d4fd91895093a",
+  "latestObservedMain": "8dc6c7d",
+  "manifestSha256": "71d14c3fda321e8c133c7e72f97e40154aa20e98f91a73eb684675e6d7d6777c",
+  "ownerPatchSha256": "2dc3d6142c14c02b1d7f340b019fedadc15f74a188ed45d81e09a039c6ea0fdf",
+  "candidateTests": {
+    "numPassedTests": 4609,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1097,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualSourceTests": {
+    "numPassedTests": 4152,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1012,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "candidateWebTypes": "pass on final v2 after type generation",
+  "candidateCoreTypes": "pass; core source unchanged from v1",
+  "actualSourceWebTypes": "pass",
+  "offlineFontProductionBuild": {
+    "status": "pass",
+    "workflowSteps": 63,
+    "workflows": 4,
+    "builtManifestSha256": "8da99cf19e92256ab8a87ff0e450d48d37a6d77ded016beaf8512581abda672b",
+    "finalDifferences": [
+      "apps/web/src/server/naive-remediation-runtime.test.ts",
+      "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts"
+    ],
+    "unchangedBuildAndSqlHashes": 2407
+  },
+  "independentPatchAndReproductionReceipt": "verification.json",
+  "verifiedSourceSqlHashes": 2409,
+  "focusedChecks": {
+    "authoritySql": 27,
+    "checkpointReaderSql": 18,
+    "composedRuntimeSql": 6,
+    "mount": 3
+  },
+  "reviewCorrections": [
+    "Exact retained mode/attempt/input/receipt checks before judge takeover",
+    "Unassociated or mismatched completed run result cannot bypass checkpoint lineage",
+    "Actual generic service mount preserves raw pending and does not fall back",
+    "Inherited fixtures updated for new checkpoint fence and service helper; no production guard weakening"
+  ],
+  "limitations": [
+    "Reconstructed runtime objects and lost target-completion acknowledgement; not literal OS process death or hosted Workflow restart",
+    "PGlite and fake external transports, fixture cost writer; no native PostgreSQL contention/provider acceptance",
+    "Behavioral target replay does not settle target money; retained run result leaves Workflow pending with parent/target holds",
+    "No auto replacement of abandoned or uncertain dispatched judge/target calls",
+    "Actual source adoption and remaining Naive plan gates stay open",
+    "No credentials, provider calls, live migration, rollout flags, outreach, spending or deployment"
+  ]
+}

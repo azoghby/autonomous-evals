@@ -2,11 +2,19 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Latest bounded run recovery continuation (2026-11-08)
+
+Read `docs/naive-run-recovery-integration/README.md` and its final validation receipt. This unapplied 19-file/two-SQL increment extends the exact judge candidate and preserves actual strict-conformance scripts. Finite canonical run plans, transactional checkpoint associations and exact mode/attempt evidence permit retained target replay after ownership recovery. Unknown target or dispatched-judge evidence stays held; cancellation, changed inputs and stale owners cannot publish or dispatch.
+
+Six composed SQL/runtime cases and three mount tests distinguish reconstructed behavioral progress from money settlement. A retained run result does not release the parent while target money is unknown. Source adoption, native PostgreSQL/hosted acceptance, target monetary reconciliation, investigation/remediation recovery, rerun, conversation/idle, budget/roster and full Phase 0 gates remain open. Approved39 actual source and Track A deployment receipts remain separate. Preserve unrelated customer-recruitment files.
+
+Final verification: **4,609 staged tests / zero failures / two documented skips**, final web types and unchanged core types pass. Offline-font production build compiles 63 steps/four workflows; only two inherited test fixtures changed afterward, with all 2,407 remaining source/SQL hashes identical. Independent patch and two final assemblies verify all 2,409 hashes. Required actual-source web types and 4,152 tests pass. The skipped cases require suite regeneration or a live Neon sandbox. All Sol workers finished. This is an unapplied candidate, and the full Naïve goal remains active.
+
 ## Strict conformance continuation (2026-11-08)
 
 The actual `scripts/conformance.ts --strict` gate now rejects known false-green cases and validates complete observed execution. Read `docs/naive-strict-conformance.md` and the latest LEDGER verification receipt. Full Phase 0 remains open; neither strict offline tests nor a passing mock implementation proves real provider/app execution. Historical non-strict diagnostics remain partial. Approved39 source stays adopted; all later runtime candidates remain separate and unapplied.
 
-Next implementation candidates identified from source: bounded generic `runSuite` recovery with retained target/judge child plans (pending target dispatch must remain held), then delivered-job rerun authority. The former should extend the exact judge-attempt candidate with stage authority/SQL, checkpoint associations and real process-reconstruction tests. Do not enable mixed takeover merely because judge attempts exist. Continue native PostgreSQL/hosted acceptance and other full-plan gates in parallel when separately authorized and configured.
+The later bounded run candidate above implements the finite target/judge recovery slice identified here. Target monetary reconciliation, broader mixed callbacks and delivered-job rerun authority remain separate. Continue native PostgreSQL/hosted acceptance and other full-plan gates when separately authorized and configured.
 
 ## Latest judge attempt composition continuation (2026-11-08)
 
