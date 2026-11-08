@@ -256,6 +256,48 @@ describe("AgentSessionService: ambiguous creation and recovery", () => {
 
 
 describe("AgentSessionService: dispatch screening and cached version evidence", () => {
+  it("retains measured cost for a wrong-version terminal create without needing a poll", async () => {
+    const h = harness(() => ({ ...good(), agentVersion: 2 }));
+    const directory = structuredClone(h.deps.directory);
+    directory.quality_investigator.agentVersion = 1;
+    const create = h.naive.createSession.bind(h.naive);
+    h.naive.createSession = async (body, key) => ({
+      ...await create(body, key), status: "completed", stopReason: "end_turn",
+      structuredOutput: good().structuredOutput,
+    });
+    let polls = 0;
+    h.naive.getSession = async () => {
+      polls++;
+      throw new NaiveCallError("ambiguous", "polling unavailable");
+    };
+    const service = new AgentSessionService({ ...h.deps, directory });
+    const out = await service.run(spec());
+    expect(out).toMatchObject({ status: "needs_operator", code: "agent_version_mismatch", cost: { microUsd: 12_345, measured: true } });
+    expect(out).not.toHaveProperty("output");
+    expect(polls).toBe(0);
+    expect([...h.ledger.reservations.values()]).toMatchObject([{ settledMicroUsd: 12_345 }]);
+    expect(await h.store.get(out.taskKey)).toMatchObject({ state: "needs_operator", agentVersion: 2, consumedMicroUsd: 12_345, result: null });
+    expect(await service.run(spec())).toMatchObject({ status: "needs_operator", code: "agent_version_mismatch", cost: { microUsd: 12_345, measured: true } });
+    expect(h.naive.createCalls).toHaveLength(1);
+  });
+
+  it("retains unknown spend when a wrong running create version cannot be polled", async () => {
+    const h = harness(() => ({ ...good(), agentVersion: 2 }));
+    const directory = structuredClone(h.deps.directory);
+    directory.quality_investigator.agentVersion = 1;
+    h.naive.getSession = async () => { throw new NaiveCallError("ambiguous", "temporary polling failure"); };
+    const service = new AgentSessionService({ ...h.deps, directory });
+    const out = await service.run(spec());
+    expect(out).toMatchObject({ status: "needs_operator", code: "agent_version_mismatch", sessionIds: ["ses_fake_1"] });
+    if (out.status === "needs_operator") expect(out.cost ?? null).toBeNull();
+    expect(out).not.toHaveProperty("output");
+    expect([...h.ledger.reservations.values()]).toMatchObject([{ settledMicroUsd: null }]);
+    expect(h.ledger.committed("job:job-fixture-1")).toBe(usd(0.5));
+    expect(await h.store.get(out.taskKey)).toMatchObject({ state: "needs_operator", agentVersion: 2, consumedMicroUsd: null, result: null });
+    expect(await service.run(spec())).toMatchObject({ status: "needs_operator", code: "agent_version_mismatch", cost: null });
+    expect(h.naive.createCalls).toHaveLength(1);
+  });
+
   it("screens the actual stored create message after intent persistence", async () => {
     const h = harness(good);
     const insert = h.store.insertIfAbsent.bind(h.store);
