@@ -323,3 +323,5 @@ Times are PT, as recorded.
   - Planner: day plan written.
   - Onboarding: 0 open runs to process.
 - ~09:30 PT: /company gets the animated agent-workflow diagram: 44 s, 720p, 1.4 MB, autoplay muted loop with controls. Deployed 63342d8 (autonomous-evals-9wdo0l7ok ● Ready). The 2-min demo v4 shows the same diagram over the company section (0:56–1:09); the video files are in the session scratchpad at video/final/, outside the repo.
+
+- ~10:25 PT: ran the 4 missing leaderboard cells under a $6 cap, as the founder approved. smolagents on Gemini 3.8 Flash scored 30/32 (red-team 20/20) and is on the leaderboard (run 1c935783). LangGraph on Sonnet 5.5 was killed at scenario 24/32 after about $4 of gateway spend at roughly $0.40/min (no row written). smolagents on Opus 5.5 and LangGraph on Opus 5.5 were not started because of the cap. Gateway credit went from $13.71 to $7.87 ($5.84). Note: `--timeout-min` defaults to a value too low for smolagents (about 22 min per run); use 40. Details: docs/REAL_AGENT_RESULTS.md.
