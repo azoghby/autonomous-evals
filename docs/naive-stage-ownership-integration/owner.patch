@@ -1,0 +1,1082 @@
+diff --git a/apps/web/src/server/expert-text-runtime.ts b/apps/web/src/server/expert-text-runtime.ts
+--- a/apps/web/src/server/expert-text-runtime.ts
++++ b/apps/web/src/server/expert-text-runtime.ts
+@@ -4,6 +4,9 @@
+ import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
+ import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
+ import type { AgentTaskRunner } from '@ae/core/agents/session-service';
++import { currentWorkflowStageScope, assertWorkflowStageCurrent } from './workflow-stage-runtime';
++import { assertWorkflowStageOwner } from '@ae/core/db/workflow-stage-authority';
++import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
+ import { buildAgentDeps } from '@ae/core/integration/eval-services';
+ import type { ServiceContext, RunResult } from '@ae/core/contracts/services';
+ import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
+@@ -38,6 +41,14 @@
+ const fail = (): never => { throw new Error('expert_text_authority_unavailable'); };
+ const hash = (v: unknown) => createHash('sha256').update(canonicalJson(v)).digest('hex');
+ type Tx = Parameters<Parameters<AgentTransactionalSql['transaction']>[0]>[0];
++/** A supplied tx is the artifact/binding writer's pinned transaction. Plain runtime
++ * checks use their own short transaction and do not claim atomic publication. */
++export async function assertExpertTextStage(jobId:string,tx?:Tx):Promise<void>{
++ const scope=currentWorkflowStageScope();if(!scope)return;
++ if(scope.owner.jobId!==jobId)return fail();
++ if(tx)await assertWorkflowStageOwner(tx,scope.owner);
++ else await assertWorkflowStageCurrent();
++}
+ interface OwnerRow { customer_id: string; environment: 'test'|'live'; intake: Record<string,unknown>; retest_of_job_id: string|null;
+  input: ProductionDataInput; input_digest: string; last_result: DataOrchestrationResult }
+ export interface ExpertTextRuntimeDependencies {
+@@ -143,6 +154,7 @@
+  const first=await authorized();
+  const fixed=hash({scope:first.scope,targetVersion:first.targetVersion,runId:first.runId});
+  async function current(tx:Tx=sql,value?:unknown) {
++  await assertExpertTextStage(ctx.jobId,tx===sql?undefined:tx);
+   const a=await authorized(tx);
+   if(hash({scope:a.scope,targetVersion:a.targetVersion,runId:a.runId})!==fixed||value!==undefined&&!inspectDataSafety(value,a.secrets).safe) return fail();
+   return a;
+@@ -164,7 +176,7 @@
+   designId:`expert-${first.frozen.digest}`,versionLabel:first.frozen.versionLabel,inputDigest:hash({scope:first.scope})},first.frozen);
+  if(admission.status!=='approved') return fail();
+  const projection=projectFrozenTextSuite(first.frozen,first.scope,first.secrets);
+- const rawRunner=deps.runner??(await buildAgentDeps()).runner;
++ const rawRunner=deps.runner?fenceWorkflowStageRunner(deps.runner):(await buildAgentDeps({decorateNaiveSessions:fenceWorkflowStageSessions,decorateAgentRunner:fenceWorkflowStageRunner})).runner;
+  const runner:AgentTaskRunner={run:async spec=>{await current();const spent=Number((await sql.query<{spent:string}>('SELECT coalesce(sum(micro_usd),0)::text AS spent FROM costs WHERE job_id=$1',[ctx.jobId])).rows[0]?.spent??0);if(!Number.isSafeInteger(spent)||spent<0||spec.budgetMicroUsd>cap-spent)return fail();const result=await rawRunner.run(spec);if('cost' in result&&result.cost)await deliverSessionCost(result.cost,false);await current(sql,result);return result;}};
+  async function resolved() {
+   const a=await current();
+diff --git a/apps/web/src/server/expert-text-stage.test.ts b/apps/web/src/server/expert-text-stage.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/expert-text-stage.test.ts
+@@ -0,0 +1,15 @@
++import { beforeEach,expect,it,vi } from 'vitest';
++const mocks=vi.hoisted(()=>({scope:undefined as undefined|{owner:{jobId:string;stageKey:string;generation:number;token:string}},current:vi.fn(),owner:vi.fn()}));
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>mocks.scope,assertWorkflowStageCurrent:mocks.current}));
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:mocks.owner}));
++import { assertExpertTextStage } from './expert-text-runtime';
++beforeEach(()=>{vi.clearAllMocks();mocks.scope={owner:{jobId:'job',stageKey:'expert',generation:2,token:'owner'}};});
++it('checks artifact ownership using the exact writer transaction',async()=>{
++ const tx={query:vi.fn()};await assertExpertTextStage('job',tx);expect(mocks.owner).toHaveBeenCalledWith(tx,mocks.scope!.owner);expect(mocks.current).not.toHaveBeenCalled();
++});
++it('plain runtime checks use a separate current check and reject cross-job scope',async()=>{
++ await assertExpertTextStage('job');expect(mocks.current).toHaveBeenCalledTimes(1);expect(mocks.owner).not.toHaveBeenCalled();await expect(assertExpertTextStage('other',{query:vi.fn()})).rejects.toThrow('authority_unavailable');expect(mocks.owner).not.toHaveBeenCalled();
++});
++it('stale transaction fence aborts authorization and unscoped callers retain existing behavior',async()=>{
++ mocks.owner.mockRejectedValueOnce(Error('stale'));await expect(assertExpertTextStage('job',{query:vi.fn()})).rejects.toThrow('stale');mocks.scope=undefined;await assertExpertTextStage('job',{query:vi.fn()});expect(mocks.owner).toHaveBeenCalledTimes(1);
++});
+diff --git a/apps/web/src/server/job-store-stage-sql.test.ts b/apps/web/src/server/job-store-stage-sql.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/job-store-stage-sql.test.ts
+@@ -0,0 +1,83 @@
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,beforeEach,expect,it,vi } from 'vitest';
++import { readFileSync } from 'node:fs';
++import { Finding,JOB_STATES,type Remediation } from '@ae/core/contracts/index';
++import { claimWorkflowStage,markWorkflowStagePending,registerWorkflowStageChild,recoverWorkflowStage,type WorkflowStageClaim } from '@ae/core/db/workflow-stage-authority';
++import type { WorkflowStageScope } from './workflow-stage-runtime';
++import { setJobState,recordProgress,saveFindings,saveRemediation,recordCost } from './job-store';
++const state=vi.hoisted(()=>({scope:undefined as WorkflowStageScope|undefined,settle:vi.fn()}));
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>state.scope,workflowStageDigest:JSON.stringify}));
++vi.mock('./cost-settlement',()=>({recordSettledCost:state.settle}));
++vi.mock('@ae/core/db/client',()=>({db:()=>{throw Error('unexpected_unfenced_database');},schema:{}}));
++vi.mock('@ae/core/adapters/index',()=>({createServiceAdapters:()=>({})}));
++vi.mock('@ae/core/storage/blob',()=>({readJobArtifactText:vi.fn()}));
++vi.mock('@ae/core/storage/crypto',()=>({decryptJson:vi.fn()}));
++let pg:PGlite;
++const job='11111111-1111-4111-8111-111111111111',customer='22222222-2222-4222-8222-222222222222',other='33333333-3333-4333-8333-333333333333';
++const claim:WorkflowStageClaim={jobId:job,ownerId:customer,environment:'test',stageKey:'report',inputDigest:'digest',role:'operator',amountMicroUsd:100,invocation:{workflowRunId:'run',stepId:'step',attempt:0},leaseMs:300000};
++const tx:WorkflowStageScope['transaction']=fn=>pg.transaction(t=>fn({query:(s,p)=>t.query(s,p)}));
++const finding=Finding.parse({id:'f1',title:'Unsupported claim',status:'confirmed',severity:'high',category:'unsupported_claim',description:'Evidence contradicts the answer',evidence:[{kind:'trace_excerpt',excerpt:'answer'}]});
++const remediation:Remediation={findingId:'f1',kind:'prompt_patch',summary:'Require citations',rationale:'Support factual answers',patch:'Add citations',verification:{status:'verified',before:{passed:0,total:1},after:{passed:1,total:1},regressions:0,evidence:[]}};
++async function findingId(){return (await pg.query<{id:string}>('SELECT id FROM findings WHERE job_id=$1 AND rerun_of_finding_id IS NULL',[job])).rows[0]!.id;}
++beforeEach(async()=>{
++ state.settle.mockReset();pg=new PGlite();
++ await pg.exec(`CREATE TYPE job_state AS ENUM (${JOB_STATES.map(s=>`'${s}'`).join(',')});CREATE TYPE environment AS ENUM ('test','live');
++ CREATE TABLE jobs(id uuid PRIMARY KEY,package text NOT NULL,customer_id uuid NOT NULL,environment environment NOT NULL,state job_state NOT NULL DEFAULT 'draft',intake jsonb NOT NULL DEFAULT '{}',budget_reserved_micro_usd bigint NOT NULL DEFAULT 0,error text,delivered_at timestamptz,neon_branch_id text,report_blob_path text,suite_blob_path text,workflow_run_id text,credentials_delete_after timestamptz,branch_delete_after timestamptz,updated_at timestamptz NOT NULL DEFAULT now());
++ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid REFERENCES jobs(id),agent text,micro_usd bigint,released_at timestamptz);
++ CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid REFERENCES jobs(id),micro_usd bigint,receipt_key text);
++ CREATE TABLE progress_events(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid NOT NULL REFERENCES jobs(id),milestone text NOT NULL,message text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
++ CREATE TABLE findings(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid NOT NULL REFERENCES jobs(id),finding_key text NOT NULL,data jsonb NOT NULL,rerun_of_finding_id uuid,created_at timestamptz NOT NULL DEFAULT now());
++ CREATE TABLE remediations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid NOT NULL REFERENCES jobs(id),finding_row_id uuid NOT NULL UNIQUE REFERENCES findings(id),data jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
++ CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
++ await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
++ await pg.exec(readFileSync(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql','utf8'));
++ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4),($5,$2,$3,$4)',[job,'trace_audit',customer,'test',other]);
++ const decision=await tx(t=>claimWorkflowStage(t,claim));if(decision.kind!=='owned')throw Error('owner');state.scope={owner:decision.owner,transaction:tx};
++});
++afterEach(async()=>{state.scope=undefined;await pg.close();});
++it('executes scoped state SQL with actual enum and every supported extra column',async()=>{
++ const date=new Date('2026-11-08T12:00:00Z');
++ await setJobState(job,'delivered',{error:null,deliveredAt:date,neonBranchId:'branch',reportBlobPath:'private/report',suiteBlobPath:'private/suite',workflowRunId:'workflow',credentialsDeleteAfter:date,branchDeleteAfter:date,budgetReservedMicroUsd:100});
++ const row=(await pg.query('SELECT * FROM jobs WHERE id=$1',[job])).rows[0];expect(row).toMatchObject({state:'delivered',error:null,neon_branch_id:'branch',report_blob_path:'private/report',suite_blob_path:'private/suite',workflow_run_id:'workflow',budget_reserved_micro_usd:100});expect(new Date(row.delivered_at as string).toISOString()).toBe(date.toISOString());
++ await expect(setJobState(job,'running',{error:undefined})).rejects.toThrow('workflow_stage_conflict');expect((await pg.query('SELECT state FROM jobs WHERE id=$1',[job])).rows[0]).toMatchObject({state:'delivered'});
++});
++it('executes scoped progress, original/rerun finding inserts and remediation upsert against real columns',async()=>{
++ await recordProgress(job,'m'.repeat(110),'p'.repeat(1100));expect((await pg.query('SELECT milestone,message FROM progress_events')).rows[0]).toEqual({milestone:'m'.repeat(100),message:'p'.repeat(1000)});
++ await saveFindings(job,[finding]);await saveFindings(job,[{...finding,title:'Do not replace original'}]);const id=await findingId();
++ await saveFindings(job,[{...finding,title:'Rerun result'}],id);expect((await pg.query('SELECT * FROM findings')).rows).toHaveLength(2);
++ expect((await pg.query<{data:unknown}>('SELECT data FROM findings WHERE id=$1',[id])).rows[0]!.data).toEqual(finding);
++ await saveRemediation(job,id,remediation);await saveRemediation(job,id,{...remediation,summary:'Updated verification'});
++ const rows=(await pg.query('SELECT * FROM remediations')).rows;expect(rows).toHaveLength(1);expect(rows[0]!.data).toEqual({...remediation,summary:'Updated verification'});
++ await expect(saveRemediation(job,other,remediation)).rejects.toThrow('finding_job_mismatch');
++});
++it('denies all scoped publication SQL from an expired lease without writing rows',async()=>{
++ await saveFindings(job,[finding]);const id=await findingId();await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second'");
++ for(const write of [()=>setJobState(job,'delivered'),()=>recordProgress(job,'late','late'),()=>saveFindings(job,[{...finding,id:'f2'}]),()=>saveRemediation(job,id,remediation)])await expect(write()).rejects.toThrow('workflow_stage_conflict');
++ expect((await pg.query('SELECT state FROM jobs WHERE id=$1',[job])).rows[0]).toMatchObject({state:'draft'});expect((await pg.query('SELECT * FROM findings')).rows).toHaveLength(1);expect((await pg.query('SELECT * FROM progress_events')).rows).toHaveLength(0);expect((await pg.query('SELECT * FROM remediations')).rows).toHaveLength(0);
++});
++it('denies old generation writes after concrete takeover while current generation can publish',async()=>{
++ await saveFindings(job,[finding]);const id=await findingId(),old=state.scope!;
++ await tx(t=>registerWorkflowStageChild(t,old.owner,{kind:'retained-test',operationKey:'task',requestDigest:'body'}));await tx(t=>markWorkflowStagePending(t,old.owner));
++ const next=await tx(t=>recoverWorkflowStage(t,claim,{read:async()=>({state:'resumable',evidenceKey:'retained-test:task'})}));if(next.kind!=='owned')throw Error('owner');
++ for(const write of [()=>setJobState(job,'delivered'),()=>recordProgress(job,'late','late'),()=>saveFindings(job,[{...finding,id:'f2'}]),()=>saveRemediation(job,id,remediation)])await expect(write()).rejects.toThrow('workflow_stage_conflict');
++ state.scope={owner:next.owner,transaction:tx};await recordProgress(job,'recovered','current');expect((await pg.query('SELECT message FROM progress_events')).rows).toEqual([{message:'current'}]);
++ await expect(setJobState(other,'running')).rejects.toThrow('workflow_stage_job_mismatch');
++});
++it('measured cost settlement remains available after owner expiry and bypasses publication fencing',async()=>{
++ await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second'");
++ const cost={jobId:job,source:'ai_gateway' as const,requestId:'measured-request',microUsd:7,meta:{measured:true}};
++ await recordCost(cost,{ownerId:customer,environment:'test'});expect(state.settle).toHaveBeenCalledExactlyOnceWith({kind:'job',id:job,ownerId:customer,environment:'test'},cost);
++ expect((await pg.query('SELECT * FROM progress_events')).rows).toHaveLength(0);
++});
++
++it.each(['cancelled','failed','delivered','paused_budget','payment_review'])('committed %s state revokes callback publication while retaining measured accounting',async status=>{
++ await saveFindings(job,[finding]);const id=await findingId();
++ await pg.query('UPDATE jobs SET state=$2 WHERE id=$1',[job,status]);
++ for(const write of [()=>setJobState(job,'running'),()=>recordProgress(job,'late','late'),()=>saveFindings(job,[{...finding,id:'f2'}]),()=>saveRemediation(job,id,remediation)])await expect(write()).rejects.toThrow('workflow_stage_conflict');
++ expect((await pg.query('SELECT state FROM jobs WHERE id=$1',[job])).rows[0]).toMatchObject({state:status});
++ expect((await pg.query('SELECT * FROM findings')).rows).toHaveLength(1);
++ expect((await pg.query('SELECT * FROM progress_events')).rows).toHaveLength(0);
++ expect((await pg.query('SELECT * FROM remediations')).rows).toHaveLength(0);
++ await recordCost({jobId:job,source:'ai_gateway',requestId:'late-measured',microUsd:7,meta:{measured:true}});
++ expect(state.settle).toHaveBeenCalledOnce();
++});
+diff --git a/apps/web/src/server/job-store-stage.test.ts b/apps/web/src/server/job-store-stage.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/job-store-stage.test.ts
+@@ -0,0 +1,34 @@
++import { beforeEach, expect, it, vi } from 'vitest';
++const state=vi.hoisted(()=>({scope:undefined as any,stale:false,committed:[] as string[],pending:[] as string[],failWrite:false,query:vi.fn()}));
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>state.scope,workflowStageDigest:()=>''}));
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({assertWorkflowStageOwner:async(tx:unknown)=>{expect(tx).toBe(state.scope.tx);if(state.stale)throw new Error('stale');},registerWorkflowStageChild:vi.fn(),markWorkflowStageChildDispatch:vi.fn()}));
++vi.mock('./cost-settlement',()=>({recordSettledCost:vi.fn()}));
++vi.mock('@ae/core/adapters/index',()=>({createServiceAdapters:()=>({})}));
++vi.mock('@ae/core/db/client',()=>({db:()=>{throw new Error('pooled_publication_forbidden');},schema:{}}));
++vi.mock('@ae/core/storage/blob',()=>({readJobArtifactText:vi.fn()}));
++import { recordProgress, saveFindings, saveRemediation, setJobState } from './job-store';
++beforeEach(()=>{
++ state.stale=false;state.failWrite=false;state.committed=[];state.pending=[];state.query.mockReset();
++ const tx={query:state.query};
++ state.query.mockImplementation(async(text:string)=>{state.pending.push(text);if(state.failWrite&&text.startsWith('INSERT'))throw new Error('write_failed');return {rows:text.startsWith('SELECT id')?[{id:'finding'}]:[]};});
++ state.scope={owner:{jobId:'job',stageKey:'stage',token:'private',generation:1},tx,transaction:async(fn:any)=>{state.pending=[];try{const value=await fn(tx);state.committed.push(...state.pending);return value;}catch(e){state.pending=[];throw e;}}};
++});
++it('writes state/progress on the exact transaction used by owner validation with bound data',async()=>{
++ await setJobState('job','running',{suiteBlobPath:'private/path'});await recordProgress('job','milestone','message');
++ expect(state.query.mock.calls[0]).toEqual(['UPDATE jobs SET state=$2,updated_at=now(),suite_blob_path=$3 WHERE id=$1',['job','running','private/path']]);
++ expect(state.committed).toHaveLength(2);
++});
++it('rejects stale owners before any publication SQL',async()=>{
++ state.stale=true;await expect(recordProgress('job','m','message')).rejects.toThrow('stale');expect(state.query).not.toHaveBeenCalled();
++});
++it('rejects cross-job publication and unrecognized dynamic columns',async()=>{
++ await expect(setJobState('other','running')).rejects.toThrow('job_mismatch');
++ await expect(setJobState('job','running',{injected:'bad'} as any)).rejects.toThrow('invalid_job_column');expect(state.query).not.toHaveBeenCalled();
++});
++it('rolls back finding reads and writes together when publication fails',async()=>{
++ state.failWrite=true;await expect(saveFindings('job',[{id:'finding'} as any])).rejects.toThrow('write_failed');expect(state.committed).toEqual([]);expect(state.pending).toEqual([]);
++});
++it('verifies remediation belongs to the scoped job and uses one owner transaction',async()=>{
++ await saveRemediation('job','finding',{summary:'fix'} as any);
++ expect(state.query.mock.calls[0]).toEqual(['SELECT id FROM findings WHERE id=$1 AND job_id=$2',['finding','job']]);expect(state.committed).toHaveLength(2);
++});
+diff --git a/apps/web/src/server/job-store.ts b/apps/web/src/server/job-store.ts
+--- a/apps/web/src/server/job-store.ts
++++ b/apps/web/src/server/job-store.ts
+@@ -1,4 +1,14 @@
+ import "server-only";
++import { currentWorkflowStageScope } from './workflow-stage-runtime';
++import { publishWorkflowStage } from './workflow-stage-children';
++
++/** A scoped publication must stay on the pinned owner-check transaction. */
++function stageScopeFor(jobId:string) {
++ const scope=currentWorkflowStageScope();
++ if(scope && scope.owner.jobId!==jobId)throw new Error('workflow_stage_job_mismatch');
++ return scope;
++}
++
+ import { recordSettledCost } from "./cost-settlement";
+ import { createServiceAdapters } from "@ae/core/adapters/index";
+ import { and, desc, eq, sql } from "drizzle-orm";
+@@ -32,10 +42,28 @@
+ }
+ 
+ export async function setJobState(jobId: string, state: JobState, extra: JobStateExtra = {}): Promise<void> {
++  const scope=stageScopeFor(jobId);
++  if(scope) {
++    const columns:Record<keyof JobStateExtra,string>={error:'error',deliveredAt:'delivered_at',neonBranchId:'neon_branch_id',reportBlobPath:'report_blob_path',suiteBlobPath:'suite_blob_path',workflowRunId:'workflow_run_id',credentialsDeleteAfter:'credentials_delete_after',branchDeleteAfter:'branch_delete_after',budgetReservedMicroUsd:'budget_reserved_micro_usd'};
++    const params:unknown[]=[jobId,state];
++    const assignments=['state=$2','updated_at=now()'];
++    for(const [key,value] of Object.entries(extra)) {
++      if(!Object.prototype.hasOwnProperty.call(columns,key))throw new Error('workflow_stage_invalid_job_column');
++      if(value===undefined)continue;
++      params.push(value);assignments.push(`${columns[key as keyof JobStateExtra]}=$${params.length}`);
++    }
++    await publishWorkflowStage(tx=>tx.query(`UPDATE jobs SET ${assignments.join(',')} WHERE id=$1`,params),scope);
++    return;
++  }
+   await db().update(schema.jobs).set({ ...extra, state, updatedAt: new Date() }).where(eq(schema.jobs.id, jobId));
+ }
+ 
+ export async function recordProgress(jobId: string, milestone: string, message: string): Promise<void> {
++  const scope=stageScopeFor(jobId);
++  if(scope) {
++    await publishWorkflowStage(tx=>tx.query('INSERT INTO progress_events(job_id,milestone,message) VALUES($1,$2,$3)',[jobId,milestone.slice(0,100),message.slice(0,1000)]),scope);
++    return;
++  }
+   await db().insert(schema.progressEvents).values({ jobId, milestone: milestone.slice(0, 100), message: message.slice(0, 1000) });
+ }
+ 
+@@ -46,7 +74,17 @@
+ 
+ /** Persists findings. Idempotent per (jobId, findingKey): existing keys are left untouched (originals are never overwritten). */
+ export async function saveFindings(jobId: string, findings: Finding[], rerunOfFindingId?: string): Promise<void> {
++  const scope=stageScopeFor(jobId);
+   if (findings.length === 0) return;
++  if(scope) {
++    await publishWorkflowStage(async tx=>{
++      const existing=await tx.query<{k:string}>('SELECT finding_key AS k FROM findings WHERE job_id=$1 AND rerun_of_finding_id IS NOT DISTINCT FROM $2::uuid',[jobId,rerunOfFindingId??null]);
++      const have=new Set(existing.rows.map(r=>r.k));
++      const fresh=rerunOfFindingId?findings:findings.filter(f=>!have.has(f.id));
++      for(const finding of fresh)await tx.query('INSERT INTO findings(job_id,finding_key,data,rerun_of_finding_id) VALUES($1,$2,$3::jsonb,$4)',[jobId,finding.id,JSON.stringify(finding),rerunOfFindingId??null]);
++    },scope);
++    return;
++  }
+   const existing = await db().select({ k: schema.findings.findingKey }).from(schema.findings)
+     .where(and(eq(schema.findings.jobId, jobId), rerunOfFindingId ? eq(schema.findings.rerunOfFindingId, rerunOfFindingId) : sql`${schema.findings.rerunOfFindingId} is null`));
+   const have = new Set(existing.map((r) => r.k));
+@@ -148,6 +186,15 @@
+ 
+ /** Persists a validated fix for a finding row. Idempotent: one remediation per finding row (retries overwrite). */
+ export async function saveRemediation(jobId: string, findingRowId: string, remediation: Remediation): Promise<void> {
++  const scope=stageScopeFor(jobId);
++  if(scope) {
++    await publishWorkflowStage(async tx=>{
++      const finding=(await tx.query<{id:string}>('SELECT id FROM findings WHERE id=$1 AND job_id=$2',[findingRowId,jobId])).rows[0];
++      if(!finding)throw new Error('workflow_stage_finding_job_mismatch');
++      await tx.query('INSERT INTO remediations(job_id,finding_row_id,data) VALUES($1,$2,$3::jsonb) ON CONFLICT(finding_row_id) DO UPDATE SET data=excluded.data',[jobId,findingRowId,JSON.stringify(remediation)]);
++    },scope);
++    return;
++  }
+   await db().insert(schema.remediations).values({ jobId, findingRowId, data: remediation })
+     .onConflictDoUpdate({ target: schema.remediations.findingRowId, set: { data: remediation } });
+ }
+diff --git a/apps/web/src/server/services-stage.test.ts b/apps/web/src/server/services-stage.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/services-stage.test.ts
+@@ -0,0 +1,9 @@
++import { expect,it,vi } from 'vitest';
++const mocks=vi.hoisted(()=>({create:vi.fn(()=>({qualify:vi.fn(),auditTrace:vi.fn(),renderReport:vi.fn()})),sessions:vi.fn(),runner:vi.fn()}));
++vi.mock('./workflow-stage-children',()=>({fenceWorkflowStageSessions:mocks.sessions,fenceWorkflowStageRunner:mocks.runner}));
++vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),createRealEvalServices:mocks.create}));
++it('mounts both child decorators on app-owned real composition including explicit expert real services',async()=>{
++ vi.resetModules();const {stageRealEvalServices,getEvalServices}=await import('./services');
++ expect(mocks.create).toHaveBeenCalledWith({decorateNaiveSessions:mocks.sessions,decorateAgentRunner:mocks.runner});expect(stageRealEvalServices).toHaveProperty('renderReport');
++ vi.stubEnv('EVAL_SERVICES','real');const services=await getEvalServices();await services.qualify({} as never,{} as never,[]);expect(stageRealEvalServices.qualify).toHaveBeenCalled();vi.unstubAllEnvs();
++});
+diff --git a/apps/web/src/server/services.ts b/apps/web/src/server/services.ts
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -7,11 +7,18 @@
+ import { assertPublicTarget } from "./target-url";
+ import { mockRedTeamFindings, mockRedTeamResults } from "./redteam-mock";
+ import {
+-  evalServices as trackBServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
++  createRealEvalServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
+ } from "@ae/core/integration/eval-services";
+ import { FatalError, RetryableError } from "workflow";
+ import { createLiteServices, LiteJudgeOutageError, LiteUnavailableError } from "@ae/core/lite/index";
+ import { resolveJobTarget } from "./lite-target";
++
++import { fenceWorkflowStageSessions, fenceWorkflowStageRunner } from './workflow-stage-children';
++/** Explicit expert plans use this direct real engine without lite fallback. */
++export const stageRealEvalServices = createRealEvalServices({
++  decorateNaiveSessions: fenceWorkflowStageSessions,
++  decorateAgentRunner: fenceWorkflowStageRunner,
++});
+ 
+ const MOCK = "[MOCK]";
+ const MOCK_CLARIFY_MARKER = "[needs-clarification]";
+@@ -240,6 +247,6 @@
+     lite ??= withWorkflowErrors(liteServices());
+     return lite;
+   }
+-  real ??= withWorkflowErrors(withLiteFallback(trackBServices, liteServices()));
++  real ??= withWorkflowErrors(withLiteFallback(stageRealEvalServices, liteServices()));
+   return real;
+ }
+diff --git a/apps/web/src/server/workflow-stage-children.test.ts b/apps/web/src/server/workflow-stage-children.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-stage-children.test.ts
+@@ -0,0 +1,57 @@
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,beforeEach,expect,it,vi } from 'vitest';
++import { createHash } from 'node:crypto';
++import { readFileSync } from 'node:fs';
++import type { AgentTaskRecord,NaiveSessionsPort } from '@ae/core/evals/types';
++import { claimWorkflowStage,markWorkflowStagePending,recoverWorkflowStage,type WorkflowStageClaim } from '@ae/core/db/workflow-stage-authority';
++import type { WorkflowStageScope } from './workflow-stage-runtime';
++import { fenceWorkflowStageSessions,fenceWorkflowStageRunner,publishWorkflowStage,workflowStageRecoveryReader } from './workflow-stage-children';
++vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>undefined,workflowStageDigest:(v:unknown)=>{function stable(x:unknown):string{if(Array.isArray(x))return '['+x.map(stable).join(',')+']';if(x&&typeof x==='object')return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+stable((x as Record<string,unknown>)[k])).join(',')+'}';return JSON.stringify(x);}return createHash('sha256').update(stable(v)).digest('hex');}}));
++let pg:PGlite,scope:WorkflowStageScope;
++const job='11111111-1111-4111-8111-111111111111',customer='22222222-2222-4222-8222-222222222222';
++const claim:WorkflowStageClaim={jobId:job,ownerId:customer,environment:'test',stageKey:'audit',inputDigest:'digest',role:'investigator',amountMicroUsd:100,invocation:{workflowRunId:'run',stepId:'step',attempt:0},leaseMs:300000};
++let record:AgentTaskRecord;
++const tx:WorkflowStageScope['transaction']=fn=>pg.transaction(t=>fn({query:(s,p)=>t.query(s,p)}));
++async function save(){await pg.query('INSERT INTO agent_persistence.tasks(task_key,record) VALUES($1,$2::jsonb) ON CONFLICT(task_key) DO UPDATE SET record=excluded.record',[record.taskKey,JSON.stringify(record)]);}
++const provider=()=>({createSession:vi.fn(async()=>({id:'session'})),getSession:vi.fn(async()=>({id:'session'})),listAgentSessions:vi.fn(async()=>({data:[],nextCursor:null}))}) as unknown as NaiveSessionsPort;
++beforeEach(async()=>{
++ pg=new PGlite();await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,state text NOT NULL DEFAULT 'running',budget_reserved_micro_usd bigint DEFAULT 0);CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.tasks(task_key text PRIMARY KEY,record jsonb);CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
++ await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
++ await pg.exec(readFileSync(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql','utf8'));
++ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);
++ const owned=await tx(t=>claimWorkflowStage(t,claim));if(owned.kind!=='owned')throw Error('owner');scope={owner:owned.owner,transaction:tx};
++ record={taskKey:`${job}:quality_investigator:audit:1`,jobId:job,idempotencyKey:'immutable-key',revision:0,state:'creating',requestBody:{agent_id:'agent',message:'hello',budget_micro_usd:100,structured_output_required:true,output_schema:{type:'object'},metadata:{ae_job_id:job,ae_task_key:`${job}:quality_investigator:audit:1`}},sessionId:null,result:null,consumedMicroUsd:null} as AgentTaskRecord;await save();
++});
++afterEach(async()=>{await pg.close();});
++it('commits exact retained intent before provider call and permits same-key protocol replay',async()=>{
++ const port=provider();vi.mocked(port.createSession).mockImplementation(async()=>{expect((await pg.query('SELECT * FROM workflow_stage.children')).rows[0]).toMatchObject({operation_key:record.taskKey,dispatch_generation:1});return {id:'session'} as never;});
++ const wrapped=fenceWorkflowStageSessions(port,()=>scope);await wrapped.createSession(record.requestBody,record.idempotencyKey);record.state='ambiguous';await save();await wrapped.createSession(record.requestBody,record.idempotencyKey);expect(port.createSession).toHaveBeenCalledTimes(2);expect((await pg.query('SELECT * FROM workflow_stage.children')).rows).toHaveLength(1);
++});
++it('rejects changed bodies keys missing records and cross-job bodies without provider calls',async()=>{
++ const port=provider(),wrapped=fenceWorkflowStageSessions(port,()=>scope);
++ for(const [body,key] of [[{...record.requestBody,message:'changed'},record.idempotencyKey],[record.requestBody,'new-key'],[{...record.requestBody,metadata:{ae_task_key:'missing',ae_job_id:job}},record.idempotencyKey]])await expect(wrapped.createSession(body as typeof record.requestBody,key as string)).rejects.toThrow('reconciliation_required');expect(port.createSession).not.toHaveBeenCalled();
++});
++it('recovers accepted-create lost response using real retained task evidence and fences stale/new children',async()=>{
++ const port=provider(),old=scope,wrapped=fenceWorkflowStageSessions(port,()=>scope);await wrapped.createSession(record.requestBody,record.idempotencyKey);record.state='ambiguous';await save();await tx(t=>markWorkflowStagePending(t,old.owner));
++ const next=await tx(t=>recoverWorkflowStage(t,{...claim,invocation:{...claim.invocation,stepId:'poll'}},workflowStageRecoveryReader));if(next.kind!=='owned')throw Error('owner');scope={owner:next.owner,transaction:tx};
++ await expect(fenceWorkflowStageSessions(port,()=>old).createSession(record.requestBody,record.idempotencyKey)).rejects.toThrow();await wrapped.createSession(record.requestBody,record.idempotencyKey);
++ record={...record,taskKey:'fresh',idempotencyKey:'fresh-key',requestBody:{...record.requestBody,metadata:{ae_job_id:job,ae_task_key:'fresh'}}};await save();await expect(wrapped.createSession(record.requestBody,record.idempotencyKey)).rejects.toThrow();expect(port.createSession).toHaveBeenCalledTimes(2);
++});
++it('publication rollback uses the same transaction and stale owners cannot publish',async()=>{
++ await expect(publishWorkflowStage(async t=>{await t.query('UPDATE jobs SET package=$2 WHERE id=$1',[job,'text_eval']);throw Error('crash');},scope)).rejects.toThrow('crash');expect((await pg.query('SELECT package FROM jobs')).rows[0]).toMatchObject({package:'trace_audit'});
++ await tx(t=>markWorkflowStagePending(t,scope.owner));await expect(publishWorkflowStage(async()=>true,scope)).rejects.toThrow();await expect(publishWorkflowStage(async()=>true)).rejects.toThrow('scope_required');
++});
++it('reads remain available after ownership loss; unsupported or altered recovery evidence stays unknown',async()=>{
++ const port=provider(),wrapped=fenceWorkflowStageSessions(port,()=>scope);await tx(t=>markWorkflowStagePending(t,scope.owner));await wrapped.getSession('session');await wrapped.listAgentSessions('agent',{limit:1});expect(port.getSession).toHaveBeenCalled();
++ for(const kind of ['gateway','naive_session'])expect(await tx(t=>workflowStageRecoveryReader.read(t,{jobId:job,stageKey:'audit',kind,operationKey:record.taskKey,requestDigest:'wrong',dispatchIntent:true}))).toMatchObject({state:'unknown'});
++});
++
++it('registers completed task replay without create and recovers terminal retained result across polling',async()=>{
++ record={...record,state:'completed',sessionId:'session',consumedMicroUsd:9,result:{ok:true}};await save();
++ const run=vi.fn(async()=>({status:'completed',taskKey:record.taskKey,output:{ok:true}}));
++ const runner=fenceWorkflowStageRunner({run} as never,()=>scope);
++ await runner.run({job:{jobId:job},role:'quality_investigator',purpose:'audit'} as never);
++ expect(run).toHaveBeenCalledTimes(1);expect((await pg.query('SELECT * FROM workflow_stage.children')).rows).toHaveLength(1);
++ await tx(t=>markWorkflowStagePending(t,scope.owner));
++ expect(await tx(t=>recoverWorkflowStage(t,{...claim,invocation:{...claim.invocation,stepId:'next-poll'}},workflowStageRecoveryReader))).toMatchObject({kind:'owned',recovery:'resume',owner:{generation:2}});
++});
+diff --git a/apps/web/src/server/workflow-stage-children.ts b/apps/web/src/server/workflow-stage-children.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-stage-children.ts
+@@ -0,0 +1,82 @@
++import type { NaiveSessionsPort, NaiveSessionCreateBody, AgentTaskRecord } from '@ae/core/evals/types';
++import { NaiveCallError } from '@ae/core/evals/types';
++import { assertWorkflowStageOwner, registerWorkflowStageChild, markWorkflowStageChildDispatch, type WorkflowStageRecoveryReader } from '@ae/core/db/workflow-stage-authority';
++import type { JobBudgetTx } from '@ae/core/db/job-budget-authority';
++import { currentWorkflowStageScope, workflowStageDigest, type WorkflowStageScope } from './workflow-stage-runtime';
++
++const KIND='naive_session';
++const refuse=():never=>{throw new NaiveCallError('ambiguous','workflow_stage_child_reconciliation_required');};
++function childIdentity(record:AgentTaskRecord){return {kind:KIND,operationKey:record.taskKey,requestDigest:workflowStageDigest({idempotencyKey:record.idempotencyKey,requestBody:record.requestBody})};}
++async function retained(tx:JobBudgetTx,key:string):Promise<AgentTaskRecord|undefined>{
++ return (await tx.query<{record:AgentTaskRecord}>('SELECT record FROM agent_persistence.tasks WHERE task_key=$1',[key])).rows[0]?.record;
++}
++/** Decorate at buildAgentDeps, before constructing AgentSessionService. Reads and measured
++ * receipt writes remain the existing protocol's responsibility, including after ownership loss.
++ * Intent commits before provider I/O. An already authorized request may finish after takeover;
++ * its immutable same-key receipt is evidence, never publication permission. */
++export function fenceWorkflowStageSessions(port:NaiveSessionsPort,getScope:()=>WorkflowStageScope|undefined=currentWorkflowStageScope):NaiveSessionsPort {
++ return {
++  getSession:id=>port.getSession(id),
++  listAgentSessions:(agent,page)=>port.listAgentSessions(agent,page),
++  async createSession(body:NaiveSessionCreateBody,idempotencyKey:string){
++   const scope=getScope();if(!scope)return port.createSession(body,idempotencyKey);
++   try {
++    await scope.transaction(async tx=>{
++     await assertWorkflowStageOwner(tx,scope.owner);
++     const taskKey=body.metadata?.ae_task_key;
++     if(typeof taskKey!=='string')return refuse();
++     const record=await retained(tx,taskKey);
++     if(!record||record.taskKey!==taskKey||record.jobId!==scope.owner.jobId||body.metadata.ae_job_id!==scope.owner.jobId||record.idempotencyKey!==idempotencyKey||workflowStageDigest(record.requestBody)!==workflowStageDigest(body)||!['creating','ambiguous'].includes(record.state))return refuse();
++     const child=childIdentity(record);
++     await registerWorkflowStageChild(tx,scope.owner,child);
++     const prior=(await tx.query<{dispatch_intent_at:unknown}>('SELECT dispatch_intent_at FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[scope.owner.jobId,scope.owner.stageKey,KIND,taskKey])).rows[0];
++     // Existing dispatch can only replay the exact immutable task/body/key through
++     // AgentSessionService's bounded ambiguous-create recovery, never a fresh child.
++     if(!prior?.dispatch_intent_at)await markWorkflowStageChildDispatch(tx,scope.owner,child);
++    });
++   }catch{ return refuse(); }
++   return port.createSession(body,idempotencyKey);
++  },
++ };
++}
++/** The actual publication write must use tx; a callback that uses another pooled
++ * connection does not satisfy this contract. No network/provider calls inside it. */
++export async function publishWorkflowStage<T>(write:(tx:JobBudgetTx)=>Promise<T>,scope:WorkflowStageScope|undefined=currentWorkflowStageScope()):Promise<T>{
++ if(!scope)throw Error('workflow_stage_scope_required');
++ return scope.transaction(async tx=>{await assertWorkflowStageOwner(tx,scope.owner);return write(tx);});
++}
++/** Trusted SQL evidence reader: no caller-provided timeout/boolean establishes recovery.
++ * Lite/Gateway/target children have no durable recoverable protocol here and stay held. */
++export const workflowStageRecoveryReader:WorkflowStageRecoveryReader={async read(tx,child){
++ const unknown={state:'unknown' as const,evidenceKey:`unverified:${child.kind}:${child.operationKey}`};
++ if(child.kind!==KIND)return unknown;
++ const record=await retained(tx,child.operationKey);
++ if(!record||record.jobId!==child.jobId||record.taskKey!==child.operationKey||record.requestBody?.metadata?.ae_job_id!==child.jobId||record.requestBody?.metadata?.ae_task_key!==child.operationKey||!record.idempotencyKey||childIdentity(record).requestDigest!==child.requestDigest)return unknown;
++ const evidenceKey=`agent_persistence.tasks:${record.taskKey}:revision:${record.revision}`;
++ if(['creating','ambiguous'].includes(record.state))return {state:'resumable',evidenceKey};
++ if(record.state==='created'&&record.sessionId)return {state:'resumable',evidenceKey};
++ if(record.state==='completed'&&record.sessionId&&record.result!==null&&Number.isSafeInteger(record.consumedMicroUsd)&&record.consumedMicroUsd!>=0)return {state:'terminal',evidenceKey};
++ return {...unknown,evidenceKey};
++}};
++
++/** Associate existing completed/pending tasks even when runner.run needs no create.
++ * Core runner still verifies full request/schema/agent identity before stored-result reuse. */
++export function fenceWorkflowStageRunner(runner:import('@ae/core/agents/session-service').AgentTaskRunner,getScope:()=>WorkflowStageScope|undefined=currentWorkflowStageScope):import('@ae/core/agents/session-service').AgentTaskRunner {
++ return {run:async spec=>{
++  const scope=getScope();if(!scope)return runner.run(spec);
++  if(spec.job.jobId!==scope.owner.jobId)return refuse();
++  const taskKey=`${spec.job.jobId}:${spec.role}:${spec.purpose}:${spec.attempt??1}`;
++  async function associate(){await scope!.transaction(async tx=>{
++   await assertWorkflowStageOwner(tx,scope!.owner);
++   const record=await retained(tx,taskKey);
++   if(!record){
++    const stage=(await tx.query<{recovery:boolean}>('SELECT recovery FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2',[scope!.owner.jobId,scope!.owner.stageKey])).rows[0];
++    if(stage?.recovery)return refuse();
++    return;
++   }
++   if(record.taskKey!==taskKey||record.jobId!==scope!.owner.jobId||record.requestBody?.metadata?.ae_task_key!==taskKey||record.requestBody?.metadata?.ae_job_id!==scope!.owner.jobId)return refuse();
++   await registerWorkflowStageChild(tx,scope!.owner,childIdentity(record));
++  });}
++  await associate();const result=await runner.run(spec);await associate();return result;
++ }};
++}
+diff --git a/apps/web/src/server/workflow-stage-runtime.test.ts b/apps/web/src/server/workflow-stage-runtime.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-stage-runtime.test.ts
+@@ -0,0 +1,61 @@
++import { beforeEach, expect, it, vi } from 'vitest';
++const state=vi.hoisted(()=>({claim:vi.fn(),recover:vi.fn(),complete:vi.fn(),pending:vi.fn(),assert:vi.fn(),metadata:{stepId:'step-a',attempt:0},payload:undefined as unknown}));
++vi.mock('workflow',()=>({getStepMetadata:()=>state.metadata,getWorkflowMetadata:()=>({workflowRunId:'run'}),RetryableError:class extends Error{}}));
++vi.mock('@neondatabase/serverless',()=>({Pool:class{async connect(){return {query:async()=>({rows:[]}),release(){}};}}}));
++vi.mock('@ae/core/db/job-budget-authority',()=>({jobBudgetExposure:async()=>({capMicroUsd:100})}));
++vi.mock('./workflow-stage-children',()=>({workflowStageRecoveryReader:{read:vi.fn()}}));
++vi.mock('@ae/core/db/workflow-stage-authority',()=>({claimWorkflowStage:state.claim,recoverWorkflowStage:state.recover,assertWorkflowStageOwner:state.assert,completeWorkflowStage:state.complete,markWorkflowStagePending:state.pending}));
++vi.mock('@ae/core/storage/crypto',()=>({encryptJson:(v:unknown)=>JSON.stringify(v),decryptJson:(v:string)=>JSON.parse(v)}));
++import { executeWorkflowStage, currentWorkflowStageScope, workflowStageDigest, WorkflowStageContentionError } from './workflow-stage-runtime';
++const input={jobId:'job',ownerId:'owner',environment:'test' as const,role:'judge',share:.5,stage:{key:'suite-run:A:v1',input:{suite:'frozen',target:'digest'}}};
++beforeEach(()=>{process.env.DATABASE_URL='postgres://local/test';vi.clearAllMocks();state.claim.mockResolvedValue({kind:'owned',owner:{jobId:'job',stageKey:input.stage.key,token:'private',generation:1},amountMicroUsd:50});});
++it('records SDK retry evidence without changing logical identity or passing it to child callback',async()=>{
++ state.metadata.attempt=3;const run=vi.fn(async amount=>{expect(currentWorkflowStageScope()?.owner.generation).toBe(1);return amount;});
++ expect(await executeWorkflowStage(input,run)).toEqual({ok:true,data:50});
++ expect(state.claim.mock.calls[0][1]).toMatchObject({stageKey:input.stage.key,invocation:{stepId:'step-a',attempt:3}});
++ expect(run).toHaveBeenCalledWith(50);expect(currentWorkflowStageScope()).toBeUndefined();expect(state.complete).toHaveBeenCalledOnce();
++});
++it.each(['busy','recovery_required'])('does not invoke callback when %s',async kind=>{
++ state.claim.mockResolvedValue({kind});const run=vi.fn();await expect(executeWorkflowStage(input,run)).rejects.toBeInstanceOf(WorkflowStageContentionError);expect(run).not.toHaveBeenCalled();
++});
++it('retains pending child and hold on normal pending outcome',async()=>{
++ await executeWorkflowStage({...input,stage:{...input.stage,isPending:v=>(v as {status:string}).status==='pending'}},async()=>({status:'pending'}));
++ expect(state.pending).toHaveBeenCalledOnce();expect(state.complete).not.toHaveBeenCalled();
++});
++it('retains explicit provider pending error without completing the envelope',async()=>{
++ const pending=new Error('pending');await expect(executeWorkflowStage({...input,stage:{...input.stage,isPendingError:e=>e===pending}},async()=>{throw pending;})).rejects.toBe(pending);
++ expect(state.pending).toHaveBeenCalledOnce();expect(state.complete).not.toHaveBeenCalled();
++});
++it('replays bound retained completion across poll step IDs without provider dispatch',async()=>{
++ const retained={schema:1,jobId:input.jobId,stageKey:input.stage.key,inputDigest:workflowStageDigest(input.stage.input),data:{value:'retained'}};
++ state.claim.mockResolvedValue({kind:'completed',resultCiphertext:JSON.stringify(retained)});state.metadata.stepId='later-poll';const run=vi.fn();
++ expect(await executeWorkflowStage(input,run)).toEqual({ok:true,data:retained.data});expect(run).not.toHaveBeenCalled();
++ state.claim.mockResolvedValue({kind:'completed',resultCiphertext:JSON.stringify({...retained,stageKey:'other'})});
++ await expect(executeWorkflowStage(input,run)).rejects.toThrow('workflow_stage_result_binding');
++});
++it('uses stable input digests and distinguishes target slot and revision inputs',()=>{
++ expect(workflowStageDigest({a:1,b:2})).toBe(workflowStageDigest({b:2,a:1}));
++ expect(workflowStageDigest({slot:'A',revision:1})).not.toBe(workflowStageDigest({slot:'B',revision:1}));
++});
++
++it('holds mixed or unclassified callbacks even when retained children could recover',async()=>{
++ state.claim.mockResolvedValue({kind:'recovery_required'});
++ state.recover.mockResolvedValue({kind:'owned',owner:{jobId:'job',stageKey:input.stage.key,token:'replacement',generation:2},amountMicroUsd:50});
++ const run=vi.fn();
++ await expect(executeWorkflowStage(input,run)).rejects.toBeInstanceOf(WorkflowStageContentionError);
++ expect(state.recover).not.toHaveBeenCalled();expect(run).not.toHaveBeenCalled();
++});
++it('requires explicit complete child coverage before consulting recovery authority',async()=>{
++ state.claim.mockResolvedValue({kind:'recovery_required'});
++ state.recover.mockResolvedValue({kind:'recovery_required'});
++ const run=vi.fn();
++ await expect(executeWorkflowStage({...input,stage:{...input.stage,recovery:'retained-children'}},run)).rejects.toBeInstanceOf(WorkflowStageContentionError);
++ expect(state.recover).toHaveBeenCalledOnce();expect(run).not.toHaveBeenCalled();
++});
++
++it('binds retained completion to admission digest even if a callback mutates its local input',async()=>{
++ const value={suite:'original'};const expected=workflowStageDigest(value);
++ await executeWorkflowStage({...input,stage:{key:'mutation',input:value}},async()=>{value.suite='mutated';return 'done';});
++ expect(state.claim.mock.calls[0][1].inputDigest).toBe(expected);
++ expect(JSON.parse(state.complete.mock.calls[0][2]).inputDigest).toBe(expected);
++});
+diff --git a/apps/web/src/server/workflow-stage-runtime.ts b/apps/web/src/server/workflow-stage-runtime.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/workflow-stage-runtime.ts
+@@ -0,0 +1,78 @@
++import { AsyncLocalStorage } from 'node:async_hooks';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import { getWorkflowMetadata, getStepMetadata, RetryableError } from 'workflow';
++import { encryptJson, decryptJson } from '@ae/core/storage/crypto';
++import { jobBudgetExposure, type JobBudgetTx } from '@ae/core/db/job-budget-authority';
++import { claimWorkflowStage, recoverWorkflowStage, assertWorkflowStageOwner, completeWorkflowStage, markWorkflowStagePending } from '@ae/core/db/workflow-stage-authority';
++
++import { workflowStageRecoveryReader } from './workflow-stage-children';
++
++type Owner = Parameters<typeof assertWorkflowStageOwner>[1];
++export interface WorkflowStageScope { owner: Owner; transaction: typeof workflowStageTransaction }
++let scopes: AsyncLocalStorage<WorkflowStageScope> | undefined;
++function stageScopes() { return scopes ??= new AsyncLocalStorage<WorkflowStageScope>(); }
++/** Trusted server capability only. Never serialize into Workflow I/O or model prompts. */
++export function currentWorkflowStageScope(): WorkflowStageScope | undefined { return stageScopes().getStore(); }
++export async function assertWorkflowStageCurrent(): Promise<void> {
++ const scope=stageScopes().getStore();
++ if(scope) await scope.transaction(tx=>assertWorkflowStageOwner(tx,scope.owner));
++}
++let pool: Pool | undefined;
++export async function workflowStageTransaction<T>(fn:(tx:JobBudgetTx)=>Promise<T>):Promise<T> {
++ const connectionString=process.env.DATABASE_URL_UNPOOLED??process.env.DATABASE_URL;
++ if(!connectionString)throw new Error('workflow_stage_database_unavailable');
++ pool ??= new Pool({connectionString,max:5});
++ const connection=await pool.connect(); let discard:Error|undefined;
++ try {
++  await connection.query('BEGIN ISOLATION LEVEL READ COMMITTED');
++  const tx:JobBudgetTx={query:async <R>(text:string,params?:unknown[])=>({rows:(await connection.query(text,params)).rows as R[]})};
++  const result=await fn(tx);
++  try { await connection.query('COMMIT'); } catch(error) {discard=new Error('workflow_stage_commit_uncertain');throw error;}
++  return result;
++ } catch(error) {try{await connection.query('ROLLBACK');}catch{discard=new Error('workflow_stage_rollback_failed');}throw error;}
++ finally{connection.release(discard);}
++}
++function canonical(value:unknown):string {
++ if(value===undefined)return 'null';
++ if(value===null||typeof value!=='object')return JSON.stringify(value);
++ if(Array.isArray(value))return `[${value.map(canonical).join(',')}]`;
++ return `{${Object.keys(value).sort().filter(k=>(value as Record<string,unknown>)[k]!==undefined).map(k=>`${JSON.stringify(k)}:${canonical((value as Record<string,unknown>)[k])}`).join(',')}}`;
++}
++export function workflowStageDigest(input:unknown):string {return createHash('sha256').update(canonical(input)).digest('hex');}
++export class WorkflowStageContentionError extends RetryableError {
++ constructor(readonly reason:'busy'|'recovery_required'){super(`Workflow stage ${reason}`,{retryAfter:'5s'});this.name='WorkflowStageContentionError';}
++}
++/** Recovery is opt-in only after ALL callback side effects have retained child authority.
++ * Current mixed Naive/lite/target callbacks intentionally stay held after interruption. */
++export interface LogicalWorkflowStage {key:string;input:unknown;recovery?:'retained-children';isPending?:(value:unknown)=>boolean;isPendingError?:(error:unknown)=>boolean}
++export async function executeWorkflowStage<T>(input:{jobId:string;ownerId:string;environment:'test'|'live';role:string;share:number;stage:LogicalWorkflowStage},run:(amountMicroUsd:number)=>Promise<T>):Promise<{ok:true;data:T}|{ok:false;remainingMicroUsd:number}> {
++ const inputDigest=workflowStageDigest(input.stage.input);
++ const step=getStepMetadata();
++ const invocation={workflowRunId:getWorkflowMetadata().workflowRunId,stepId:step.stepId,attempt:step.attempt};
++ const admission=await workflowStageTransaction(async tx=>{
++  const exposure=await jobBudgetExposure(tx,input.jobId);
++  const claim={jobId:input.jobId,ownerId:input.ownerId,environment:input.environment,stageKey:input.stage.key,inputDigest,role:input.role,amountMicroUsd:Math.floor(exposure.capMicroUsd*input.share),invocation,leaseMs:300_000};
++  const decision=await claimWorkflowStage(tx,claim);
++  return decision.kind==='recovery_required' && input.stage.recovery==='retained-children'
++   ? recoverWorkflowStage(tx,claim,workflowStageRecoveryReader) : decision;
++ });
++ if(admission.kind==='budget_exceeded')return {ok:false,remainingMicroUsd:admission.remainingMicroUsd};
++ if(admission.kind==='busy'||admission.kind==='recovery_required')throw new WorkflowStageContentionError(admission.kind);
++ if(admission.kind==='completed') {
++  const retained=decryptJson<{schema:number;jobId:string;stageKey:string;inputDigest:string;data:T}>(admission.resultCiphertext);
++  if(retained.schema!==1||retained.jobId!==input.jobId||retained.stageKey!==input.stage.key||retained.inputDigest!==inputDigest)throw new Error('workflow_stage_result_binding');
++  return {ok:true,data:retained.data};
++ }
++ if(admission.kind!=='owned')throw new Error('workflow_stage_invalid_admission');
++ return stageScopes().run({owner:admission.owner,transaction:workflowStageTransaction},async()=>{
++  let data:T;
++  try {data=await run(admission.amountMicroUsd);} catch(error) {
++   if(input.stage.isPendingError?.(error))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
++   throw error;
++  }
++  if(input.stage.isPending?.(data))await workflowStageTransaction(tx=>markWorkflowStagePending(tx,admission.owner));
++  else await workflowStageTransaction(tx=>completeWorkflowStage(tx,admission.owner,encryptJson({schema:1,jobId:input.jobId,stageKey:input.stage.key,inputDigest,data})));
++  return {ok:true as const,data};
++ });
++}
+diff --git a/apps/web/src/workflows/steps/common.test.ts b/apps/web/src/workflows/steps/common.test.ts
+--- a/apps/web/src/workflows/steps/common.test.ts
++++ b/apps/web/src/workflows/steps/common.test.ts
+@@ -1,52 +1,17 @@
+-import { beforeEach, describe, expect, it, vi } from "vitest";
+-const mocks = vi.hoisted(() => ({ reserve: vi.fn(), release: vi.fn(), job: vi.fn(), context: vi.fn() }));
+-vi.mock("workflow", () => ({ FatalError: class extends Error {} }));
+-vi.mock("@ae/core/adapters/budget", () => ({ reserveWorkflowBudget: mocks.reserve, releaseWorkflowBudget: mocks.release }));
+-vi.mock("@/server/job-store", () => ({ getJob: mocks.job, makeServiceContext: mocks.context, getJobWithDecryptedCredentials: vi.fn() }));
+-import { withBudget } from "./common";
+-beforeEach(() => {
+-  vi.resetAllMocks();
+-  mocks.job.mockResolvedValue({ id: "job", package: "trace_audit" });
+-  mocks.context.mockResolvedValue({ jobId: "job", budgetMicroUsd: 3_000_000 });
+-  mocks.reserve.mockResolvedValue({ ok: true, reservationId: "stage", amountMicroUsd: 750_000 });
++import { expect, it, vi } from 'vitest';
++const execute=vi.hoisted(()=>vi.fn());
++vi.mock('@/server/workflow-stage-runtime',()=>({executeWorkflowStage:execute}));
++vi.mock('@/server/job-store',()=>({getJob:async()=>({customerId:'owner',environment:'test'}),makeServiceContext:async()=>({budgetMicroUsd:999}),getJobWithDecryptedCredentials:vi.fn()}));
++vi.mock('workflow',()=>({FatalError:class extends Error{}}));
++import { withBudget } from './common';
++it('sets the exact admitted envelope and passes explicit logical stage to exclusive executor',async()=>{
++ const stage={key:'qualification:2',input:{revision:2}};
++ execute.mockImplementation(async(_input,run)=>({ok:true,data:await run(123)}));
++ const callback=vi.fn(async ctx=>ctx.budgetMicroUsd);
++ expect(await withBudget('job','commercial',stage,callback)).toEqual({status:'ok',data:123});
++ expect(execute.mock.calls[0][0]).toMatchObject({jobId:'job',ownerId:'owner',environment:'test',stage});
+ });
+-describe("whole Workflow stage shared budget", () => {
+-  it("runs the whole callback under its admitted allowance and releases after success", async () => {
+-    const events: string[] = [];
+-    mocks.release.mockImplementation(async () => { events.push("release"); });
+-    const result = await withBudget("job", "engineer", async ctx => {
+-      expect(ctx.budgetMicroUsd).toBe(750_000);
+-      events.push("call one", "call two", "cost persisted");
+-      return "done";
+-    });
+-    expect(result).toEqual({ status: "ok", data: "done" });
+-    expect(mocks.reserve).toHaveBeenCalledWith("job", "engineer", .25);
+-    expect(events).toEqual(["call one", "call two", "cost persisted", "release"]);
+-    expect(mocks.release).toHaveBeenCalledWith("job", "stage");
+-  });
+-  it("does not invoke service or release on denial", async () => {
+-    mocks.reserve.mockResolvedValue({ ok: false, remainingMicroUsd: 4 });
+-    const run = vi.fn();
+-    expect(await withBudget("job", "engineer", run)).toMatchObject({ status: "budget_exceeded" });
+-    expect(run).not.toHaveBeenCalled();
+-    expect(mocks.context).not.toHaveBeenCalled();
+-    expect(mocks.release).not.toHaveBeenCalled();
+-  });
+-  it("preserves failed or uncertain stage holds, including context construction failure", async () => {
+-    await expect(withBudget("job", "judge", async () => { throw new Error("unknown provider outcome"); })).rejects.toThrow("unknown provider outcome");
+-    mocks.context.mockRejectedValue(new Error("context unavailable"));
+-    await expect(withBudget("job", "judge", vi.fn())).rejects.toThrow("context unavailable");
+-    expect(mocks.release).not.toHaveBeenCalled();
+-  });
+-  it("retains the same returned reservation on retry and surfaces release uncertainty", async () => {
+-    mocks.release.mockRejectedValue(new Error("commit uncertain"));
+-    await expect(withBudget("job", "engineer", async () => "done")).rejects.toThrow("commit uncertain");
+-    expect(mocks.release).toHaveBeenCalledTimes(1);
+-    expect(mocks.reserve).toHaveBeenCalledTimes(1);
+-  });
+-  it("requires an existing job before admission", async () => {
+-    mocks.job.mockResolvedValue(null);
+-    await expect(withBudget("missing", "engineer", vi.fn())).rejects.toThrow("not found");
+-    expect(mocks.reserve).not.toHaveBeenCalled();
+-  });
++it('does not run a callback after shared admission refusal',async()=>{
++ execute.mockResolvedValue({ok:false,remainingMicroUsd:2});const callback=vi.fn();
++ expect(await withBudget('job','commercial',{key:'q',input:{}},callback)).toMatchObject({status:'budget_exceeded'});expect(callback).not.toHaveBeenCalled();
+ });
+diff --git a/apps/web/src/workflows/steps/common.ts b/apps/web/src/workflows/steps/common.ts
+--- a/apps/web/src/workflows/steps/common.ts
++++ b/apps/web/src/workflows/steps/common.ts
+@@ -1,5 +1,5 @@
+ import { FatalError } from "workflow";
+-import { reserveWorkflowBudget, releaseWorkflowBudget } from "@ae/core/adapters/budget";
++import { executeWorkflowStage, type LogicalWorkflowStage } from "@/server/workflow-stage-runtime";
+ import type { ServiceContext } from "@ae/core/contracts/services";
+ import { getJob, makeServiceContext } from "@/server/job-store";
+ import { BUDGET_SHARE, type BudgetAgent } from "../decisions";
+@@ -14,29 +14,23 @@
+ }
+ 
+ /**
+- * Reserves per-job budget for one agent-calling stage, runs it, then releases the reservation (actual
+- * spend is recorded in costs by the services). A reservation left by a failed attempt is reused, not doubled.
++ * Claims one immutable logical operation under the shared job budget authority.
++ * Completed retries replay a private result; pending/uncertain attempts retain their hold.
++ * Child dispatch and publication composition must consume the trusted server stage scope.
+  */
+ export async function withBudget<T>(
+-  jobId: string, agent: BudgetAgent, run: (ctx: ServiceContext) => Promise<T>,
++  jobId: string, agent: BudgetAgent, stage: LogicalWorkflowStage, run: (ctx: ServiceContext) => Promise<T>,
+ ): Promise<BudgetResult<T>> {
+-  await requireJob(jobId);
+-  // Admission and retry lookup share the same locked authority as Gateway and Naïve.
+-  const admission = await reserveWorkflowBudget(jobId, agent, BUDGET_SHARE[agent]);
+-  if (!admission.ok) {
+-    return {
+-      status: "budget_exceeded",
+-      message: `Per-job budget exhausted before the ${agent} stage (${admission.remainingMicroUsd} micro-USD available).`,
+-    };
+-  }
+-  const ctx = await makeServiceContext(jobId);
+-  // ServiceContext's legacy cap-minus-cost calculation ignores concurrent holds.
+-  ctx.budgetMicroUsd = admission.amountMicroUsd;
+-  const data = await run(ctx);
+-  // A thrown/uncertain provider call deliberately retains the hold for retry/reconciliation.
+-  // Release the entire stage only after all service calls and cost recording succeeded.
+-  await releaseWorkflowBudget(jobId, admission.reservationId);
+-  return { status: "ok", data };
++  const job = await requireJob(jobId);
++  const result = await executeWorkflowStage({ jobId, ownerId: job.customerId, environment: job.environment,
++    role: agent, share: BUDGET_SHARE[agent], stage }, async amountMicroUsd => {
++    const ctx = await makeServiceContext(jobId);
++    ctx.budgetMicroUsd = amountMicroUsd;
++    return run(ctx);
++  });
++  return result.ok ? { status: "ok", data: result.data } : {
++    status: "budget_exceeded", message: `Per-job budget exhausted before the ${agent} stage (${result.remainingMicroUsd} micro-USD available).`,
++  };
+ }
+ 
+ import type { IntakeInput } from "@ae/core/contracts/index";
+diff --git a/apps/web/src/workflows/steps/evaluate.test.ts b/apps/web/src/workflows/steps/evaluate.test.ts
+--- a/apps/web/src/workflows/steps/evaluate.test.ts
++++ b/apps/web/src/workflows/steps/evaluate.test.ts
+@@ -1,5 +1,6 @@
+ import { describe, expect, it, vi } from "vitest";
+ 
++vi.mock("@/server/workflow-stage-runtime", () => ({ assertWorkflowStageCurrent: vi.fn() }));
+ vi.mock("workflow", () => ({ FatalError: class extends Error {} }));
+ vi.mock("@ae/core/db/client", () => ({ db: () => ({}), schema: {} }));
+ vi.mock("@ae/core/storage/blob", () => ({ putJobArtifact: vi.fn() }));
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -1,3 +1,4 @@
++import { assertWorkflowStageCurrent } from "@/server/workflow-stage-runtime";
+ import { summarizeRunResults } from "@ae/core/contracts/services";
+ import { eq } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+@@ -23,7 +24,7 @@
+   const intake = await loadIntake(jobId, false);
+   if (intake.package !== "trace_audit") throw new FatalError("auditTrace requires a trace_audit job");
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "investigator", async (ctx) => {
++  const result = await withBudget(jobId, "investigator", {key: "trace-audit", input: intake}, async (ctx) => {
+     await ctx.recordProgress("auditing_trace", "Checking the trace for unsupported claims, ignored errors, and instruction violations.");
+     const audit = await services.auditTrace(ctx, intake.trace, intake.systemPrompt);
+     return audit.findings;
+@@ -50,12 +51,14 @@
+   "use step";
+   const intake = await loadIntake(jobId, false);
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "engineer", async (ctx) => {
++  const result = await withBudget(jobId, "engineer", {key: "suite-design", input: {intake, redTeam: redTeamPackEnabled()}}, async (ctx) => {
+     const designed = await services.designSuite(ctx, intake);
+     // Red-team pack (rt_* scenarios): pure + free, so it does not touch the budget. Disable with REDTEAM_PACK=off.
+     const suite = redTeamPackEnabled() ? appendRedTeamToSuite(designed, intake) : designed;
++    await assertWorkflowStageCurrent();
+     const path = await putJobArtifact(jobId, "suite", JSON.stringify(suite), "application/json");
+     const job = await requireJob(jobId);
++    await assertWorkflowStageCurrent();
+     await setJobState(jobId, job.state, { suiteBlobPath: path });
+     return suite;
+   });
+@@ -87,7 +90,7 @@
+   }
+   const services = await getEvalServices();
+   const branchConnectionString = branchId ? await resolveBranchConnection(branchId) : undefined;
+-  const result = await withBudget(jobId, "judge", async (ctx) => {
++  const result = await withBudget(jobId, "judge", {key: `suite-run:${slot}:${versionLabel}`, input: {suite, slot, versionLabel, branchId, target}}, async (ctx) => {
+     await ctx.recordProgress("running_suite", `Running ${suite.scenarios.length} scenario(s) against ${versionLabel}.`);
+     return services.runSuite(ctx, { ...suite, versionLabel }, target, branchConnectionString);
+   });
+@@ -102,7 +105,7 @@
+ export async function investigateStep(jobId: string, suite: Suite, runs: RunResult[]): Promise<BudgetResult<Finding[]>> {
+   "use step";
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "investigator", (ctx) => services.investigate(ctx, suite, runs));
++  const result = await withBudget(jobId, "investigator", {key: "investigation", input: {suite, runs}}, (ctx) => services.investigate(ctx, suite, runs));
+   if (result.status === "ok") await recordProgress(jobId, "investigated", `Investigation produced ${result.data.length} finding(s).`);
+   return result;
+ }
+@@ -117,16 +120,19 @@
+   "use step";
+   const intake = await loadIntake(jobId, false);
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "engineer", async (ctx) => {
++  const result = await withBudget(jobId, "engineer", {key: `remediation:${finding.id}`, input: {finding, suite, intake}}, async (ctx) => {
+     try {
+       await ctx.recordProgress("proposing_fix", `Proposing and verifying a fix for "${finding.title.slice(0, 120)}".`);
+       const fix = await services.proposeAndVerifyFix(ctx, { finding, suite, intake });
++      await assertWorkflowStageCurrent();
+       await saveFindings(jobId, [finding]);
+       const rowId = await findingRowIdByKey(jobId, finding.id);
+       if (!rowId) throw new Error("finding row missing");
++      await assertWorkflowStageCurrent();
+       await saveRemediation(jobId, rowId, fix);
+       return fix;
+     } catch (err) {
++      await assertWorkflowStageCurrent();
+       await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
+       return null;
+     }
+@@ -139,13 +145,19 @@
+   "use step";
+   const intake = await loadIntake(jobId, false);
+   const services = await getEvalServices();
+-  return withBudget(jobId, "operator", (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations }));
++  return withBudget(jobId, "operator", {key: "report", input: {intake, findings, suite, remediations}}, (ctx) => services.renderReport(ctx, { intake, findings, suite, remediations }));
+ }
+ renderReportStep.maxRetries = 1;
+ 
+ /** Writes report, evidence, and findings to Blob + Neon. Safe to retry: findings are keyed, blobs get random suffixes. */
+ export async function persistReportStep(jobId: string, report: Report, suite?: Suite): Promise<void> {
+   "use step";
++  return persistReport(jobId,report,suite);
++}
++
++/** Non-step helper preserves the current server stage scope for authoritative SQL publication.
++ * Blob writes precede their fenced SQL references; failed ownership may leave private orphan blobs. */
++export async function persistReport(jobId:string,report:Report,suite?:Suite):Promise<void> {
+   const markdownPath = await putJobArtifact(jobId, "report", report.markdown, "text/markdown");
+   await putJobArtifact(jobId, "report-html", report.html, "text/html");
+   await putJobArtifact(jobId, "evidence", JSON.stringify(report.findings.map((f) => ({ id: f.id, evidence: f.evidence }))), "application/json");
+diff --git a/apps/web/src/workflows/steps/expert-text.ts b/apps/web/src/workflows/steps/expert-text.ts
+--- a/apps/web/src/workflows/steps/expert-text.ts
++++ b/apps/web/src/workflows/steps/expert-text.ts
+@@ -1,9 +1,11 @@
++import { WorkflowStageContentionError } from '@/server/workflow-stage-runtime';
++import { expertOwnerDatabase } from '@/server/automated-expert-owner';
+ import { createExpertTextRuntime } from '@/server/expert-text-runtime';
+ import { recordProgress, setJobState } from '@/server/job-store';
+ import { withBudget, loadIntake } from './common';
+-import { evalServices } from '@ae/core/integration/eval-services';
++import { stageRealEvalServices as evalServices } from '@/server/services';
+ import { Report } from '@ae/core/contracts/index';
+-import { persistReportStep } from './evaluate';
++import { persistReport } from './evaluate';
+ import { TrackBPendingError } from '@ae/core/evals/service-adapter';
+ import type { Suite, Finding } from '@ae/core/contracts/index';
+ 
+@@ -11,8 +13,9 @@
+ /** Existing job owns scheduling/payment/report/delivery. This step only consumes its canonical reviewed suite. */
+ export async function expertTextEvaluationStep(jobId:string):Promise<ExpertTextOutcome> {
+  'use step';
++ const stage=await expertStage(jobId,'evaluation');
+  try {
+-  return await withBudget(jobId,'investigator',async ctx=>{
++  return await withBudget(jobId,'investigator',stage,async ctx=>{
+    const runtime=await createExpertTextRuntime(ctx);
+    await runtime.assertCurrent();
+    await setJobState(jobId,'running');
+@@ -30,6 +33,7 @@
+    return {suite:runtime.suite,findings};
+   });
+  }catch(error){
++  if(error instanceof WorkflowStageContentionError)throw error;
+   // Durable provider polling and ambiguous transport reconciliation retain the paid Workflow.
+   // Never route this explicit expert plan through the lite or legacy evaluator.
+   if(error instanceof TrackBPendingError)return {status:'pending'};
+@@ -42,7 +46,7 @@
+ /** Direct existing Naive operator service; explicit text plans never enter withLiteFallback. */
+ export async function expertTextReportStep(jobId:string,findings:Finding[],suite:Suite) {
+  'use step';
+- return withBudget(jobId,'operator',async ctx=>{
++ return withBudget(jobId,'operator',await expertStage(jobId,'report'),async ctx=>{
+   const runtime=await createExpertTextRuntime(ctx);
+   const assessment=await runtime.reportContext();
+   if(!assessment.assessed)throw new Error('expert_text_no_assessment');
+@@ -56,9 +60,17 @@
+   report.summary=`${assessment.summary}\n\n${report.summary}`.slice(0,10000);
+   await runtime.assertCurrent(report);
+   // Existing private Blob/SQL/report flow remains the publication mechanism.
+-  await persistReportStep(jobId,report,suite);
++  await persistReport(jobId,report,suite);
+   await runtime.assertCurrent(report);
+   return true;
+  });
+ }
+ expertTextReportStep.maxRetries=0;
++
++/** Poll steps select the same retained task; Workflow step IDs and retry counts never change its identity. */
++async function expertStage(jobId:string,phase:string) {
++ const row=(await expertOwnerDatabase().query<{input:{task:{taskId:string}};input_digest:string}>(
++  'SELECT input,input_digest FROM expert_workflow.plans WHERE job_id=$1',[jobId])).rows[0];
++ if(!row?.input.task.taskId||!row.input_digest)throw new Error('expert_text_stage_identity_unavailable');
++ return {key:`expert-text:${phase}:${row.input.task.taskId}`,input:{taskId:row.input.task.taskId,requestDigest:row.input_digest},isPendingError:(error:unknown)=>error instanceof TrackBPendingError};
++}
+diff --git a/apps/web/src/workflows/steps/quote.ts b/apps/web/src/workflows/steps/quote.ts
+--- a/apps/web/src/workflows/steps/quote.ts
++++ b/apps/web/src/workflows/steps/quote.ts
+@@ -10,7 +10,7 @@
+   "use step";
+   const intake = await loadIntake(jobId, false);
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "commercial", (ctx) => services.qualify(ctx, intake, clarifications));
++  const result = await withBudget(jobId, "commercial", {key: `qualification:${clarifications.length}`, input: {intake, clarifications}}, (ctx) => services.qualify(ctx, intake, clarifications));
+   if (result.status === "ok") {
+     await recordProgress(jobId, "qualified", `Request reviewed (${result.data.decision}).`);
+     // The job's package was fixed at intake; the quote must match what the pipeline will run.
+diff --git a/packages/core/src/db/workflow-stage-authority.test.ts b/packages/core/src/db/workflow-stage-authority.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/workflow-stage-authority.test.ts
+@@ -0,0 +1,32 @@
++import { PGlite } from '@electric-sql/pglite';
++import { beforeEach,afterEach,expect,it } from 'vitest';
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { claimWorkflowStage,assertWorkflowStageOwner,registerWorkflowStageChild,markWorkflowStageChildDispatch,markWorkflowStagePending,completeWorkflowStage,recoverWorkflowStage,type WorkflowStageClaim,type WorkflowStageOwner,type WorkflowStageRecoveryReader } from './workflow-stage-authority';
++import { jobBudgetExposure,type JobBudgetTx } from './job-budget-authority';
++let pg:PGlite;
++const job='11111111-1111-4111-8111-111111111111',customer='22222222-2222-4222-8222-222222222222';
++const input:WorkflowStageClaim={jobId:job,ownerId:customer,environment:'test',stageKey:'qualification:revision:1',inputDigest:'digest',role:'commercial',amountMicroUsd:100,invocation:{workflowRunId:'run',stepId:'step',attempt:0},leaseMs:300000};
++const child={kind:'retained-task',operationKey:'task:one',requestDigest:'body-digest'};
++const run=<T>(fn:(tx:JobBudgetTx)=>Promise<T>)=>pg.transaction(t=>fn({query:(s,p)=>t.query(s,p)}));
++async function claim(i=input){const r=await run(tx=>claimWorkflowStage(tx,i));if(r.kind!=='owned')throw Error('expected_owner');return r.owner;}
++async function expire(){await pg.query("UPDATE workflow_stage.stages SET lease_until=clock_timestamp()-interval '1 second'");}
++const proof:WorkflowStageRecoveryReader={read:async()=>({state:'resumable',evidenceKey:'retained:task:one'})};
++beforeEach(async()=>{pg=new PGlite();await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,state text NOT NULL DEFAULT 'running',budget_reserved_micro_usd bigint DEFAULT 0);
++CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);
++CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
++await pg.exec(readFileSync(resolve(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));
++await pg.exec(readFileSync(resolve(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql'),'utf8'));
++await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);});
++afterEach(async()=>{await pg.close();});
++it('exclusive claim rejects duplicate delivery, even same invocation and overlapping SDK retry',async()=>{await claim();expect(await run(tx=>claimWorkflowStage(tx,input))).toMatchObject({kind:'busy'});expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{...input.invocation,attempt:1}}))).toMatchObject({kind:'busy'});expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
++it('rejects changed digest role amount and canonical owner/environment without callback permission',async()=>{await claim();for(const change of [{inputDigest:'other'},{role:'engineer'},{amountMicroUsd:101},{ownerId:job},{environment:'live'}])await expect(run(tx=>claimWorkflowStage(tx,{...input,...change}))).rejects.toThrow('workflow_stage_conflict');});
++it('separates same-role logical stages instead of adopting the old job/agent hold',async()=>{const a=await claim();const b=await claim({...input,stageKey:'qualification:revision:2'});expect(a.token).not.toBe(b.token);expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(2);expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(200);});
++it('normal pending retains exact hold across different step IDs until concrete recovery',async()=>{const a=await claim();await run(tx=>registerWorkflowStageChild(tx,a,child));await run(tx=>markWorkflowStageChildDispatch(tx,a,child));await run(tx=>markWorkflowStagePending(tx,a));const later={...input,invocation:{workflowRunId:'run',stepId:'poll-step',attempt:0}};expect(await run(tx=>claimWorkflowStage(tx,later))).toMatchObject({kind:'recovery_required'});expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);const r=await run(tx=>recoverWorkflowStage(tx,later,proof));expect(r).toMatchObject({kind:'owned',recovery:'resume',owner:{generation:2}});expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
++it('expired uninstrumented work remains recovery required, never fresh dispatch',async()=>{await claim();await expire();expect(await run(tx=>claimWorkflowStage(tx,input))).toMatchObject({kind:'recovery_required'});expect(await run(tx=>recoverWorkflowStage(tx,input,proof))).toMatchObject({kind:'recovery_required'});expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
++it('fences stale dispatch and publication after recovered ownership and rejects fresh child identities',async()=>{const a=await claim();await run(tx=>registerWorkflowStageChild(tx,a,child));await expire();const r=await run(tx=>recoverWorkflowStage(tx,input,{read:async()=>({state:'undispatched',evidenceKey:'retained:undispatched'})}));if(r.kind!=='owned')throw Error('owner');expect(r.owner.token).not.toBe(a.token);for(const fn of [(tx:JobBudgetTx)=>assertWorkflowStageOwner(tx,a),(tx:JobBudgetTx)=>markWorkflowStageChildDispatch(tx,a,child),(tx:JobBudgetTx)=>completeWorkflowStage(tx,a,'ciphertext')])await expect(run(fn)).rejects.toThrow('workflow_stage_conflict');await expect(run(tx=>registerWorkflowStageChild(tx,r.owner,{...child,operationKey:'new-task'}))).rejects.toThrow('workflow_stage_conflict');await run(tx=>markWorkflowStageChildDispatch(tx,r.owner,child));});
++it('accepted-create lost response cannot be classified undispatched merely by expiry',async()=>{const a=await claim();await run(tx=>markWorkflowStageChildDispatch(tx,a,child));await expire();expect(await run(tx=>recoverWorkflowStage(tx,input,{read:async()=>({state:'undispatched',evidenceKey:'untrusted:timeout'})}))).toMatchObject({kind:'recovery_required'});expect(await run(tx=>recoverWorkflowStage(tx,input,{read:async()=>({state:'unknown',evidenceKey:'retained:unknown'})}))).toMatchObject({kind:'recovery_required'});expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
++it('completed callback lost acknowledgement replays retained ciphertext without new callback or hold',async()=>{const a=await claim();await run(tx=>completeWorkflowStage(tx,a,'encrypted-result-reference'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(0);expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{workflowRunId:'run2',stepId:'step2',attempt:9}}))).toMatchObject({kind:'completed',resultCiphertext:'encrypted-result-reference',amountMicroUsd:100});await expect(run(tx=>completeWorkflowStage(tx,a,'replacement'))).rejects.toThrow();await expect(pg.query("UPDATE workflow_stage.stages SET result_ciphertext='replacement'")).rejects.toThrow('workflow_stage_evidence_immutable');});
++it('rolls result and release back together and retains hold for retry',async()=>{const a=await claim();await expect(run(async tx=>{await completeWorkflowStage(tx,a,'encrypted-result-reference');throw Error('transaction crash');})).rejects.toThrow('transaction crash');expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);await run(tx=>assertWorkflowStageOwner(tx,a));expect((await pg.query('SELECT result_ciphertext FROM workflow_stage.stages')).rows[0]).toMatchObject({result_ciphertext:null});});
++it('retains immutable child body and dispatch identity for provider recovery',async()=>{const a:WorkflowStageOwner=await claim();await run(tx=>markWorkflowStageChildDispatch(tx,a,child));await expect(run(tx=>registerWorkflowStageChild(tx,a,{...child,requestDigest:'changed'}))).rejects.toThrow();await expect(run(tx=>markWorkflowStageChildDispatch(tx,a,child))).rejects.toThrow();await expect(pg.query('DELETE FROM workflow_stage.children')).rejects.toThrow('workflow_stage_evidence_immutable');});
+diff --git a/packages/core/src/db/workflow-stage-authority.ts b/packages/core/src/db/workflow-stage-authority.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/workflow-stage-authority.ts
+@@ -0,0 +1,47 @@
++import { randomUUID } from 'node:crypto';
++import { lockJobBudget, reserveJobBudget, releaseWorkflowJobBudget, type JobBudgetTx } from './job-budget-authority';
++export interface WorkflowStageInvocation {workflowRunId:string;stepId:string;attempt:number}
++export interface WorkflowStageClaim {jobId:string;ownerId:string;environment:string;stageKey:string;inputDigest:string;role:string;amountMicroUsd:number;invocation:WorkflowStageInvocation;leaseMs:number}
++export interface WorkflowStageOwner {jobId:string;stageKey:string;token:string;generation:number}
++export interface WorkflowStageChild {kind:string;operationKey:string;requestDigest:string}
++interface Stage {job_id:string;stage_key:string;customer_id:string;environment:string;input_digest:string;role:string;operation_id:string;reservation_id:string;amount_micro_usd:string|number;owner_token:string;generation:string|number;state:string;result_ciphertext:string|null;expired:boolean;recovery:boolean}
++type Details={reservationId:string;amountMicroUsd:number};
++export type WorkflowStageDecision=({kind:'owned';owner:WorkflowStageOwner;recovery?:'undispatched'|'resume'} & Details)|({kind:'completed';resultCiphertext:string} & Details)|({kind:'busy'} & Details)|({kind:'recovery_required'} & Details)|{kind:'budget_exceeded';remainingMicroUsd:number};
++const fail=():never=>{throw Error('workflow_stage_conflict');};
++function key(v:string){if(typeof v!=='string'||!v.length||v.length>4096||/[\u0000\uD800-\uDFFF]/u.test(v))fail();}
++function validate(i:WorkflowStageClaim){[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
++async function row(tx:JobBudgetTx,jobId:string,stageKey:string){return (await tx.query<Stage>('SELECT *,lease_until<=clock_timestamp() AS expired FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2 FOR UPDATE',[jobId,stageKey])).rows[0];}
++async function canonical(tx:JobBudgetTx,jobId:string,customerId:string,environment:string){await lockJobBudget(tx,jobId);const j=(await tx.query<{customer_id:string;environment:string;state:string}>('SELECT customer_id,environment::text,state::text FROM jobs WHERE id=$1',[jobId])).rows[0];if(!j||j.customer_id!==customerId||j.environment!==environment||!['draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'].includes(j.state))fail();}
++function identity(s:Stage,i:WorkflowStageClaim){if(s.customer_id!==i.ownerId||s.environment!==i.environment||s.input_digest!==i.inputDigest||s.role!==i.role||Number(s.amount_micro_usd)!==i.amountMicroUsd)fail();}
++function details(s:Stage):Details{return {reservationId:s.reservation_id,amountMicroUsd:Number(s.amount_micro_usd)};}
++function owned(s:Stage,recovery?:'undispatched'|'resume'):WorkflowStageDecision{return {kind:'owned',owner:{jobId:s.job_id,stageKey:s.stage_key,token:s.owner_token,generation:Number(s.generation)},...details(s),...(recovery?{recovery}:{})};}
++/** Must run in one pinned transaction, without automatic callback retry. Claims NEVER
++ * reenter a callback, even for the same SDK invocation. Expiry retains the hold. */
++export async function claimWorkflowStage(tx:JobBudgetTx,i:WorkflowStageClaim):Promise<WorkflowStageDecision>{
++ validate(i);await canonical(tx,i.jobId,i.ownerId,i.environment);const s=await row(tx,i.jobId,i.stageKey);
++ if(s){identity(s,i);if(s.state==='completed')return {kind:'completed',resultCiphertext:s.result_ciphertext!,...details(s)};
++ if(s.expired||s.state!=='running'){await tx.query("UPDATE workflow_stage.stages SET state='recovery_required' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey]);return {kind:'recovery_required',...details(s)};}return {kind:'busy',...details(s)};}
++ const operationId=`workflow-stage:${randomUUID()}`;
++ // Deliberately does not call legacy reserveWorkflowJobBudget(job,agent) reuse.
++ const r=await reserveJobBudget(tx,{jobId:i.jobId,operationId,amountMicroUsd:i.amountMicroUsd,workflowAgent:i.role});if(!r.ok)return {kind:'budget_exceeded',remainingMicroUsd:r.remainingMicroUsd};
++ const token=randomUUID();await tx.query(`INSERT INTO workflow_stage.stages(job_id,stage_key,customer_id,environment,input_digest,role,operation_id,reservation_id,amount_micro_usd,owner_token,generation,workflow_run_id,step_id,attempt,state,lease_until) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,$11,$12,$13,'running',clock_timestamp()+$14*interval '1 millisecond')`,[i.jobId,i.stageKey,i.ownerId,i.environment,i.inputDigest,i.role,operationId,r.reservationId,i.amountMicroUsd,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs]);return owned((await row(tx,i.jobId,i.stageKey))!);
++}
++export async function assertWorkflowStageOwner(tx:JobBudgetTx,o:WorkflowStageOwner){await lockJobBudget(tx,o.jobId);const s=await row(tx,o.jobId,o.stageKey);if(!s)fail();await canonical(tx,o.jobId,s.customer_id,s.environment);if(s.owner_token!==o.token||Number(s.generation)!==o.generation||s.state!=='running'||s.expired)fail();return details(s);}
++export async function registerWorkflowStageChild(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await assertWorkflowStageOwner(tx,o);[c.kind,c.operationKey,c.requestDigest].forEach(key);const stage=(await row(tx,o.jobId,o.stageKey))!;if(stage.recovery&&!(await tx.query('SELECT 1 FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows.length)fail();await tx.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',[o.jobId,o.stageKey,c.kind,c.operationKey,c.requestDigest,o.generation]);const r=(await tx.query<{job_id:string;stage_key:string;request_digest:string}>('SELECT * FROM workflow_stage.children WHERE kind=$1 AND operation_key=$2 FOR UPDATE',[c.kind,c.operationKey])).rows[0];if(!r||r.job_id!==o.jobId||r.stage_key!==o.stageKey||r.request_digest!==c.requestDigest)fail();}
++/** Called under the same transaction as the child's retained dispatch intent. The
++ * transaction commits before network I/O; it is not permission for a new child key. */
++export async function markWorkflowStageChildDispatch(tx:JobBudgetTx,o:WorkflowStageOwner,c:WorkflowStageChild){await registerWorkflowStageChild(tx,o,c);const r=(await tx.query<{dispatch_intent_at:unknown}>('SELECT dispatch_intent_at FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4 FOR UPDATE',[o.jobId,o.stageKey,c.kind,c.operationKey])).rows[0];if(r?.dispatch_intent_at)fail();await tx.query('UPDATE workflow_stage.children SET dispatch_generation=$5,dispatch_intent_at=clock_timestamp() WHERE job_id=$1 AND stage_key=$2 AND kind=$3 AND operation_key=$4',[o.jobId,o.stageKey,c.kind,c.operationKey,o.generation]);}
++export async function markWorkflowStagePending(tx:JobBudgetTx,o:WorkflowStageOwner){await assertWorkflowStageOwner(tx,o);await tx.query("UPDATE workflow_stage.stages SET state='pending' WHERE job_id=$1 AND stage_key=$2",[o.jobId,o.stageKey]);}
++/** Ciphertext is produced/validated by the server's authenticated result codec; never
++ * pass raw model/customer output or a public URL here. Both writes roll back together. */
++export async function completeWorkflowStage(tx:JobBudgetTx,o:WorkflowStageOwner,resultCiphertext:string){if(typeof resultCiphertext!=='string'||!resultCiphertext.length||resultCiphertext.length>2097152||resultCiphertext.includes('\0'))fail();await assertWorkflowStageOwner(tx,o);const s=(await row(tx,o.jobId,o.stageKey))!;await tx.query("UPDATE workflow_stage.stages SET state='completed',result_ciphertext=$3 WHERE job_id=$1 AND stage_key=$2",[o.jobId,o.stageKey,resultCiphertext]);await releaseWorkflowJobBudget(tx,o.jobId,s.reservation_id);}
++/** This privileged composition port must read the existing child's durable authority
++ * in this same transaction and verify exact job/body/key/terminal result identity.
++ * Never implement it using request input, a timeout, or caller supplied booleans. */
++export interface WorkflowStageRecoveryReader {read(tx:JobBudgetTx,child:WorkflowStageChild & {jobId:string;stageKey:string;dispatchIntent:boolean}):Promise<{state:'undispatched'|'resumable'|'terminal'|'unknown';evidenceKey:string}>}
++export async function recoverWorkflowStage(tx:JobBudgetTx,i:WorkflowStageClaim,reader:WorkflowStageRecoveryReader):Promise<WorkflowStageDecision>{validate(i);await canonical(tx,i.jobId,i.ownerId,i.environment);const s=await row(tx,i.jobId,i.stageKey);if(!s)fail();identity(s,i);if(s.state==='completed')return {kind:'completed',resultCiphertext:s.result_ciphertext!,...details(s)};if(s.state==='running'&&!s.expired)return {kind:'busy',...details(s)};
++ const children=(await tx.query<{kind:string;operation_key:string;request_digest:string;dispatch_intent_at:unknown}>('SELECT * FROM workflow_stage.children WHERE job_id=$1 AND stage_key=$2 ORDER BY kind,operation_key FOR UPDATE',[i.jobId,i.stageKey])).rows;
++ // Zero children is ambiguous: an uninstrumented callback may already have spent.
++ let resume=false,unknown=children.length===0;for(const c of children){const p=await reader.read(tx,{jobId:i.jobId,stageKey:i.stageKey,kind:c.kind,operationKey:c.operation_key,requestDigest:c.request_digest,dispatchIntent:!!c.dispatch_intent_at});key(p.evidenceKey);if(!['undispatched','resumable','terminal','unknown'].includes(p.state))fail();if(p.state==='unknown'||(c.dispatch_intent_at&&p.state==='undispatched'))unknown=true;if(p.state==='resumable'||p.state==='terminal')resume=true;}
++ if(unknown){await tx.query("UPDATE workflow_stage.stages SET state='recovery_required' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey]);return {kind:'recovery_required',...details(s)};}
++ const token=randomUUID();await tx.query("UPDATE workflow_stage.stages SET owner_token=$3,generation=generation+1,recovery=true,workflow_run_id=$4,step_id=$5,attempt=$6,state='running',lease_until=clock_timestamp()+$7*interval '1 millisecond' WHERE job_id=$1 AND stage_key=$2",[i.jobId,i.stageKey,token,i.invocation.workflowRunId,i.invocation.stepId,i.invocation.attempt,i.leaseMs]);return owned((await row(tx,i.jobId,i.stageKey))!,resume?'resume':'undispatched');}
+diff --git a/packages/core/src/integration/eval-services-decorators.test.ts b/packages/core/src/integration/eval-services-decorators.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/integration/eval-services-decorators.test.ts
+@@ -0,0 +1,18 @@
++import { afterEach,expect,it,vi } from 'vitest';
++const mocks=vi.hoisted(()=>({port:{createSession:vi.fn(),getSession:vi.fn(),listAgentSessions:vi.fn()},runner:{run:vi.fn()},construct:vi.fn()}));
++vi.mock('../agents/naive-adapter',()=>({createNaiveClient:vi.fn(()=>({})),createNaiveSessionsPort:()=>mocks.port}));
++vi.mock('../agents/session-service',()=>({AgentSessionService:class {constructor(options:unknown){mocks.construct(options);}run=mocks.runner.run;}}));
++import { buildAgentDeps,createRealEvalServices,evalServices,NAIVE_AGENT_ENV } from './eval-services';
++afterEach(()=>{vi.unstubAllEnvs();vi.clearAllMocks();});
++it('factory stays lazy and preserves the existing exported service API',()=>{
++ const decorateNaiveSessions=vi.fn();const decorateAgentRunner=vi.fn();
++ const service=createRealEvalServices({decorateNaiveSessions,decorateAgentRunner});
++ expect(Object.keys(service).sort()).toEqual(Object.keys(evalServices).sort());
++ expect(decorateNaiveSessions).not.toHaveBeenCalled();expect(decorateAgentRunner).not.toHaveBeenCalled();expect(mocks.construct).not.toHaveBeenCalled();
++});
++it('decorates provider before runner construction and returns decorated runner',async()=>{
++ vi.stubEnv('NAIVE_API_KEY','offline-test-key');vi.stubEnv('DATABASE_URL','postgres://offline.invalid/app');for(const name of Object.values(NAIVE_AGENT_ENV))vi.stubEnv(name,'offline-agent@1');
++ const port={...mocks.port};const runner={run:vi.fn()};const decorateNaiveSessions=vi.fn(()=>port),decorateAgentRunner=vi.fn(()=>runner);
++ const deps=await buildAgentDeps({decorateNaiveSessions,decorateAgentRunner});
++ expect(decorateNaiveSessions).toHaveBeenCalledWith(mocks.port);expect(mocks.construct).toHaveBeenCalledWith(expect.objectContaining({naive:port}));expect(decorateAgentRunner).toHaveBeenCalledTimes(1);expect(deps.runner).toBe(runner);
++});
+diff --git a/packages/core/src/integration/eval-services.ts b/packages/core/src/integration/eval-services.ts
+--- a/packages/core/src/integration/eval-services.ts
++++ b/packages/core/src/integration/eval-services.ts
+@@ -15,6 +15,8 @@
+ import { createNaiveClient, createNaiveSessionsPort } from "../agents/naive-adapter";
+ import { PostgresAgentTaskStore } from "../agents/postgres-ports";
+ import { SharedJobBudgetLedger } from "../db/job-budget-ledger";
++import type { AgentTaskRunner } from "../agents/session-service";
++import type { NaiveSessionsPort } from "../evals/types";
+ import { AgentSessionService } from "../agents/session-service";
+ import { pooledCalendarDatabase } from "../simulator/pool";
+ import { PostgresBranchLedger } from "../simulator/branch-ledger";
+@@ -100,12 +102,17 @@
+   return { customerId: job.customerId, package: job.package, isFixture: false, linkedRetestOf: job.retestOfJobId ?? null, quoteVersion: null };
+ }
+ 
+-export async function buildAgentDeps(): Promise<TrackBServiceDeps> {
++/** Host-owned boundary instrumentation; core never imports the application runtime. */
++export interface AgentDependencyDecorators {
++  decorateNaiveSessions?: (port: NaiveSessionsPort) => NaiveSessionsPort;
++  decorateAgentRunner?: (runner: AgentTaskRunner) => AgentTaskRunner;
++}
++export async function buildAgentDeps(decorators: AgentDependencyDecorators = {}): Promise<TrackBServiceDeps> {
+   const env = requireEnv("agents", AGENT_ENV);
+   const sql = pooledCalendarDatabase(sqlPool());
+   const naive = createNaiveSessionsPort(createNaiveClient({ apiKey: env.NAIVE_API_KEY, baseUrl: process.env.NAIVE_BASE_URL || undefined }));
+   const runner = new AgentSessionService({
+-    naive,
++    naive: decorators.decorateNaiveSessions?.(naive) ?? naive,
+     store: new PostgresAgentTaskStore(sql),
+     ledger: new SharedJobBudgetLedger(sql),
+     directory: agentDirectory(),
+@@ -113,7 +120,7 @@
+     idempotencyNamespace: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
+     workerId: randomUUID(),
+   });
+-  return { runner, resolveJob };
++  return { runner: decorators.decorateAgentRunner?.(runner) ?? runner, resolveJob };
+ }
+ 
+ async function buildBranchServices(): Promise<BranchServices> {
+@@ -134,4 +141,7 @@
+ }
+ 
+ /** Track A's `getEvalServices()` returns this when EVAL_SERVICES=real. */
+-export const evalServices: EvalServices = composeEvalServices({ agents: buildAgentDeps, branches: buildBranchServices });
++export function createRealEvalServices(decorators: AgentDependencyDecorators = {}): EvalServices {
++  return composeEvalServices({ agents: () => buildAgentDeps(decorators), branches: buildBranchServices });
++}
++export const evalServices: EvalServices = createRealEvalServices();

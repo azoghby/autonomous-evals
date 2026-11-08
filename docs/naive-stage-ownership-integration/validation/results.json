@@ -1,0 +1,53 @@
+{
+  "status": "verified_unapplied_incremental_candidate",
+  "reviewedRepositoryCommit": "ee7482a",
+  "originMain": "5da0635",
+  "incrementalPaths": 21,
+  "composedUniquePaths": 54,
+  "baselinePins": 2234,
+  "focused": {
+    "passed": 49,
+    "failed": 0,
+    "skipped": 0
+  },
+  "fullSuite": {
+    "passed": 4088,
+    "failed": 0,
+    "skipped": 2,
+    "maxWorkers": 2
+  },
+  "webTypesExitCode": 0,
+  "productionBuild": {
+    "exitCode": 0,
+    "steps": 57,
+    "workflows": 4,
+    "offlineFontFixture": true
+  },
+  "allPrePostimagesVerified": true,
+  "independentIncrementalPatch": true,
+  "reproducibleAssembly": true,
+  "manifestSha256": "9e7fa3bd1c0dc49dd85afa337a7d60df6d184fc0af6695df22da19d318b5bb6d",
+  "retainedDependencies": true,
+  "newSqlFiles": 1,
+  "rootVerification": {
+    "passed": 3932,
+    "failed": 0,
+    "skipped": 2,
+    "webTypesExitCode": 0
+  },
+  "sourceAdopted": false,
+  "liveMigrationApplied": false,
+  "deployed": false,
+  "providerCalls": 0,
+  "nativePostgresConcurrencyVerified": false,
+  "currentCallbacksOptedIntoRecovery": 0,
+  "remainingGates": [
+    "Complete callback child coverage including lite/Gateway/target/proxy",
+    "Pending propagation, proven automatic recovery and lease renewal",
+    "Immediate cancellation-request boundary and standalone publication/lifecycle fences",
+    "Parent budget envelopes and combined customer daily authority",
+    "Factual/sourcing rebase and source adoption",
+    "Copilot sends, cumulative accounting, streaming and authenticated idle",
+    "Full roster provisioning and native PostgreSQL/hosted/full Naive acceptance"
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "reviewedRepositoryCommit": "ee7482a",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-proxy-budget-integration",
+  "dependencyHashes": {
+    "manifest.json": "b2802a021b6e0379835bbbbca0d20a438c6ce8c3d048567bfc8aaaa2636139f2",
+    "assemble.py": "baa9d76bda75bdac0cae0e1fc8079a783306604c74734d2e879aef9333a8e833"
+  },
+  "files": [
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/expert-text-runtime.ts",
+      "beforeSha256": "e9e527e2cbef7f443839fa38f0ff75cd5575103a718201312518ff256d88af21",
+      "afterSha256": "48877ea66f20371341b3d84a25ebeba45b34b48d27858b140d59f6d97e9bab94"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-stage.test.ts",
+      "postimage": "postimages/apps/web/src/server/expert-text-stage.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "74e5388e162495597d5e16a65151b5c71d724e61e143957fa44ecd2d1c542a9f"
+    },
+    {
+      "path": "apps/web/src/server/job-store-stage-sql.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-store-stage-sql.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "ef129fb6a658f1aed6193571dc00a882d2923ff28712d41fed7e545b8649eab7"
+    },
+    {
+      "path": "apps/web/src/server/job-store-stage.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-store-stage.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "08fec72339a4fb31e1c27e508c6d698c76503b0ee678acd10a0b86be6aae2a57"
+    },
+    {
+      "path": "apps/web/src/server/job-store.ts",
+      "postimage": "postimages/apps/web/src/server/job-store.ts",
+      "beforeSha256": "a758d267c6a0c134fede3d31f0a377d73b8d78c30d2f04a2b4d80f72c4efb0a3",
+      "afterSha256": "72cd8b1e02ad63a81088c5759d590ab8d7cd8b0d17b7c84042b2d11188fc0194"
+    },
+    {
+      "path": "apps/web/src/server/services-stage.test.ts",
+      "postimage": "postimages/apps/web/src/server/services-stage.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "3929ab74842240872bedc824c4435d0daadd6e6b3831e228699ca29e0b4b69bf"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "postimage": "postimages/apps/web/src/server/services.ts",
+      "beforeSha256": "653a5296f154309bf8dd61c5816543bd8517a5e117566e6c910fe4ab53001f01",
+      "afterSha256": "54afb2c5de1efe7158e8b7cf9ec8c3f25b7d1dde71192f3deaee5279a60f45b8"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-children.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-children.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "8a1e0e006f3d0ac6b4a68be16d5f662ec79dc0c110584fedeb9c842b1331f527"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-children.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-children.ts",
+      "beforeSha256": null,
+      "afterSha256": "2b84f37e253881e5c00509c049b7291112e77befe119469f08873c14a9570a43"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-runtime.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-runtime.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "f6c479dc0da1a7bcf035ca7d512e6962a11ce253fb0fadcdd8bb03925699bdbb"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-runtime.ts",
+      "beforeSha256": null,
+      "afterSha256": "ff4da7820fab69f0a2d29c8444cf43290b9ef2920e763ae620e3feb53168d68f"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/common.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/common.test.ts",
+      "beforeSha256": "239552fae2de6d2fe34d2bbbbe8a2d03fe228cd07910444dd98dd203a3b7d5aa",
+      "afterSha256": "f6cbb3e5ed00a280a68e2ba4e650889ac895deb06a1b38f44d56e1918db1144c"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/common.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/common.ts",
+      "beforeSha256": "085108d81a34929c768a7d433e3a1e62e352691abfe3182336d412da1dc0b979",
+      "afterSha256": "3cffb6a64233c48b3d88b87f78b0a1daab86e401f7515ab0cbbf2c38f404e0fd"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/evaluate.test.ts",
+      "beforeSha256": "4bb9d6904c72347949fcf157a7b0178a13d276c84d6e56520c96e4604d74eb29",
+      "afterSha256": "b68568e1c822546dc1715f1b500dc128ca24c9385553c0b93a10e34e43cc7f44"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/evaluate.ts",
+      "beforeSha256": "ba10d271051605f5f78035d04dfeb38f985beeee71d2e2f651e5a621e090865c",
+      "afterSha256": "e20c65776200ed3e9dbd72873a79ee6d2b4d360978284f80b5c10d60ad008da3"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/expert-text.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/expert-text.ts",
+      "beforeSha256": "0573b47ac8d580c66f730e56ce919055592598f9c18ff001bb881ec9b25a1138",
+      "afterSha256": "4e37a0201a9ed4a09145349679fdc3bde1492198dd655a2e27d58174f322d557"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/quote.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/quote.ts",
+      "beforeSha256": "778edb7091c8af4bacc9fc1b19693ea3a5a161994c331f615d0314c49c0d5671",
+      "afterSha256": "0529367cd51f8309078fe3415aaebcde28b32ded71259536ac36509faa9d4c52"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.test.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "51d379ed6df0b39144ed544e91f17bc206d481d446b595561e49b3fb0a8bcf01"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.ts",
+      "beforeSha256": null,
+      "afterSha256": "d6a7a51d8b759cb98bc228598b674cd9737bb84f29a8beb124235e0c6f249bb2"
+    },
+    {
+      "path": "packages/core/src/integration/eval-services-decorators.test.ts",
+      "postimage": "postimages/packages/core/src/integration/eval-services-decorators.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "7e18a97d9d67cc618cee695dcaa30886001273905db65cf5a5dc8b2dab2cdef9"
+    },
+    {
+      "path": "packages/core/src/integration/eval-services.ts",
+      "postimage": "postimages/packages/core/src/integration/eval-services.ts",
+      "beforeSha256": "03285b9e51652d601005fd00b937f53039ea76ad8af51e230308cbe033de7938",
+      "afterSha256": "51640c4ac72bd977c00cfb4b78fb4457eded4b63b0b270b1ccc34fc5fdb4af3f"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-workflow-stage-ownership.sql",
+      "sha256": "7d919fded398bd7cf3da9d23460e5568321961576dd97ffc58582e1b585ed646"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Durable Workflow stage ownership: next implementation contract
 
+Current implementation note (2026-11-08): `naive-stage-ownership-integration` implements a bounded, unapplied portion of this design. Read its README/validation receipt: current callbacks do not opt into takeover because complete child coverage and lease renewal remain missing. The requirements below remain the full design, not a deployment claim.
+
 Status: **design, not implemented**. Repository checkpoint `1cf90a5`; follows the shared-budget candidate. It addresses that candidate's remaining `(job, agent)` open-hold reuse gap. A reservation is not exclusive permission to execute a callback.
 
 ## Verified installed APIs and existing identities
