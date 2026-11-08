@@ -10,7 +10,7 @@ import { gradeSandbox, ROW_DIFF_SQL, type RowMutation } from '../../../packages/
 
 const before = {id:'cus_1',name:"Ada O'Neil",email:'ada@example.test'};
 const authorized:RowMutation = {table_name:'customers',pk:{id:'cus_1'},change:'updated',before,after:{...before,email:'approved@example.test'}};
-async function fixture(mode: 'approved'|'absent'|'stale' = 'approved', maxRows = 5000, extraRows = false, openGate?: { entered(): void; wait: Promise<void> }) {
+async function fixture(mode: 'approved'|'absent'|'stale' = 'approved', maxRows = 5000, extraRows = false, openGate?: { entered(): void; wait: Promise<void> }, withExec = false) {
  const db = new PGlite();
  const conn:SqlConn = {query:async(sql,params=[])=>{const r=await db.query(sql,params);return {rows:r.rows as never[],rowCount:r.affectedRows??r.rows.length};},exec:async sql=>{await db.exec(sql);},close:()=>db.close()};
  await db.exec(WORLD_PREAMBLE_SQL);const clock=clockSql('2026-06-01T15:00:00Z');await conn.query(clock.text,clock.values);
@@ -25,6 +25,7 @@ async function fixture(mode: 'approved'|'absent'|'stale' = 'approved', maxRows =
  const versions:EvalVersions={spec:'sandbox-spec-v1',envHash:runtimeBridgeDigest(env),suiteHash:'server-suite',runtime:'875ceef',simulatorModel:'offline',judgeModel:'offline'};
  const binding={worldId:'actual-world',executionIdentity:'actual-execution',environment:env,scenario,versions};
  const raw=createSandboxRun({runId:'actual-A-run',conn,env,scenario});
+ if(withExec)Object.assign(raw,{exec:(sql:string)=>conn.exec(sql)});
  let policy:ExactRowPolicy|undefined;
  try {
  const bridge=await retainRuntimeRun({run:raw,binding,issuePolicy:async request=>{
@@ -163,4 +164,21 @@ it('snapshots the supplied execution artifact before asynchronous sealing',async
   artifact.worldId=f.binding.worldId;
   await expect(pending.then(async value=>{await value.release();return value;})).rejects.toThrow('snapshot_execution_mismatch');
  }finally{await f.bridge.run.dispose();}
+});
+
+it('trusted mutation exec drains before sealing and cannot mutate a retained snapshot',async()=>{
+ const f=await fixture('absent',5000,false,undefined,true);
+ try {
+  expect(f.bridge.run.exec).toBeTypeOf('function');
+  const pending=f.bridge.run.exec!("UPDATE customers SET email='trusted-mutation@example.test' WHERE id='cus_1'");
+  const seal=f.bridge.seal();
+  await expect(f.bridge.run.exec!("DELETE FROM customers")).rejects.toThrow('snapshot_run_sealed');
+  await pending;await seal;
+  const snapshot=await f.bridge.gateSnapshot();
+  try {
+   expect(await snapshot.run.query("SELECT email FROM customers WHERE id='cus_1'")).toEqual([{email:'trusted-mutation@example.test'}]);
+   expect(snapshot.run.trajectory()).toEqual([]); // Trusted fixture mutation is not a target tool call.
+   expect(await snapshot.run.query(ROW_DIFF_SQL)).toHaveLength(1);
+  } finally {await snapshot.release();}
+ } finally {await f.bridge.run.dispose();await f.bridge.forget();}
 });

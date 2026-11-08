@@ -36,3 +36,7 @@ No fetch, installation, provider call, cloud access, push, or deployment is requ
 - Harness regression checks: 13 passed, no skips/todos. `node --check tests/track-b/run-checks.mjs` and `git diff --check` passed.
 - Required repository commands attempted without installation: `npm_config_offline=true npx tsc -p apps/web --noEmit` exited 1 because local TypeScript is unavailable (npx's wrong-tsc diagnostic); `npm test` exited 127 because `vitest` is not on the checkout's PATH. Neither result is represented as a pass.
 - LEDGER.md was read. This scoped worker owns only the runner, new harness-current tests, and this document; the validation/change log lives here to respect that explicit ownership. The integrator can append the result to the shared ledger.
+
+## Parent integrated run
+
+At `57db3f8`, the full default selection was rerun with `--track-a-ref HEAD` and the two retained dependency directories above. Strict TypeScript and all **68 files / 1,138 tests** passed; no skipped/todo tests. This includes 25 known-contract-gap characterizations, which document unresolved integration limits rather than prove acceptance. Dedicated sandbox acceptance runners remain separate. The subsequent runtime trusted-exec forwarding change is covered by its own snapshot suite, not retroactively included in this run.

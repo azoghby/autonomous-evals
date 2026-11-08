@@ -86,8 +86,12 @@ export async function retainRuntimeRun(options: {
     });
     return sealed;
   }
-  const run: SandboxRun = {
+  // Older runtime contracts have no trusted exec hook. Preserve it only when
+  // supplied by the actual runtime; never emulate writes through query.
+  const exec = (raw as SandboxRun & { exec?: (sql: string) => Promise<void> }).exec;
+  const run: SandboxRun & { exec?: (sql: string) => Promise<void> } = {
     runId,
+    ...(typeof exec === 'function' ? { exec: (sql: string) => active(() => exec.call(raw, sql)) } : {}),
     callTool(name, args) { const pinned = structuredClone(args); return active(async () => structuredClone(await raw.callTool(name, pinned))); },
     query(sql, params = []) { const pinned = structuredClone(params); return active(() => raw.query(sql, pinned)); },
     diff: () => active(() => raw.diff()), outbox: () => active(() => raw.outbox()),

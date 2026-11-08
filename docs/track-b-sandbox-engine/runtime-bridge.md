@@ -47,3 +47,9 @@ No secrets, cloud/provider calls, migrations, deployments, purchases, outreach o
 Parent reran the original 18 SQL tests, then reproduced one direct-caller mutation gap: an invalid execution artifact could be changed during asynchronous sealing and accepted. `finalSnapshot` now detaches its argument at entry. The new regression requires rejection of the original foreign-world identity even when its caller changes the object before capture completes. This is an in-process boundary correction; no external caller exploit or hosted isolation claim follows.
 
 After the entry-snapshot fix: strict TypeScript and **19 SQL tests passed**, none skipped, against exact A `875ceef` with the parameter patch confined to temporary staging.
+
+## Optional trusted mutation hook
+
+The bridge now preserves `exec(sql)` only if the supplied runtime actually exposes it. It serializes that trusted operation with queries/tools, drains accepted mutations before sealing, and rejects subsequent writes once sealing starts. It does not emulate missing write support through the read-only query port, expose a model tool, or fabricate a trajectory entry. The optional shape remains compatible with historical runtime contracts.
+
+Parent verification passed strict TypeScript and **20 real SQL snapshot tests** using the existing exact `875ceef` runtime stage plus its explicit staging-only parameter patch. The added test supplies the trusted hook backed by the real SQL connection, starts a mutation before sealing, rejects a later mutation, and proves the retained SQL image includes the first write with no invented tool call. Current hosted runtime adoption and parameter forwarding remain Track A responsibilities.
