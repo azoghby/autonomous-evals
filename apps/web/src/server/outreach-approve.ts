@@ -14,13 +14,35 @@ import { closeApprovalFromSource } from "./notify/sync";
 
 export type ApproveResult =
   | { ok: true; status: "sent" | "approved"; sendError?: string }
-  | { ok: false; status: number; error: string };
+  /** draftStatus is set when the draft was not pending (null when it does not exist). */
+  | { ok: false; status: number; error: string; draftStatus?: string | null };
+
+export interface ApproveOptions {
+  syncApproval?: boolean;
+  /**
+   * Idempotent retry: an already-approved draft that was never sent is re-sent (suppression and localhost checks run
+   * again), and an already-sent draft returns ok. Without it both return 409.
+   */
+  resendApproved?: boolean;
+}
+
+type SendableDraft = { toEmail: string; subject: string; body: string; kind: string | null };
+
+/** Refuses drafts that must never go out, whatever their approval state. */
+async function sendBlocker(d: SendableDraft): Promise<string | null> {
+  // A draft generated without a public APP_URL carries http://localhost links (broken unsubscribe): never send it.
+  if (containsLocalUrl(`${d.subject}\n${d.body}`)) {
+    return "Draft contains a localhost link (broken unsubscribe/site URL). Reject it; the agent will redraft with production links.";
+  }
+  if (await isSuppressed(d.toEmail)) return "Recipient is on the suppression list; this draft must not be sent. Reject it.";
+  return null;
+}
 
 /**
  * Operator approval of one pending outreach draft: guardrails, atomic pending->approved claim, intervention row,
  * then send (if email is configured). Shared by the single-approve route and the one-click approve-all route.
  */
-async function approveLegacyDraft(id: string, approverEmail: string, opts: { syncApproval?: boolean } = {}): Promise<ApproveResult> {
+async function approveLegacyDraft(id: string, approverEmail: string, opts: ApproveOptions = {}): Promise<ApproveResult> {
   const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail, kind: schema.outreachDrafts.kind, subject: schema.outreachDrafts.subject, body: schema.outreachDrafts.body })
     .from(schema.outreachDrafts)
     .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).limit(1);
@@ -44,10 +66,17 @@ async function approveLegacyDraft(id: string, approverEmail: string, opts: { syn
     .set({ status: "approved", approvedBy: approverEmail })
     .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).returning();
   if (!draft) {
-    const [exists] = await db().select({ status: schema.outreachDrafts.status }).from(schema.outreachDrafts).where(eq(schema.outreachDrafts.id, id)).limit(1);
-    return exists
-      ? { ok: false, status: 409, error: `Draft is already ${exists.status}` }
-      : { ok: false, status: 404, error: "Draft not found" };
+    const D = schema.outreachDrafts;
+    const [exists] = await db().select({ status: D.status, toEmail: D.toEmail, subject: D.subject, body: D.body, kind: D.kind })
+      .from(D).where(eq(D.id, id)).limit(1);
+    if (!exists) return { ok: false, status: 404, error: "Draft not found", draftStatus: null };
+    if (opts.resendApproved && exists.status === "sent") return { ok: true, status: "sent" };
+    if (opts.resendApproved && exists.status === "approved") {
+      const blocked = await sendBlocker(exists);
+      if (blocked) return { ok: false, status: 409, error: blocked, draftStatus: exists.status };
+      return sendApprovedDraft(id, exists);
+    }
+    return { ok: false, status: 409, error: `Draft is already ${exists.status}`, draftStatus: exists.status };
   }
   await db().insert(schema.interventions).values({
     operatorEmail: approverEmail, kind: "approve_outreach", note: `Approved outreach ${id} to ${draft.toEmail}: ${draft.subject}`,
@@ -55,7 +84,11 @@ async function approveLegacyDraft(id: string, approverEmail: string, opts: { syn
   // Decided in the console (not from the phone): close the matching founder approval so its buttons become no-ops.
   if (opts.syncApproval !== false) await closeApprovalFromSource("outreach_draft", id, "approved", approverEmail);
 
-  // Approval is recorded; send only when email is configured. Failure leaves the draft "approved" (retryable by operator).
+  return sendApprovedDraft(id, draft);
+}
+
+/** Sends an approved draft when email is configured. Failure leaves the draft "approved" (retryable via resendApproved). */
+async function sendApprovedDraft(id: string, draft: SendableDraft): Promise<ApproveResult> {
   let sent = false, sendError: string | undefined;
   if (isAgentMailConfigured() || (isEmailConfigured() && process.env.EMAIL_FROM)) {
     try {
@@ -111,7 +144,7 @@ export function parseApproveAll(payload: ApproveAllPayload | null): { ids: strin
 }
 
 /** Shared lock covers legacy and managed approvals so the existing daily cold cap has one writer gate. */
-export async function approveAndSendDraft(id:string,approverEmail:string,opts:{syncApproval?:boolean}={}):Promise<ApproveResult>{
+export async function approveAndSendDraft(id:string,approverEmail:string,opts:ApproveOptions={}):Promise<ApproveResult>{
  if(!isOperator(approverEmail))return {ok:false,status:403,error:'Operator access required'};
  const sql=expertOwnerDatabase();
  if(await approveSqlManagedExpertDraft(sql,id,approverEmail))return {ok:true,status:'approved'};

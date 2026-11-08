@@ -77,6 +77,37 @@ describe("approveAndSendDraft", () => {
   });
 });
 
+describe("approveAndSendDraft resendApproved (idempotent retry)", () => {
+  const approved = { status: "approved", toEmail: "e@b.com", subject: "s", body: "b", kind: "expert_invite" };
+
+  it("re-sends an approved-but-unsent draft instead of returning 409", async () => {
+    h.state.configured = true;
+    h.state.selects = [[], [approved], []];
+    expect(await approveAndSendDraft(ID, "op@example.com", { resendApproved: true })).toEqual({ ok: true, status: "sent" });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(h.state.inserts).toBe(0); // no second approval intervention
+  });
+
+  it("returns ok without sending when the draft was already sent", async () => {
+    h.state.configured = true;
+    h.state.selects = [[], [{ ...approved, status: "sent" }]];
+    expect(await approveAndSendDraft(ID, "op@example.com", { resendApproved: true })).toEqual({ ok: true, status: "sent" });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("still refuses to re-send to a suppressed recipient", async () => {
+    h.state.configured = true; h.state.suppressed = true;
+    h.state.selects = [[], [approved]];
+    expect(await approveAndSendDraft(ID, "op@example.com", { resendApproved: true })).toMatchObject({ ok: false, status: 409, draftStatus: "approved" });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("without the option an approved draft is still a 409 carrying its status", async () => {
+    h.state.selects = [[], [approved]];
+    expect(await approveAndSendDraft(ID, "op@example.com")).toMatchObject({ ok: false, status: 409, draftStatus: "approved" });
+  });
+});
+
 describe("sdr kinds", () => {
   it("still blocks a suppressed sdr_first_touch at approve time via guardOutreachSend", async () => {
     h.state.selects = [[{ toEmail: "p@b.com", kind: "sdr_first_touch" }]]; h.state.configured = true;

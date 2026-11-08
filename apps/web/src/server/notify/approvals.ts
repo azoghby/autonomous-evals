@@ -128,16 +128,26 @@ export async function decideApproval(input: DecideInput, now = new Date()): Prom
   const handler = getApprovalHandler(row.kind);
   let note = `${tr.to === "approved" ? "Approved" : "Rejected"} #${row.seq}.`;
   let ok = true;
+  let revert = true;
   if (handler) {
     try {
       const r = await handler.onDecision({ approval: toRecord(claimed), decision: input.decision, via: input.via, actor });
-      ok = r.ok; note = r.note;
+      ok = r.ok; note = r.note; revert = r.revert ?? true;
     } catch (err) {
       ok = false; note = `Handler failed: ${err instanceof Error ? err.message : String(err)}`;
       console.error("approval handler failed", row.kind, row.id, note);
     }
   }
   const result = (ok ? note : `error: ${note}`).slice(0, 500);
+  if (!ok && !revert) {
+    // The action partly happened (e.g. draft approved, send failed): keep the decision so it is not replayed in a loop.
+    await db().update(t).set({ result }).where(eq(t.id, row.id));
+    await db().insert(schema.interventions).values({
+      operatorEmail: actor, kind: "founder_decision",
+      note: `${tr.to} #${row.seq} [${row.kind}] ${row.title} via ${input.via} partly failed: ${result}`.slice(0, 1000),
+    }).catch((err) => console.error("founder decision audit failed", err instanceof Error ? err.message : err));
+    return { ok: false, changed: true, status: tr.to, message: note.slice(0, 500), seq: row.seq };
+  }
   if (!ok) {
     // The decision was claimed before the handler ran; a failed handler must not leave it "approved" with nothing done.
     // Put it back to pending (keeping the error) so the founder can retry it.

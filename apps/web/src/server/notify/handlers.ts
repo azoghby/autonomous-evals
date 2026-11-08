@@ -22,9 +22,11 @@ registerApprovalHandler("outreach_draft", {
       const r = await rejectDraft(approval.ref, actor, { syncApproval: false });
       return r.ok ? { ok: true, note: `Rejected #${approval.seq}; nothing was sent.` } : { ok: false, note: r.error };
     }
-    const r = await approveAndSendDraft(approval.ref, actor, { syncApproval: false });
-    if (!r.ok) return { ok: false, note: r.error };
-    if (r.sendError) return { ok: false, note: `Approved #${approval.seq} but the send failed (${r.sendError}); retry from /operator.` };
+    // Idempotent: an approved-but-unsent draft is re-sent, an already-sent one is ok.
+    const r = await approveAndSendDraft(approval.ref, actor, { syncApproval: false, resendApproved: true });
+    // Only a draft that is still pending can be retried through this approval; anything else keeps the decision.
+    if (!r.ok) return { ok: false, note: r.error, revert: r.draftStatus === undefined || r.draftStatus === "pending" };
+    if (r.sendError) return { ok: false, note: `Approved #${approval.seq} but the send failed (${r.sendError}); retry from /operator.`, revert: false };
     return { ok: true, note: r.status === "sent" ? `Approved and sent #${approval.seq}.` : `Approved #${approval.seq} (email not configured, so not sent yet).` };
   },
 });
