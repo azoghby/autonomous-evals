@@ -138,6 +138,17 @@ export async function decideApproval(input: DecideInput, now = new Date()): Prom
     }
   }
   const result = (ok ? note : `error: ${note}`).slice(0, 500);
+  if (!ok) {
+    // The decision was claimed before the handler ran; a failed handler must not leave it "approved" with nothing done.
+    // Put it back to pending (keeping the error) so the founder can retry it.
+    await db().update(t).set({ status: "pending", decidedVia: null, decidedBy: null, decidedAt: null, result })
+      .where(and(eq(t.id, row.id), eq(t.status, tr.to)));
+    await db().insert(schema.interventions).values({
+      operatorEmail: actor, kind: "founder_decision",
+      note: `${tr.to} #${row.seq} [${row.kind}] ${row.title} via ${input.via} failed and was reverted to pending: ${result}`.slice(0, 1000),
+    }).catch((err) => console.error("founder decision audit failed", err instanceof Error ? err.message : err));
+    return { ok: false, changed: false, status: "pending", message: `${note} #${row.seq} is still pending; try again.`.slice(0, 500), seq: row.seq };
+  }
   await db().update(t).set({ result }).where(eq(t.id, row.id));
   await db().insert(schema.interventions).values({
     operatorEmail: actor, kind: "founder_decision",
