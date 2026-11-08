@@ -154,6 +154,7 @@ const zodIssues = (error: z.ZodError): string[] =>
   error.issues.slice(0, 20).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`);
 
 export class AgentSessionService {
+  private readonly directory: AgentDirectory;
   private readonly clock: Clock;
   private readonly log: Logger;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -166,6 +167,21 @@ export class AgentSessionService {
 
   constructor(private readonly deps: AgentSessionServiceDeps) {
     SafeIdSchema.parse(deps.idempotencyNamespace);
+    // Detach before the first await: caller mutation must not replace a verified pin.
+    // Missing pins remain supported for legacy callers; supplied pins must be exact.
+    this.directory = structuredClone(deps.directory);
+    for (const role of Object.keys(ROLE_DEFINITIONS) as AgentRole[]) {
+      const agent = this.directory[role];
+      if (!agent || typeof agent.agentId !== "string" || !agent.agentId.trim()) {
+        throw new Error(`missing agent ID for ${role}`);
+      }
+      if (agent.agentVersion !== undefined &&
+          (!Number.isSafeInteger(agent.agentVersion) || agent.agentVersion <= 0)) {
+        throw new Error(`invalid agent version for ${role}`);
+      }
+      Object.freeze(agent);
+    }
+    Object.freeze(this.directory);
     this.clock = deps.clock ?? systemClock;
     this.log = redactingLogger(deps.logger ?? silentLogger);
     this.sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
@@ -197,7 +213,7 @@ export class AgentSessionService {
     if (!Number.isInteger(spec.budgetMicroUsd) || spec.budgetMicroUsd <= 0 || spec.budgetMicroUsd > role.maxTaskMicroUsd) {
       return { status: "failed", taskKey, code: "invalid_task_budget", message: `task budget must be 1..${role.maxTaskMicroUsd} micro-USD`, session: null, cost: null };
     }
-    const agent = this.deps.directory[spec.role];
+    const agent = this.directory[spec.role];
 
     // 2. Atomic reservation across role-period and job scopes. Idempotent on taskKey.
     const reservation = await this.deps.ledger.reserve({
@@ -260,7 +276,7 @@ export class AgentSessionService {
 
   /** The exact create body for a spec. Also used on resume to prove the stored row answers this request. */
   private requestBodyFor<T>(spec: AgentTaskSpec<T>, taskKey: string): NaiveSessionCreateBody {
-    const agent = this.deps.directory[spec.role];
+    const agent = this.directory[spec.role];
     return {
       agent_id: agent.agentId,
       message: spec.message,
@@ -344,9 +360,16 @@ export class AgentSessionService {
   }
 
   private async attemptCreate<T>(rec: AgentTaskRecord, spec: AgentTaskSpec<T>): Promise<AgentTaskOutcome<T>> {
+    // Screen the actual durable bytes under today's policy, including recovery replays.
+    // An earlier ambiguous dispatch may have spent money: never release its reservation.
+    const body = structuredClone(rec.requestBody);
+    if (containsSecret(body.message, spec.knownSecrets ?? [])) {
+      return this.escalate(rec, spec, "credential_in_prompt",
+        "stored prompt contained a current credential; dispatch refused; reconcile prior intent", []);
+    }
     let snap: NaiveSessionSnapshot;
     try {
-      snap = await this.deps.naive.createSession(rec.requestBody, rec.idempotencyKey);
+      snap = await this.deps.naive.createSession(body, rec.idempotencyKey);
     } catch (raw) {
       const err = raw instanceof NaiveCallError ? raw : new NaiveCallError("ambiguous", "unexpected create failure");
       this.log.warn("agent_task.create_error", { taskKey: rec.taskKey, kind: err.kind, status: err.status, code: err.code, requestId: err.requestId });
@@ -392,6 +415,9 @@ export class AgentSessionService {
       return latest ? this.resume(latest, spec) : this.reread(rec.taskKey, spec);
     }
     this.log.info("agent_task.session_persisted", { taskKey: rec.taskKey, sessionId: snap.id });
+    if (this.versionMismatch(saved, snap.agentVersion) && snap.status !== "queued" && snap.status !== "running") {
+      return this.finalize(saved, snap, spec);
+    }
     return this.poll(saved, spec);
   }
 
@@ -453,6 +479,10 @@ export class AgentSessionService {
       try {
         snap = await this.deps.naive.getSession(sessionId);
       } catch (error) {
+        if (this.versionMismatch(rec, rec.agentVersion)) {
+          return this.escalate(rec, spec, "agent_version_mismatch",
+            "observed session version differs from the pinned request; reconcile usage manually", [sessionId]);
+        }
         if (error instanceof NaiveCallError && error.kind === "definitive" &&
             (error.status === 401 || error.status === 403 || error.status === 404)) {
           // The session may already have spent money. Preserve its identity and reservation;
@@ -463,6 +493,10 @@ export class AgentSessionService {
         return { status: "pending", taskKey: rec.taskKey, reason: "naive_unreachable", sessionId, retryAfterMs: 10_000 };
       }
       if (snap.status !== "queued" && snap.status !== "running") return this.finalize(rec, snap, spec);
+      if (this.versionMismatch(rec, snap.agentVersion) || this.versionMismatch(rec, rec.agentVersion)) {
+        return this.escalate(rec, spec, "agent_version_mismatch",
+          "observed session version differs from the pinned request; reconcile usage manually", [sessionId]);
+      }
       if (this.clock.now().getTime() >= deadline) {
         return { status: "pending", taskKey: rec.taskKey, reason: "session_running", sessionId, retryAfterMs: this.pollIntervalMs * 2 };
       }
@@ -508,16 +542,28 @@ export class AgentSessionService {
       };
     }
 
-    // Settle first (idempotent), then record. A crash between the two re-settles harmlessly.
-    await this.deps.ledger.settle(rec.reservationId, consumed);
+    if (this.versionMismatch(rec, snap.agentVersion) || this.versionMismatch(rec, rec.agentVersion)) {
+      terminal = { state: "needs_operator", result: null, error: {
+        code: "agent_version_mismatch", message: "observed session version differs from the pinned request; output refused",
+      } };
+    }
+    // The ledger is first-writer-wins, even if terminal CAS rolls back or loses its ack.
+    // Persist/deliver that same amount; revised provider usage needs reconciliation.
+    const settlement = await this.deps.ledger.settle(rec.reservationId, consumed);
+    if (settlement.settledMicroUsd !== consumed) {
+      terminal = { state: "needs_operator", result: null, error: {
+        code: "settlement_usage_conflict",
+        message: `observed usage ${consumed} differs from settled usage ${settlement.settledMicroUsd}; reconcile manually`,
+      } };
+    }
     const saved = await this.cas(rec, {
       ...terminal,
-      consumedMicroUsd: consumed,
+      consumedMicroUsd: settlement.settledMicroUsd,
       tokenUsage: snap.tokenUsage,
       agentVersion: snap.agentVersion,
     });
     if (!saved) return this.reread(rec.taskKey, spec);
-    this.log.info("agent_task.finalized", { taskKey: rec.taskKey, sessionId: snap.id, state: saved.state, consumedMicroUsd: consumed });
+    this.log.info("agent_task.finalized", { taskKey: rec.taskKey, sessionId: snap.id, state: saved.state, consumedMicroUsd: saved.consumedMicroUsd });
     return this.storedOutcome(saved, spec);
   }
 
@@ -526,6 +572,11 @@ export class AgentSessionService {
     this.log.error("agent_task.needs_operator", { taskKey: rec.taskKey, code, sessionIds });
     if (!saved) return this.reread(rec.taskKey, spec);
     return { status: "needs_operator", taskKey: rec.taskKey, code, message, sessionIds };
+  }
+
+  private versionMismatch(rec: AgentTaskRecord, observed: number | null): boolean {
+    const pin = rec.requestBody.agent_version;
+    return pin !== undefined && observed !== pin;
   }
 
   private storedOutcome<T>(rec: AgentTaskRecord, spec: AgentTaskSpec<T>): AgentTaskOutcome<T> {
@@ -550,6 +601,13 @@ export class AgentSessionService {
           recordedAt: rec.updatedAt,
         }
       : null;
+    // Older durable terminal rows may have accepted an unverified provider version.
+    // Keep their measured accounting evidence, but never return that output as valid.
+    if (rec.sessionId && this.versionMismatch(rec, rec.agentVersion)) {
+      return { status: "needs_operator", taskKey: rec.taskKey, code: "agent_version_mismatch",
+        message: "observed session version differs from the pinned request; output refused",
+        sessionIds: [rec.sessionId], cost: rec.consumedMicroUsd === null ? null : cost };
+    }
     const code = rec.error?.code ?? rec.state;
     const message = rec.error?.message ?? "";
     switch (rec.state) {
