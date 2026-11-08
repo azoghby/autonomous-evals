@@ -3,6 +3,8 @@ import { z } from "zod";
 import { verifyMagicLink } from "@ae/core/auth/magic-link";
 import { safeNextPath } from "@ae/core/auth/tokens";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/server/session";
+import { isSameOrigin } from "@/server/oauth/consent";
+import { originOf } from "@/server/oauth/service";
 
 /**
  * GET never consumes the token (link scanners / prefetchers / login-CSRF): it only redirects to the
@@ -22,7 +24,14 @@ export async function GET(req: Request) {
 
 const Body = z.object({ token: z.string().min(1).max(200), next: z.string().max(2000).nullish() });
 
+/**
+ * Login CSRF: a cross-site form could otherwise POST a token the attacker minted and sign the victim into the
+ * attacker's account. Require JSON (not sendable by a plain HTML form) and a same-origin Origin/Referer.
+ */
 export async function POST(req: Request) {
+  const type = (req.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  if (type !== "application/json") return NextResponse.json({ error: "unsupported_media_type" }, { status: 415 });
+  if (!isSameOrigin(req, originOf(req))) return NextResponse.json({ error: "cross_site" }, { status: 403 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
   const next = safeNextPath(parsed.data.next);

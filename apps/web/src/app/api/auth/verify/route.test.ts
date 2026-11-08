@@ -9,8 +9,8 @@ vi.mock("@/server/session", () => ({
 
 import { GET, POST } from "./route";
 
-const post = (body: unknown) =>
-  POST(new Request("http://x/api/auth/verify", { method: "POST", body: JSON.stringify(body) }));
+const post = (body: unknown, headers: Record<string, string> = { "content-type": "application/json" }) =>
+  POST(new Request("http://x/api/auth/verify", { method: "POST", body: JSON.stringify(body), headers }));
 
 describe("/api/auth/verify", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -31,6 +31,23 @@ describe("/api/auth/verify", () => {
   it("GET without token goes to signin with an error", async () => {
     const res = await GET(new Request("http://x/api/auth/verify"));
     expect(res.headers.get("location")).toContain("/signin?auth_error=invalid");
+  });
+  it("POST refuses a non-JSON (HTML form) body without consuming the token", async () => {
+    const res = await POST(new Request("http://x/api/auth/verify", {
+      method: "POST", body: "token=abc", headers: { "content-type": "application/x-www-form-urlencoded" },
+    }));
+    expect(res.status).toBe(415);
+    expect(verifyMagicLink).not.toHaveBeenCalled();
+  });
+  it("POST refuses a cross-site origin (login CSRF)", async () => {
+    const res = await post({ token: "abc" }, { "content-type": "application/json", origin: "https://evil.example" });
+    expect(res.status).toBe(403);
+    expect(verifyMagicLink).not.toHaveBeenCalled();
+  });
+  it("POST accepts a same-origin JSON request", async () => {
+    verifyMagicLink.mockResolvedValue({ ok: true, sessionToken: "s", expiresAt: new Date(Date.now() + 1000) });
+    const res = await post({ token: "abc" }, { "content-type": "application/json; charset=utf-8", origin: "http://x" });
+    expect(res.status).toBe(200);
   });
   it("POST consumes the token, sets the cookie and returns the redirect", async () => {
     verifyMagicLink.mockResolvedValue({ ok: true, sessionToken: "s", expiresAt: new Date(Date.now() + 1000) });
