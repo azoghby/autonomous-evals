@@ -1,0 +1,37 @@
+--- a/tests/track-b/live-acceptance/provider/app-run.mjs
++++ b/tests/track-b/live-acceptance/provider/app-run.mjs
+@@ -3,6 +3,7 @@
+ import { pathToFileURL } from 'node:url';
+ import { resolve } from 'node:path';
+ import { createHash } from 'node:crypto';
++import { assertCalendarVersionBinding, assertPromptApplication } from '../../../../docs/acceptance-protocol-closure/identity/protocol.mjs';
+ export const CAPS = Object.freeze({ target: 32, gateway: 16, naive: 0, cloudMutation: 0 });
+ const requireTrue = (value, code) => { if (!value) throw Error(code); };
+ export const EVIDENCE_SCHEMA = 'app_acceptance/v2';
+@@ -31,7 +32,8 @@
+   provenance(e.provenance?.calendar); provenance(e.provenance?.text);
+   const calendar = e.calendar, text = e.text;
+   requireTrue(digest(calendar?.suiteDigest) && uniqueIds(calendar.reviewedScenarioIds) && calendar.reviewedScenarioIds.length >= 2, 'reviewed_calendar_suite_required');
+-  run(calendar.buggy, calendar.suiteDigest, calendar.reviewedScenarioIds); run(calendar.fixed, calendar.suiteDigest, calendar.reviewedScenarioIds);
++  if (calendar.versionBinding) assertCalendarVersionBinding(calendar);
++  run(calendar.buggy, calendar.suiteDigest, calendar.reviewedScenarioIds); run(calendar.fixed, calendar.versionBinding?.trial.suiteDigest ?? calendar.suiteDigest, calendar.reviewedScenarioIds);
+   for (const phase of ['buggy', 'fixed']) {
+     const evidence = calendar[phase].sqlEvidence;
+     requireTrue(Array.isArray(evidence) && sameSet(evidence.map(row => row.scenarioId), calendar.reviewedScenarioIds) && evidence.every(row => row.runId === calendar[phase].runId && id(row.branchId) && digest(row.beforeStateDigest) && digest(row.afterStateDigest) && Array.isArray(row.assertions) && uniqueIds(row.assertions.map(a => a.checkId)) && row.assertions.every(a => ['pass', 'fail'].includes(a.status))), 'calendar_sql_assertions_required');
+@@ -42,7 +44,7 @@
+   run(text.baseline, text.suiteDigest, text.scenarioIds); run(text.trial, text.suiteDigest, text.scenarioIds);
+   requireTrue(text.baseline.runId !== text.trial.runId && text.baseline.productFailures > 0 && text.baseline.inconclusive === 0 && text.trial.productFailures === 0 && text.trial.inconclusive === 0 && text.trial.passed === 12, 'text12_baseline_trial_expectation');
+   const receipt = e.remediation;
+-  requireTrue(id(receipt?.receiptId) && id(receipt.targetId) && digest(receipt.patchDigest) && id(receipt.operationId) && id(receipt.targetVersionBefore) && id(receipt.targetVersionAfter) && receipt.targetVersionBefore !== receipt.targetVersionAfter && receipt.suiteDigest === text.suiteDigest && receipt.baselineRunId === text.baseline.runId && receipt.trialRunId === text.trial.runId, 'text_remediation_receipt_identity_required');
++  requireTrue(id(receipt?.receiptId) && id(receipt.targetId) && digest(receipt.patchDigest) && id(receipt.operationId) && id(receipt.targetVersionBefore) && id(receipt.targetVersionAfter) && (receipt.promptApplication ? assertPromptApplication(receipt) : receipt.targetVersionBefore !== receipt.targetVersionAfter) && receipt.suiteDigest === text.suiteDigest && receipt.baselineRunId === text.baseline.runId && receipt.trialRunId === text.trial.runId, 'text_remediation_receipt_identity_required');
+   requireTrue(['beforeFailed', 'afterFailed', 'afterPassed', 'regressions', 'unresolved'].every(key => integer(receipt[key])) && receipt.beforeFailed === text.baseline.productFailures && receipt.afterFailed === 0 && receipt.afterPassed === 12 && receipt.regressions === 0 && receipt.unresolved === 0 && digest(receipt.dispatchedPayloadDigest) && receipt.appliedPayloadDigest === receipt.dispatchedPayloadDigest, 'remediation_receipt_required');
+   requireTrue(Array.isArray(receipt.appliedReceipts) && sameSet(receipt.appliedReceipts.map(r => r.scenarioId), TEXT_IDS) && uniqueIds(receipt.appliedReceipts.map(r => r.receiptId)) && uniqueIds(receipt.appliedReceipts.map(r => r.operationId)) && receipt.appliedReceipts.every(r => r.targetId === receipt.targetId && r.targetVersion === receipt.targetVersionAfter && r.patchDigest === receipt.patchDigest && r.baselineRunId === receipt.baselineRunId && r.trialRunId === receipt.trialRunId && r.suiteDigest === receipt.suiteDigest && digest(r.dispatchedPayloadDigest) && r.appliedPayloadDigest === r.dispatchedPayloadDigest), 'all12_applied_receipts_required');
+   const accounting = e.accounting;
+@@ -50,6 +52,7 @@
+   requireTrue(id(e.restart?.processBefore) && id(e.restart.processAfter) && e.restart.processBefore !== e.restart.processAfter && e.restart.replayedDispatches === 0 && e.restart.persistedReceiptId === receipt.receiptId, 'actual_process_restart_required');
+   for (const [name, suiteDigest, baselineRunId, trialRunId] of [['calendar', calendar.suiteDigest, calendar.buggy.runId, calendar.fixed.runId], ['text', text.suiteDigest, text.baseline.runId, text.trial.runId]]) {
+     const report = e.reports?.[name];
++    if (name === 'calendar' && calendar.versionBinding) requireTrue(report?.trialSuiteDigest === calendar.fixed.suiteDigest && report?.baselineJobId === calendar.buggy.jobId && report?.trialJobId === calendar.fixed.jobId, 'calendar_report_version_binding_required');
+     requireTrue(digest(report?.beforeDigest) && report.afterDigest === report.beforeDigest && e.restart.reportDigests?.[name] === report.beforeDigest && report.suiteDigest === suiteDigest && report.baselineRunId === baselineRunId && report.trialRunId === trialRunId && report.private === true && (name !== 'text' || report.receiptId === receipt.receiptId), 'persisted_private_reports_required');
+   }
+   requireTrue(e.privateChat?.ownerRead === true && e.privateChat.ownerHistoryPersisted === true && e.privateChat.revokedOwnerStatus === 404 && e.privateChat.otherCustomerStatus === 404 && e.privateChat.anonymousStatus === 401 && e.privateChat.reportTokenStatus === 401 && e.privateChat.sharedArtifactContainsChat === false, 'private_chat_authorization_required');

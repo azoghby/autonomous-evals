@@ -1,0 +1,11 @@
+{
+  "appliedSourceTests": 20,
+  "appliedSourceStrictTypecheck": true,
+  "protocolUnitTests": 14,
+  "actualCoreAndPatchedV2TestsPriorPass": 2,
+  "controlledRouteTestsPriorPass": 9,
+  "live": false,
+  "currentCandidateCertified": false,
+  "finalRepetitions": "waiting local git show/archive; no failed test assertion",
+  "ownerCommands": "attempted; missing usable checkout executables, logs retained"
+}

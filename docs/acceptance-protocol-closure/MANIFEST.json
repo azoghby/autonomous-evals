@@ -1,0 +1,21 @@
+{
+  "base": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "sha256": {
+    "docs/acceptance-protocol-closure/CURRENT-CANDIDATE.json": "e2caf48f14ef4d2caab3f4fb9da20e7732cf65fa8524d6992c148a8df47a9427",
+    "docs/acceptance-protocol-closure/README.md": "b9fd52e447814f100ef4976669db8099c0db40b274b5a2facfc168b5ed964bd7",
+    "docs/acceptance-protocol-closure/identity/0001-v2-identity-compatibility.patch": "93de2b7a50e14e9b9c8ece62cf6cae566b20412384b98b2e687df02d520c5426",
+    "docs/acceptance-protocol-closure/identity/PATCH.json": "8f892b8258e16877f0f6eac78d9fe4d339ddda45d43604049fe6ebe84edece5c",
+    "docs/acceptance-protocol-closure/identity/README.md": "bc422aff125c30c22ac0cf91744291d80d0c91ed4eaa304100556a99feaaa0da",
+    "docs/acceptance-protocol-closure/identity/protocol.mjs": "645b5836a221ff0b387563c2673e8244937955256b782beead84d46f251a1eb6",
+    "docs/acceptance-protocol-closure/metering/README.md": "d4315aed254cc4af24b73b33b5db84a36be665f45f9e7d40c9b8485114d71ae6",
+    "docs/acceptance-protocol-closure/metering/protocol.mjs": "71d77c06f7868856ee8b65aee2095372d1e0c055d13d3afd9a0d821b4ad9469c",
+    "docs/acceptance-protocol-closure/stage.mjs": "07ccb3b043b92ddd0918cf977670c0c61ef8e6ebf88edbb1d0a6a484e4236df2",
+    "tests/track-b/acceptance-protocol-closure/applied-source.test.ts": "16c31e3a4205346b79fed45251a09f40ec25164cd5175730062116b75db83fba",
+    "tests/track-b/acceptance-protocol-closure/calendar.test.ts": "fa4d6ac631da9f853cdcc9b9f72c774b1bbd9dea72b5b0d5342ba54c07acfcbd",
+    "tests/track-b/acceptance-protocol-closure/identity-applied.test.mjs": "c07563ce3a75169df9295a260f2faefac780adbc90e68a6839257b940ba60255",
+    "tests/track-b/acceptance-protocol-closure/identity.test.mjs": "a94d5540e1029bbe95163b6dd0ad11b48a7a7dc87f8a56f363c1c88243b67d6d",
+    "tests/track-b/acceptance-protocol-closure/meter.test.mjs": "5bc907a9191296cfe1d738e2f8b2e23589e42cb20d6041d095e5a4651f2295c7",
+    "tests/track-b/acceptance-protocol-closure/run.mjs": "61df667a00ed8c23a22ada008a0d34b2388f06b15cacd91564d87b8621c782f6"
+  },
+  "live": false
+}

@@ -1,0 +1,22 @@
+✔ receipt derives from observed actual bytes; unknown remains unknown and version stays real (1.853ms)
+✔ forged receipt, unobserved dispatch, changed versions, prompt and replay fail (1.622166ms)
+✔ durable reservation fences separate bridge instances before a second dispatch (1.098375ms)
+✔ Calendar preserves actual independent job suite digests and full12 SQL identity (0.636416ms)
+✔ full plan contains all calls including reproduction judgments and paid SDK polling (2.246916ms)
+✔ approved caps fail before private runtime; cap inflation does not authorize (0.507083ms)
+✔ cost envelope preserves actual call ceilings and explicitly unknown money (0.1835ms)
+✔ durable attempts survive restart; observations are idempotent and cannot cause a second call (22.607ms)
+✔ unknown observations retain hold and never become invented zero or token estimate (15.892292ms)
+✔ reject unreserved and reused receipt accounting, malformed cost and tokens (19.797667ms)
+✔ actual cost overage is retained and stops next dispatch (23.251208ms)
+✔ caps/deadline/monetary exhaustion stop before dispatch including forbidden Naive/cloud (153.950209ms)
+✔ torn journals and changed authorities fail closed (10.389333ms)
+✔ late trusted actual money resolves unknown hold without redispatch or changing measured usage (21.4335ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 384.990541

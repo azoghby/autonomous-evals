@@ -1,0 +1,35 @@
+
+Interrupted while running:
+
+⚠ tests/track-b/acceptance-protocol-closure/identity-applied.test.mjs (tests/track-b/acceptance-protocol-closure/identity-applied.test.mjs:1:1)
+⚠ tests/track-b/acceptance-protocol-closure/identity.test.mjs (tests/track-b/acceptance-protocol-closure/identity.test.mjs:1:1)
+⚠ tests/track-b/acceptance-protocol-closure/meter.test.mjs (tests/track-b/acceptance-protocol-closure/meter.test.mjs:1:1)
+✖ tests/track-b/acceptance-protocol-closure/identity-applied.test.mjs (229906.098541ms)
+✔ receipt derives from observed actual bytes; unknown remains unknown and version stays real (2.333417ms)
+✔ forged receipt, unobserved dispatch, changed versions, prompt and replay fail (1.82525ms)
+✔ durable reservation fences separate bridge instances before a second dispatch (1.003083ms)
+✔ Calendar preserves actual independent job suite digests and full12 SQL identity (0.595417ms)
+✔ full plan contains all calls including reproduction judgments and paid SDK polling (2.309625ms)
+✔ approved caps fail before private runtime; cap inflation does not authorize (0.629541ms)
+✔ cost envelope preserves actual call ceilings and explicitly unknown money (0.26425ms)
+✔ durable attempts survive restart; observations are idempotent and cannot cause a second call (26.951625ms)
+✔ unknown observations retain hold and never become invented zero or token estimate (13.219958ms)
+✔ reject unreserved and reused receipt accounting, malformed cost and tokens (28.498ms)
+✔ actual cost overage is retained and stops next dispatch (21.132958ms)
+✔ caps/deadline/monetary exhaustion stop before dispatch including forbidden Naive/cloud (180.293833ms)
+✔ torn journals and changed authorities fail closed (12.808875ms)
+✔ late trusted actual money resolves unknown hold without redispatch or changing measured usage (23.830917ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 229914.275417
+
+✖ failing tests:
+
+test at tests/track-b/acceptance-protocol-closure/identity-applied.test.mjs:1:1
+✖ tests/track-b/acceptance-protocol-closure/identity-applied.test.mjs (229906.098541ms)
+  'Promise resolution is still pending but the event loop has already resolved'

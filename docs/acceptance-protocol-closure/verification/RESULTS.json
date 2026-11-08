@@ -1,0 +1,7 @@
+{
+  "source": "offline_applied_historical_metered_stage",
+  "tests": 20,
+  "strictTypecheck": true,
+  "live": false,
+  "note": "Typecheck and Vitest completed; final unchanged controlled-route repetition blocked reading dataless Git HEAD. Prior route run passed9; preserved separately."
+}

@@ -1,0 +1,10 @@
+{
+  "baseCommit": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "baseFile": "tests/track-b/live-acceptance/provider/app-run.mjs",
+  "baseFileSha256": "c7f9412a851bd6525cb0b65abe7638a1019820bf7d366528fb121c2895eb01c1",
+  "resultSha256": "60c077e57b2fd7bab9cce0f7a69e1adfc6c144f8daeae0fa0277a97b73410753",
+  "patchSha256": "93de2b7a50e14e9b9c8ece62cf6cae566b20412384b98b2e687df02d520c5426",
+  "requires": "docs/acceptance-protocol-closure/identity/protocol.mjs from same artifact commit",
+  "liveRunPerformed": false,
+  "adapterSha256": "645b5836a221ff0b387563c2673e8244937955256b782beead84d46f251a1eb6"
+}
