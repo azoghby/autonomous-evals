@@ -1,7 +1,8 @@
 /**
- * Fixed pilot price table (PLAN.md §1). The only source of prices. Agents never set prices:
+ * Quick eval offers use the shared checkout price constants. Agents never set prices:
  * the Commercial agent picks a package; code produces the quote from this table.
  */
+import { PRICE_CENTS, MONITORING_PRICE_CENTS_MONTHLY } from "../contracts";
 import { type MicroUsd, type PackageId, usd } from "./types";
 
 export interface PackageOffer {
@@ -19,7 +20,7 @@ export const PRICE_TABLE: Readonly<Record<PackageId, PackageOffer>> = Object.fre
   trace_audit: {
     id: "trace_audit",
     name: "Trace Audit",
-    priceMicroUsd: usd(5),
+    priceMicroUsd: usd(PRICE_CENTS.trace_audit / 100),
     billing: "one_time",
     inputNeeded: "Agent transcript or tool log (JSON or text, up to 200 KB)",
     deliverables: [
@@ -33,7 +34,7 @@ export const PRICE_TABLE: Readonly<Record<PackageId, PackageOffer>> = Object.fre
   text_eval: {
     id: "text_eval",
     name: "Text Eval",
-    priceMicroUsd: usd(5),
+    priceMicroUsd: usd(PRICE_CENTS.text_eval / 100),
     billing: "one_time",
     inputNeeded: "OpenAI-compatible endpoint, system prompt, optional reference text",
     deliverables: [
@@ -47,7 +48,7 @@ export const PRICE_TABLE: Readonly<Record<PackageId, PackageOffer>> = Object.fre
   workflow_eval: {
     id: "workflow_eval",
     name: "Workflow Eval",
-    priceMicroUsd: usd(5),
+    priceMicroUsd: usd(PRICE_CENTS.workflow_eval / 100),
     billing: "one_time",
     inputNeeded: "Endpoint that supports tool calls (runs in our calendar simulator)",
     deliverables: ["Calendar scenarios graded on resulting state", "Markdown and JSON report"],
@@ -56,7 +57,7 @@ export const PRICE_TABLE: Readonly<Record<PackageId, PackageOffer>> = Object.fre
   version_comparison: {
     id: "version_comparison",
     name: "Version Comparison",
-    priceMicroUsd: usd(10),
+    priceMicroUsd: usd(PRICE_CENTS.version_comparison / 100),
     billing: "one_time",
     inputNeeded: "Two configs of either Text or Workflow Eval",
     deliverables: ["Same frozen suite on both versions", "Observed differences only (no significance claims)"],
@@ -65,7 +66,7 @@ export const PRICE_TABLE: Readonly<Record<PackageId, PackageOffer>> = Object.fre
   monitoring_pilot: {
     id: "monitoring_pilot",
     name: "Monitoring pilot",
-    priceMicroUsd: usd(49),
+    priceMicroUsd: usd(MONITORING_PRICE_CENTS_MONTHLY / 100),
     billing: "monthly",
     inputNeeded: "A delivered Text or Workflow Eval with a frozen suite",
     deliverables: ["Nightly re-run of the frozen suite", "Regression alert by email"],
@@ -74,7 +75,7 @@ export const PRICE_TABLE: Readonly<Record<PackageId, PackageOffer>> = Object.fre
 });
 
 export const priceLabel = (offer: PackageOffer): string =>
-  `$${(offer.priceMicroUsd / 1_000_000).toFixed(0)}${offer.billing === "monthly" ? "/month" : ""} (pilot pricing)`;
+  `$${(offer.priceMicroUsd / 1_000_000).toFixed(0)}${offer.billing === "monthly" ? "/month" : ""}`;
 
 /** Every dollar amount that may legitimately appear in agent-written customer text. */
 export const ALLOWED_PRICE_STRINGS: readonly string[] = Object.values(PRICE_TABLE).flatMap((o) => {

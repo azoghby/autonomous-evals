@@ -37,8 +37,8 @@ const evidence = [{ kind: 'trace_excerpt' as const, excerpt: 'tool returned 500'
 const finding = { id: 'f1', title: 'False success', status: 'confirmed' as const, severity: 'high' as const, category: 'false_success' as const, description: 'd', evidence };
 
 describe('baseline shared-contract compatibility', () => {
-  it('uses the planned pilot prices and aggregate job caps', () => {
-    expect(PRICE_CENTS).toEqual({ trace_audit: 500, text_eval: 500, workflow_eval: 500, version_comparison: 1000 });
+  it('uses the current Quick eval prices and unchanged aggregate job caps', () => {
+    expect(PRICE_CENTS).toEqual({ trace_audit: 4900, text_eval: 9900, workflow_eval: 19900, version_comparison: 29900 });
     expect(JOB_BUDGET_MICRO_USD).toEqual({ trace_audit: 3_000_000, text_eval: 3_000_000, workflow_eval: 3_000_000, version_comparison: 5_000_000 });
   });
 

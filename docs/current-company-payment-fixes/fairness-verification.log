@@ -1,0 +1,13 @@
+{"typecheck":0}
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/company-payment-fixed-Wf17JZ
+
+ ✓ tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts (1 test) 841ms
+   ✓ temporarily unauthorized jobs rotate behind unattempted payments even with a frozen clock, then recover without data loss 840ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  21:33:29
+   Duration  1.06s (tests 86%, import 8%, transform 6%)
+
+{"stage":"/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/company-payment-fixed-Wf17JZ","candidateFiles":2041,"supplemental":93,"baseline":false,"exit":0}

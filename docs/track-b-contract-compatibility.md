@@ -1,3 +1,7 @@
+## Current pricing pin
+
+Track A `ab30446` reprices Quick evals to $49/$99/$199/$299. The explicit price compatibility assertion now pins those values; aggregate provider/job spending-cap assertions are unchanged. The older quote parsing fixture remains intentionally valid for historical stored quotes. This changes a known price expectation, not payment authority or a contract schema.
+
 # Track A / Track B contract compatibility checks
 
 This document describes the repeatable compatibility check in `tests/track-b/` and the contract gaps it pins. It does not change any Track A contract and does not assert that Track A has integrated Track B services. Latest parent full check used exact merged revision `57db3f8a6dc1e919c6fa26217f434e10e375fa95` (contract digest `sha256:dc7936cf343e023a9f0b3b2c0ee02b3886a1f230397f282ee4aaec84a9b27101`): strict TypeScript and 1,138 tests across 68 files passed, including 25 known-gap characterizations. Historical initial validation used `673873d`; it is not the current deployment baseline.
