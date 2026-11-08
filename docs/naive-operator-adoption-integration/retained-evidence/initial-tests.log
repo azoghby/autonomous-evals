@@ -1,0 +1,125 @@
+
+ RUN  v5.1.0 /Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2
+
+ ✓ docs/expert-review-surface-integration/tests/sql-review.test.ts (6 tests) 2872ms
+   ✓ real PostgreSQL review handlers, stores, transactions and authority triggers (6)
+     ✓ writes exact contribution authority and replays immutably through the actual POST 748ms
+     ✓ retains authenticated corpus receipts with the recomputed exact answer context and real ledger reread 466ms
+     ✓ rolls back an actual contribution INSERT when its awaited completion revokes the principal 452ms
+     ✓ rolls back a real corpus receipt INSERT after revocation and never publishes corpus authority 401ms
+     ✓ rolls back the actual final corpus authority UPDATE after revocation, retaining only an inert receipt 406ms
+     ✓ rejects real revoked plans and cross-job snapshots without retaining authority 399ms
+ ✓ docs/expert-review-surface-integration/tests/api-server.test.ts (16 tests) 679ms
+   ✓ actual expert-review handlers with real review validators (16)
+     ✓ executes the actual queue SQL in PostgreSQL and excludes terminal reviews/currently unauthorized scopes 652ms
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts (7 tests | 7 failed) 3109ms
+   ❯ operator proxy receipt recovery on actual SQL (7)
+     × reconciles cancelled job receipts without expert plan or inference budget and replays once 601ms
+     × advances a bounded SQL cursor past pending rows without accepting caller receipts 504ms
+     × rejects unauthenticated/nonoperator routes and body-supplied receipts 392ms
+     × checks operator again before returning accounting results 395ms
+     × bounds streamed request bytes before JSON allocation and makes every response private 395ms
+     × settles an in-flight audited debit but starts no next audit after operator revocation 417ms
+     × fails closed when canonical owner/environment changes before sink commit 405ms
+ ✓ docs/expert-review-surface-integration/tests/ui.test.ts (6 tests) 13ms
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  7 failed | 28 passed (35)
+   Start at  01:52:15
+   Duration  7.65s (tests 90%, import 7%, transform 4%)
+
+JSON report written to /Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-operator-adoption-integration/evidence/tests.json
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > reconciles cancelled job receipts without expert plan or inference budget and replays once
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:43:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > advances a bounded SQL cursor past pending rows without accepting caller receipts
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:49:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > rejects unauthenticated/nonoperator routes and body-supplied receipts
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:56:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > checks operator again before returning accounting results
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:61:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > bounds streamed request bytes before JSON allocation and makes every response private
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:66:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > settles an in-flight audited debit but starts no next audit after operator revocation
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:75:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  docs/naive-proxy-recovery-integration/tests/recovery.test.ts > operator proxy receipt recovery on actual SQL > fails closed when canonical owner/environment changes before sink commit
+Error: ENOENT: no such file or directory, open '/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/docs/naive-proxy-recovery-integration/packages/core/src/agents/persistence-migrations/001-agent-persistence.sql'
+ ❯ fixture docs/naive-proxy-recovery-integration/tests/recovery.test.ts:23:16
+     21| async function fixture(){
+     22|  const pg=new PGlite();open.push(pg);
+     23|  await pg.exec(readFileSync(new URL('../packages/core/src/agents/persi…
+       |                ^
+     24|  await pg.exec(readFileSync(new URL('../packages/core/src/evals/integr…
+     25|  await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid…
+ ❯ docs/naive-proxy-recovery-integration/tests/recovery.test.ts:86:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+

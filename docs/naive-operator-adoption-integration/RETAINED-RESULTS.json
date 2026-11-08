@@ -1,0 +1,45 @@
+{
+  "baseCommit": "f99d436b6a9589f586ecd591710c1b5c5a87683f",
+  "stage": "/tmp/naive-operator-combined-stage",
+  "postimagesVerified": 10,
+  "trackedAppCoreFilesVerified": 1088,
+  "currentPreimagesVerified": true,
+  "exactAppliedPatchPostimagesVerified": true,
+  "tests": {
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0,
+    "files": 4
+  },
+  "typegen": 0,
+  "fullWebTypecheck": 0,
+  "fullCoreTypecheck": 0,
+  "productionWebpackBuild": 0,
+  "postbuildSourceDifferences": 0,
+  "combinedPatchSha256": "45b527504ea0865739396b0df74c85efeaa547552f654f12ac1188205963fd58",
+  "recoveryTestCopySha256": "fa3dfb631beab974ad8ce7712c88d06204b4b23daca010fc78af25472d3704aa",
+  "upstreamRecoveryTestSha256": "fa3dfb631beab974ad8ce7712c88d06204b4b23daca010fc78af25472d3704aa",
+  "retainedDependencies": true,
+  "analyticsSubstitution": {
+    "declared": "^2.0.1",
+    "retained": "1.6.1"
+  },
+  "sourceAdopted": false,
+  "evidenceHashes": {
+    "evidence/initial-tests.log": "d9986677084b5ae3da8242d97fe248ea51f9f0a821b6b55217312c6f68e4b0f2",
+    "evidence/initial-tests.json": "7435e877e7b11e9948398c45ad8b297e45c4c965ac04d1c9331a87de7327b2e6",
+    "evidence/dependencies.json": "6ea5437f8684b14472d7479859f447e8b643448a0e1f2fcb1f433678f99396fb",
+    "evidence/tests.json": "1cecb6dc6fa6db95561a5ff4b8811339037c2a3db7bda848d865ff865b8940a8",
+    "evidence/commands.json": "409bd9421dad22c4d329d566919f1caa5c93d48715f04f0f38a3c0ef9851d8ab",
+    "evidence/initial-commands.json": "6cc94e73429cd558818e33ce899b112200fb4120b77b8c4f95578c7d8af726d3",
+    "evidence/SUPPORT-PINS.json": "dcf3d21527e0118a32b3cd42f83f5c3055ec608ff631fd25a27afedcab0e500f",
+    "evidence/typegen.log": "8534cd25aed4e25d19b5e2eec80bf84ebbae12edd9d5c5decef0dc0140acd518",
+    "evidence/core-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evidence/tests.log": "329307fb006a5512fd44c6aced643d210260db2d5fbf060bbda5cc9f1f0a94a2",
+    "evidence/web-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evidence/applied-patch.json": "16f86d734c70fa7b611036c8f3072202641c2f9bfd27d3196d97ec7cfc4cdcdd",
+    "evidence/initial-web-typecheck.log": "1650d085f281167a7141ca12bf89a060c8cfb950f0909afbbc781ad6887b6587",
+    "evidence/postbuild-source-verification.json": "5faf36c76350031d342c4f08f3b6d930714aa043c611da2956bf5ceec21b286c",
+    "evidence/build.log": "d48befddca5813b7e28dd83429bcb1196269366173b5fad4c0871364a984251a"
+  }
+}

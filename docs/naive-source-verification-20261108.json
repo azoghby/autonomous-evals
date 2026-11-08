@@ -1,0 +1,47 @@
+{
+  "sourceCommit": "f99d436b6a9589f586ecd591710c1b5c5a87683f",
+  "sourceUnmodified": true,
+  "install": {
+    "command": "npm ci --no-audit --no-fund",
+    "exitCode": 0,
+    "packagesAdded": 938,
+    "lockfileSha256": "20f30e1361d2bc727dda014c7a4ca0cf71386e8a6a04950ee9ae67162cda0f10"
+  },
+  "typegen": {
+    "command": "npx --no-install next typegen",
+    "cwd": "apps/web",
+    "exitCode": 0
+  },
+  "webTypecheck": {
+    "command": "npx --no-install tsc -p apps/web --noEmit",
+    "exitCode": 0
+  },
+  "tests": {
+    "command": "npm test -- --reporter=json --outputFile=/tmp/naive-root-tests-f99d436.json",
+    "exitCode": 0,
+    "success": true,
+    "passed": 3584,
+    "failed": 0,
+    "skipped": 2,
+    "failedSuites": 0,
+    "reportSha256": "6835053ef15535ac03467a8ef556b2c5867add5103aa9f9b1ade7d7fbf6addaf",
+    "skips": [
+      {
+        "file": "scripts/tau2/tasks-to-scenarios.test.ts",
+        "test": "tau2 retail scenarios (regeneration) regenerates the committed suite"
+      },
+      {
+        "file": "packages/core/src/sandbox/runtime/runtime.live.test.ts",
+        "test": "neon sandbox runtime (live) isolates two trials, diffs collateral writes, and cleans up"
+      }
+    ]
+  },
+  "operatorCandidate": {
+    "artifact": "naive-operator-adoption-integration",
+    "sourceApplied": false,
+    "parentRepeatedFocusedTests": 35,
+    "freshLockfileBuildPassed": true
+  },
+  "providerCalls": false,
+  "deployment": false
+}

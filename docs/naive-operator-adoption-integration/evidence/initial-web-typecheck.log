@@ -1,0 +1,3 @@
+apps/web/src/server/naive-proxy-recovery.ts(7,94): error TS2307: Cannot find module '@ae/core/judges/naive-proxy-reconcile' or its corresponding type declarations.
+apps/web/src/server/naive-proxy-recovery.ts(39,15): error TS7006: Parameter 'id' implicitly has an 'any' type.
+apps/web/src/server/naive-proxy-recovery.ts(66,23): error TS7006: Parameter 'receipt' implicitly has an 'any' type.

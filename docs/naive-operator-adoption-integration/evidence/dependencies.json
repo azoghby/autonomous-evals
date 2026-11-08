@@ -1,0 +1,52 @@
+{
+  "installation": "fresh root npm ci --no-audit --no-fund, root-reported exit0",
+  "rootLockfileSha256": "20f30e1361d2bc727dda014c7a4ca0cf71386e8a6a04950ee9ae67162cda0f10",
+  "coreWorkspaceLink": "/private/tmp/naive-operator-combined-stage/packages/core",
+  "packages": [
+    {
+      "package": "next",
+      "version": "16.4.5",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/next/package.json"
+    },
+    {
+      "package": "typescript",
+      "version": "5.9.3",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/apps/web/node_modules/typescript/package.json"
+    },
+    {
+      "package": "vitest",
+      "version": "5.1.0",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/vitest/package.json"
+    },
+    {
+      "package": "react",
+      "version": "19.3.0",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/react/package.json"
+    },
+    {
+      "package": "react-dom",
+      "version": "19.3.0",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/react-dom/package.json"
+    },
+    {
+      "package": "@electric-sql/pglite",
+      "version": "0.5.15",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/@electric-sql/pglite/package.json"
+    },
+    {
+      "package": "@vercel/analytics",
+      "version": "2.0.1",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/apps/web/node_modules/@vercel/analytics/package.json"
+    },
+    {
+      "package": "workflow",
+      "version": "5.4.0",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/workflow/package.json"
+    },
+    {
+      "package": "@ai-sdk/react",
+      "version": "4.0.169",
+      "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/@ai-sdk/react/package.json"
+    }
+  ]
+}

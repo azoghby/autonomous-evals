@@ -1,0 +1,26 @@
+[
+  {
+    "name": "tests",
+    "status": 0,
+    "compilerVersion": null,
+    "command": "node /tmp/naive-operator-combined-stage/node_modules/vitest/vitest.mjs run --config /tmp/naive-operator-combined-stage/combined.vitest.config.mjs --reporter=default --reporter=json --outputFile=<artifact>/evidence/tests.json"
+  },
+  {
+    "name": "typegen",
+    "status": 0,
+    "compilerVersion": null,
+    "command": "node /tmp/naive-operator-combined-stage/node_modules/next/dist/bin/next typegen (cwd /tmp/naive-operator-combined-stage/apps/web)"
+  },
+  {
+    "name": "web-typecheck",
+    "status": 0,
+    "compilerVersion": "6.0.3",
+    "command": "node /tmp/naive-operator-combined-stage/node_modules/typescript/bin/tsc -p apps/web --noEmit (cwd /tmp/naive-operator-combined-stage)"
+  },
+  {
+    "name": "core-typecheck",
+    "status": 0,
+    "compilerVersion": "6.0.3",
+    "command": "node /tmp/naive-operator-combined-stage/node_modules/typescript/bin/tsc -p packages/core --noEmit (cwd /tmp/naive-operator-combined-stage)"
+  }
+]

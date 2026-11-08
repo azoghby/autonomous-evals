@@ -1,0 +1,11 @@
+{
+  "command": "node /tmp/naive-operator-combined-stage/node_modules/next/dist/bin/next build --webpack",
+  "cwd": "/tmp/naive-operator-combined-stage/apps/web",
+  "exitCode": 0,
+  "nextVersion": "16.4.5",
+  "nestedWebTypeScriptVersion": "5.9.3",
+  "databaseCredentialsProvided": false,
+  "workflowSteps": 57,
+  "workflows": 4,
+  "note": "Static org-chart/leaderboard database reads report DATABASE_URL absent; production build succeeds."
+}

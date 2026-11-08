@@ -1,0 +1,18 @@
+[
+  {
+    "name": "tests",
+    "status": 1
+  },
+  {
+    "name": "typegen",
+    "status": 0
+  },
+  {
+    "name": "web-typecheck",
+    "status": 2
+  },
+  {
+    "name": "core-typecheck",
+    "status": 0
+  }
+]

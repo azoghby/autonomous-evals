@@ -1,0 +1,47 @@
+[
+  {
+    "package": "next",
+    "version": "16.4.5",
+    "retainedPath": "/private/tmp/workflow-bootstrap.JpxCTM/node_modules/next/package.json"
+  },
+  {
+    "package": "typescript",
+    "version": "5.9.3",
+    "retainedPath": "/private/tmp/sandbox-generation-deps.cBCEai/node_modules/typescript/package.json"
+  },
+  {
+    "package": "vitest",
+    "version": "5.1.0",
+    "retainedPath": "/private/tmp/sandbox-generation-deps.cBCEai/node_modules/vitest/package.json"
+  },
+  {
+    "package": "react",
+    "version": "19.3.0",
+    "retainedPath": "/private/tmp/workflow-bootstrap.JpxCTM/node_modules/react/package.json"
+  },
+  {
+    "package": "react-dom",
+    "version": "19.3.0",
+    "retainedPath": "/private/tmp/workflow-bootstrap.JpxCTM/node_modules/react-dom/package.json"
+  },
+  {
+    "package": "@electric-sql/pglite",
+    "version": "0.5.15",
+    "retainedPath": "/private/tmp/sandbox-generation-deps.cBCEai/node_modules/@electric-sql/pglite/package.json"
+  },
+  {
+    "package": "@vercel/analytics",
+    "version": "1.6.1",
+    "retainedPath": "/private/tmp/expert-validation-extra-deps/node_modules/@vercel/analytics/package.json"
+  },
+  {
+    "package": "workflow",
+    "version": "5.4.0",
+    "retainedPath": "/private/tmp/workflow-bootstrap.JpxCTM/node_modules/workflow/package.json"
+  },
+  {
+    "package": "@ai-sdk/react",
+    "version": "4.0.169",
+    "retainedPath": "/private/tmp/expert-validation-extra-deps/node_modules/@ai-sdk/react/package.json"
+  }
+]
