@@ -1,0 +1,10 @@
+Source 4948c74f6b2fde2541f4088f5ba8295b81a90916; contracts 8634ceb30f3d98de7ec24b240a4f7549dce80033; only targeted rotation tests
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/ae-security-rotation-7JJqNh
+
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  17:33:00
+   Duration  945ms (tests 80%, transform 14%, import 6%)
+

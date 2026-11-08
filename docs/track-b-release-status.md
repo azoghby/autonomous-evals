@@ -97,3 +97,22 @@ unchanged. Patch artifact validation remains scoped to its recorded exact pins.
 Original pinned evidence is retained unchanged. Application-owner patches still
 need one combined source/build check, authorized migrations/configuration and
 real deployed acceptance before release sign-off.
+
+## Parent runtime recheck at 4948c74
+
+The full four-group Naïve assurance runner passed strict TypeScript and 54 tests
+with existing dependency roots `tests/track-b/node_modules` and
+`/tmp/trackb-int/node_modules`. The default root lacked the tsx loader, so its
+initial execution failed before tests; the runner now reports that prerequisite
+before typechecking. No dependency was installed. Evidence:
+`tests/track-b/release-evidence/naive-4948c74.txt`.
+
+This includes three deliberate boundary characterizations: over-cap settled usage,
+invalid usage held for reconciliation, and a permissive application cost sink.
+The latter remains an application integration obligation; 54 passes do not prove
+the deployed sink. The reservation group exercised native local PostgreSQL.
+
+The current-secret rotation check also passed strict types and all five tests
+(`tests/track-b/release-evidence/rotation-4948c74.txt`). Its ROT-1 title/comments
+now correctly describe its refusal assertions as a regression; the assertions
+and production behavior were not changed.

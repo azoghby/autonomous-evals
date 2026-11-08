@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -55,6 +55,10 @@ try {
         await symlink(join(dep, entry.name), join(modules, entry.name)); linked.add(entry.name);
       }
     }
+  }
+  for (const required of ['typescript/bin/tsc', 'tsx/dist/loader.mjs']) {
+    try { await access(join(modules, required)); }
+    catch { throw new Error(`Missing offline dependency ${required}; pass existing node_modules directories as runner arguments. No tests were run.`); }
   }
   const roots = tests.map(p => join(relative, p.slice(here.length + 1)));
   await writeFile(join(stage, 'package.json'), JSON.stringify({ private: true, type: 'module' }));

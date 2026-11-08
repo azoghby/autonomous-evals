@@ -82,21 +82,20 @@ async function remediationFixture(patch: Patch, purpose?: string) {
   return { ctx, run, authorized, call, rows };
 }
 
-describe('DEFECT CHARACTERIZATION: observed unsafe behavior, not acceptance', () => {
-  it('ROT-1: rotated SQL proposal cost metadata reaches recordCost despite report export refusal', async () => {
+describe('REGRESSION: current policy before persisted cost delivery', () => {
+  it('ROT-1: rotated SQL proposal cost metadata is refused before recordCost and report export', async () => {
     const f = await remediationFixture(basePatch, opaque);
     await f.call();
     const before = await f.rows();
     const recordCost = vi.mocked(f.ctx.recordCost);
     recordCost.mockClear();
     f.authorized.knownSecrets = [opaque];
-    // Desired fix would refuse/sanitize metadata before sink replay. Current code succeeds.
+    // Current secret policy refuses persisted metadata before replay reaches the sink.
     await expect(f.call()).rejects.toThrow();
     expect(recordCost).not.toHaveBeenCalled();
     expect(await f.rows()).toEqual(before);
     expect(f.run).toHaveBeenCalledOnce();
-    // The report layer refuses the same persisted cost, but only after remediation
-    // already delivered its newly sensitive metadata to the accounting sink.
+    // The report layer independently refuses the same persisted cost metadata.
     const report = createTrackBServices({ runner: { run: f.run } as unknown as AgentTaskRunner,
       operatorSummary: false,
       resolveJob: async () => f.authorized.job,
