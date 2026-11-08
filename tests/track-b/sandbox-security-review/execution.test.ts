@@ -37,12 +37,11 @@ test('acceptance: rotation during reservation is re-screened before target dispa
   assert.deepEqual(f.events,['secrets','authorize','fence','secrets','ambiguous']);
 });
 
-test('characterization: rotation while response is in flight is absent from response secret screening',async()=>{
+test('regression: rotation while response is in flight blocks secret output',async()=>{
   const f=fixture();
   f.deps.transport={post:async()=>{f.events.push('post');f.rotate();return {choices:[{message:{role:'assistant',content:afterRotation},finish_reason:'stop'}]};}};
-  const reply=await createToolLoopTarget(f.deps).complete(f.request);
-  assert.equal(reply.content,afterRotation);
-  assert.deepEqual(f.events,['secrets','authorize','fence','secrets','post','observed']);
+  await assert.rejects(createToolLoopTarget(f.deps).complete(f.request));
+  assert.deepEqual(f.events,['secrets','authorize','fence','secrets','post','observed','secrets','ambiguous']);
   // Parent fix: take a bounded current-secret snapshot after response, union with both prior snapshots.
   // This is output-screening behavior, not proof that a remote model can discover credentials.
 });
@@ -77,7 +76,7 @@ test('acceptance: injection text cannot authorize a hidden fact index',async()=>
   assert.ok(!projected.includes('withheld-when-asked'));
 });
 
-test('characterization: caller mutation during simulator await changes rendered authorized fact',async()=>{
+test('regression: caller mutation during simulator await cannot change authorized fact',async()=>{
   const p=persona();let projected='';let release!:()=>void;
   const waiting=new Promise<void>(resolve=>{release=resolve;});
   const sim=createConstrainedSimulator({model:'offline',configDigest:'c'.repeat(64),select:async input=>{projected=JSON.stringify(input);await waiting;return {utterance:'request',factIndices:[0]};}});
@@ -86,7 +85,8 @@ test('characterization: caller mutation during simulator await changes rendered 
   release();
   const result=await pending;
   assert.ok(!projected.includes('withheld-never-fact'));
-  assert.ok(result.content.includes('withheld-never-fact'));
+  assert.ok(!result.content.includes('withheld-never-fact'));
+  assert.ok(result.content.includes('Public order request'));
   // Direct mutable caller input is required. Runner supplies detached persona data; no end-user
   // capability to mutate that private copy is established. Snapshot at simulator entry fixes this.
 });

@@ -83,13 +83,28 @@ describe('security review: generation/admission acceptance',()=>{
 });
 
 describe('security review: generation trust-boundary characterizations',()=>{
- it('knownSecrets is a construction-time snapshot; rotation requires rebuilding adapter',async()=>{
+ it('regression: secret rotation is screened without rebuilding adapter',async()=>{
   const h=generation(),secrets=['synthetic-old-credential'];h.config.knownSecrets=secrets;
   const generate=createSandboxGenerationAdapter(h.config);secrets.push('synthetic-rotated-credential');
   h.request.environment.name='synthetic-rotated-credential';
-  expect((await generate(h.request)).status).toBe('complete');expect(h.calls[0].message).toContain('synthetic-rotated-credential');
+  expect(await generate(h.request)).toMatchObject({status:'blocked',reason:'unsafe_or_oversized_input'});expect(h.calls).toHaveLength(0);
   h.calls.length=0;expect(await createSandboxGenerationAdapter(h.config)(h.request)).toMatchObject({status:'blocked',reason:'unsafe_or_oversized_input'});expect(h.calls).toHaveLength(0);
   // Synthetic markers only. This is configuration lifecycle evidence, not a caller bypass of current screening.
+ });
+ it('refreshes a secret getter after operation binding before dispatch',async()=>{
+  const h=generation();let secrets:string[]=[];
+  h.config.knownSecrets=()=>secrets;
+  h.request.environment.name='synthetic-late-bound-secret';
+  h.config.bindOperation=async()=>{secrets=['synthetic-late-bound-secret'];return 'bound';};
+  expect(await createSandboxGenerationAdapter(h.config)(h.request)).toMatchObject({status:'blocked',reason:'unsafe_or_oversized_input'});
+  expect(h.calls).toHaveLength(0);
+ });
+ it('screens rotated output after runner completion while retaining measured cost',async()=>{
+  const h=generation();let secrets:string[]=[];
+  h.config.knownSecrets=()=>secrets;
+  h.config.onMeasuredCost=async()=>{h.events.push('cost');secrets=[scenario().title];};
+  expect(await createSandboxGenerationAdapter(h.config)(h.request)).toMatchObject({status:'blocked',reason:'invalid_or_unsafe_output',costs:[{microUsd:7}]});
+  expect(h.events).not.toContain('assess');
  });
  it('a dishonest injected assessment port can declare success but supplies no customer approval',async()=>{
   const h=generation();const result=await createSandboxGenerationAdapter(h.config)(h.request);

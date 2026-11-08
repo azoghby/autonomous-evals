@@ -58,6 +58,7 @@ export function createConstrainedSimulator(driver: SimulatorDriver): SimulatorPo
   if (!model || !/^[a-f0-9]{64}$/.test(driverDigest)) throw new Error('simulator_configuration_invalid');
   return Object.freeze({ model, configDigest: digest({ driverDigest, renderer: 'fixed-utterance-facts-v1' }),
     async next(input: SimulatorInput, signal?: AbortSignal) {
+      input = structuredClone(input);
       signal?.throwIfAborted();
       if (!input.operationId || !Number.isSafeInteger(input.seed) || input.seed < 0 || !Number.isInteger(input.turn)
         || input.turn < 0 || input.turn >= input.persona.maxTurns || input.persona.modality !== 'text') throw new Error('simulator_input_unsupported');

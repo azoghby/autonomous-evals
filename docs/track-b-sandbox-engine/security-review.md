@@ -51,3 +51,9 @@ Harness merges symlinks to existing dependencies in temporary staging, preservin
 Final validation: strict transitive TypeScript and **20 offline tests passed, none skipped**. These comprise nine generation, seven execution, three identity/runtime/grading and one integrated snapshot test. Acceptance and characterization cases are explicitly named.
 
 Remaining gates: parent fixes and regression conversion for the three findings; durable production approval/budget/replay/report authorities; snapshot identity/capture and crash recovery; bound row-level collateral and attack/control exposure contracts; secret lifecycle integration; authoritative settlement receipts; secured A/B media composition; hosted SQL isolation and live bounded provider acceptance under separate authorization. No writeful full-success, live security, production isolation or deployment acceptance is claimed.
+
+## Parent remediation
+
+The three bounded findings above are fixed in the integrated source. Generation accepts a current-secret getter (or refreshed array), retains observed secrets and screens before dispatch and after output/gate completion. Target output refreshes secrets under the existing deadline and retains ambiguous accounting on refusal. Simulator input is detached before its first await. The original three characterizations now assert safe behavior; two additional generation tests cover rotation during binding and measured-cost preservation on rejected output.
+
+Parent verification: strict TypeScript and 22 security tests passed; current-A integration passed 13 tests; current-A stateful grading passed 29 tests. These are local/offline checks, not hosted acceptance. Trusted snapshot, permission, accounting and runtime authority requirements above remain.
