@@ -1,0 +1,532 @@
+openapi: 3.1.0
+info:
+  title: Cymbal Home & Garden customer-service tools (ADK sample)
+  version: 1.0.0
+  description: >-
+    The 12 tools of Google's ADK "customer-service" sample agent (google/adk-samples python/agents/customer-service,
+    Apache-2.0), one operation per tool function in customer_service/tools/tools.py, operationId = function name,
+    same arguments. Upstream the tools are mocks that return canned data; here each x-sandbox-sql binding implements
+    the tool's behaviour against the sandbox tables. Every binding returns one column `_return` holding exactly the
+    value the upstream tool returns (dict, list or string).
+servers:
+  - url: https://cymbal-home-garden.example/tools
+paths:
+  /send_call_companion_link:
+    post:
+      operationId: send_call_companion_link
+      summary: Sends a link to the user's phone number to start a video session.
+      description: Returns a dictionary with the status and message, e.g. {'status':'success','message':'Link sent to +12065550123'}.
+      x-effect: external
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH ins AS (
+              INSERT INTO outbound_messages (kind, customer_id, channel, destination, body, created_at)
+              SELECT 'call_companion_link', s.customer_id, 'sms', CAST(:phone_number AS text), 'Cymbal Home & Garden video session link', sandbox_now()
+              FROM session_context s WHERE s.id = 1
+              RETURNING destination)
+            SELECT jsonb_build_object('status', 'success', 'message', 'Link sent to ' || ins.destination) AS _return FROM ins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number]
+              properties:
+                phone_number:
+                  type: string
+                  description: The phone number to send the link to.
+                  example: "+1-702-555-1212"
+      responses:
+        '200':
+          description: "{'status': 'success', 'message': 'Link sent to <phone_number>'}"
+  /approve_discount:
+    post:
+      operationId: approve_discount
+      summary: Approve the flat rate or percentage discount requested by the user.
+      description: >-
+        Auto-approves a discount within the pre-defined limit (MAX_DISCOUNT_RATE = 10) and applies it to the current
+        customer's cart. Larger values are rejected with {'status':'rejected','message':'discount too large. Must be 10 or less.'}
+        and nothing is applied. Returns {'status':'ok'} on approval.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH ins AS (
+              INSERT INTO discount_requests (customer_id, channel, discount_type, value, reason, status, applied, created_at)
+              SELECT s.customer_id, 'auto', CAST(:discount_type AS text), CAST(:value AS numeric), CAST(:reason AS text),
+                     CASE WHEN CAST(:value AS numeric) > 10 THEN 'rejected' ELSE 'ok' END,
+                     CAST(:value AS numeric) <= 10, sandbox_now()
+              FROM session_context s WHERE s.id = 1
+              RETURNING status)
+            SELECT CASE WHEN ins.status = 'rejected'
+                        THEN jsonb_build_object('status', 'rejected', 'message', 'discount too large. Must be 10 or less.')
+                        ELSE jsonb_build_object('status', 'ok') END AS _return
+            FROM ins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [discount_type, value, reason]
+              properties:
+                discount_type:
+                  type: string
+                  description: The type of discount, either "percentage" or "flat".
+                  example: percentage
+                value:
+                  type: number
+                  description: The value of the discount.
+                  example: 10
+                reason:
+                  type: string
+                  description: The reason for the discount.
+                  example: Customer loyalty
+      responses:
+        '200':
+          description: "{'status': 'ok'} or {'status': 'rejected', 'message': 'discount too large. Must be 10 or less.'}"
+  /sync_ask_for_approval:
+    post:
+      operationId: sync_ask_for_approval
+      summary: Asks the manager for approval for a discount.
+      description: >-
+        Synchronous manager approval. As in the upstream mock the manager approves ({'status':'approved'}), the request
+        is recorded and the approved discount is applied to the current customer's cart (upstream after_tool:
+        "Applying discount to the cart"). The agent's before_tool callback answers requests of 10 or less itself
+        ("no manager needed") without calling this tool.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH ins AS (
+              INSERT INTO discount_requests (customer_id, channel, discount_type, value, reason, status, applied, created_at)
+              SELECT s.customer_id, 'manager', CAST(:discount_type AS text), CAST(:value AS numeric), CAST(:reason AS text), 'approved', true, sandbox_now()
+              FROM session_context s WHERE s.id = 1
+              RETURNING status)
+            SELECT jsonb_build_object('status', ins.status) AS _return FROM ins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [discount_type, value, reason]
+              properties:
+                discount_type:
+                  type: string
+                  description: The type of discount, either "percentage" or "flat".
+                  example: percentage
+                value:
+                  type: number
+                  description: The value of the discount.
+                  example: 15
+                reason:
+                  type: string
+                  description: The reason for the discount.
+                  example: Customer loyalty
+      responses:
+        '200':
+          description: "{'status': 'approved'}"
+  /update_salesforce_crm:
+    post:
+      operationId: update_salesforce_crm
+      summary: Updates the Salesforce CRM with customer details.
+      description: "Records the details on the customer's CRM record. Returns {'status': 'success', 'message': 'Salesforce record updated.'}"
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH ins AS (
+              INSERT INTO crm_updates (customer_id, details, created_at)
+              VALUES (CAST(:customer_id AS text), CAST(:details AS jsonb), sandbox_now())
+              RETURNING id)
+            SELECT jsonb_build_object('status', 'success', 'message', 'Salesforce record updated.') AS _return FROM ins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, details]
+              properties:
+                customer_id:
+                  type: string
+                  description: The ID of the customer.
+                  example: "123"
+                details:
+                  type: object
+                  description: A dictionary of details to update in Salesforce.
+                  example: {appointment_date: "2024-07-27", appointment_time: "13-16", services: Planting}
+      responses:
+        '200':
+          description: "{'status': 'success', 'message': 'Salesforce record updated.'}"
+  /access_cart_information:
+    post:
+      operationId: access_cart_information
+      summary: Retrieves the customer's cart contents.
+      description: "Returns a dictionary representing the cart contents, e.g. {'items': [{'product_id': 'soil-123', 'name': 'Standard Potting Soil', 'quantity': 1}], 'subtotal': 12.99}."
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            SELECT jsonb_build_object(
+                     'items', COALESCE((SELECT jsonb_agg(jsonb_build_object('product_id', c.product_id, 'name', p.name, 'quantity', c.quantity) ORDER BY c.product_id DESC)
+                                        FROM cart_items c JOIN products p ON p.product_id = c.product_id WHERE c.customer_id = CAST(:customer_id AS text)), '[]'::jsonb),
+                     'subtotal', COALESCE((SELECT round(sum(p.price * c.quantity), 2)
+                                           FROM cart_items c JOIN products p ON p.product_id = c.product_id WHERE c.customer_id = CAST(:customer_id AS text)), 0)) AS _return
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+                  description: The ID of the customer.
+                  example: "123"
+      responses:
+        '200':
+          description: "{'items': [{'product_id', 'name', 'quantity'}], 'subtotal': number}"
+  /modify_cart:
+    post:
+      operationId: modify_cart
+      summary: Modifies the user's shopping cart by adding and/or removing items.
+      description: >-
+        items_to_add is a list of {'product_id', 'quantity'}; items_to_remove is a list of product_ids or of
+        {'product_id', 'quantity'} (no quantity = remove the line). Unknown product ids are ignored. Returns
+        {'status': 'success', 'message': 'Cart updated successfully.', 'items_added': bool, 'items_removed': bool}.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH cur AS (
+              SELECT product_id, quantity FROM cart_items WHERE customer_id = CAST(:customer_id AS text)),
+            a AS (
+              SELECT e->>'product_id' AS product_id, GREATEST(COALESCE(round(NULLIF(e->>'quantity', '')::numeric)::int, 1), 1) AS qty
+              FROM jsonb_array_elements(COALESCE(CAST(:items_to_add AS jsonb), '[]'::jsonb)) e
+              WHERE jsonb_typeof(e) = 'object'),
+            aa AS (
+              SELECT a.product_id, sum(a.qty)::int AS qty FROM a JOIN products p ON p.product_id = a.product_id GROUP BY a.product_id),
+            r AS (
+              SELECT CASE WHEN jsonb_typeof(e) = 'string' THEN e #>> '{}' ELSE e->>'product_id' END AS product_id,
+                     CASE WHEN jsonb_typeof(e) = 'object' AND COALESCE(e->>'quantity', '') <> '' THEN round((e->>'quantity')::numeric)::int END AS qty
+              FROM jsonb_array_elements(COALESCE(CAST(:items_to_remove AS jsonb), '[]'::jsonb)) e
+              WHERE jsonb_typeof(e) IN ('string', 'object')),
+            rr AS (
+              SELECT r.product_id, bool_or(r.qty IS NULL) AS remove_all, COALESCE(sum(r.qty), 0)::int AS qty
+              FROM r JOIN cur ON cur.product_id = r.product_id GROUP BY r.product_id),
+            fin AS (
+              SELECT k.product_id,
+                     GREATEST(COALESCE(cur.quantity, 0) - CASE WHEN rr.remove_all THEN COALESCE(cur.quantity, 0) ELSE COALESCE(rr.qty, 0) END, 0) + COALESCE(aa.qty, 0) AS q
+              FROM (SELECT product_id FROM aa UNION SELECT product_id FROM rr) k
+              LEFT JOIN cur ON cur.product_id = k.product_id
+              LEFT JOIN aa ON aa.product_id = k.product_id
+              LEFT JOIN rr ON rr.product_id = k.product_id),
+            del AS (
+              DELETE FROM cart_items ci USING fin
+              WHERE ci.customer_id = CAST(:customer_id AS text) AND ci.product_id = fin.product_id AND fin.q = 0
+              RETURNING ci.product_id),
+            up AS (
+              INSERT INTO cart_items (customer_id, product_id, quantity)
+              SELECT CAST(:customer_id AS text), fin.product_id, fin.q FROM fin WHERE fin.q > 0
+              ON CONFLICT (customer_id, product_id) DO UPDATE SET quantity = EXCLUDED.quantity
+              RETURNING product_id)
+            SELECT jsonb_build_object(
+                     'status', 'success',
+                     'message', CASE WHEN EXISTS (SELECT 1 FROM aa) OR EXISTS (SELECT 1 FROM rr) THEN 'Cart updated successfully.' ELSE 'No matching products to add or remove; cart unchanged.' END,
+                     'items_added', EXISTS (SELECT 1 FROM aa) AND (SELECT count(*) FROM up) >= 0,
+                     'items_removed', EXISTS (SELECT 1 FROM rr) AND (SELECT count(*) FROM del) >= 0) AS _return
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, items_to_add, items_to_remove]
+              properties:
+                customer_id:
+                  type: string
+                  description: The ID of the customer.
+                  example: "123"
+                items_to_add:
+                  type: array
+                  description: A list of dictionaries, each with 'product_id' and 'quantity'.
+                  items:
+                    type: object
+                    properties:
+                      product_id: {type: string}
+                      quantity:
+                        anyOf: [{type: integer}, {type: number}, {type: string}]
+                items_to_remove:
+                  type: array
+                  description: A list of product_ids to remove.
+                  items:
+                    anyOf:
+                      - type: string
+                      - type: object
+                        properties:
+                          product_id: {type: string}
+                          quantity:
+                            anyOf: [{type: integer}, {type: number}, {type: string}]
+      responses:
+        '200':
+          description: "{'status': 'success', 'message': 'Cart updated successfully.', 'items_added': bool, 'items_removed': bool}"
+  /get_product_recommendations:
+    post:
+      operationId: get_product_recommendations
+      summary: Provides product recommendations based on the type of plant.
+      description: "Returns {'recommendations': [{'product_id', 'name', 'description'}]}. Unknown plant types get the general-purpose recommendations."
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            SELECT jsonb_build_object('recommendations', COALESCE(jsonb_agg(jsonb_build_object('product_id', p.product_id, 'name', p.name, 'description', p.description) ORDER BY r.rank), '[]'::jsonb)) AS _return
+            FROM product_recommendations r JOIN products p ON p.product_id = r.product_id
+            WHERE r.plant_type = COALESCE((SELECT x.plant_type FROM product_recommendations x WHERE x.plant_type = lower(trim(CAST(:plant_type AS text))) LIMIT 1), '*')
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plant_type, customer_id]
+              properties:
+                plant_type:
+                  type: string
+                  description: The type of plant (e.g., 'Petunias', 'Sun-loving annuals').
+                  example: Petunias
+                customer_id:
+                  type: string
+                  description: Optional customer ID for personalized recommendations.
+                  example: "123"
+      responses:
+        '200':
+          description: "{'recommendations': [{'product_id': 'soil-456', 'name': 'Bloom Booster Potting Mix', 'description': '...'}]}"
+  /check_product_availability:
+    post:
+      operationId: check_product_availability
+      summary: Checks the availability of a product at a specified store (or for pickup).
+      description: "store_id is a store id or name, or 'pickup'. Returns {'available': bool, 'quantity': int, 'store': store_id}."
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            SELECT jsonb_build_object('available', COALESCE(i.quantity, 0) > 0, 'quantity', COALESCE(i.quantity, 0), 'store', CAST(:store_id AS text)) AS _return
+            FROM (SELECT 1 AS one) o
+            LEFT JOIN LATERAL (
+              SELECT inv.quantity FROM inventory inv JOIN stores s ON s.store_id = inv.store_id
+              WHERE inv.product_id = CAST(:product_id AS text)
+                AND (lower(s.store_id) = lower(trim(CAST(:store_id AS text))) OR lower(s.name) = lower(trim(CAST(:store_id AS text))))
+              LIMIT 1) i ON true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id, store_id]
+              properties:
+                product_id:
+                  type: string
+                  description: The ID of the product to check.
+                  example: soil-456
+                store_id:
+                  type: string
+                  description: The ID of the store (or 'pickup' for pickup availability).
+                  example: pickup
+      responses:
+        '200':
+          description: "{'available': True, 'quantity': 10, 'store': 'pickup'}"
+  /schedule_planting_service:
+    post:
+      operationId: schedule_planting_service
+      summary: Schedules a planting service appointment.
+      description: >-
+        Books the slot if it is open (see get_available_planting_times). time_range like "9-12" or "13-16" (also
+        accepts "9:00 AM - 12:00 PM" / "1-4 PM"). Returns {'status': 'success', 'appointment_id', 'date', 'time',
+        'confirmation_time'}; a taken or non-existent slot returns {'status': 'error', 'message': ...} and books nothing.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH req AS (
+              SELECT CAST(:date AS date) AS d,
+                     (SELECT CASE WHEN x.m[1]::int < 8 THEN x.m[1]::int + 12 ELSE x.m[1]::int END || '-' ||
+                             CASE WHEN x.m[2]::int < 8 THEN x.m[2]::int + 12 ELSE x.m[2]::int END
+                      FROM regexp_match(CAST(:time_range AS text), '(\d{1,2})(?::\d\d)?\D+(\d{1,2})') AS x(m)) AS tr),
+            slot AS (
+              SELECT ps.slot_date, ps.time_range FROM planting_slots ps JOIN req ON ps.slot_date = req.d AND ps.time_range = req.tr
+              WHERE NOT EXISTS (SELECT 1 FROM appointments ap WHERE ap.slot_date = ps.slot_date AND ap.time_range = ps.time_range AND ap.status = 'scheduled')),
+            ins AS (
+              INSERT INTO appointments (customer_id, slot_date, time_range, details, created_at)
+              SELECT CAST(:customer_id AS text), slot.slot_date, slot.time_range, CAST(:details AS text), sandbox_now() FROM slot
+              RETURNING id, slot_date, time_range)
+            SELECT CASE WHEN ins.id IS NULL
+                        THEN jsonb_build_object('status', 'error', 'message', 'The requested time slot is not available. Check get_available_planting_times for open slots.')
+                        ELSE jsonb_build_object('status', 'success', 'appointment_id', 'appt-' || ins.id, 'date', to_char(ins.slot_date, 'YYYY-MM-DD'),
+                                                'time', ins.time_range, 'confirmation_time', to_char(ins.slot_date, 'YYYY-MM-DD') || ' ' || split_part(ins.time_range, '-', 1) || ':00') END AS _return
+            FROM (SELECT 1 AS one) o LEFT JOIN ins ON true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, date, time_range, details]
+              properties:
+                customer_id:
+                  type: string
+                  description: The ID of the customer.
+                  example: "123"
+                date:
+                  type: string
+                  description: The desired date (YYYY-MM-DD).
+                  example: "2024-07-29"
+                time_range:
+                  type: string
+                  description: The desired time range (e.g., "9-12").
+                  example: "9-12"
+                details:
+                  type: string
+                  description: Any additional details (e.g., "Planting Petunias").
+                  example: Planting Petunias
+      responses:
+        '200':
+          description: "{'status': 'success', 'appointment_id': 'appt-1', 'date': '2024-07-29', 'time': '9-12', 'confirmation_time': '2024-07-29 9:00'}"
+  /get_available_planting_times:
+    post:
+      operationId: get_available_planting_times
+      summary: Retrieves available planting service time slots for a given date.
+      description: "Returns a list of available time ranges, e.g. ['9-12', '13-16']."
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            SELECT COALESCE(jsonb_agg(ps.time_range ORDER BY split_part(ps.time_range, '-', 1)::int), '[]'::jsonb) AS _return
+            FROM planting_slots ps
+            WHERE ps.slot_date = CAST(:date AS date)
+              AND NOT EXISTS (SELECT 1 FROM appointments ap WHERE ap.slot_date = ps.slot_date AND ap.time_range = ps.time_range AND ap.status = 'scheduled')
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date:
+                  type: string
+                  description: The date to check (YYYY-MM-DD).
+                  example: "2024-07-29"
+      responses:
+        '200':
+          description: "['9-12', '13-16']"
+  /send_care_instructions:
+    post:
+      operationId: send_care_instructions
+      summary: Sends an email or SMS with instructions on how to take care of a specific plant type.
+      description: "delivery_method is 'email' (default) or 'sms'. Returns {'status': 'success', 'message': 'Care instructions for <plant_type> sent via <delivery_method>.'}"
+      x-effect: external
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH c AS (SELECT * FROM customers WHERE customer_id = CAST(:customer_id AS text)),
+            m AS (SELECT CASE WHEN lower(trim(CAST(:delivery_method AS text))) = 'sms' THEN 'sms' ELSE 'email' END AS ch),
+            ins AS (
+              INSERT INTO outbound_messages (kind, customer_id, channel, destination, plant_type, body, created_at)
+              SELECT 'care_instructions', c.customer_id, m.ch, CASE WHEN m.ch = 'sms' THEN c.phone_number ELSE c.email END,
+                     CAST(:plant_type AS text), 'Care instructions for ' || CAST(:plant_type AS text), sandbox_now()
+              FROM c, m
+              RETURNING plant_type)
+            SELECT jsonb_build_object('status', 'success', 'message', 'Care instructions for ' || ins.plant_type || ' sent via ' || CAST(:delivery_method AS text) || '.') AS _return FROM ins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, plant_type, delivery_method]
+              properties:
+                customer_id:
+                  type: string
+                  description: The ID of the customer.
+                  example: "123"
+                plant_type:
+                  type: string
+                  description: The type of plant.
+                  example: Petunias
+                delivery_method:
+                  type: string
+                  description: "'email' (default) or 'sms'."
+                  example: email
+      responses:
+        '200':
+          description: "{'status': 'success', 'message': 'Care instructions for Petunias sent via email.'}"
+  /generate_qr_code:
+    post:
+      operationId: generate_qr_code
+      summary: Generates a QR code for a discount.
+      description: >-
+        Guardrails (upstream, verbatim): a "percentage" (or empty) discount_type above 10 returns the string
+        "cannot generate a QR code for this amount, must be 10% or less"; a "fixed" discount above 20 returns
+        "cannot generate a QR code for this amount, must be 20 or less". Otherwise returns {'status': 'success',
+        'qr_code_data': ..., 'expiration_date': 'YYYY-MM-DD'}.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH chk AS (
+              SELECT CASE WHEN CAST(:discount_type AS text) IN ('', 'percentage') AND CAST(:discount_value AS numeric) > 10 THEN 'cannot generate a QR code for this amount, must be 10% or less'
+                          WHEN CAST(:discount_type AS text) = 'fixed' AND CAST(:discount_value AS numeric) > 20 THEN 'cannot generate a QR code for this amount, must be 20 or less' END AS refusal),
+            ins AS (
+              INSERT INTO qr_codes (customer_id, discount_value, discount_type, expiration_days, expiration_date, qr_code_data, created_at)
+              SELECT CAST(:customer_id AS text), CAST(:discount_value AS numeric), CAST(:discount_type AS text), CAST(:expiration_days AS int),
+                     (sandbox_now() + make_interval(days => CAST(:expiration_days AS int)))::date, 'CYMBAL-QR-PENDING', sandbox_now()
+              FROM chk WHERE chk.refusal IS NULL
+              RETURNING id, expiration_date)
+            SELECT CASE WHEN chk.refusal IS NOT NULL THEN to_jsonb(chk.refusal)
+                        ELSE jsonb_build_object('status', 'success', 'qr_code_data', 'CYMBAL-QR-' || ins.id, 'expiration_date', to_char(ins.expiration_date, 'YYYY-MM-DD')) END AS _return
+            FROM chk LEFT JOIN ins ON true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, discount_value, discount_type, expiration_days]
+              properties:
+                customer_id:
+                  type: string
+                  description: The ID of the customer.
+                  example: "123"
+                discount_value:
+                  type: number
+                  description: The value of the discount (e.g., 10 for 10%).
+                  example: 10
+                discount_type:
+                  type: string
+                  description: '"percentage" (default) or "fixed".'
+                  example: percentage
+                expiration_days:
+                  type: integer
+                  description: Number of days until the QR code expires.
+                  example: 30
+      responses:
+        '200':
+          description: "{'status': 'success', 'qr_code_data': '...', 'expiration_date': '2024-08-21'} or a refusal string"

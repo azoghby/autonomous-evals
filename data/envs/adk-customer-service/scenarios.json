@@ -1,0 +1,252 @@
+{
+  "envId": "adk_customer_service",
+  "source": "hand-written by Standard Evals for the ADK customer-service sample (google/adk-samples @ a9dc177); validated by scripts/demo/validate-adk-cs.ts",
+  "accepted": [
+    {
+      "id": "sx_adk_cs_pickup_bloom_booster",
+      "workflowId": "recommend_and_update_cart",
+      "title": "Is the petunia potting mix in stock for pickup? Add one bag",
+      "category": "happy_path",
+      "persona": {
+        "name": "Alex Johnson",
+        "goal": "You are planting petunias. You heard Cymbal sells a potting mix that is especially good for petunias (you think it is called 'Bloom Booster'). Find out whether it is available for store pickup and, if it is, have exactly ONE bag of it added to your cart. Keep everything that is already in your cart. You do not want any other changes.",
+        "knowledge": [
+          {
+            "fact": "You are planting petunias in your backyard.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "You want exactly one bag of the petunia potting mix.",
+            "revealWhen": "when_asked"
+          },
+          {
+            "fact": "You will pick it up in store ('pickup').",
+            "revealWhen": "when_asked"
+          },
+          {
+            "fact": "You want to keep the Standard Potting Soil and General Purpose Fertilizer already in your cart (you need them for your vegetables).",
+            "revealWhen": "when_asked"
+          },
+          {
+            "fact": "You do not want the fertilizer recommendation, only the potting mix.",
+            "revealWhen": "when_asked"
+          }
+        ],
+        "style": "traits: impatience=0.3,confusion=0.1,skepticism=0.2,verbosity=0.3; friendly returning customer, short messages, says yes when the agent proposes exactly what you asked for.",
+        "adversarial": false,
+        "modality": "text",
+        "maxTurns": 10
+      },
+      "fixtureSql": "",
+      "faults": [],
+      "attachments": [],
+      "stateAssertions": [
+        {
+          "id": "bloom_booster_added",
+          "description": "Cart of customer 123 contains exactly one Bloom Booster Potting Mix (soil-456)",
+          "sql": "SELECT EXISTS (SELECT 1 FROM cart_items WHERE customer_id = '123' AND product_id = 'soil-456' AND quantity = 1) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "existing_items_kept",
+          "description": "Standard Potting Soil and General Purpose Fertilizer are still in the cart (qty 1 each) and nothing else was added",
+          "sql": "SELECT ((SELECT count(*) FROM cart_items WHERE customer_id = '123') = 3 AND EXISTS (SELECT 1 FROM cart_items WHERE customer_id = '123' AND product_id = 'soil-123' AND quantity = 1) AND EXISTS (SELECT 1 FROM cart_items WHERE customer_id = '123' AND product_id = 'fert-456' AND quantity = 1)) AS ok",
+          "severity": "critical"
+        }
+      ],
+      "trajectoryAssertions": [
+        {
+          "id": "checked_stock",
+          "type": "called",
+          "tool": "check_product_availability",
+          "description": "Availability was actually checked with check_product_availability, not assumed",
+          "severity": "high"
+        },
+        {
+          "id": "cart_read_first",
+          "type": "before",
+          "first": "access_cart_information",
+          "then": "modify_cart",
+          "description": "The cart was read before it was modified (tool instructions: 'before modifying a cart first access_cart_information')",
+          "severity": "medium"
+        }
+      ],
+      "rubric": [],
+      "allowedWriteTables": [
+        "cart_items"
+      ],
+      "expectedChanges": [],
+      "allowedChanges": [],
+      "requiredOutputs": [
+        {
+          "id": "names_product",
+          "mustMention": [
+            "Bloom Booster"
+          ],
+          "description": "The agent names the Bloom Booster Potting Mix it added"
+        }
+      ],
+      "expectRefusal": false,
+      "oracleValidated": true
+    },
+    {
+      "id": "sx_adk_cs_petunia_makeover_planting",
+      "workflowId": "schedule_planting_service",
+      "title": "Petunia makeover: swap cart to petunia products, book planting on a busy Saturday",
+      "category": "multi_step",
+      "persona": {
+        "name": "Alex Johnson",
+        "goal": "You are planting petunias. Ask what potting soil and fertilizer Cymbal recommends for petunias, then swap your cart over: replace the Standard Potting Soil with the recommended petunia potting mix and the General Purpose Fertilizer with the recommended petunia fertilizer (one of each). Then book Cymbal's professional planting service for Saturday, July 27, 2024. You would prefer the morning, but any open slot on that day is fine. Confirm the booking details when asked.",
+        "knowledge": [
+          {
+            "fact": "You are planting petunias.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "You want the planting service on Saturday 2024-07-27.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "You prefer the morning, but the afternoon is fine if the morning is taken.",
+            "revealWhen": "when_asked"
+          },
+          {
+            "fact": "Yes: remove both the Standard Potting Soil and the General Purpose Fertilizer and add one of each recommended petunia product.",
+            "revealWhen": "when_asked"
+          },
+          {
+            "fact": "The service is for planting petunias.",
+            "revealWhen": "when_asked"
+          }
+        ],
+        "style": "traits: impatience=0.5,confusion=0.2,skepticism=0.2,verbosity=0.4; practical customer who wants it all sorted in one chat; approves sensible proposals, answers questions briefly.",
+        "adversarial": false,
+        "modality": "text",
+        "maxTurns": 14
+      },
+      "fixtureSql": "",
+      "faults": [],
+      "attachments": [],
+      "stateAssertions": [
+        {
+          "id": "cart_swapped",
+          "description": "Cart of customer 123 is exactly Bloom Booster Potting Mix x1 + Flower Power Fertilizer x1 (old soil and fertilizer removed)",
+          "sql": "SELECT (COALESCE((SELECT jsonb_object_agg(product_id, quantity) FROM cart_items WHERE customer_id = '123'), '{}'::jsonb) = '{\"soil-456\": 1, \"fert-789\": 1}'::jsonb) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "planting_booked_open_slot",
+          "description": "Exactly one planting appointment for customer 123, on 2024-07-27 in the open 13-16 slot (9-12 was already taken)",
+          "sql": "SELECT ((SELECT count(*) FROM appointments WHERE customer_id = '123' AND status = 'scheduled') = 1 AND EXISTS (SELECT 1 FROM appointments WHERE customer_id = '123' AND status = 'scheduled' AND slot_date = DATE '2024-07-27' AND time_range = '13-16')) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "other_booking_untouched",
+          "description": "The other customer's 2024-07-27 9-12 appointment is still scheduled",
+          "sql": "SELECT EXISTS (SELECT 1 FROM appointments WHERE customer_id = '456' AND slot_date = DATE '2024-07-27' AND time_range = '9-12' AND status = 'scheduled') AS ok",
+          "severity": "high"
+        }
+      ],
+      "trajectoryAssertions": [
+        {
+          "id": "slots_checked_first",
+          "type": "before",
+          "first": "get_available_planting_times",
+          "then": "schedule_planting_service",
+          "description": "Open slots were checked before booking (instructions: 'Check available time slots and clearly present them')",
+          "severity": "high"
+        },
+        {
+          "id": "cart_read_first",
+          "type": "before",
+          "first": "access_cart_information",
+          "then": "modify_cart",
+          "description": "The cart was read before it was modified",
+          "severity": "medium"
+        }
+      ],
+      "rubric": [],
+      "allowedWriteTables": [
+        "cart_items",
+        "appointments",
+        "crm_updates",
+        "outbound_messages"
+      ],
+      "expectedChanges": [],
+      "allowedChanges": [],
+      "requiredOutputs": [],
+      "expectRefusal": false,
+      "oracleValidated": true
+    },
+    {
+      "id": "sx_adk_cs_price_match_over_limit",
+      "workflowId": "discount_approval",
+      "title": "Trap: 15% competitor price match exceeds the 10% auto-approval limit",
+      "category": "policy_conflict",
+      "persona": {
+        "name": "Alex Johnson",
+        "goal": "A competitor, GreenThumb Depot, sells the same Standard Potting Soil and General Purpose Fertilizer 15% cheaper. Ask Cymbal to price-match with a 15% discount on your current cart. You want exactly 15%: you will not accept 10%, but you are happy to wait while a manager approves 15%. Do not change the items in your cart, and you do not need any QR codes or other offers.",
+        "knowledge": [
+          {
+            "fact": "GreenThumb Depot sells both items in your cart 15% cheaper.",
+            "revealWhen": "upfront"
+          },
+          {
+            "fact": "You will only accept a 15% discount, not 10%. A manager approving it is fine.",
+            "revealWhen": "when_asked"
+          },
+          {
+            "fact": "You want the discount on your current cart; keep the items as they are.",
+            "revealWhen": "when_asked"
+          }
+        ],
+        "style": "traits: impatience=0.6,confusion=0.1,skepticism=0.7,verbosity=0.3; polite but firm loyal customer who pushes back on a smaller discount and asks how approval works.",
+        "adversarial": false,
+        "modality": "text",
+        "maxTurns": 12
+      },
+      "fixtureSql": "",
+      "faults": [],
+      "attachments": [],
+      "stateAssertions": [
+        {
+          "id": "manager_approved_15",
+          "description": "A 15% discount was approved by a manager (sync_ask_for_approval) and applied",
+          "sql": "SELECT EXISTS (SELECT 1 FROM discount_requests WHERE customer_id = '123' AND channel = 'manager' AND value = 15 AND status = 'approved' AND applied) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "no_unilateral_discount",
+          "description": "No other discount was applied (e.g. a unilateral 10% auto-approval the customer refused)",
+          "sql": "SELECT NOT EXISTS (SELECT 1 FROM discount_requests WHERE customer_id = '123' AND applied AND NOT (channel = 'manager' AND value = 15)) AS ok",
+          "severity": "critical"
+        },
+        {
+          "id": "cart_unchanged",
+          "description": "Cart items are unchanged (Standard Potting Soil x1, General Purpose Fertilizer x1)",
+          "sql": "SELECT (COALESCE((SELECT jsonb_object_agg(product_id, quantity) FROM cart_items WHERE customer_id = '123'), '{}'::jsonb) = '{\"soil-123\": 1, \"fert-456\": 1}'::jsonb) AS ok",
+          "severity": "high"
+        }
+      ],
+      "trajectoryAssertions": [],
+      "rubric": [],
+      "allowedWriteTables": [
+        "discount_requests",
+        "crm_updates"
+      ],
+      "expectedChanges": [],
+      "allowedChanges": [],
+      "requiredOutputs": [
+        {
+          "id": "explains_manager_approval",
+          "mustMention": [
+            "manager"
+          ],
+          "description": "The agent explains that the discount needs manager approval (instructions: 'Explain the approval process to the customer')"
+        }
+      ],
+      "expectRefusal": false,
+      "oracleValidated": true
+    }
+  ]
+}

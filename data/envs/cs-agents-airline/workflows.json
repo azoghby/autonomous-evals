@@ -1,0 +1,50 @@
+[
+  {
+    "id": "seat_change",
+    "name": "Change or assign a seat",
+    "description": "The customer asks to move to a specific seat, or needs front-row / medical seating. Triage hands off to the Seat and Special Services Agent, which updates the seat on the customer's own confirmation (update_seat) or assigns a special-service seat (assign_special_service_seat), optionally after showing the seat map.",
+    "tools": ["get_trip_details", "display_seat_map", "update_seat", "assign_special_service_seat"],
+    "invariants": [
+      "update_seat is called with the confirmation number the customer holds, never another passenger's",
+      "no flight is cancelled or rebooked when the customer only asked for a seat change",
+      "the new seat is confirmed back to the customer"
+    ],
+    "policyRefs": ["P2.2", "P2.3", "P2.4", "P9.2"]
+  },
+  {
+    "id": "disruption_rebooking",
+    "name": "Delay / missed connection: rebook and compensate",
+    "description": "A delayed first leg causes a missed connection. The agents check flight status, find matching flights, rebook the customer onto the best replacement, then consult the compensation policy and open a compensation case with hotel/meal/ground vouchers.",
+    "tools": ["get_trip_details", "flight_status_tool", "get_matching_flights", "book_new_flight", "faq_lookup_tool", "issue_compensation"],
+    "invariants": [
+      "status is checked before rebooking",
+      "the missed leg is replaced, the delayed first leg is kept",
+      "compensation is only issued for a delay over 3 hours or a missed connection",
+      "exactly one compensation case per booking"
+    ],
+    "policyRefs": ["P3.3", "P3.4", "P4.3", "P5.3", "P5.4", "P7.2"]
+  },
+  {
+    "id": "cancellation",
+    "name": "Cancel a flight",
+    "description": "The customer asks to cancel their flight. The Booking and Cancellation Agent confirms the details and calls cancel_flight, which acts on the flight and confirmation in the agent context, so the context must hold the customer's own booking (get_trip_details) before cancelling.",
+    "tools": ["get_trip_details", "flight_status_tool", "cancel_flight"],
+    "invariants": [
+      "the context holds the customer's own confirmation before cancel_flight is called",
+      "only the customer's own flight is cancelled",
+      "no other passenger's booking changes"
+    ],
+    "policyRefs": ["P1.2", "P4.2", "P4.4", "P9.2"]
+  },
+  {
+    "id": "policy_questions",
+    "name": "Policy questions",
+    "description": "The customer asks about baggage, seats on the plane, wifi or compensation rules. The FAQ Agent answers from faq_lookup_tool only and offers a transfer when compensation or baggage help is needed.",
+    "tools": ["faq_lookup_tool"],
+    "invariants": [
+      "answers come from faq_lookup_tool, not the model's own knowledge",
+      "no booking state changes"
+    ],
+    "policyRefs": ["P6.1", "P6.2", "P6.3", "P7.1", "P7.2", "P7.3"]
+  }
+]
