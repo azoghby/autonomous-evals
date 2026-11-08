@@ -1,0 +1,32 @@
+{
+  "command": "node tests/track-b/autonomous-company/verify.mjs",
+  "strictTypeScript": "passed, transitive core plus proposed app adapter",
+  "applicationPatch": "git apply --check, apply and exact-source comparison passed",
+  "testFiles": 6,
+  "testsPassed": 44,
+  "testsSkipped": 0,
+  "sql": "PGlite PostgreSQL, one embedded connection; no hosted multi-connection contention claim",
+  "providerMode": "offline scripted Naive/target/payment/communication adapters only",
+  "founderInterventionsInCombinedFixture": 0,
+  "sourceSha256": {
+    "packages/core/src/agents/autonomy/budget.ts": "962a7c97cd291c42775a603d76350c50d85a5b7e65ad4cbeaacd16b82f01cba4",
+    "packages/core/src/agents/autonomy/communications.ts": "a1169a64c70f79c05687fd76c942ace0d55366c59f8800fe2c3e03057e1288f7",
+    "packages/core/src/agents/autonomy/company.ts": "1df4d356c5544fd267148a5c39f45eb8ad75badab02b61dcac3f33f35aa75c2e",
+    "packages/core/src/agents/autonomy/operations.sql": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+    "packages/core/src/agents/autonomy/policy.ts": "6e2b5d56afbb1d7d99b791c750c8d38b1915a72beb1c99c84fb356aff4bb70ca",
+    "packages/core/src/agents/autonomy/runner.ts": "8df8f6f3c3c626f18c90f26348e33ba0f9d08f2bc106c4dd9ee8606f72c6ccb1",
+    "packages/core/src/agents/autonomy/supervisor.ts": "a4f174ac3230291a9c070c8ccd94149467118ade15f4b0e86e53e59cf486783a",
+    "packages/core/src/agents/autonomy/text-evaluation.ts": "b5615c52244ab75e26fda3def7d781c41bd1e709756b9ab98e1731b66796535d",
+    "packages/core/src/evals/data/autonomy/acquire.ts": "fe28c0fd0034577ede2dedeb8855da03eb2130140949f5caefadfe7622fa75c5",
+    "packages/core/src/evals/data/autonomy/index.ts": "6ed7ed0e60ec59d9fc6443bfceb501a09aeddee91ed8e78443cad2adeea69e23",
+    "tests/track-b/autonomous-company/acquisition.test.ts": "4b2191ca7cbf3949666d2f1b23632c10c85e4d2ef2677674637607f74e23c26a",
+    "tests/track-b/autonomous-company/budget.test.ts": "dd6938846ca1eecded09d584fcc41174f2aed96bd4bb57bd00fddef31b381deb",
+    "tests/track-b/autonomous-company/communications.test.ts": "497bf7790fc7a39f53b1f2c4bb0cfde71c31f98089c35cf07ae5143f3280d133",
+    "tests/track-b/autonomous-company/company.test.ts": "0d88cb9c69d297066d6d82deb995de252cfe9ae9b3ab90d677690e7b8033bbee",
+    "tests/track-b/autonomous-company/data-fixtures.ts": "57c928e4249e3ca2395598cafd0f93d96ab8dc9fcc78003d7356d9d975b796d7",
+    "tests/track-b/autonomous-company/data.test.ts": "ca9bb15ea593c86016862172f61ce75da98bab4d5d1b088ac83bd70971a8b60f",
+    "tests/track-b/autonomous-company/operations.test.ts": "59fbf561404d1bfb57baa698fc007875aff96c37bda69cb5d915fdba9741259d",
+    "tests/track-b/autonomous-company/verify.mjs": "df0c5d5b7132059f56aebf002fc0b355a4724f52b413aa2089abbb2f4dd88ab0",
+    "docs/autonomous-company-integration/source/apps/web/src/server/autonomous-company.ts": "7c598dfefdfdd0b89427ab7eaf79e9d4c409ac9b331f32ec1eebb72115e7fda6"
+  }
+}
