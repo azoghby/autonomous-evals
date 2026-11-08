@@ -178,6 +178,26 @@ async function main() {
     } else if (localContracts) {
       await cp(join(source, 'contracts'), join(staging, 'src/contracts'), { recursive: true, filter: (path) => !testFile.test(path) });
     }
+    // Sandbox engine modules share Track A's exact spec, separate from legacy contracts.
+    if (await exists(join(staging, 'src/evals/sandbox'))) {
+      const specPath = 'packages/core/src/sandbox/spec.ts';
+      let content;
+      if (contracts) {
+        const listing = git(['ls-tree', contracts.sha, '--', specPath]);
+        if (listing.status !== 0 || !/^100644 blob [a-f0-9]+\tpackages\/core\/src\/sandbox\/spec\.ts\n?$/.test(listing.stdout)) {
+          throw new Error(`Sandbox engine requires ${specPath} in the selected Track A ref; select a revision containing sandbox-spec-v1.`);
+        }
+        const blob = git(['show', `${contracts.sha}:${specPath}`], 'buffer');
+        if (blob.status !== 0) throw new Error('Cannot read pinned sandbox spec');
+        content = blob.stdout;
+      } else {
+        if (!await exists(join(source, 'sandbox/spec.ts'))) throw new Error('Sandbox engine requires --track-a-ref or a local sandbox/spec.ts');
+        content = await readFile(join(source, 'sandbox/spec.ts'));
+      }
+      await mkdir(join(staging, 'src/sandbox'), { recursive: true });
+      await writeFile(join(staging, 'src/sandbox/spec.ts'), content);
+      console.log(`Sandbox spec digest sha256:${createHash('sha256').update(content).digest('hex')}`);
+    }
     if (selectedContract.length) {
       await mkdir(join(staging, 'src/contract-checks'));
       for (const name of selectedContract) {
