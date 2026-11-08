@@ -127,3 +127,20 @@ are 16,966 and 11,619 micro-USD respectively. File hashes and precise scope are 
 `tests/track-b/live-evidence/trace-acceptance-index.json`. These satisfy the narrow
 historical synthetic-trace gate, not general reliability or deployed app
 authorization. The original failed-citation evidence remains intact.
+
+## Track A refresh at 530af32
+
+Parent fetched `origin/track-a` at
+`530af32067279497161c22ab00006247851d9200`. Compared with `da92bedd`, changes
+are marketing components, global CSS and LEDGER.md; shared contracts, server,
+Workflow code and package manifests are unchanged. Final composition must retain
+the new CSS/marketing source rather than replace it with an older archive. The
+composition owner has this exact pin; prior artifact evidence remains pinned to
+its original revisions.
+
+Track A's new ledger entry reports a production Gateway run and a Neon
+parent-branch-not-found error. These are owner-reported observations, not
+independently repeated here. The earlier deployment remains documented as lite
+mode. Neither the Gateway run nor marketing deployment proves rich Track B
+acceptance. Resolve the seed/parent branch configuration and verify real rich
+service deployment before hosted Calendar acceptance.
