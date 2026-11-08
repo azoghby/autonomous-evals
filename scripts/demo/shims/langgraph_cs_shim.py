@@ -34,7 +34,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from oss_bb_common import GATEWAY, Adapter, Turn, gateway_key, load_env, serve  # noqa: E402
+from oss_bb_common import GATEWAY, PROVIDER_REFUSAL, Adapter, Turn, gateway_key, load_env, serve  # noqa: E402
 
 ARGS = load_env()
 NOTEBOOK = Path(os.environ["LG_TUTORIAL"])
@@ -64,9 +64,29 @@ def _install_tavily_stand_in() -> None:
     sys.modules["langchain_community.tools.tavily_search"] = mod
 
 
+class ProviderRefusal(Exception):
+    """The model provider's safety system stopped the reply (finish_reason content_filter / refusal)."""
+
+
+REFUSAL_FINISH = {"content_filter", "refusal"}
+
+
+class GatewayChat(ChatOpenAI):
+    """ChatOpenAI that surfaces a provider safety stop instead of an empty reply. Without this, the tutorial's
+    Assistant re-prompts "Respond with a real output." forever on an empty message, so a provider refusal would hang
+    the turn until the harness times out (a harness-caused failure, not the agent's answer)."""
+
+    def _create_chat_result(self, response, generation_info=None):  # type: ignore[override]
+        result = super()._create_chat_result(response, generation_info)
+        for g in result.generations:
+            if (g.generation_info or {}).get("finish_reason") in REFUSAL_FINISH and not getattr(g.message, "tool_calls", None):
+                raise ProviderRefusal(g.generation_info.get("finish_reason"))
+        return result
+
+
 def _install_model(model: str) -> None:
     mod = types.ModuleType("langchain_anthropic")
-    mod.ChatAnthropic = lambda model=None, temperature=None, **_: ChatOpenAI(  # noqa: ARG005
+    mod.ChatAnthropic = lambda model=None, temperature=None, **_: GatewayChat(  # noqa: ARG005
         model=CURRENT_MODEL, temperature=temperature, base_url=GATEWAY, api_key=gateway_key(), timeout=100, max_retries=2)
     sys.modules["langchain_anthropic"] = mod
     globals()["CURRENT_MODEL"] = model
@@ -121,7 +141,10 @@ async def new_state(model: str) -> dict:
 def _invoke(config: dict, model: str, text: str) -> Turn:
     graph = graph_for(model)
     before = len(graph.get_state(config).values.get("messages", []) or [])
-    out = graph.invoke({"messages": ("user", text)}, config)
+    try:
+        out = graph.invoke({"messages": ("user", text)}, config)
+    except ProviderRefusal:
+        return Turn(reply=PROVIDER_REFUSAL, prompt_tokens=0, completion_tokens=0, tools=[], refused_by_provider=True)
     new = out["messages"][before:]
     tools = [tc["name"] for m in new for tc in (getattr(m, "tool_calls", None) or [])]
     last = out["messages"][-1]
