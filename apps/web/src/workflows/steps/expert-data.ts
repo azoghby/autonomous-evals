@@ -5,9 +5,11 @@ import { recordProgress } from '@/server/job-store';
 export async function expertDataGateStep(jobId: string): Promise<ExpertDataGate> {
   'use step';
   try { return await advanceJobExpertData(jobId); }
-  catch {
+  catch (error) {
     // Missing migration/configuration, authorization or durable reconciliation stays explicit pending.
     // In particular it never falls through to lite design/execution or the job failure handler.
+    // Log the cause (name/message only, never data) so a missing sidecar migration is not a silent 7-day hold.
+    console.error('expert_data_gate_pending', jobId, error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : 'non_error_throw');
     return 'pending';
   }
 }

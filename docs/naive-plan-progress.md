@@ -126,3 +126,46 @@ Alex explicitly approved the separate 26-file combined patch. Actual app/contrac
 Source adoption verification: `9eb9e4c` passed complete [GitHub CI](https://github.com/azoghby/standard-evals/actions/runs/42466546567), including locked install/types/tests/default build. A fresh bounded read-only Naïve inventory using the retained private key returned four configured core-role entries (`naive-phase0-inventory-20261108.json`); exact role attestation/expanded provisioning remain incomplete. See `naive-staging-readiness.md` for isolated migration/configuration and real acceptance requirements. No resources, sessions or deployments were created by this inventory.
 
 Independent core billing recovery is implemented in `judges/naive-proxy-reconcile.ts`: minimal immutable intent and request identity, exact audited billing, shared reservation settlement and keyed cost replay without constructing an authorized evaluator or creating a provider request. Parent strict combined agents/evals/judges passed **987 tests / 68 files**, none skipped; PGlite verifies real rollback and fresh-adapter recovery, not hosted contention. Missing request identities and old intent-less records still require explicit reconciliation. An authenticated app recovery surface is being prepared separately; this does not yet clear that staging gate.
+
+## Isolated staging acceptance (2026-11-08, ~02:00–02:40 PT, Track A)
+
+Source: `11d7ff2` (clean, = origin/main at start) for the deployed Preview; fixes below land on top. Production DB, Production env vars and the production deployment were not touched.
+
+**Neon (project `icy-star-64097833`).**
+
+| Item | Value |
+|---|---|
+| App staging branch | `naive-staging-20261108-a039` / `br-wild-cake-bd3so884` (endpoint `ep-blue-river-bd88lxip`), parent `main`, **schema-only** (no customer rows copied) |
+| Simulator seed child | `naive-staging-sim-seed-20261108-a039` / `br-old-grass-bdq7yvc7` (endpoint `ep-ancient-queen-bdvk7jy1`), parent `sim-seed` |
+| Untouched | Pre-existing `naive-staging-20261108` / `br-polished-star-bdxodsin` (console-created, schema-only, empty migration table, 0 compute) left alone |
+
+Before: schema-only copy had 63 tables, `agent_persistence` + `app_branch_ownership` already present (inherited from main, applied 2026-11-07), empty `drizzle.__drizzle_migrations`. Seeded the 25 migration-history rows (id/hash/created_at only) copied verbatim from main, last `created_at` 1794117812952 = `0022_uneven_nitro`.
+
+Destructive scan of every file below: none, except `DROP TRIGGER IF EXISTS operation_immutability` in `002-data-operations.sql` immediately before its `CREATE TRIGGER` (idempotent re-create). `0023` adds two nullable `costs` columns and a partial unique index `WHERE receipt_key IS NOT NULL` (no backfill, no conflict with existing rows).
+
+| Order | File | Result (sha256 prefix) |
+|---|---|---|
+| 1–4 | Drizzle `0023_cost_receipts`, `0024_expert_automation`, `0025_expert_workflow`, `0026_expert_text_runtime` via `drizzle-kit migrate` (staging-only config, host guard) | applied; new journal rows 26–29 = `586de3120c79`, `aa9fd152567a`, `fda72fbe0288`, `0149a8ded197` (match file hashes) |
+| 5 | `agents/persistence-migrations/001-agent-persistence.sql` | already present (inherited from main); not replayed (non-idempotent `CREATE SCHEMA`) |
+| 6 | `evals/integration/migrations/001-text-integration.sql` | applied `1bf43608b668` |
+| 7 | `evals/data/persistence-migrations/001-evaluation-data.sql`, `002-data-operations.sql` | applied `7f0eca2781e9`, `bca40dfef8fc`; re-applied once more through the new `scripts/apply-sidecar-sql.mjs` (idempotent, no error) |
+| 8 | `simulator/ledger-migrations/001_branch_ownership.sql` | already present (inherited from main) |
+| 9 | `simulator/migrations/001_calendar.sql` | applied on the sim seed child only, `7153e1bbdec0` |
+
+After: 75 tables; 29 journal rows; `expert_workflow.{plans,contribution_reviews,text_bindings}`, `expert_automation_{scopes,operations,invitations}`, `text_integration.checkpoints`, `evaluation_data_persistence.{tasks,operations}`, `costs.receipt_key/receipt_identity` + `costs_provider_receipt_uq` present; triggers `expert_automation_{operation,promise,response}_identity`, `immutable_{plan,review,text_binding}`, `operation_immutability`.
+
+**Preview.** `dpl_68xf55Jf8Fm1zo3ExkDB1QrXY9NT`, https://autonomous-evals-mqtevfggz-agents-db31.vercel.app, `vercel inspect`: target preview, ● Ready, Vercel Authentication protected. Per-deployment `--env/--build-env` only (project env unchanged): `EVAL_SERVICES=real`, `DATABASE_URL`/`_UNPOOLED` = staging branch (pooled/direct), `NAIVE_API_KEY` + four `NAIVE_AGENT_*` pins `@1` (Phase 0 IDs), `NAIVE_JUDGE_MODEL=openai/gpt-oss-120b`, `NAIVE_JUDGE_RESERVATION_MICRO_USD=20000`, `NAIVE_JUDGE_MAX_OUTPUT_TOKENS=1024`, `NAIVE_BUDGET_PERIOD_ID=naive-staging-20261108`, `NEON_SIM_SEED_BRANCH_ID=br-old-grass-bdq7yvc7`, `STRIPE_MODE=test` with an `sk_test_` key, fresh staging-only `SESSION_SECRET`/`CREDENTIALS_ENCRYPTION_KEY`/`CRON_SECRET`, and `AGENTMAIL_API_KEY`/`RESEND_API_KEY`/`FOUNDER_EMAIL` blanked so no mail can leave staging. `AUTH_DEV_LINKS` not set. Vercel crons do not run on Preview.
+
+A second Preview with the same env built from the fix commit below: `dpl_C8KHqyHM9GAtZewZWhyEpqkwSvKw`, https://autonomous-evals-oixlunth2-agents-db31.vercel.app, ● Ready (build verifies the fixes; job `f0246924…` still reads `awaiting_payment` through it).
+
+**Conformance** (`scripts/conformance.ts --services real`, staging DB/env): 13 PASS, 2 FAIL, 1 SKIP, $0.0999 recorded. Identical to Phase 0. FAIL `proposeAndVerifyFix` and `designSuite` (`EvalServiceUnavailableError`); SKIP `runSuite`. **The five generic methods are still not mapped**: `packages/core/src/integration/compose.ts` on `11d7ff2` returns `unavailable(...)` for designSuite/runSuite/investigate/proposeAndVerifyFix/rerunFinding; `createNaiveMethodServices` exists in core but has no app composition (needs authorization/suite-storage ports). In the app these fall back to lite through `withLiteFallback` (services-lite tests pass). Naïve answered without 429s in this run.
+
+**End-to-end on the Preview** (internal fixture customer `sandbox-e2e@example.com`, staging DB; session minted locally against the staging DB, no email): `POST /api/jobs` trace_audit (booking trace, no target endpoint, so no third-party call) → job `f0246924-e704-4d43-9d12-9b912c98a2b6` → Naïve commercial session `ses_5qg9kwym2n…` completed → quote v1 $49.00 fixed → `accept-quote` created a Stripe **test** Checkout session (`cs_test_…`) → job `awaiting_payment`. Cost row `source=naive agent=commercial 5,668 µUSD` with `receipt_key`. The paid phase (auditTrace/renderReport in the Workflow) was not run: it needs a human to complete the hosted Stripe test checkout (card entry is not automated). auditTrace and renderReport passed in conformance against the same DB/agents.
+
+**Spend.** Staging ledger: 9 reservations, all settled, 105,595 µUSD ($0.106); 9/9 tasks `completed`, no ambiguous tasks, no open holds. No AI Gateway spend (no lite method ran).
+
+**Review findings (H5–H8).**
+- H5 fixed (app): `expert-text-runtime.ts` wrote the per-job $3 cap into the month-wide `agent:judge:<period>` scope. It now uses `COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd` ($60); the only writer of that scope.
+- Low fixed (app): `NAIVE_BUDGET_PERIOD_ID ?? …` → `||` (empty string no longer breaks the judge).
+- H8 partly fixed (app): `expertDataGateStep` now logs the error name/message (no data) before returning `pending`. Sidecars are applied with the new `scripts/apply-sidecar-sql.mjs` (endpoint guard, destructive-statement refusal, per-file transaction, sha256 receipts); `npm run deploy` still does not apply them.
+- H6 and H7 **not fixed** (Track B `judges/`, `agents/`): a denied reservation is cached as the terminal first result by design (`postgres-ports.test.ts` asserts the replay), and `settle(id, 0)` on the deterministic judge reservation id would lock a zero settlement that a later real dispatch cannot settle. A correct fix needs a ledger contract change (void/re-reservable reservation) and an app-level intent drain before authorization. Both affect only the Jude rubric judge on the explicit expert text route, which is not activatable yet (no enabled plans, scopes or opted-in experts). Blocking for expert-route activation, not for the generic `EVAL_SERVICES=real` path.
