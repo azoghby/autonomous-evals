@@ -51,7 +51,7 @@ async function loadRanking(suiteVersion: string): Promise<{ agents: PublicAgentR
   const items = agents.flatMap((a) => {
     const r = latest.get(a.id);
     return r ? [{
-      agent: { slug: a.slug, name: a.name, vendor: a.vendor, kind: a.kind, model: a.model },
+      agent: { slug: a.slug, name: a.name, vendor: a.vendor, kind: a.kind, model: a.model, homepage: a.homepage, termsUrl: a.termsUrl },
       run: { suiteVersion: r.suiteVersion, ranAt: r.ranAt, passed: r.passed, total: r.total, byCategory: r.byCategory, findings: r.findings as StoredFinding[] },
     }] : [];
   });

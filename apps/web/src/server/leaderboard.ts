@@ -92,7 +92,7 @@ export interface LeaderboardRun {
   byCategory: ByCategory;
   findings: StoredFinding[];
 }
-export interface LeaderboardAgent { slug: string; name: string; vendor: string; kind: string; model?: string | null }
+export interface LeaderboardAgent { slug: string; name: string; vendor: string; kind: string; model?: string | null; homepage?: string | null; termsUrl?: string | null }
 export interface RankedEntry extends LeaderboardAgent {
   rank: number;
   run: LeaderboardRun;

@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { Suite, type Finding } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext } from "@ae/core/contracts/services";
 import { createLiteServices } from "@ae/core/lite/index";
-import { LoopbackJsonTransport } from "@ae/core/targets/transport";
+import { LoopbackJsonTransport, TargetError, type JsonTransport } from "@ae/core/targets/transport";
 import { decrypt } from "@ae/core/storage/crypto";
 import { redTeamById } from "@ae/core/redteam/index";
 import { PublicAgentInput, assertAuthorizedToTest, isLocalKind } from "./leaderboard-agents";
@@ -16,8 +16,27 @@ import { buildStandardSuite } from "./leaderboard-suite";
 
 export const DEFAULT_BUDGET_MICRO_USD = 2_000_000;
 export const DEFAULT_TIMEOUT_MIN = 15;
-/** Local multi-agent shims are slower than a bare model call. */
+/** Local multi-agent shims are slower than a bare model call (120s is LoopbackJsonTransport's per-request maximum). */
 const LOCAL_TARGET_TIMEOUT_MS = 120_000;
+/**
+ * Agentic loops (e.g. smolagents' CodeAgent, up to 20 steps) can need minutes per turn, and a target error is scored as
+ * a failed scenario. So a request that hits the per-request timeout is re-sent up to this many times; the shims
+ * (scripts/demo/shims/oss_bb_common.py) join the identical in-flight turn instead of starting another, and cap a turn
+ * at 1180s themselves (smolagents on Gemini needed >580s for some 20-step turns). The harness timeout therefore never
+ * fails a slow-but-working agent: 10 x 120s = 1200s of patience.
+ */
+export const LOCAL_TIMEOUT_RETRIES = 9;
+
+/** Re-sends a loopback request that timed out (only code "timeout"; every other error passes through). */
+export class PatientLoopbackTransport implements JsonTransport {
+  constructor(private readonly inner: JsonTransport, private readonly retries = LOCAL_TIMEOUT_RETRIES) {}
+  async post(endpoint: string, body: unknown, bearer?: string): Promise<unknown> {
+    for (let attempt = 0; ; attempt += 1) {
+      try { return await this.inner.post(endpoint, body, bearer); }
+      catch (e) { if (!(e instanceof TargetError && e.code === "timeout") || attempt >= this.retries) throw e; }
+    }
+  }
+}
 
 export class BudgetExceeded extends Error {
   constructor(spent: number, cap: number) { super(`budget exceeded: ${spent} > ${cap} micro-USD`); }
@@ -84,7 +103,7 @@ export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): P
   log(`[run] ${plan}`);
 
   const services = opts.services ?? (local
-    ? createLiteServices({ allowLoopback: true, transport: new LoopbackJsonTransport({ timeoutMs: LOCAL_TARGET_TIMEOUT_MS }) })
+    ? createLiteServices({ allowLoopback: true, transport: new PatientLoopbackTransport(new LoopbackJsonTransport({ timeoutMs: LOCAL_TARGET_TIMEOUT_MS })) })
     : createLiteServices());
   const { upsertAgent, insertRun } = await import("./leaderboard-db");
   const agent = opts.agentId ? { id: opts.agentId } : await upsertAgent(PublicAgentInput.parse(row));

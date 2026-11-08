@@ -28,11 +28,12 @@ describe("PublicAgentInput", () => {
   });
   it("data/public-agents.json is valid, key-free; active entries are authorized local real agents, old Acme baselines are deactivated", () => {
     const raw = JSON.parse(readFileSync(new URL("../../../../data/public-agents.json", import.meta.url), "utf8")) as { agents: unknown[]; todo: string[] };
-    expect(raw.agents.length).toBe(18);
+    expect(raw.agents.length).toBe(48); // 10 Acme baselines + 10 open-source agents x their models
     expect(raw.todo.length).toBeGreaterThan(0);
     const parsed = raw.agents.map((a) => PublicAgentInput.parse(a));
     const active = parsed.filter((p) => p.active);
-    expect(active).toHaveLength(8);
+    expect(active).toHaveLength(38);
+    expect(new Set(active.map((p) => p.slug)).size).toBe(active.length);
     for (const p of active) {
       expect(() => assertAuthorizedToTest(p)).not.toThrow();
       expect(p.kind).toBe("local_reference");
