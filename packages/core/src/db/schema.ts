@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  pgTable, uuid, text, timestamp, integer, bigint, jsonb, boolean, uniqueIndex, index, pgEnum, doublePrecision,
+  pgTable, uuid, text, timestamp, integer, bigint, jsonb, boolean, uniqueIndex, index, pgEnum, doublePrecision, serial,
 } from "drizzle-orm/pg-core";
 import { JOB_STATES, PACKAGES } from "../contracts/index";
 
@@ -608,3 +608,47 @@ export const salesLeads = pgTable("sales_leads", {
   ipHash: text("ip_hash"),
   createdAt,
 }, (t) => [index("sales_leads_created_idx").on(t.createdAt)]);
+
+// ---- Founder approvals + phone notifications (docs/FOUNDER_APPROVALS.md) ----
+
+/** One thing the founder must approve/reject (or an FYI) from their phone. Decisions are idempotent: only pending rows change. */
+export const founderApprovals = pgTable("founder_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Short human id for "YES 12" replies. */
+  seq: serial("seq").notNull(),
+  /** Registered handler kind, e.g. outreach_draft | sales_lead | plan_purchase | job_intervention | company_* */
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  /** Redacted, phone-sized summary (no secrets, no prospect emails). */
+  summary: text("summary").notNull(),
+  /** Payload reference (e.g. outreach_drafts.id). Unique per kind so re-requests are no-ops. */
+  ref: text("ref").notNull(),
+  payload: jsonb("payload").notNull().default({}),
+  /** pending | approved | rejected | expired | fyi */
+  status: text("status").notNull().default("pending"),
+  /** telegram | whatsapp | email | console */
+  decidedVia: text("decided_via"),
+  decidedBy: text("decided_by"),
+  decidedAt: ts("decided_at"),
+  /** Handler outcome note or error after a decision. */
+  result: text("result"),
+  expiresAt: ts("expires_at"),
+  /** Channel message refs, e.g. { telegram: { chatId, messageId } } so buttons can be cleared after deciding. */
+  channelRefs: jsonb("channel_refs").notNull().default({}),
+  createdAt,
+}, (t) => [
+  uniqueIndex("founder_approvals_kind_ref_uq").on(t.kind, t.ref),
+  uniqueIndex("founder_approvals_seq_uq").on(t.seq),
+  index("founder_approvals_status_idx").on(t.status, t.createdAt),
+]);
+
+/** Single-row (id = "founder") channel bindings set from /operator, so chat ids need no env vars. */
+export const founderNotifySettings = pgTable("founder_notify_settings", {
+  id: text("id").primaryKey(),
+  telegramChatId: text("telegram_chat_id"),
+  /** sha256 of the one-time /start code; never the code itself. */
+  telegramLinkCodeHash: text("telegram_link_code_hash"),
+  telegramLinkCodeExpiresAt: ts("telegram_link_code_expires_at"),
+  whatsappTo: text("whatsapp_to"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

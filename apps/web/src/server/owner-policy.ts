@@ -92,7 +92,7 @@ export function rerunWorthEmailing(prev: RunSummaryLike, next: RunSummaryLike): 
 
 // ---- signed (stateless) tokens: unsubscribe, operator approve-all -----------------------------
 
-export type SignedPurpose = "unsubscribe" | "owner_results" | "approve_all";
+export type SignedPurpose = "unsubscribe" | "owner_results" | "approve_all" | "founder_decision";
 
 function signingKey(env: Record<string, string | undefined>): string {
   const k = env.SESSION_SECRET;
