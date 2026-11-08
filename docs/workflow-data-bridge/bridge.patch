@@ -1,0 +1,304 @@
+--- /dev/null
++++ b/apps/web/migrations/003-workflow-data.sql
+@@ -0,0 +1,14 @@
++-- Deployment owner applies after Workflow001/002 and data persistence001/002.
++-- Private producer authority only; no public writer/HTTP plan admission.
++CREATE TABLE workflow_integration.data_plans (
++ job_id uuid PRIMARY KEY REFERENCES jobs(id), tenant_id uuid NOT NULL, environment text NOT NULL CHECK(environment IN ('test','live')),
++ input_digest text NOT NULL CHECK(input_digest ~ '^[a-f0-9]{64}$'), input jsonb NOT NULL
++);
++CREATE TABLE workflow_integration.data_advances (
++ job_id uuid NOT NULL REFERENCES workflow_integration.data_plans(job_id), result_digest text NOT NULL CHECK(result_digest ~ '^[a-f0-9]{64}$'),
++ result jsonb NOT NULL, PRIMARY KEY(job_id,result_digest)
++);
++CREATE TABLE workflow_integration.data_ready (
++ job_id uuid PRIMARY KEY REFERENCES workflow_integration.data_plans(job_id), input_digest text NOT NULL CHECK(input_digest ~ '^[a-f0-9]{64}$'),
++ result_digest text NOT NULL CHECK(result_digest ~ '^[a-f0-9]{64}$'), result jsonb NOT NULL
++);
+--- a/apps/web/src/server/data-production.ts
++++ b/apps/web/src/server/data-production.ts
+@@ -22,6 +22,7 @@
+ import type { DataBatch } from '@ae/core/evals/data/acquisition';
+ import type { DataDesignContext } from '@ae/core/evals/data/adapters/mapping';
+ import { getCurrentCustomer } from './session';
++import { recordCost } from './job-store';
+ 
+ let pool: Pool | undefined;
+ function database() {
+@@ -64,17 +65,8 @@
+     cost = CostEntrySchema.parse(cost);
+     if (cost.jobId !== jobId || !cost.measured || !cost.externalId || !inspectDataSafety(cost, secrets).safe) throw new Error('data_cost_invalid');
+     const entry = toContractCost(cost);
+-    await sql.transaction(async tx => {
+-      // Serializes this sink's replayed delivery. Every other producer using this idempotency key must use the same lock protocol.
+-      await tx.query('SELECT id FROM jobs WHERE id=$1 AND customer_id=$2 FOR UPDATE', [jobId, row.customer_id]);
+-      const prior = await tx.query<{ source: string; agent: string | null; session_id: string | null; micro_usd: string | number; meta: unknown }>(
+-        "SELECT source, agent, session_id, micro_usd, meta FROM costs WHERE job_id=$1 AND meta->>'idempotencyKey'=$2", [jobId, entry.meta.idempotencyKey]);
+-      if (prior.rows.length) {
+-        if (prior.rows.length !== 1 || reviewDigest({ source: prior.rows[0].source, agent: prior.rows[0].agent ?? null, sessionId: prior.rows[0].session_id ?? null, microUsd: Number(prior.rows[0].micro_usd), meta: prior.rows[0].meta }) !== reviewDigest({ ...entry, agent: entry.agent ?? null, sessionId: entry.sessionId ?? null })) throw new Error('data_cost_conflict');
+-        return;
+-      }
+-      await tx.query('INSERT INTO costs(job_id,source,agent,session_id,micro_usd,meta) VALUES($1,$2,$3,$4,$5,$6::jsonb)', [jobId, entry.source, entry.agent ?? null, entry.sessionId ?? null, entry.microUsd, JSON.stringify(entry.meta)]);
+-    });
++    // Single global keyed sink shared with rich sessions; conflicts fail closed.
++    await recordCost({ ...entry, jobId });
+   }
+   const reviews = createAuthenticatedDataReviewLedger({ operations, knownSecrets: secrets, authenticateHuman: async task => {
+     const human = await getCurrentCustomer();
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -5,7 +5,7 @@
+ import { IntakeInput } from '@ae/core/contracts/index';
+ import { createTextEvaluationServices, PostgresTextCheckpointStore } from '@ae/core/evals/integration/index';
+ import { createCalendarEvaluationServices } from '@ae/core/evals/calendar-integration/index';
+-import { TrackBBlockedError, toContractCost, createTrackBServices } from '@ae/core/evals/service-adapter';
++import { TrackBBlockedError, TrackBPendingError, toContractCost, createTrackBServices } from '@ae/core/evals/service-adapter';
+ import { buildAgentDeps } from '@ae/core/integration/eval-services';
+ import { withAgentCostDelivery } from '@ae/core/agents/runtime';
+ import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
+@@ -18,6 +18,8 @@
+ import type { CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
+ import { getJobWithDecryptedCredentials, recordCost } from './job-store';
+ import { createWorkflowInventory } from './workflow-inventory';
++import { createApprovedSuiteAdmission } from '@ae/core/evals/integration/approved-suite';
++import { advanceWorkflowData, readWorkflowDataPlan, readWorkflowDataReady } from './workflow-data';
+ import { evalServices } from '@ae/core/integration/eval-services';
+ 
+ let applicationPool: Pool | undefined;
+@@ -59,7 +61,25 @@
+   const checkpoints = inventory.wrap(new PostgresTextCheckpointStore(sql));
+   const agentDeps = await buildAgentDeps();
+   const runner = withAgentCostDelivery(agentDeps.runner, { record: async (_key, cost) => recordCost({ ...toContractCost(cost), jobId: cost.jobId }) });
+-  const text = createTextEvaluationServices({ runner, checkpoints, resolve: async current => {
++  const dataScope = { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment, workflowRunId: authority.workflowRunId };
++  const approved = createApprovedSuiteAdmission({ resolve: async (current, suiteDigest) => {
++    if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    const ready = await readWorkflowDataReady(sql, dataScope, a.knownSecrets);
++    if (!ready) {
++      if (await readWorkflowDataPlan(sql, dataScope, a.knownSecrets)) throw new TrackBPendingError(5000, 'Approved data is incomplete; suite fallback refused.');
++      return null;
++    }
++    if (ready.result.frozen?.suite.digest !== suiteDigest) return refused();
++    return { job: a.job, knownSecrets: a.knownSecrets, context: ready.input.context, result: ready.result };
++  } });
++  async function advanceData() {
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    return advanceWorkflowData(sql, dataScope, a.knownSecrets, inventory);
++  }
++  const text = createTextEvaluationServices({ runner, checkpoints, resolveApprovedSuite: approved.resolveApprovedSuite, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+     const a = await canonical();
+     return { job: a.job, target: createTextTarget(a.intake.endpoint), targetVersion: a.targetVersion,
+@@ -98,6 +118,6 @@
+       WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
+       RETURNING job_id`, [ctx.jobId,suiteDigest,runId]).then(r => { if (r.rows.length !== 1) return refused(); });
+   }
+-  return { text, calendar, inventory, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
++  return { text, calendar, inventory, advanceData, approvedData: approved.get, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
+     targetVersion: initial.targetVersion, knownSecrets: initial.knownSecrets };
+ }
+--- /dev/null
++++ b/apps/web/src/server/workflow-data.ts
+@@ -0,0 +1,75 @@
++import 'server-only';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { inspectDataSafety } from '@ae/core/evals/data/quality';
++import type { DataOrchestrationResult } from '@ae/core/evals/data/orchestration';
++import { TrackBBlockedError } from '@ae/core/evals/service-adapter';
++import { advanceProductionData, type ProductionDataInput } from './data-production';
++
++type Scope = { tenantId: string; jobId: string; environment: 'test' | 'live'; workflowRunId: string };
++const refuse = (): never => { throw new TrackBBlockedError('needs_operator', 'Data plan authority or immutable identity requires reconciliation.'); };
++async function authorize(sql: AgentTransactionalSql, scope: Scope) {
++  const row = await sql.query('SELECT id FROM jobs WHERE id=$1 AND customer_id=$2 AND environment=$3 AND workflow_run_id=$4 AND package=$5 AND is_mock=false AND state IN ($6,$7,$8)',
++    [scope.jobId, scope.tenantId, scope.environment, scope.workflowRunId, 'text_eval', 'planning', 'running', 'investigating']);
++  if (row.rows.length !== 1) refuse();
++}
++/** Private trusted producer capability. Owner must supply a durable authorized plan;
++ * no route, model output or default fixture grants this authority. */
++export async function registerWorkflowDataPlan(sql: AgentTransactionalSql, scope: Scope, input: ProductionDataInput, knownSecrets: readonly string[]) {
++  input = structuredClone(input);
++  if (input.task.jobId !== scope.jobId || !/^[A-Za-z0-9_-]{1,96}$/.test(input.task.taskId) || !inspectDataSafety(input, knownSecrets).safe) refuse();
++  await authorize(sql, scope);
++  const result = await sql.query(`INSERT INTO workflow_integration.data_plans(job_id,tenant_id,environment,input_digest,input)
++    VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id
++    WHERE workflow_integration.data_plans.tenant_id=EXCLUDED.tenant_id AND workflow_integration.data_plans.environment=EXCLUDED.environment
++      AND workflow_integration.data_plans.input_digest=EXCLUDED.input_digest AND workflow_integration.data_plans.input=EXCLUDED.input RETURNING job_id`,
++    [scope.jobId, scope.tenantId, scope.environment, reviewDigest(input), JSON.stringify(input)]);
++  if (result.rows.length !== 1) refuse();
++}
++export async function readWorkflowDataPlan(sql: AgentTransactionalSql, scope: Scope, knownSecrets: readonly string[]) {
++  await authorize(sql, scope);
++  const row = (await sql.query<{ input: ProductionDataInput; input_digest: string }>(
++    'SELECT input,input_digest FROM workflow_integration.data_plans WHERE job_id=$1 AND tenant_id=$2 AND environment=$3', [scope.jobId, scope.tenantId, scope.environment])).rows[0];
++  if (!row) return null;
++  if (reviewDigest(row.input) !== row.input_digest || row.input.task.jobId !== scope.jobId || !inspectDataSafety(row.input, knownSecrets).safe) refuse();
++  return row.input;
++}
++export async function readWorkflowDataReady(sql: AgentTransactionalSql, scope: Scope, knownSecrets: readonly string[]) {
++  const input = await readWorkflowDataPlan(sql, scope, knownSecrets);
++  if (!input) return null;
++  const row = (await sql.query<{ result: DataOrchestrationResult; result_digest: string }>(
++    'SELECT result,result_digest FROM workflow_integration.data_ready WHERE job_id=$1 AND input_digest=$2', [scope.jobId, reviewDigest(input)])).rows[0];
++  if (!row) return null;
++  if (reviewDigest(row.result) !== row.result_digest || row.result.status !== 'ready' || !row.result.frozen
++    || reviewDigest(row.result.task.spec) !== reviewDigest(input.task) || !inspectDataSafety(row.result, knownSecrets).safe) refuse();
++  return { input, result: row.result };
++}
++/** Inventory publication MUST commit before advance can dispatch. Every nonready
++ * status is retained privately and returned verbatim; no state is converted to success. */
++export async function advanceWorkflowData(sql: AgentTransactionalSql, scope: Scope, knownSecrets: readonly string[], inventory: { acquisition(ids: string[]): Promise<void>; touch(): Promise<void> }) {
++  const input = await readWorkflowDataPlan(sql, scope, knownSecrets);
++  const tasks = await sql.query<{ task_id: string }>('SELECT task_id FROM evaluation_data_persistence.tasks WHERE tenant_id=$1 AND job_id=$2 ORDER BY task_id', [scope.tenantId, scope.jobId]);
++  const ids = [...new Set([...tasks.rows.map(row => row.task_id), ...(input ? [input.task.taskId] : [])])];
++  if (ids.length) await inventory.acquisition(ids);
++  if (!input) { if (ids.length) refuse(); return null; }
++  if (ids.some(id => id !== input.task.taskId)) refuse(); // Multiple suites require a separate authorized composition.
++  const ready = await readWorkflowDataReady(sql, scope, knownSecrets);
++  if (ready) { await inventory.touch(); return ready.result; }
++  let result: DataOrchestrationResult;
++  try { result = await advanceProductionData(scope.jobId, input); }
++  finally { await inventory.touch(); } // Includes review/claim/cost writes even on failure.
++  if (reviewDigest(result.task.spec) !== reviewDigest(input.task) || !inspectDataSafety(result, knownSecrets).safe) refuse();
++  const digest = reviewDigest(result);
++  // Keep every distinct pending/review/cost snapshot; ready is a separate immutable binding.
++  await sql.query(`INSERT INTO workflow_integration.data_advances(job_id,result_digest,result) VALUES($1,$2,$3::jsonb) ON CONFLICT(job_id,result_digest) DO NOTHING`, [scope.jobId, digest, JSON.stringify(result)]);
++  if (result.status === 'ready') {
++    if (!result.frozen) refuse();
++    const saved = await sql.query(`INSERT INTO workflow_integration.data_ready(job_id,input_digest,result_digest,result) VALUES($1,$2,$3,$4::jsonb)
++      ON CONFLICT(job_id) DO UPDATE SET job_id=EXCLUDED.job_id WHERE workflow_integration.data_ready.input_digest=EXCLUDED.input_digest
++      AND workflow_integration.data_ready.result_digest=EXCLUDED.result_digest AND workflow_integration.data_ready.result=EXCLUDED.result RETURNING job_id`,
++      [scope.jobId, reviewDigest(input), digest, JSON.stringify(result)]);
++    if (saved.rows.length !== 1) refuse();
++  }
++  await inventory.touch();
++  return result;
++}
+--- a/apps/web/src/workflows/steps/rich-evaluation.ts
++++ b/apps/web/src/workflows/steps/rich-evaluation.ts
+@@ -32,7 +32,7 @@
+       const { job, intake, inventory } = api;
+       const tasks = await workflowSql().query<{ task_id: string }>(
+         'SELECT task_id FROM evaluation_data_persistence.tasks WHERE tenant_id=$1 AND job_id=$2 ORDER BY task_id', [job.customerId, jobId]);
+-      if (tasks.rows.length) {
++      if (tasks.rows.length && intake.package !== 'text_eval') {
+         await inventory.acquisition(tasks.rows.map(row => row.task_id));
+         throw new TrackBBlockedError('needs_operator', 'Data acquisition requires the authenticated review and frozen-suite bridge; no data completion is claimed.');
+       }
+@@ -45,14 +45,30 @@
+       let suiteDigest: string;
+       await setJobState(jobId, 'planning');
+       if (intake.package === 'text_eval') {
+-        const designed = await api.text.designSuite(ctx, { suiteId, versionLabel: 'default',
+-          systemPrompt: intake.endpoint.systemPrompt || null, referenceText: intake.endpoint.referenceText ?? null });
+-        if (designed.status !== 'completed') {
+-          if (designed.agentOutcome?.status === 'pending') throw new TrackBPendingError(5000, 'Suite design pending.');
+-          if (designed.agentOutcome?.status === 'budget_paused' || designed.agentOutcome?.status === 'budget_exhausted') throw new TrackBBlockedError('paused_budget', 'Suite design budget paused.');
+-          throw new TrackBBlockedError('needs_operator', 'Suite design requires review.');
++        const data = await api.advanceData();
++        let suite;
++        let dataProvenance;
++        if (data !== null) {
++          // All acquisition/review/cost/mapping/freeze gates remain distinct in the
++          // private retained result. No nonready result can execute the target.
++          if (data.status !== 'ready' || !data.frozen) {
++            if (['waiting_for_data', 'waiting_for_review', 'cost_delivery_pending'].includes(data.status)) throw new TrackBPendingError(5000, 'Approved data is pending.');
++            throw new TrackBBlockedError('needs_operator', 'Approved data requires reconciliation.');
++          }
++          const admitted = await api.approvedData(ctx, data.frozen.suite.digest);
++          if (!admitted) throw new TrackBBlockedError('needs_operator', 'Approved suite admission unavailable.');
++          suite = await api.text.getSuite(ctx, admitted.suite.digest);
++          dataProvenance = admitted.provenance;
++        } else {
++          const designed = await api.text.designSuite(ctx, { suiteId, versionLabel: 'default',
++            systemPrompt: intake.endpoint.systemPrompt || null, referenceText: intake.endpoint.referenceText ?? null });
++          if (designed.status !== 'completed') {
++            if (designed.agentOutcome?.status === 'pending') throw new TrackBPendingError(5000, 'Suite design pending.');
++            if (designed.agentOutcome?.status === 'budget_paused' || designed.agentOutcome?.status === 'budget_exhausted') throw new TrackBBlockedError('paused_budget', 'Suite design budget paused.');
++            throw new TrackBBlockedError('needs_operator', 'Suite design requires review.');
++          }
++          suite = designed.suite;
+         }
+-        const suite = designed.suite;
+         if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
+         const association = { runId, suiteDigest: suite.digest, scenarioIds: suite.scenarios.map(s => s.id) };
+         await setJobState(jobId, 'running');
+@@ -67,7 +83,7 @@
+         await api.bindTextBaseline(suite.digest, runId);
+         report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations: [...input.limitations, 'Remediation not run; no fix verified.'] });
+         suiteDigest = suite.digest;
+-        evidence = { format: 'rich_text.v1', suite, run, investigation, limitations: input.limitations };
++        evidence = { format: 'rich_text.v1', suite, run, investigation, dataProvenance: dataProvenance ?? null, limitations: input.limitations };
+       } else {
+         const suite = await api.calendar.freezeSuite(ctx, { suiteId });
+         if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
+--- a/packages/core/src/evals/integration/services.ts
++++ b/packages/core/src/evals/integration/services.ts
+@@ -21,6 +21,8 @@
+   runner: AgentTaskRunner;
+   checkpoints: TextCheckpointStore;
+   resolve(ctx: ServiceContext): Promise<AuthorizedTextDependencies>;
++  /** Trusted authorized immutable admission port; never request/model supplied. */
++  resolveApprovedSuite?(ctx: ServiceContext, suiteDigest: string): Promise<FrozenTextSuite | null>;
+   clock?: Clock;
+ }
+ export interface TextSuiteDesignRequest {
+@@ -89,8 +91,9 @@
+       return result;
+     } };
+   }
+-  async function suiteFor(a: AuthorizedTextDependencies, suiteDigest: string): Promise<FrozenTextSuite> {
+-    const suite = verifyFrozenSuite(value(await store.get({ jobId: a.job.jobId, kind: 'suite', id: suiteDigest, inputDigest: key(a, 'suite', suiteDigest, suiteDigest).inputDigest })));
++  async function suiteFor(a: AuthorizedTextDependencies, suiteDigest: string, ctx: ServiceContext): Promise<FrozenTextSuite> {
++    const admitted = await deps.resolveApprovedSuite?.(ctx, suiteDigest);
++    const suite = verifyFrozenSuite(admitted ?? value(await store.get({ jobId: a.job.jobId, kind: 'suite', id: suiteDigest, inputDigest: key(a, 'suite', suiteDigest, suiteDigest).inputDigest })));
+     if (suite.jobId !== a.job.jobId || suite.digest !== suiteDigest || containsSecret(JSON.stringify(suite), a.knownSecrets)) throw new Error('text_suite_identity_mismatch');
+     return suite;
+   }
+@@ -169,9 +172,9 @@
+     await costs(ctx, a, result.costs); return result;
+   }
+ 
+-  async function run(a: AuthorizedTextDependencies, input: TextRunRequest, attempt: 'initial' | 'rerun', baselineRunId: string | null): Promise<SuiteRun> {
++  async function run(a: AuthorizedTextDependencies, ctx: ServiceContext, input: TextRunRequest, attempt: 'initial' | 'rerun', baselineRunId: string | null): Promise<SuiteRun> {
+     assertValidRunId(input.runId);
+-    const suite = await suiteFor(a, input.suiteDigest);
++    const suite = await suiteFor(a, input.suiteDigest, ctx);
+     const ids = input.scenarioIds === undefined ? suite.scenarios.map(s => s.id) : [...new Set(input.scenarioIds)].sort();
+     if (!ids.length || ids.some(id => !suite.scenarios.some(s => s.id === id))) throw new Error('text_invalid_scenario_selection');
+     const identity = { suiteDigest: suite.digest, targetVersion: a.targetVersion, ids, attempt, baselineRunId };
+@@ -207,7 +210,7 @@
+   }
+ 
+   async function investigate(ctx: ServiceContext, input: TextRunReference): Promise<TextInvestigation> {
+-    const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest); const baseline = await loadRun(a, suite, input.runId);
++    const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest, ctx); const baseline = await loadRun(a, suite, input.runId);
+     const identity = value<{ targetVersion: string }>(await store.get({ jobId: a.job.jobId, kind: 'run_identity', id: input.runId }));
+     if (identity.targetVersion !== a.targetVersion) throw new TrackBBlockedError('rejected_input', 'Investigation must use the original run target version; use an explicit new rerun for a changed target.');
+     const k = key(a, 'investigation', input.runId, { suiteDigest: suite.digest, run: baseline, targetVersion: a.targetVersion });
+@@ -232,16 +235,16 @@
+ 
+   return {
+     designSuite,
+-    async getSuite(ctx: ServiceContext, suiteDigest: string) { return suiteFor(await authorized(ctx), suiteDigest); },
+-    async runSuite(ctx: ServiceContext, input: TextRunRequest) { return run(await authorized(ctx), input, 'initial', null); },
++    async getSuite(ctx: ServiceContext, suiteDigest: string) { return suiteFor(await authorized(ctx), suiteDigest, ctx); },
++    async runSuite(ctx: ServiceContext, input: TextRunRequest) { return run(await authorized(ctx), ctx, input, 'initial', null); },
+     investigate,
+     async rerun(ctx: ServiceContext, input: TextRunReference & { baselineRunId: string }) {
+-      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest); const baseline = await loadRun(a, suite, input.baselineRunId);
++      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest, ctx); const baseline = await loadRun(a, suite, input.baselineRunId);
+       if (input.runId === input.baselineRunId) throw new Error('rerun_requires_new_run_id');
+-      return run(a, { suiteDigest: suite.digest, runId: input.runId, scenarioIds: baseline.executions.map(e => e.scenarioId) }, 'rerun', input.baselineRunId);
++      return run(a, ctx, { suiteDigest: suite.digest, runId: input.runId, scenarioIds: baseline.executions.map(e => e.scenarioId) }, 'rerun', input.baselineRunId);
+     },
+     async reportInput(ctx: ServiceContext, input: TextRunReference) {
+-      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest); const run = await loadRun(a, suite, input.runId);
++      const a = await authorized(ctx); const suite = await suiteFor(a, input.suiteDigest, ctx); const run = await loadRun(a, suite, input.runId);
+       const investigation = value<TextInvestigation>(await store.get({ jobId: a.job.jobId, kind: 'investigation', id: input.runId, inputDigest: key(a, 'investigation', input.runId, { suiteDigest: suite.digest, run, targetVersion: a.targetVersion }).inputDigest }));
+       await costs(ctx, a, investigation.costs);
+       const limitations = [...investigation.limitations];
