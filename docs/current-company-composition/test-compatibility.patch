@@ -1,0 +1,88 @@
+diff --git a/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts b/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts
+--- a/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts
++++ b/tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts
+@@ -27,7 +27,12 @@
+  const paid=createAutonomousPaidContext({sql,policy,job,runner:{run},guard:async()=>{if(!allowed)throw Error('revoked');},jobCapMicroUsd:100,targetReservationMicroUsd:20,judgeReservationMicroUsd:1,deliverCost:async()=>{throw Error('unknown target money stays held');}});
+  const ctx={jobId:'fixture',environment:'test' as const,budgetMicroUsd:100,recordCost:async()=>{},recordProgress:async()=>{}};
+  for(const [k,v] of Object.entries({WORKFLOW_JUDGE_AUTH:'api_key',WORKFLOW_JUDGE_MODEL:'fixture/model',WORKFLOW_JUDGE_CONFIG_VERSION:'v1',WORKFLOW_JUDGE_RESERVATION_MICRO_USD:'1',NAIVE_BUDGET_PERIOD_ID:'baseline_fixture'}))vi.stubEnv(k,v);
+- const api=await createRichWorkflowServices(ctx,{workflowRunId:'workflow',autonomous:paid,judgeRuntime:{signal:new AbortController().signal,beforeDispatch:async()=>{throw Error('no judge requested');},token:async()=>{throw Error('no credentials');}}});
++ let api: Awaited<ReturnType<typeof createRichWorkflowServices>>;
++ try { api=await createRichWorkflowServices(ctx,{workflowRunId:'workflow',autonomous:paid,judgeRuntime:{signal:new AbortController().signal,beforeDispatch:async()=>{throw Error('no judge requested');},token:async()=>{throw Error('no credentials');}}}); } catch(error) {
++  expect((await sql.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);
++  expect(run).not.toHaveBeenCalled();expect(state.send).not.toHaveBeenCalled();
++  await engine.close();vi.unstubAllEnvs();throw error;
++ }
+  return {engine,sql,api,ctx,run,revoke:()=>{allowed=false;}};
+ }
+ it('actual baseline/pack Text send meters shared SQL and never constructs legacy runner',async()=>{
+@@ -41,10 +46,8 @@
+   f.revoke();await expect(target.target.send({...input,scenarioId:'scenario-2'})).rejects.toThrow();expect(state.send).toHaveBeenCalledOnce();
+  }finally{await f.api.dispose();await f.engine.close();vi.unstubAllEnvs();}
+ },30000);
+-it('actual Calendar autonomous factory refuses unsupported lifecycle identity before branch/target access',async()=>{
+- state.package='workflow_eval';state.bootstrap.mockClear();state.send.mockClear();const f=await fixture();try{
+-  await expect(f.api.calendar.freezeSuite(f.ctx,{suiteId:'retained-calendar'})).rejects.toThrow();
+-  expect(state.bootstrap).not.toHaveBeenCalled();expect(state.send).not.toHaveBeenCalled();
+-  expect((await f.sql.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);
+- }finally{await f.api.dispose();await f.engine.close();vi.unstubAllEnvs();}
++it('actual Calendar rejects missing application SQL before target or legacy construction',async()=>{
++ state.package='workflow_eval';state.bootstrap.mockClear();state.send.mockClear();vi.stubEnv('DATABASE_URL','');
++ await expect(fixture()).rejects.toThrow('Application database configuration required.');
++ expect(state.bootstrap).not.toHaveBeenCalled();expect(state.send).not.toHaveBeenCalled();
+ },30000);
+diff --git a/tests/track-b/current-autonomy-integration/current-baseline.test.ts b/tests/track-b/current-autonomy-integration/current-baseline.test.ts
+--- a/tests/track-b/current-autonomy-integration/current-baseline.test.ts
++++ b/tests/track-b/current-autonomy-integration/current-baseline.test.ts
+@@ -27,7 +27,12 @@
+  const paid=createAutonomousPaidContext({sql,policy,job,runner:{run},guard:async()=>{if(!allowed)throw Error('revoked');},jobCapMicroUsd:100,targetReservationMicroUsd:20,judgeReservationMicroUsd:1,deliverCost:async()=>{throw Error('unknown target money stays held');}});
+  const ctx={jobId:'fixture',environment:'test' as const,budgetMicroUsd:100,recordCost:async()=>{},recordProgress:async()=>{}};
+  for(const [k,v] of Object.entries({WORKFLOW_JUDGE_AUTH:'api_key',WORKFLOW_JUDGE_MODEL:'fixture/model',WORKFLOW_JUDGE_CONFIG_VERSION:'v1',WORKFLOW_JUDGE_RESERVATION_MICRO_USD:'1',NAIVE_BUDGET_PERIOD_ID:'baseline_fixture'}))vi.stubEnv(k,v);
+- const api=await createRichWorkflowServices(ctx,{workflowRunId:'workflow',autonomous:paid,judgeRuntime:{signal:new AbortController().signal,beforeDispatch:async()=>{throw Error('no judge requested');},token:async()=>{throw Error('no credentials');}}});
++ let api: Awaited<ReturnType<typeof createRichWorkflowServices>>;
++ try { api=await createRichWorkflowServices(ctx,{workflowRunId:'workflow',autonomous:paid,judgeRuntime:{signal:new AbortController().signal,beforeDispatch:async()=>{throw Error('no judge requested');},token:async()=>{throw Error('no credentials');}}}); } catch(error) {
++  expect((await sql.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);
++  expect(run).not.toHaveBeenCalled();expect(state.send).not.toHaveBeenCalled();
++  await engine.close();vi.unstubAllEnvs();throw error;
++ }
+  return {engine,sql,api,ctx,run,revoke:()=>{allowed=false;}};
+ }
+ it('actual baseline/pack Text send meters shared SQL and never constructs legacy runner',async()=>{
+@@ -41,12 +46,10 @@
+   f.revoke();await expect(target.target.send({...input,scenarioId:'scenario-2'})).rejects.toThrow();expect(state.send).toHaveBeenCalledOnce();
+  }finally{await f.api.dispose();await f.engine.close();vi.unstubAllEnvs();}
+ },30000);
+-it('actual Calendar autonomous factory refuses unsupported lifecycle identity before branch/target access',async()=>{
+- state.package='workflow_eval';state.bootstrap.mockClear();state.send.mockClear();const f=await fixture();try{
+-  await expect(f.api.calendar.freezeSuite(f.ctx,{suiteId:'retained-calendar'})).rejects.toThrow();
+-  expect(state.bootstrap).not.toHaveBeenCalled();expect(state.send).not.toHaveBeenCalled();
+-  expect((await f.sql.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);
+- }finally{await f.api.dispose();await f.engine.close();vi.unstubAllEnvs();}
++it('actual Calendar rejects missing application SQL before target or legacy construction',async()=>{
++ state.package='workflow_eval';state.bootstrap.mockClear();state.send.mockClear();vi.stubEnv('DATABASE_URL','');
++ await expect(fixture()).rejects.toThrow('Application database configuration required.');
++ expect(state.bootstrap).not.toHaveBeenCalled();expect(state.send).not.toHaveBeenCalled();
+ },30000);
+ it('actual autonomous rich data call selects explicit refusing dispatch instead of legacy acquisition',async()=>{
+  state.package='text_eval';state.bootstrap.mockClear();const f=await fixture();try{
+diff --git a/tests/track-b/current-autonomy-integration/current-app.test.ts b/tests/track-b/current-autonomy-integration/current-app.test.ts
+--- a/tests/track-b/current-autonomy-integration/current-app.test.ts
++++ b/tests/track-b/current-autonomy-integration/current-app.test.ts
+@@ -27,5 +27,7 @@
+  it('shares minted paid capability/SQL and existing durable Workflow identity with rich Text services',async()=>{const h=setup();const paid={guard:vi.fn(async()=>{})} as unknown as Parameters<ReleaseConfig['evaluate']>[4];await h.release().evaluate(h.request,'eval-key','digest',{} as Parameters<ReleaseConfig['evaluate']>[3],paid);expect(paid.guard).toHaveBeenCalledWith(h.request.job,h.config.db);expect(h.deps.rich).toHaveBeenCalledWith(h.context,{workflowRunId:'run_durable',autonomous:paid});expect(h.config.evaluateWithServices).toHaveBeenCalledWith(h.request,'eval-key','digest',h.services);});
+  it('refuses a context rebound to another job before services or evaluation',async()=>{const h=setup();h.context.jobId='forged';const paid={guard:vi.fn(async()=>{})} as unknown as Parameters<ReleaseConfig['evaluate']>[4];await expect(h.release().evaluate(h.request,'k','d',{} as Parameters<ReleaseConfig['evaluate']>[3],paid)).rejects.toThrow('context_refused');expect(h.deps.rich).not.toHaveBeenCalled();expect(h.config.evaluateWithServices).not.toHaveBeenCalled();});
+  it('refuses revoked shared paid authority before rich construction',async()=>{const h=setup();const paid={guard:vi.fn(async()=>{throw Error('revoked');})} as unknown as Parameters<ReleaseConfig['evaluate']>[4];await expect(h.release().evaluate(h.request,'k','d',{} as Parameters<ReleaseConfig['evaluate']>[3],paid)).rejects.toThrow('revoked');expect(h.deps.rich).not.toHaveBeenCalled();expect(h.config.evaluateWithServices).not.toHaveBeenCalled();});
+- it('keeps autonomous Calendar explicitly blocked without fallback or any target construction',async()=>{const h=setup();h.request.job.package='workflow_eval';const paid={guard:vi.fn()} as unknown as Parameters<ReleaseConfig['evaluate']>[4];await expect(h.release().evaluate(h.request,'calendar','digest',{} as Parameters<ReleaseConfig['evaluate']>[3],paid)).rejects.toThrow('autonomous_calendar_durable_run_identity_required');expect(h.config.contextFor).not.toHaveBeenCalled();expect(h.deps.rich).not.toHaveBeenCalled();expect(h.config.evaluateWithServices).not.toHaveBeenCalled();});
++ it('passes guarded Calendar to rich services with the existing durable Workflow identity',async()=>{const h=setup();h.request.job.package='workflow_eval';const paid={guard:vi.fn(async()=>{})} as unknown as Parameters<ReleaseConfig['evaluate']>[4];expect(await h.release().evaluate(h.request,'calendar','digest',{} as Parameters<ReleaseConfig['evaluate']>[3],paid)).toEqual({status:'pending'});expect(paid.guard).toHaveBeenCalledWith(h.request.job,h.config.db);expect(h.deps.rich).toHaveBeenCalledWith(h.context,{workflowRunId:'run_durable',autonomous:paid});expect(h.config.evaluateWithServices).toHaveBeenCalledWith(h.request,'calendar','digest',h.services);});
++ it('refuses Calendar without a durable Workflow binding before rich construction',async()=>{const h=setup();h.request.job.package='workflow_eval';h.job.workflowRunId='';const paid={guard:vi.fn()} as unknown as Parameters<ReleaseConfig['evaluate']>[4];await expect(h.release().evaluate(h.request,'calendar','digest',{} as Parameters<ReleaseConfig['evaluate']>[3],paid)).rejects.toThrow('authority_refused');expect(paid.guard).not.toHaveBeenCalled();expect(h.deps.rich).not.toHaveBeenCalled();expect(h.config.evaluateWithServices).not.toHaveBeenCalled();});
++ it('refuses revoked Calendar paid authority before rich construction',async()=>{const h=setup();h.request.job.package='workflow_eval';const paid={guard:vi.fn(async()=>{throw Error('revoked');})} as unknown as Parameters<ReleaseConfig['evaluate']>[4];await expect(h.release().evaluate(h.request,'calendar','digest',{} as Parameters<ReleaseConfig['evaluate']>[3],paid)).rejects.toThrow('revoked');expect(h.deps.rich).not.toHaveBeenCalled();expect(h.config.evaluateWithServices).not.toHaveBeenCalled();});
+ });
+diff --git a/tests/track-b/current-autonomy-integration/registration.test.ts b/tests/track-b/current-autonomy-integration/registration.test.ts
+--- a/tests/track-b/current-autonomy-integration/registration.test.ts
++++ b/tests/track-b/current-autonomy-integration/registration.test.ts
+@@ -12,5 +12,5 @@
+ it('all new routes fail closed without installed owner composition',async()=>{expect((await tick(request())).status).toBe(503);expect((await bootstrap(request(),{params:Promise.resolve({jobId:'job'})})).status).toBe(503);expect((await report(request(),{params:Promise.resolve({jobId:'job'})})).status).toBe(503);expect(h.start).not.toHaveBeenCalled();});
+ it('cron authorization precedes Workflow start even when owner composition exists',async()=>{h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn()};h.auth.mockReturnValue(new Response('denied',{status:401}));expect((await tick(request())).status).toBe(401);expect(h.start).not.toHaveBeenCalled();});
+ it('registered cron schedules the bounded durable Workflow and returns its genuine run identity',async()=>{h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn()};const response=await tick(request());expect(response.status).toBe(202);expect(await response.json()).toEqual({runId:'scheduler-run'});expect(h.start).toHaveBeenCalledWith(currentAutonomyWorkflow,[]);});
+-it('durable scheduler wrapper advances the existing company root, refuses missing installation',async()=>{await expect(currentAutonomyWorkflow()).rejects.toThrow('owner_composition_unavailable');h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn(async()=>({outcomes:[]}))};expect(await currentAutonomyWorkflow()).toEqual({outcomes:[]});expect(h.app.advanceDueJobs).toHaveBeenCalledOnce();});
++it('durable scheduler wrapper advances the existing company root, refuses missing installation',async()=>{await expect(currentAutonomyWorkflow()).rejects.toThrow('current_autonomy_owner_adapters_unconfigured');h.app={bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn(async()=>({outcomes:[]}))};expect(await currentAutonomyWorkflow()).toEqual({outcomes:[]});expect(h.app.advanceDueJobs).toHaveBeenCalledOnce();});
+ it('customer route params and original request reach owner-authenticated methods',async()=>{const denied=new Response('private',{status:404});h.app={bootstrap:vi.fn(async()=>denied),publication:vi.fn(async()=>denied),advanceDueJobs:vi.fn()};const req=request(),params={params:Promise.resolve({jobId:'job_a'})};expect(await bootstrap(req,params)).toBe(denied);expect(await report(req,params)).toBe(denied);expect(h.app.bootstrap).toHaveBeenCalledWith(req,'job_a');expect(h.app.publication).toHaveBeenCalledWith(req,'job_a');});

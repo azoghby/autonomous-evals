@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts",
+      "beforeSha256": "225d3685b91e3c23a73b9f6364665839e8575aaa7ef93de1b62e91014f03be51",
+      "afterSha256": "ea34eda7833973aee79d5ebcee255450a37da2d0d8fae20cafe1a9e64e565422"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-integration/current-baseline.test.ts",
+      "beforeSha256": "c4315f66486aa505fb5c1b53f1ee4bf0ee3a94ce14bfa70921b0d4bb3cfa117d",
+      "afterSha256": "f9b6995e84e42b1ae3312148d6db9e2082edd4ae18b6724141d92b89c9a9e316"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-integration/current-app.test.ts",
+      "beforeSha256": "a2553aac1bd63effda99132727fe193d1a9180234df86f15cfcd6394c46da1b3",
+      "afterSha256": "447387b91be4bcc6fd58105a35af6654a45b03c62ffaf964504495c4df4378db"
+    },
+    {
+      "path": "tests/track-b/current-autonomy-integration/registration.test.ts",
+      "beforeSha256": "6705022f8d243c800d363f2d203253df3dd83c6bff43dad1bf8ea086c1c98dac",
+      "afterSha256": "714b1af0cafffeee088fcf7637e7b20796e9a7e067d96cd989707d000423ae05"
+    }
+  ],
+  "patchSha256": "3cbb84d0957a24e45e149d5f91e5ccfc185a250e1e00044798d7d691838b96fe"
+}

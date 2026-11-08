@@ -1,0 +1,11 @@
+{
+  "tests": 164,
+  "testFiles": 23,
+  "skipped": 0,
+  "strictTypes": true,
+  "sourceFilesVerified": 2041,
+  "sourceReproductionVerified": true,
+  "applicationParent": "039851736eabb94e85c2c111bbccc78374716275",
+  "hostedAcceptance": false,
+  "liveCalls": false
+}
