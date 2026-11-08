@@ -1,0 +1,33 @@
+{
+  "parentBase": "f8d1f75cf53422015e63b8ac3233eacbaa1a30d5",
+  "packageTrackA": "da92bedd68b230188e2499fdd8440ea23b2f1d6b",
+  "sqlTrackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "verified": {
+    "identicalPackageInputs": 3,
+    "identicalBaselineMigrations": 15,
+    "canonicalApplicationArtifacts": 10,
+    "deterministicPackagePatch": true,
+    "recordedPackageEvidenceMatchesPatch": true
+  },
+  "limits": [
+    "Pin agreement and artifact integrity only; does not reexecute child evidence or combine application patches.",
+    "No final combined application build, production SQL, authentication, providers or deployment tested."
+  ],
+  "releaseAccepted": false
+}
+
+Lead integration verification:
+node tests/track-b/release-packaging/check.mjs — exit 0
+node --test tests/track-b/release-packaging/packages/contract.test.mjs — exit 0; 3 passed, 0 failed/skipped
+git diff --check — exit 0
+
+Integrated migration child ebff67f0988a22b08f6c78f580bc5b59fa65e53b as 811f9f3.
+Integrated package child 2987baf88a8e8932271f2dea56447e3c60681c5a as 5eb6c75.
+Child heavy checks were serialized with /tmp/track-b-release-heavy.lock.
+Lead inspected both implementations and retained their actual execution evidence;
+heavy install/SQL suites were not repeated because integration changed only
+handoff documentation and added the lightweight pin/integrity checker.
+All delivery files are within docs/release-packaging-integration/** and
+tests/track-b/release-packaging/**. No application owner files changed.
+Final combined app build, native batch concurrency and deployed/live acceptance
+remain unverified. No provider/cloud calls, credentials, deployment, push or PR.
