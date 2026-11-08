@@ -971,3 +971,50 @@ export const expertWorkflowTextBindings = expertWorkflow.table("text_bindings", 
   check("text_bindings_check", sql`${t.scope}->>'jobId'=${t.jobId}::text`),
   check("text_bindings_scope_check1", sql`octet_length(${t.scope}::text)<4096`),
 ]);
+
+// ---- User-feedback campaign (/feedback, scripts/feedback-outreach.ts) ----
+
+/**
+ * One row per vetted builder we invited to give feedback. `token` is the unguessable ?ref= in their /feedback link and
+ * the key for their one-click opt-out. Email is stored lowercased; sourceUrl is where the address is publicly published.
+ */
+export const feedbackInvites = pgTable("feedback_invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  token: text("token").notNull(),
+  email: text("email").notNull(),
+  name: text("name"),
+  org: text("org").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  /** pending | sent | suppressed | failed | replied */
+  status: text("status").notNull().default("pending"),
+  messageId: text("message_id"),
+  threadId: text("thread_id"),
+  sentAt: ts("sent_at"),
+  replyText: text("reply_text"),
+  repliedAt: ts("replied_at"),
+  createdAt,
+}, (t) => [
+  uniqueIndex("feedback_invites_token_uq").on(t.token),
+  uniqueIndex("feedback_invites_email_uq").on(sql`lower(${t.email})`),
+]);
+
+/** Answers from /feedback. Only rows with quoteConsent=true AND a valid invite are ever shown publicly. */
+export const feedbackResponses = pgTable("feedback_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Null for anonymous (no ?ref) submissions. One response per invite (re-submits update it). */
+  inviteId: uuid("invite_id").references(() => feedbackInvites.id, { onDelete: "set null" }),
+  /** yes | maybe | no */
+  wouldUse: text("would_use").notNull(),
+  mustHave: text("must_have"),
+  pricePerMonth: text("price_per_month"),
+  quote: text("quote"),
+  quoteConsent: boolean("quote_consent").notNull().default(false),
+  name: text("name"),
+  company: text("company"),
+  ipHash: text("ip_hash"),
+  createdAt,
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("feedback_responses_invite_uq").on(t.inviteId),
+  index("feedback_responses_created_idx").on(t.createdAt),
+]);
