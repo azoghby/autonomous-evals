@@ -682,6 +682,28 @@ export const founderNotes = pgTable("founder_notes", {
   createdAt,
 }, (t) => [uniqueIndex("founder_notes_message_uq").on(t.messageId), index("founder_notes_created_idx").on(t.createdAt)]);
 
+/* ---------------- Overage metering (packages/core/src/payments/overage-billing.ts) ---------------- */
+
+/** One row per (customer, usage month): trials beyond the plan allowance, billed as a Stripe invoice item. Idempotent. */
+export const overageCharges = pgTable("overage_charges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  periodStart: ts("period_start").notNull(),
+  periodEnd: ts("period_end").notNull(),
+  plan: text("plan").notNull(),
+  trialsUsed: integer("trials_used").notNull(),
+  includedTrials: integer("included_trials").notNull(),
+  overageTrials: integer("overage_trials").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  environment: envEnum("environment").notNull(),
+  /** pending | billed | failed */
+  status: text("status").notNull().default("pending"),
+  stripeInvoiceItemId: text("stripe_invoice_item_id"),
+  error: text("error"),
+  billedAt: ts("billed_at"),
+  createdAt,
+}, (t) => [uniqueIndex("overage_charges_customer_period_uq").on(t.customerId, t.periodStart)]);
+
 /* ---------------- Agent-run company (packages/core/src/company, apps/web/src/server/company) ---------------- */
 
 /** Per-agent on/off toggle set from the operator console. Absent row = registry default for the environment. */
