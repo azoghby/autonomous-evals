@@ -1,13 +1,16 @@
 /**
  * One-off user-feedback campaign (founder-authorized, Nov 8). Sends ONE plain-text invite per vetted recipient through
- * the app's AgentMail sender (sendCompanyEmail: suppression check + dry-run guard), records each in feedback_invites,
- * and appends to <out>/sent.json. Default is a dry run that writes rendered previews and touches nothing.
+ * the app's AgentMail sender (sendCompanyEmail: suppression check), records each in feedback_invites, and appends to
+ * <out>/sent.json. Default is a dry run that writes rendered previews and writes nothing to the DB.
  *
  *   cd apps/web && NODE_OPTIONS=--conditions=react-server npx tsx --tsconfig tsconfig.json \
  *     ../../scripts/feedback-outreach.ts --recipients <recipients.json> --out <dir> [--send]
  *
  * recipients.json: [{ email, name|null, org, reason, sourceUrl }]. Only addresses the person/company publishes
  * themselves, with the page they publish it on. Hard cap FEEDBACK_SEND_CAP (25) across all runs; no follow-ups.
+ * Each row is claimed atomically (pending -> sending) before sending; 'sending'/'failed' rows are never retried
+ * (see apps/web/src/server/feedback-send.ts). To deliberately resend a failed row, reset it by hand after checking
+ * AgentMail for the message.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -24,7 +27,6 @@ for (const f of [resolve(ROOT, "apps/web/.env.local"), resolve(ROOT, ".env")]) {
   }
 }
 
-const SPACING_MS = 5_000;
 const APP_URL = "https://standard-evals.vercel.app";
 
 const recipientSchema = z.object({
@@ -39,80 +41,90 @@ function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-const mask = (e: string) => e.replace(/^(.).*(@.*)$/, "$1***$2");
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
 async function main(): Promise<void> {
   const send = process.argv.includes("--send");
   const recipientsPath = arg("--recipients");
   const out = arg("--out");
   if (!recipientsPath || !out) throw new Error("usage: --recipients <file.json> --out <dir> [--send]");
-  const { FEEDBACK_SEND_CAP, FEEDBACK_EMAIL_MAX_WORDS, FOUNDER_REPLY_TO, buildFeedbackEmail, feedbackBodyWords } = await import("@/server/feedback-logic");
   const recipients = z.array(recipientSchema).parse(JSON.parse(readFileSync(recipientsPath, "utf8")));
-  if (recipients.length > FEEDBACK_SEND_CAP) throw new Error(`${recipients.length} recipients exceeds the cap of ${FEEDBACK_SEND_CAP}`);
-  if (new Set(recipients.map((r) => r.email)).size !== recipients.length) throw new Error("duplicate recipient email");
 
+  const { FEEDBACK_SEND_CAP } = await import("@/server/feedback-logic");
+  const { runFeedbackOutreach } = await import("@/server/feedback-send");
   const { db, schema } = await import("@ae/core/db/client");
-  const { eq, isNotNull, sql } = await import("drizzle-orm");
+  const { and, eq, inArray, isNotNull, or, sql } = await import("drizzle-orm");
   const { isSuppressed, companyAddress } = await import("@/server/owner-shared");
-  const { sendCompanyEmail } = await import("@/server/company/mailer");
+  const { sendCompanyEmail, emailDryRun } = await import("@/server/company/mailer");
+  if (send && emailDryRun(false)) throw new Error("--send but email is not configured (or COMPANY_EMAIL_DRY_RUN=1); refusing");
   const I = schema.feedbackInvites;
-  const address = process.env.COMPANY_ADDRESS ? companyAddress() : null;
+  const cols = { id: I.id, token: I.token, status: I.status, sentAt: I.sentAt };
 
-  // A dry run works before migration 0029 is applied: missing feedback_invites reads as "nothing sent yet".
+  // A dry run is read-only and works before the table exists (reads fall back to "nothing sent yet").
   const tolerant = <T,>(p: Promise<T>, fallback: T): Promise<T> => (send ? p : p.catch(() => fallback));
-  const [sentRow] = await tolerant(db().select({ n: sql<number>`count(*)` }).from(I).where(isNotNull(I.sentAt)), [{ n: 0 }]);
-  let budget = FEEDBACK_SEND_CAP - Number(sentRow?.n ?? 0);
+  const writeGuard = () => { if (!send) throw new Error("dry run must not write to the DB"); };
+  const findByEmail = async (email: string) => {
+    const [r] = await tolerant(db().select(cols).from(I).where(sql`lower(${I.email}) = ${email.toLowerCase()}`).limit(1), []);
+    return r ?? null;
+  };
+
   mkdirSync(resolve(out, "preview"), { recursive: true });
   const sentPath = resolve(out, "sent.json");
   const sentLog: unknown[] = existsSync(sentPath) ? JSON.parse(readFileSync(sentPath, "utf8")) : [];
-  process.stdout.write(`${send ? "SEND" : "DRY RUN"}: ${recipients.length} recipients, ${budget} sends left under the cap, app ${APP_URL}\n`);
+  const address = process.env.COMPANY_ADDRESS ? companyAddress() : null;
 
-  for (const [n, r] of recipients.entries()) {
-    const tag = `${String(n + 1).padStart(2, "0")} ${r.org}`;
-    const [existing] = await tolerant(db().select().from(I).where(sql`lower(${I.email}) = ${r.email}`).limit(1), []);
-    if (existing?.sentAt) { process.stdout.write(`${tag}: skip, already sent ${existing.sentAt.toISOString()}\n`); continue; }
-    if (await isSuppressed(r.email)) {
-      process.stdout.write(`${tag}: skip, suppressed\n`);
-      if (send && existing) await db().update(I).set({ status: "suppressed" }).where(eq(I.id, existing.id));
-      continue;
-    }
-    const token = existing?.token ?? (send ? randomBytes(18).toString("base64url") : `dryrun-${slug(r.org)}`);
-    const email = buildFeedbackEmail(r, { appUrl: APP_URL, token, companyAddress: address });
-    if (/localhost|127\.0\.0\.1/i.test(`${email.subject}\n${email.text}`)) throw new Error(`${tag}: refusing, body contains a localhost link`);
-    const words = feedbackBodyWords(email.text);
-    if (words > FEEDBACK_EMAIL_MAX_WORDS) throw new Error(`${tag}: body is ${words} words (max ${FEEDBACK_EMAIL_MAX_WORDS})`);
-    writeFileSync(resolve(out, "preview", `${String(n + 1).padStart(2, "0")}-${slug(r.org)}.txt`),
-      `To: ${r.email}\nReply-To: ${FOUNDER_REPLY_TO}\nSubject: ${email.subject}\nSource: ${r.sourceUrl}\nWords: ${words}\n\n${email.text}\n`);
-    if (!send) { process.stdout.write(`${tag}: ${mask(r.email)} rendered (${words} words)\n`); continue; }
-    if (budget <= 0) { process.stdout.write(`${tag}: stop, cap of ${FEEDBACK_SEND_CAP} reached\n`); break; }
+  const usedCount = async () => {
+    const [row] = await tolerant(db().select({ n: sql<number>`count(*)` }).from(I)
+      .where(or(inArray(I.status, ["sending", "sent", "failed", "replied"]), isNotNull(I.sentAt))), [{ n: 0 }]);
+    return Number(row?.n ?? 0);
+  };
+  process.stdout.write(`${send ? "SEND" : "DRY RUN"}: ${recipients.length} recipients, ${FEEDBACK_SEND_CAP - (await usedCount())} sends left under the cap, app ${APP_URL}\n`);
 
-    const invite = existing ?? (await db().insert(I).values({ token, email: r.email, name: r.name, org: r.org, sourceUrl: r.sourceUrl }).returning())[0]!;
-    try {
-      const res = await sendCompanyEmail(
-        { to: r.email, subject: email.subject, text: email.text, headers: email.headers, replyTo: FOUNDER_REPLY_TO, labels: ["feedback_invite"] },
-        { dryRun: false },
-      );
-      if (res.status !== "sent") {
-        await db().update(I).set({ status: res.status === "suppressed" ? "suppressed" : "pending" }).where(eq(I.id, invite.id));
-        process.stdout.write(`${tag}: not sent (${res.status})\n`);
-        continue;
-      }
-      const sentAt = new Date();
-      await db().update(I).set({ status: "sent", messageId: res.sent.id, threadId: res.sent.threadId ?? null, sentAt }).where(eq(I.id, invite.id));
-      budget--;
-      const rec = { sentAt: sentAt.toISOString(), recipient: r.email, name: r.name, org: r.org, sourceUrl: r.sourceUrl, messageId: res.sent.id, threadId: res.sent.threadId ?? null, inviteId: invite.id };
-      sentLog.push(rec);
-      writeFileSync(sentPath, `${JSON.stringify(sentLog, null, 2)}\n`);
-      process.stdout.write(`${tag}: sent ${mask(r.email)} message ${res.sent.id}\n`);
-    } catch (err) {
-      await db().update(I).set({ status: "failed" }).where(eq(I.id, invite.id));
-      appendFileSync(resolve(out, "errors.log"), `${new Date().toISOString()} ${r.org}: ${err instanceof Error ? err.message : String(err)}\n`);
-      process.stdout.write(`${tag}: FAILED (see errors.log)\n`);
-    }
-    await sleep(SPACING_MS);
-  }
+  const summary = await runFeedbackOutreach(recipients, { send }, {
+    appUrl: APP_URL,
+    companyAddress: address,
+    newToken: () => randomBytes(18).toString("base64url"),
+    isSuppressed: (email) => tolerant(isSuppressed(email), false),
+    sendEmail: (m) => sendCompanyEmail(m, { dryRun: false }),
+    log: (line) => process.stdout.write(`${line}\n`),
+    writePreview: (file, text) => writeFileSync(resolve(out, "preview", file), text),
+    recordSent: (rec) => { sentLog.push(rec); writeFileSync(sentPath, `${JSON.stringify(sentLog, null, 2)}\n`); },
+    recordError: (line) => appendFileSync(resolve(out, "errors.log"), `${line}\n`),
+    sleep: (ms) => new Promise<void>((r) => setTimeout(r, ms)),
+    store: {
+      findByEmail,
+      usedCount,
+      async insertPending(r, token) {
+        writeGuard();
+        const [row] = await db().insert(I).values({ token, email: r.email, name: r.name, org: r.org, sourceUrl: r.sourceUrl })
+          .onConflictDoNothing().returning(cols);
+        const got = row ?? (await findByEmail(r.email));
+        if (!got) throw new Error(`insert conflicted but no invite row found for ${r.org}`);
+        return got;
+      },
+      async claim(id) {
+        writeGuard();
+        const rows = await db().update(I).set({ status: "sending" }).where(and(eq(I.id, id), eq(I.status, "pending"))).returning({ id: I.id });
+        return rows.length === 1;
+      },
+      async markSent(id, s) {
+        writeGuard();
+        await db().update(I).set({ status: "sent", messageId: s.messageId, threadId: s.threadId, sentAt: s.sentAt }).where(eq(I.id, id));
+      },
+      async markFailed(id) {
+        writeGuard();
+        await db().update(I).set({ status: "failed" }).where(and(eq(I.id, id), eq(I.status, "sending")));
+      },
+      async release(id, status) {
+        writeGuard();
+        await db().update(I).set({ status }).where(and(eq(I.id, id), eq(I.status, "sending")));
+      },
+      async markSuppressed(id) {
+        writeGuard();
+        await db().update(I).set({ status: "suppressed" }).where(and(eq(I.id, id), eq(I.status, "pending")));
+      },
+    },
+  });
+  process.stdout.write(`done: ${JSON.stringify(summary)}\n`);
 }
 
 main().then(() => process.exit(0)).catch((e) => { process.stdout.write(`failed: ${e instanceof Error ? e.message : String(e)}\n`); process.exit(1); });

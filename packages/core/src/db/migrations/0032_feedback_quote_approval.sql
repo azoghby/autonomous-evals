@@ -1,0 +1,1 @@
+ALTER TABLE "feedback_responses" ADD COLUMN "quote_approved_at" timestamp with time zone;

@@ -1032,6 +1032,8 @@ export const feedbackResponses = pgTable("feedback_responses", {
   name: text("name"),
   company: text("company"),
   ipHash: text("ip_hash"),
+  /** Set by an operator after reviewing the quote; null = never shown publicly. A resubmit clears it. */
+  quoteApprovedAt: ts("quote_approved_at"),
   createdAt,
   updatedAt: ts("updated_at").notNull().defaultNow(),
 }, (t) => [
