@@ -30,6 +30,13 @@ export class HttpsPublicSourceTransport implements PublicSourceTransport {
     this.responseLimit = bounded(options.maxResponseBytes, 1_000_000);
   }
   get(endpoint: string): Promise<unknown> {
+    return this.retrieve(endpoint, 'json');
+  }
+  /** Raw UTF-8 documents (including YAML), with the same pinned DNS and byte/deadline bounds. */
+  getText(endpoint: string): Promise<string> {
+    return this.retrieve(endpoint, 'text') as Promise<string>;
+  }
+  private retrieve(endpoint: string, format: 'json' | 'text'): Promise<unknown> {
     return (this.options.gate ?? globalGate).run(async () => {
       const url = publicSourceUrl(endpoint, this.origin);
       if (Buffer.byteLength(url.pathname + url.search) > this.requestLimit) throw new TargetError('request_too_large');
@@ -51,7 +58,7 @@ export class HttpsPublicSourceTransport implements PublicSourceTransport {
               servername: isIP(host) ? '' : host, rejectUnauthorized: true,
               checkServerIdentity: (_name, cert) => checkServerIdentity(host, cert),
               signal: controller.signal,
-              headers: { Host: url.host, Accept: 'application/json', 'Accept-Encoding': 'identity',
+              headers: { Host: url.host, Accept: format === 'json' ? 'application/json' : 'application/json, application/yaml, text/yaml, text/plain', 'Accept-Encoding': 'identity',
                 'User-Agent': this.userAgent },
             }, res => {
               if ((res.statusCode ?? 0) < 200 || (res.statusCode ?? 0) >= 300) {
@@ -68,8 +75,10 @@ export class HttpsPublicSourceTransport implements PublicSourceTransport {
               });
               res.on('error', () => reject(new TargetError('transport_error')));
               res.on('end', () => {
-                try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-                catch { reject(new TargetError('invalid_json')); }
+                try {
+                  const bytes = Buffer.concat(chunks);
+                  resolve(format === 'json' ? JSON.parse(bytes.toString('utf8')) : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes));
+                } catch { reject(new TargetError(format === 'json' ? 'invalid_json' : 'invalid_utf8')); }
               });
             });
             req.on('error', () => reject(new TargetError(controller.signal.aborted ? 'timeout' : 'transport_error')));

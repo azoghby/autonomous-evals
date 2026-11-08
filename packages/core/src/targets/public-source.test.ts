@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
-const harness = vi.hoisted(() => ({ options: undefined as any, calls: 0, mode: 'ok', body: '', active: 0, peak: 0 }));
+const harness = vi.hoisted(() => ({ options: undefined as any, calls: 0, mode: 'ok', body: '', active: 0, peak: 0, response: undefined as Buffer | undefined }));
 vi.mock('node:https', () => ({ request: (options: any, callback: any) => {
   harness.options = options; harness.calls++; harness.active++; harness.peak = Math.max(harness.peak, harness.active);
   const req = new EventEmitter() as any;
@@ -13,7 +13,7 @@ vi.mock('node:https', () => ({ request: (options: any, callback: any) => {
       res.headers = harness.mode === 'encoding' ? { 'content-encoding': 'gzip' } : {};
       res.destroy = () => { harness.active--; };
       callback(res);
-      if (res.statusCode === 200) { res.emit('data', Buffer.from(harness.mode === 'large' ? 'x'.repeat(100) : harness.mode === 'invalid' ? '{' : '{"ok":true}')); res.emit('end'); harness.active--; }
+      if (res.statusCode === 200) { res.emit('data', harness.response ?? Buffer.from(harness.mode === 'large' ? 'x'.repeat(100) : harness.mode === 'invalid' ? '{' : '{"ok":true}')); res.emit('end'); harness.active--; }
     });
   };
   options.signal.addEventListener('abort', () => { harness.active--; req.emit('error', new Error('secret should never leak')); });
@@ -22,7 +22,7 @@ vi.mock('node:https', () => ({ request: (options: any, callback: any) => {
 import { isPublicAddress, resolvePublic, targetUrl, TargetGate } from './transport';
 import { HttpsPublicSourceTransport, publicSourceUrl } from './public-source';
 const publicDns = async () => [{ address: '8.8.8.8', family: 4 }];
-beforeEach(() => { harness.calls = 0; harness.mode = 'ok'; harness.active = 0; harness.peak = 0; });
+beforeEach(() => { harness.calls = 0; harness.mode = 'ok'; harness.active = 0; harness.peak = 0; harness.response = undefined; });
 describe('SSRF policy', () => {
   it.each(['127.0.0.1','0.0.0.0','10.1.2.3','172.16.0.1','192.168.1.1','169.254.169.254','100.64.0.1','192.0.2.1','198.18.0.0','198.18.0.1','198.19.255.255','198.51.100.2','203.0.113.1','224.1.1.1','240.1.1.1','::','::1','fc00::1','fe80::1','ff02::1','2001:db8::1','2001::1','2002:0808:0808::','64:ff9b::a00:1','::ffff:127.0.0.1','::ffff:8.8.8.8','3fff::1','fe80::1%lo0'])('blocks %s', ip => expect(isPublicAddress(ip)).toBe(false));
   it.each(['8.8.8.8','1.1.1.1','2606:4700:4700::1111'])('allows %s', ip => expect(isPublicAddress(ip)).toBe(true));
@@ -86,5 +86,48 @@ describe('transport bounds', () => {
     for (const origin of ['http://target.test', 'https://user:pass@target.test', 'https://target.test/path', 'https://target.test/', 'https://target.test?x=y']) {
       expect(() => publicSourceUrl(origin, origin)).toThrow();
     }
+  });
+});
+
+
+describe('bounded raw document retrieval', () => {
+  it('preserves YAML exactly through a pinned GET without credentials', async () => {
+    const yaml = 'openapi: 3.1.0\ninfo:\n  title: Café\n';
+    harness.response = Buffer.from(yaml);
+    const dns = vi.fn(publicDns);
+    const client = new HttpsPublicSourceTransport('https://target.test', { resolver: dns });
+    await expect(client.getText('https://target.test/spec.yaml')).resolves.toBe(yaml);
+    expect(dns).toHaveBeenCalledTimes(1);
+    expect(harness.options).toMatchObject({ method: 'GET', hostname: '8.8.8.8', servername: 'target.test', agent: false });
+    expect(harness.options.headers.Authorization).toBeUndefined();
+    expect(harness.options.headers.Accept).toContain('application/yaml');
+    await expect(client.get('https://target.test/spec.yaml')).rejects.toThrow('invalid_json');
+  });
+  it('preserves a document BOM and accepts empty text without inventing JSON', async () => {
+    const client = new HttpsPublicSourceTransport('https://target.test', { resolver: publicDns });
+    harness.response = Buffer.from('\ufeffopenapi: 3.1.0\n');
+    await expect(client.getText('https://target.test/spec')).resolves.toBe('\ufeffopenapi: 3.1.0\n');
+    harness.response = Buffer.alloc(0);
+    await expect(client.getText('https://target.test/spec')).resolves.toBe('');
+  });
+  it('enforces UTF-8 byte limits before decoding', async () => {
+    harness.response = Buffer.from('éé');
+    const allowed = new HttpsPublicSourceTransport('https://target.test', { resolver: publicDns, maxResponseBytes: 4 });
+    await expect(allowed.getText('https://target.test/spec')).resolves.toBe('éé');
+    const denied = new HttpsPublicSourceTransport('https://target.test', { resolver: publicDns, maxResponseBytes: 3 });
+    await expect(denied.getText('https://target.test/spec')).rejects.toThrow('response_too_large');
+  });
+  it('rejects invalid UTF-8 rather than silently replacing source bytes', async () => {
+    harness.response = Buffer.from([0xc3, 0x28]);
+    await expect(new HttpsPublicSourceTransport('https://target.test', { resolver: publicDns }).getText('https://target.test/spec')).rejects.toThrow('invalid_utf8');
+  });
+  it('keeps origin, redirect and deadline restrictions in text mode', async () => {
+    const client = new HttpsPublicSourceTransport('https://target.test', { resolver: publicDns, timeoutMs: 10 });
+    await expect(client.getText('https://other.test/spec')).rejects.toThrow('invalid_endpoint');
+    expect(harness.calls).toBe(0);
+    harness.mode = 'redirect';
+    await expect(client.getText('https://target.test/spec')).rejects.toThrow('provider_http_error');
+    harness.mode = 'hang';
+    await expect(client.getText('https://target.test/spec')).rejects.toThrow('timeout');
   });
 });
