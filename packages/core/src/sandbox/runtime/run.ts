@@ -176,6 +176,10 @@ export function createSandboxRun(opts: RunOptions): SandboxRun {
       const rows = await inTx("READ ONLY", QUERY_STATEMENT_TIMEOUT_MS, async () => (await conn.query(stmt, [])).rows);
       return rows.slice(0, MAX_QUERY_ROWS);
     }),
+    exec: (sql) => serial(async () => {
+      await inTx("READ WRITE", TOOL_STATEMENT_TIMEOUT_MS, async () => { await conn.query(sql, []); });
+      dirty = true;
+    }),
     diff: () => serial(async (): Promise<StateDiff[]> => {
       await ensureDiff();
       return readDiff(conn);

@@ -1,6 +1,7 @@
 import type { ToolSpec } from "../spec";
 import { compileNamed, assertSafeDdl } from "./safety";
 import type { SqlExec } from "./types";
+import { WORLD_PREAMBLE_SQL } from "../runtime/world-sql";
 
 export type ToolStatus = "ok" | "downgraded" | "simulated" | "skipped";
 export interface ValidationResult {
@@ -14,6 +15,8 @@ export interface ValidateArgs {
   seedSql: string;
   tools: ToolSpec[];
   exampleArgs?: Record<string, Record<string, unknown>>;
+  /** ISO timestamp for sandbox_clock; defaults to the current time. */
+  frozenNow?: string;
 }
 
 type Obj = Record<string, unknown>;
@@ -67,6 +70,10 @@ export async function validateWorld(exec: SqlExec, args: ValidateArgs): Promise<
   try {
     assertSafeDdl(args.ddl);
     if (args.seedSql.trim()) assertSafeDdl(args.seedSql);
+    await exec.exec(WORLD_PREAMBLE_SQL); // runtime-owned sandbox_clock / sandbox_now() / sandbox_outbox
+    const now = args.frozenNow ?? new Date().toISOString();
+    if (Number.isNaN(Date.parse(now)) || !/^[0-9T:.+\-Z ]+$/.test(now)) throw new Error(`invalid frozenNow: ${now}`);
+    await exec.exec(`INSERT INTO sandbox_clock (id, frozen_now) VALUES (1, '${now}') ON CONFLICT (id) DO UPDATE SET frozen_now = EXCLUDED.frozen_now`);
     await exec.exec(args.ddl);
     result.world.ddlOk = true;
     if (args.seedSql.trim()) await exec.exec(args.seedSql);

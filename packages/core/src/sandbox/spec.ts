@@ -201,6 +201,8 @@ export interface SandboxRun {
   callTool(name: string, args: unknown): Promise<ToolCallRecord>;
   /** Read-only query for graders (statement_timeout enforced, SELECT only). */
   query(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
+  /** Grader-mutation gate only: run a write against THIS trial's disposable database. Never exposed to the agent. */
+  exec?(sql: string): Promise<void>;
   diff(): Promise<StateDiff[]>;
   outbox(): Promise<Array<Record<string, unknown>>>;
   trajectory(): ToolCallRecord[];

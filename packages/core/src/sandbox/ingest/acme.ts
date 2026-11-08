@@ -16,6 +16,7 @@ export async function buildAcmeSupport(exec?: SqlExec) {
     openapi: read("openapi.yaml"),
     ddl: read("schema.sql"),
     seedSql: read("seed.sql"),
+    frozenNow: "2026-06-01T15:00:00Z",
     policiesMarkdown: read("policies.md"),
     workflows: JSON.parse(read("workflows.json")) as unknown[],
     exec,

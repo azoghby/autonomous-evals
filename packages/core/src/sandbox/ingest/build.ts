@@ -69,7 +69,7 @@ export async function buildEnvironmentSpec(input: BuildInput): Promise<{ spec: E
   for (const [n, r] of Object.entries(proposed.report)) for (const w of r.warnings) warnings.push(`${n}: ${w}`);
 
   if (input.exec) {
-    const validation = await validateWorld(input.exec, { ddl: input.ddl, seedSql: input.seedSql, tools, exampleArgs: input.exampleArgs });
+    const validation = await validateWorld(input.exec, { ddl: input.ddl, seedSql: input.seedSql, tools, exampleArgs: input.exampleArgs, frozenNow: input.frozenNow });
     report.validation = validation;
     if (!validation.ok) throw new Error(`World validation failed: ${validation.world.error ?? "unknown error"}`);
     const swap = new Map(validation.downgraded.map((t) => [t.name, t]));

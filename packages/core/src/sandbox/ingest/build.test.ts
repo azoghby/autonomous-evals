@@ -14,7 +14,7 @@ const openapi = {
     "x-sandbox-sql": { statements: ["SELECT * FROM items WHERE id = :id"], resultShape: "row" }, responses: { "200": { description: "ok" } } } } },
 };
 const workflows = [{ id: "lookup", name: "Lookup", description: "d", tools: ["get_item"] }];
-const ddl = "CREATE TABLE items (id int primary key, name text);\nCREATE TABLE sandbox_outbox (id int);";
+const ddl = "CREATE TABLE items (id int primary key, name text);";
 const seedSql = "INSERT INTO items VALUES (1, 'a');";
 
 describe("buildEnvironmentSpec", () => {

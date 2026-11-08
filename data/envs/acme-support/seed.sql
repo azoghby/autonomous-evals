@@ -1,5 +1,4 @@
 -- acme-support seed. Deterministic. Frozen clock: 2026-06-01T15:00:00Z
-INSERT INTO sandbox_clock VALUES ('2026-06-01T15:00:00Z');
 INSERT INTO customers (id, email, name, phone, postal_code, tier, created_at) VALUES
 (1, 'ava.haddad@example.com', 'Ava Haddad', '555-0105', '11836', 'standard', '2025-03-23T12:38:00Z'),
 (2, 'liam.novak@example.com', 'Liam Novak', '555-0107', '91902', 'standard', '2025-04-19T12:32:00Z'),
