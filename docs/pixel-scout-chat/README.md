@@ -30,7 +30,7 @@ Changes:
 1. Apply to a writable copy of the exact composed candidate: `node docs/pixel-scout-chat/integration/apply.mjs <stage>`. It refuses baseline candidates, wrong parents, preimage drift and result drift, and creates no commit.
 2. Applying changes the hash of `job-private-chat.tsx`. Provenance records that pin `5edecb09...` (for example `CURRENT-COMPOSITION.json`, `docs/track-b-final-composition/INTEGRITY.json`, `docs/chat-workflow-release/SHA256SUMS` and build evidence) will need regeneration by whoever owns those. This artifact does not touch them.
 3. The mount harness `tests/track-b/current-chat-mount/ui/run.mjs` copies a fixed file list and does not copy `scout-mark.tsx`. Against a patched stage use `tests/track-b/pixel-scout-chat/run.mjs`, which runs those suites unmodified.
-4. After applying, run the repo's own `npx tsc -p apps/web --noEmit` and `npm test` in the owner checkout. A production build and a browser look were not performed here.
+4. After applying, run the repo's own `npx tsc -p apps/web --noEmit` and `npm test` in the owner checkout. The parent production build is recorded below; browser verification remains outstanding.
 
 ## Verification performed (offline, `evidence/`)
 
@@ -38,4 +38,31 @@ Changes:
 
 A separate full-app `tsc -p apps/web --noEmit` on a copy of the candidate with the patch applied reports exactly two errors, and the unpatched candidate copy reports the same two: missing `@vercel/analytics/next` types and `LayoutProps` in `layout.tsx`. This is an environment gap (missing local dependency and generated Next types), not caused by this change.
 
-Not verified: browser rendering, screenshots, actual pixel crispness, contrast measurement in the real theme, production build, live mounting.
+Not verified: browser rendering, screenshots, actual pixel crispness, contrast measurement in the real theme, live mounting. The parent verification below resolves the earlier build/type environment gap.
+
+## Parent composition and production verification
+
+The parent independently reran all 46 scoped checks and strict types, then composed
+Scout into the complete verified company source. Reproduce with:
+
+```sh
+node docs/pixel-scout-chat/integration/compose.mjs --from /absolute/verified-company --out /absolute/empty/scout-company
+```
+
+This checks every input file against `docs/current-company-composition/CANDIDATE.json`
+before copying, applies only the two pinned UI changes, and writes a new
+`SCOUT-COMPOSITION.json` covering 2,042 files. Historical manifests remain historical
+inputs; they must not be mistaken for the final source inventory. The input directory
+is never edited, and an existing nonempty output is refused.
+
+With existing offline dependency links and cached real font files configured as for
+the parent company build, `next build --webpack` and `tsc -p apps/web --noEmit` both
+passed. All 2,042 final source hashes still matched after the build. Exact output
+is retained in `evidence/parent-production-build.log`,
+`evidence/parent-application-types.log`, and `evidence/parent-composition.json`.
+The earlier two app-type errors were resolved by existing app-scoped dependencies
+and generated Next types, without source or manifest changes.
+
+This is still the historical pinned company candidate, not authorization to overlay
+it onto newer Track A application files. Current-main adoption must preserve those
+newer files and use the explicit two-file differential.
