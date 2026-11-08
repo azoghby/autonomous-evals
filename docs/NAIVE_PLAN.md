@@ -2,6 +2,52 @@
 
 Owner: Alex (Track B), with Ronit (Track A). Status: proposal. Written 2026-11-07 against `origin/main` @ `e8e33c4` and `@usenaive-sdk/managed-agents` 0.12.3.
 
+## Phase 0 status (2026-11-07, ~23:00 PT)
+
+Run by Track A on branch `naive-p0`. Prod is unchanged (`EVAL_SERVICES=lite`, no deploy).
+
+| Item | Result |
+|---|---|
+| Key | New `NAIVE_API_KEY` verified read-only. The org had one agent (`CEO`) and one session; nothing else was touched. Naïve often answered 429 "service is at capacity". |
+| Provisioning | `scripts/naive-provision-roles.ts` (dry-run default; `--apply`; `--write-env`) runs `ensureAgents` with `namePrefix: "standard-evals-"` and Alex's attestation. Created: `standard-evals-commercial` `agt_d4ez98rqx4tzdqez2xhjz63ssc`, `standard-evals-evaluation-engineer` `agt_vd9rq2nr7jcd9z488k8kfpb4s2`, `standard-evals-quality-investigator` `agt_841hcrd40mpr6tp2vsahtcnsvs`, `standard-evals-company-operator` `agt_gjshx93weag6k5nhcedq9wx6p3`. All v1, tools denied, no MCP or skills, `handoffs:false`, per-task caps $1 to $1.50. A re-run verifies them and creates nothing. Pinned as `<id>@1` in `.env` and Vercel production. Skills, outcomes, vault and deployments are not provisioned yet (no role needs them in Phase 0); Track B's staged, journaled `scripts/naive-provision.ts` (2c0c7f7) covers the company-role manifest. |
+| Migrations | `001-agent-persistence.sql` and `001_branch_ownership.sql` are additive only. Applied on Neon branch `naive-p0-2026-11-08` with constraint smoke checks, then on main. Test branch deleted. `001_calendar.sql` (sim seed) not applied. |
+| Budget-0 | Refused in Track B's adapter (`=== 0`) and at our seam (`integration/compose.ts`, `<= 0` or non-finite) before any agent service is built. |
+| Conformance (`--services real`) | 13 PASS, 2 FAIL, 1 SKIP. Below. |
+| Live smoke | `scripts/naive-smoke.ts`: qualify (`quote`) and renderReport on a fresh fixture job (customer `sandbox-e2e@example.com`). PASS: both tasks `completed` with session ids in `agent_persistence.tasks`, two `costs` rows `source=naive` with session ids, $0.0076. |
+| Spend | About $0.11 of Naïve sessions across all runs. No AI Gateway spend. |
+
+Conformance, real services:
+
+| Check | Result |
+|---|---|
+| qualify: output parses (trace_audit / text_eval) | PASS / PASS (`quote` / `clarify`) |
+| qualify: never returns a price | PASS (an earlier run got `needs_operator`: the session stopped `awaiting_approval`) |
+| auditTrace: unsupported claim / clean trace | PASS / PASS |
+| checkTarget: 5 blocked URLs | PASS x5 |
+| renderReport | PASS |
+| proposeAndVerifyFix | FAIL: `EvalServiceUnavailableError` (no Track B engine; the app falls back to lite) |
+| designSuite | FAIL: `EvalServiceUnavailableError` (text engine not mapped; the app falls back to lite) |
+| runSuite | SKIP (no live target given) |
+| budget (0 budget) | PASS |
+| branching: create, connection, delete | PASS |
+
+Fixes on our side:
+
+- Track B pools use `DATABASE_URL_UNPOOLED`. The branch ledger's session advisory lock failed through the PgBouncer pooler (`branch_ledger_unlock_failed`).
+- The real-services conformance runner gives each check its own internal-fixture job. Task keys are job + role + purpose, so distinct requests on one job collided.
+- The runner retries typed pending or retryable errors the way the Workflow does: Naïve 429, async branch delete, `branch_not_ready`.
+
+For Alex (Track B):
+
+1. The commercial agent once stopped `awaiting_approval` with all tools denied (qualify with the clarification "Please quote $1"). It became `needs_operator`. What triggers an approval stop with no tools?
+2. Naïve capacity 429s hit `agents.get` and `getVersion` right after create, so `ensureAgents` reported `creation_uncertain` on each of the first runs. Re-runs were safe. A bounded retry on 429 for reads would help.
+3. The task store holds three tasks in state `ambiguous` (no session id) for job `11111111-…` from a rate-limited run. They keep their reservations until reconciled.
+4. `proposeAndVerifyFix`, `designSuite`, `runSuite`, `investigate` and `rerunFinding` are still unmapped (Phase 1).
+
+Left for Phase 1: map the five remaining methods; apply `001_calendar.sql` to the sim seed and `001-text-integration.sql`; run conformance with `--target-url`; switch a Preview deployment to `EVAL_SERVICES=real` before prod.
+
+---
+
 Goal: **every agentic role in the company runs on Naïve**, using every relevant Naïve capability the SDK actually offers. Only the deterministic, safety-critical pieces stay as our code.
 
 Each claim carries one of two labels:
