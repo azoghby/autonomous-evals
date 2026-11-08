@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Remediation, type Finding, type IntakeInput, type Scenario, type Suite } from "../contracts/index";
 import type { EvalServices, ServiceContext } from "../contracts/services";
 import { isRedTeamScenarioId } from "../redteam/select";
-import { MIN_CALL_BUDGET_MICRO_USD, SMART_MODEL, trackingContext, decodeDetail, type LiteDeps, type LiteTarget, type TargetRegistry } from "./deps";
+import { MIN_CALL_BUDGET_MICRO_USD, SMART_MODEL, resolveLiteTarget, trackingContext, decodeDetail, type LiteDeps, type LiteTarget, type TargetRegistry } from "./deps";
 
 type RunFn = EvalServices["runSuite"];
 type Evidence = Remediation["verification"]["evidence"][number];
@@ -90,7 +90,7 @@ function build(finding: Finding, p: z.infer<typeof PatchProposal>, verification:
 export function createFixService(deps: LiteDeps, registry: TargetRegistry, runSuite: RunFn): EvalServices["proposeAndVerifyFix"] {
   return async (ctx, { finding, suite, intake }) => {
     const ep = endpointOf(intake);
-    const reg = registry.get(ctx.jobId);
+    const reg = await resolveLiteTarget(deps, registry, ctx.jobId);
     const baseSystem = (reg?.systemPrompt ?? ep?.systemPrompt) ?? (intake.package === "trace_audit" ? intake.systemPrompt : undefined);
     const raw = await propose(deps, ctx, finding, baseSystem);
     const proposal = { ...raw, patch: raw.patch.trim() ? raw.patch : fallbackProposal(finding).patch };

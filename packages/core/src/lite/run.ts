@@ -11,7 +11,7 @@ import { ChatCompletionsClient, type AssistantMessage, type ChatMessage } from "
 import { TargetError, resolvePublic, targetUrl } from "../targets/transport";
 import { gradeRedTeamResponse, isRedTeamScenarioId, plantedSystemPrompt, renderRedTeamTurns } from "../redteam/select";
 import {
-  JUDGE_MODEL, SMART_MODEL, MIN_CALL_BUDGET_MICRO_USD, designedTurns, encodeDetail, trackingContext,
+  JUDGE_MODEL, SMART_MODEL, resolveLiteTarget, MIN_CALL_BUDGET_MICRO_USD, designedTurns, encodeDetail, trackingContext,
   type LiteDeps, type LiteTarget, type ScenarioDetail, type TargetRegistry,
 } from "./deps";
 
@@ -199,8 +199,15 @@ export function createRunServices(
     },
 
     async rerunFinding(ctx, finding, scenario): Promise<Finding> {
-      const target = registry.get(ctx.jobId);
-      if (!target || !scenario) return { ...finding };
+      if (!scenario) return { ...finding };
+      const target = await resolveLiteTarget(deps, registry, ctx.jobId);
+      if (!target) {
+        // Finding stays otherwise unchanged; the reason is surfaced as evidence (never includes target details).
+        return Finding.parse({
+          ...finding,
+          evidence: [...finding.evidence.slice(0, MAX_EVIDENCE - 1), { kind: "response" as const, excerpt: "Re-run skipped: target configuration unavailable for this job." }],
+        });
+      }
       const scrub = makeScrub(target.apiKey);
       const o = await runOne(deps, trackingContext(ctx), scenario, target);
       const withEvidence = (excerpt: string) =>

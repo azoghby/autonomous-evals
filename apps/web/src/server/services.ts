@@ -9,7 +9,8 @@ import {
   evalServices as trackBServices, EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError,
 } from "@ae/core/integration/eval-services";
 import { FatalError, RetryableError } from "workflow";
-import { liteServices, LiteUnavailableError } from "@ae/core/lite/index";
+import { createLiteServices, LiteUnavailableError } from "@ae/core/lite/index";
+import { resolveJobTarget } from "./lite-target";
 
 const MOCK = "[MOCK]";
 const MOCK_CLARIFY_MARKER = "[needs-clarification]";
@@ -216,6 +217,12 @@ export function withLiteFallback(primary: EvalServices, fallback: EvalServices):
 }
 
 let lite: EvalServices | undefined;
+let sharedLite: EvalServices | undefined;
+/** Lite engine wired with a durable (DB-backed) target resolver so investigate/rerunFinding work across serverless steps. */
+function liteServices(): EvalServices {
+  sharedLite ??= createLiteServices({ resolveTarget: resolveJobTarget });
+  return sharedLite;
+}
 
 /**
  * EVAL_SERVICES=mock (default) -> deterministic fixtures.

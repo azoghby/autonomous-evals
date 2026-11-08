@@ -12,6 +12,12 @@ export interface LiteDeps {
   /** SSRF-safe HTTPS JSON transport (Track B). Tests inject a fake. */
   transport: JsonTransport;
   now: () => Date;
+  /**
+   * Durable fallback for the eval target when the in-memory TargetRegistry has no entry (serverless: workflow
+   * steps run in separate invocations). Provided by the host app; resolves from the job's stored config/credentials.
+   * Returns null when no target can be found. Must never log the API key.
+   */
+  resolveTarget?: (jobId: string) => Promise<LiteTarget | null>;
 }
 
 export const TARGET_TIMEOUT_MS = 20_000;
@@ -73,6 +79,24 @@ export class TargetRegistry {
   private readonly targets = new Map<string, LiteTarget>();
   remember(jobId: string, target: LiteTarget): void { this.targets.set(jobId, { ...target }); }
   get(jobId: string): LiteTarget | undefined { const t = this.targets.get(jobId); return t ? { ...t } : undefined; }
+}
+
+/**
+ * Memory first, then deps.resolveTarget (cached in the registry on success). Resolver failures degrade to
+ * undefined; the error is deliberately dropped so nothing credential-bearing can leak into logs or output.
+ */
+export async function resolveLiteTarget(deps: Pick<LiteDeps, "resolveTarget">, registry: TargetRegistry, jobId: string): Promise<LiteTarget | undefined> {
+  const mem = registry.get(jobId);
+  if (mem) return mem;
+  if (!deps.resolveTarget) return undefined;
+  try {
+    const t = await deps.resolveTarget(jobId);
+    if (!t) return undefined;
+    registry.remember(jobId, t);
+    return registry.get(jobId);
+  } catch {
+    return undefined;
+  }
 }
 
 /* ---------------- RunResult.detail encoding ---------------- */

@@ -192,7 +192,9 @@ describe("rerunFinding", () => {
 
   it("returns the finding unchanged without a target or scenario", async () => {
     const { svc } = mk(async () => completion("x"));
-    expect(await svc.rerunFinding(ctxWith(), finding, scen("d1"))).toEqual(finding);
+    const out = await svc.rerunFinding(ctxWith(), finding, scen("d1"));
+    expect({ ...out, evidence: out.evidence.slice(0, 1) }).toEqual(finding);
+    expect(out.evidence.at(-1)?.excerpt).toMatch(/target configuration unavailable/);
     svc.runSuite(ctxWith(), suiteOf([]), target);
     expect(await svc.rerunFinding(ctxWith(), finding, undefined)).toEqual(finding);
   });
@@ -217,5 +219,48 @@ describe("rerunFinding", () => {
     expect(out.status).toBe("inconclusive");
     expect(out.evidence).toHaveLength(10);
     expect(out.evidence.at(-1)!.excerpt).toBe("Re-run did not reproduce");
+  });
+});
+
+describe("rerunFinding target resolution (serverless memory miss)", () => {
+  const finding = Finding.parse({
+    id: "f1", title: "t", status: "rubric_concern", severity: "high", category: "other", description: "d",
+    scenarioId: "d1", evidence: [{ kind: "response", excerpt: "orig" }], reproductions: 0,
+  });
+  function mkResolved(resolveTarget: LiteDeps["resolveTarget"], post: JsonTransport["post"] = async () => completion("x")) {
+    const transport = { post: vi.fn(post) } as unknown as JsonTransport;
+    const deps = defaultLiteDeps({ transport, generateStructured: fakeGen(false, "bad") as unknown as LiteDeps["generateStructured"], resolveTarget });
+    return { svc: createRunServices(deps, new TargetRegistry()), transport };
+  }
+
+  it("uses the resolver on a memory miss and re-runs against the resolved target", async () => {
+    const resolve = vi.fn(async () => ({ ...target }));
+    const { svc, transport } = mkResolved(resolve);
+    const out = await svc.rerunFinding(ctxWith(), finding, scen("d1"));
+    expect(resolve).toHaveBeenCalledWith(JOB);
+    expect(transport.post).toHaveBeenCalled();
+    expect(out.status).toBe("confirmed");
+  });
+
+  it("returns the finding unchanged with a clear reason when the resolver yields null", async () => {
+    const { svc, transport } = mkResolved(async () => null);
+    const out = await svc.rerunFinding(ctxWith(), finding, scen("d1"));
+    expect(transport.post).not.toHaveBeenCalled();
+    expect(out.status).toBe(finding.status);
+    expect(out.reproductions).toBe(finding.reproductions);
+    expect(out.evidence.at(-1)?.excerpt).toMatch(/target configuration unavailable/);
+  });
+
+  it("treats a throwing resolver as unavailable and never leaks the key", async () => {
+    const { svc } = mkResolved(async () => { throw new Error(`boom ${KEY}`); });
+    const out = await svc.rerunFinding(ctxWith(), finding, scen("d1"));
+    expect(JSON.stringify(out)).not.toContain(KEY);
+    expect(out.evidence.at(-1)?.excerpt).toMatch(/unavailable/);
+  });
+
+  it("scrubs the key from output when the resolved target echoes it", async () => {
+    const { svc } = mkResolved(async () => ({ ...target }), async () => completion(`leaked ${KEY}`));
+    const out = await svc.rerunFinding(ctxWith(), finding, scen("d1"));
+    expect(JSON.stringify(out)).not.toContain(KEY);
   });
 });

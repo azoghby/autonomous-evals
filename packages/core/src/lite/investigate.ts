@@ -3,7 +3,7 @@ import { Finding, type Scenario, type Suite } from "../contracts/index";
 import type { EvalServices, RunResult } from "../contracts/services";
 import { findingIdForScenario } from "../redteam/finding";
 import { fromScenario, isRedTeamScenarioId } from "../redteam/select";
-import { MIN_CALL_BUDGET_MICRO_USD, SMART_MODEL, decodeDetail, trackingContext, type LiteDeps, type ScenarioDetail, type TargetRegistry } from "./deps";
+import { MIN_CALL_BUDGET_MICRO_USD, SMART_MODEL, resolveLiteTarget, decodeDetail, trackingContext, type LiteDeps, type ScenarioDetail, type TargetRegistry } from "./deps";
 import { createFixService } from "./fix";
 
 type Evidence = Finding["evidence"][number];
@@ -97,9 +97,9 @@ async function describeAll(deps: LiteDeps, ctx: Parameters<EvalServices["investi
   return out;
 }
 
-async function reproduce(ctx: Parameters<EvalServices["investigate"]>[0], suite: Suite, failures: Failure[], registry: TargetRegistry, runSuite: RunFn): Promise<Map<string, number>> {
+async function reproduce(ctx: Parameters<EvalServices["investigate"]>[0], suite: Suite, failures: Failure[], deps: LiteDeps, registry: TargetRegistry, runSuite: RunFn): Promise<Map<string, number>> {
   const counts = new Map<string, number>(failures.map((f) => [f.scenario.id, 0]));
-  const target = registry.get(ctx.jobId);
+  const target = await resolveLiteTarget(deps, registry, ctx.jobId);
   if (!target) return counts;
   // Only re-run scenarios nobody tried to reproduce yet: re-running after in-run attempts already failed to
   // reproduce would just fish for a flaky failure.
@@ -125,7 +125,7 @@ export function createInvestigateServices(deps: LiteDeps, registry: TargetRegist
     async investigate(ctx, suite, runs) {
       const failures = collectFailures(suite, runs);
       if (failures.length === 0) return [];
-      const [described, repro] = await Promise.all([describeAll(deps, ctx, failures), reproduce(ctx, suite, failures, registry, runSuite)]);
+      const [described, repro] = await Promise.all([describeAll(deps, ctx, failures), reproduce(ctx, suite, failures, deps, registry, runSuite)]);
       return failures.map((f) => {
         const d = described.get(f.scenario.id)!;
         const reproductions = Math.min(3, f.inRun + (repro.get(f.scenario.id) ?? 0));

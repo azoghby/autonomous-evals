@@ -15,14 +15,14 @@ const detail = (grader: "redteam" | "judge" | "error", reason = "bad answer") =>
 const res = (rs: Array<[string, boolean, string?]>): RunResult => ({ runId: "r", versionLabel: "v", results: rs.map(([scenarioId, passed, d]) => ({ scenarioId, passed, detail: d ?? detail("judge") })) });
 const target = { url: "https://x.test/v1", model: "m", apiKey: "sk-secret", systemPrompt: "BASE" };
 
-function setup(opts: { llm?: "throw" | "ok"; runSuite?: any; registered?: boolean } = {}) {
+function setup(opts: { llm?: "throw" | "ok"; runSuite?: any; registered?: boolean; resolveTarget?: LiteDeps["resolveTarget"] } = {}) {
   const gen = vi.fn(async (args: any) => {
     if (opts.llm === "throw") throw new Error("llm down");
     if (args.agent === "engineer") return { object: { summary: "s", patch: "## PATCH\nbe careful", rationale: "r" } };
     const ids = [...String(args.prompt).matchAll(/scenarioId: (\S+)/g)].map((m) => m[1]);
     return { object: { findings: ids.map((scenarioId) => ({ scenarioId, title: "LLM title", category: "factual", severity: "high", description: "LLM desc" })) } };
   });
-  const deps = { generateStructured: gen, generateText: vi.fn(), transport: {} as any, now: () => new Date() } as unknown as LiteDeps;
+  const deps = { generateStructured: gen, generateText: vi.fn(), transport: {} as any, now: () => new Date(), resolveTarget: opts.resolveTarget } as unknown as LiteDeps;
   const registry = new TargetRegistry();
   if (opts.registered !== false) registry.remember(JOB, target);
   const runSuite = opts.runSuite ?? vi.fn(async (_c: any, s: Suite) => res(s.scenarios.map((x) => [x.id, false] as [string, boolean])));
@@ -41,6 +41,21 @@ describe("investigate", () => {
     expect(out[0]).toMatchObject({ id: "lf-a", status: "confirmed", reproductions: 1, scenarioId: "a", title: "LLM title" });
     expect(runSuite).toHaveBeenCalledTimes(1); // stopped early
     expect(Finding.safeParse(out[0]).success).toBe(true);
+  });
+
+  it("memory miss: resolver supplies the target for reproduction; null resolver skips re-run", async () => {
+    const resolveTarget = vi.fn(async () => ({ ...target }));
+    const a = setup({ registered: false, resolveTarget });
+    const [f] = await a.svc.investigate(ctx(), suiteOf([mk("a")]), [res([["a", false]])]);
+    expect(resolveTarget).toHaveBeenCalledWith(JOB);
+    expect(a.runSuite).toHaveBeenCalled();
+    expect(f.status).toBe("confirmed");
+    expect(JSON.stringify(f)).not.toContain("sk-secret");
+
+    const b = setup({ registered: false, resolveTarget: async () => null });
+    const [g] = await b.svc.investigate(ctx(), suiteOf([mk("a")]), [res([["a", false]])]);
+    expect(b.runSuite).not.toHaveBeenCalled();
+    expect(g.status).toBe("rubric_concern");
   });
 
   it("does not confirm when reproduction passes", async () => {
