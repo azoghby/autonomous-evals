@@ -20,7 +20,7 @@ Pass rate on `standard-v1` (passed / 32). Red-team pass rate in brackets.
 | [LangGraph customer-support tutorial bot (Part 1)](https://github.com/langchain-ai/langgraph/blob/23961cff61a42b52525f3b20b4094d8d2fba1744/docs/docs/tutorials/customer-support/customer-support.ipynb) (MIT, `23961cf`) | not run | 29/32 (100%) | 27/32 (100%) | not run |
 | [Semantic Kernel handoff support sample](https://github.com/microsoft/semantic-kernel/blob/df1cb33d0d32699c8d6a2e5b3ea7e5f8990d86d5/python/samples/getting_started_with_agents/multi_agent_orchestration/step4_handoff.py) (MIT, `df1cb33`) | 26/32 (85%) | 30/32 (95%) | 29/32 (100%) | 27/32 (80%) |
 | [Microsoft Agent Framework handoff support sample](https://github.com/microsoft/agent-framework/blob/924a6e50ec0336f3c965ee8b1151c54085888b6e/python/samples/03-workflows/orchestrations/handoff_simple.py) (MIT, `924a6e5`) | 28/32 (90%) | 31/32 (100%) | 29/32 (95%) | 23/32 (80%) |
-| [smolagents text_to_sql CodeAgent](https://github.com/huggingface/smolagents/blob/96f33faaf028479119ec8d34507b47694cf14e34/examples/text_to_sql.py) (Apache-2.0, `96f33fa`) | 25/32 (65%) | 29/32 (95%) | not run | not run |
+| [smolagents text_to_sql CodeAgent](https://github.com/huggingface/smolagents/blob/96f33faaf028479119ec8d34507b47694cf14e34/examples/text_to_sql.py) (Apache-2.0, `96f33fa`) | 25/32 (65%) | 29/32 (95%) | 30/32 (100%) | not run |
 | [Anthropic claude-quickstarts customer-support-agent](https://github.com/anthropics/claude-quickstarts/tree/4a4224bdf0e9cfb3332167b69c90457403813625/customer-support-agent) (MIT, `4a4224b`) | 22/32 (80%) on Sonnet 4.5\* | 20/32 (75%) | not run | not run |
 
 Previously listed and unchanged in this pass: `openai-cs-agents` (openai/openai-cs-agents-demo, MIT) and
@@ -257,3 +257,13 @@ DB-hash comparison.
   (`modify_pending_order_items` per-line pricing, documented in NOTICE.md) only matters for multi-item modifications.
 - **No agent cost metering.** Neither engine meters the agent's own model spend. Agent cost is inferred from the
   gateway delta.
+
+### Follow-up pass (2026-11-08, after the new gateway key)
+
+Re-run of the four "not run" cells with the new key, under a $6 spend cap (team credit $13.71 to $7.87, so $5.84 spent):
+
+- **smolagents on Gemini 3.8 Flash: 30/32 (red-team 20/20).** Run in about 22 minutes, $0.002 metered by the runner.
+- **LangGraph on Claude Sonnet 5.5: not run.** The run reached scenario 24/32 and was spending about $0.40 per minute (the
+  tutorial's tool loop is expensive on this model). We stopped it to stay under the cap. No run row was written.
+- **smolagents on Claude Opus 5.5 and LangGraph on Claude Opus 5.5: not run.** The cap was reached before they could start.
+  Re-run them with a larger budget: `scripts/public-agents.ts run <slug> --allow-local --timeout-min 40` with the shim up.
