@@ -15,7 +15,7 @@ Use the `standard-evals` MCP tools: `list_packages`, `create_job`, `get_job`, `a
 5. Show patches and get a yes before editing files.
 
 ## Workflow
-1. Setup: if tools return 401, tell the user to create a key at https://autonomous-evals.vercel.app/settings/keys and export `STANDARD_EVALS_API_KEY`, then restart Cursor.
+1. Setup: if tools return 401, tell the user to click Connect/Login on the `standard-evals` MCP server in Cursor (OAuth, no key). Headless fallback only: an API key from https://autonomous-evals.vercel.app/settings/keys sent as an `Authorization: Bearer` header.
 2. Find the target (skip node_modules, .git, build output, `.env*`): system prompts (`prompts/`, `*.prompt*`, `SYSTEM_PROMPT`, `systemPrompt`, `role: "system"`) or traces (`traces/`, `*.jsonl`, `logs/`, `runs/`, `transcripts/`, LangSmith/Langfuse/OTel exports). If ambiguous, list up to 5 and ask. Prefer a trace. Never fabricate a trace.
 3. Redact and confirm: keep under 200 KB (most recent turns). Replace `sk-`, `ae_live_`, `ae_test_`, `ghp_`, `xox*-`, `AKIA...`, JWTs, PEM private keys, `Bearer` tokens, password/secret/token/api key assignments, credentialed URLs, emails/phones. Show file paths, size, redaction counts, and the content; ask "Upload to Standard Evals? (yes/no)" and mention that `authorizedToTest: true` attests they may test this agent.
 4. `list_packages` (source of truth), recommend one (`trace_audit` for a trace; `text_eval`/`workflow_eval` for a live HTTPS endpoint; `version_comparison` for A/B), state fixed price vs per-finding cap.

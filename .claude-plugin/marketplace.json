@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "standard-evals",
-      "description": "/audit-my-agent: Claude hires Standard Evals to test your agent, find failures, and return verified fixes.",
+      "description": "/audit-my-agent and /sandbox-eval: Claude hires Standard Evals to test your agent, find failures, and return verified fixes.",
       "source": "./integrations/claude-code-plugin",
       "category": "development"
     }

@@ -2,15 +2,11 @@
 
 Type `/audit-my-agent` and Claude hires Standard Evals to audit your agent: it finds your system prompt or a recent trace, redacts secrets, asks you before uploading, gets a quote, gives you the checkout link, and then summarizes the findings and verified fixes and offers to apply the patches.
 
-## 1. Get an API key
+## 1. Sign in (no API key)
 
-Sign in at https://autonomous-evals.vercel.app and create a key at `/settings/keys`. The key is shown once. Then:
+After installing, run `/mcp` in Claude Code, select `standard-evals`, and choose **Authenticate**. Your browser opens: sign in with an email magic link and approve access. That is the whole setup.
 
-```bash
-export STANDARD_EVALS_API_KEY=ae_live_...   # ae_test_... against Stripe test mode
-```
-
-Put that in your shell profile so it is set when Claude Code starts. Never commit it.
+Headless/CI fallback: create a key at `/settings/keys` and use `claude mcp add --transport http standard-evals https://autonomous-evals.vercel.app/api/mcp/mcp --header "Authorization: Bearer ae_live_..."` instead of the plugin's bundled server entry.
 
 ## 2. Install
 
@@ -33,9 +29,12 @@ Run `claude plugin --help` for the commands your CLI version supports. Validate 
 ```
 /audit-my-agent
 /audit-my-agent path/to/prompt-or-trace
+/sandbox-eval
 ```
 
-Check `/mcp` shows `standard-evals` as connected. A 401 means the key is missing or wrong in the environment Claude Code was launched from.
+`/sandbox-eval` reads your OpenAPI spec, tool definitions, DB schema, seed data and policy docs from the repo, builds a sandbox copy of your agent's world, generates a test suite for you to approve, runs it, and reports. The sandbox engine is rolling out; until it is live the tools answer `coming_soon` and the command says so.
+
+Check `/mcp` shows `standard-evals` as connected. If it shows "needs authentication", choose Authenticate in `/mcp`.
 
 ## Guardrails
 
@@ -48,9 +47,10 @@ Check `/mcp` shows `standard-evals` as connected. A 401 means the key is missing
 
 ```
 .claude-plugin/plugin.json     manifest
-.mcp.json                      HTTP MCP server, Authorization: Bearer ${STANDARD_EVALS_API_KEY}
+.mcp.json                      HTTP MCP server (OAuth, no key)
 skills/audit-my-agent/SKILL.md the workflow
 commands/audit-my-agent.md     /audit-my-agent entry point
+commands/sandbox-eval.md       /sandbox-eval entry point
 ```
 
 Tool reference: `docs/MCP.md`.

@@ -18,7 +18,7 @@ You hire Standard Evals through its MCP tools (`list_packages`, `create_job`, `g
 
 ## Step 0: Check setup
 
-If the Standard Evals tools are unavailable or return 401, tell the user: create a key at https://autonomous-evals.vercel.app/settings/keys, then `export STANDARD_EVALS_API_KEY=ae_...` in the shell that launches Claude Code, and restart Claude Code. Stop there.
+If the Standard Evals tools are unavailable or return 401, tell the user: run `/mcp`, select `standard-evals`, and choose Authenticate (browser sign-in, no key needed). For headless/CI only: create a key at https://autonomous-evals.vercel.app/settings/keys and add the server with `--header "Authorization: Bearer ae_..."`. Stop there.
 
 ## Step 1: Find the target
 

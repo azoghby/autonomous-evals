@@ -1,8 +1,10 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import { verifyApiKey } from "@/server/api-keys";
 import { rateLimit } from "@/server/rate-limit";
 import { z } from "zod";
 import { TOOLS, HIRE_WORKFLOW_PROMPT, SAMPLE_REPORT_URI, sampleReportMarkdown, type McpCaller } from "@/server/mcp-tools";
+import { SANDBOX_TOOLS } from "@/server/mcp-sandbox-tools";
+import { authenticateMcpBearer } from "@/server/oauth/mcp-auth";
+import { PRM_PATH } from "@/server/oauth/core";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -11,7 +13,7 @@ const RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 600;
 
 const mcp = createMcpHandler((server) => {
-  for (const t of TOOLS) {
+  for (const t of [...TOOLS, ...SANDBOX_TOOLS]) {
     server.registerTool(
       t.name,
       {
@@ -59,12 +61,9 @@ const authed = withMcpAuth(
     if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
     return mcp(req);
   },
-  async (_req, bearer) => {
-    const key = await verifyApiKey(bearer);
-    if (!key) return undefined;
-    return { token: bearer!, clientId: key.keyId, scopes: [], extra: { customerId: key.customerId, email: key.email } };
-  },
-  { required: true },
+  // Accepts OAuth access tokens (aeo_at_, issued by /oauth/token) and dashboard API keys (ae_).
+  (req, bearer) => authenticateMcpBearer(req, bearer),
+  { required: true, resourceMetadataPath: PRM_PATH },
 );
 
 /** Streamable HTTP only, served at /api/mcp/mcp. Other transports (sse, message) are not offered. */

@@ -11,9 +11,51 @@ Autonomous Evals evaluates AI agents and their outputs. Your agent can hire it d
 
 Transport is Streamable HTTP, stateless. There is no SSE stream and no session to keep alive; every request stands alone.
 
-## Authentication
+## One-step install (OAuth)
 
-Send an API key as a bearer token:
+The server supports MCP OAuth. Add the URL, authenticate once in your browser, done. No API key to create or paste.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http standard-evals https://autonomous-evals.vercel.app/api/mcp/mcp
+```
+
+Then run `/mcp` in Claude Code, pick `standard-evals`, and choose **Authenticate**. Your browser opens: sign in with an email magic link and approve "Allow Claude Code to use Standard Evals as <you>".
+
+**Cursor** (`~/.cursor/mcp.json`, or `.cursor/mcp.json` in a project). Then click **Connect / Login** next to the server.
+
+```json
+{ "mcpServers": { "standard-evals": { "url": "https://autonomous-evals.vercel.app/api/mcp/mcp" } } }
+```
+
+**VS Code** (`.vscode/mcp.json`)
+
+```json
+{ "servers": { "standard-evals": { "type": "http", "url": "https://autonomous-evals.vercel.app/api/mcp/mcp" } } }
+```
+
+Other clients that speak MCP OAuth work the same way. Stdio-only clients can bridge with `mcp-remote` (`npx -y mcp-remote https://autonomous-evals.vercel.app/api/mcp/mcp`).
+
+### How OAuth works here
+
+Clients discover everything automatically; you never configure these by hand.
+
+| Step | Endpoint |
+|------|----------|
+| Unauthenticated request returns `401` with `WWW-Authenticate` | `/api/mcp/mcp` |
+| Protected-resource metadata | `/.well-known/oauth-protected-resource/api/mcp/mcp` |
+| Authorization-server metadata | `/.well-known/oauth-authorization-server` |
+| Dynamic Client Registration | `POST /oauth/register` |
+| Authorize (browser: magic-link sign-in, then consent) | `/oauth/authorize` |
+| Token exchange and refresh (PKCE `S256` required) | `POST /oauth/token` |
+| Revoke | `POST /oauth/revoke` |
+
+Access tokens are prefixed `aeo_at_`. Every tool is scoped to the user who approved the client.
+
+## API key (headless/CI)
+
+For scripts, CI and agents that cannot open a browser, send an API key as a bearer token (this keeps working alongside OAuth):
 
 ```
 Authorization: Bearer ae_live_...
@@ -22,27 +64,25 @@ Authorization: Bearer ae_live_...
 - Keys look like `ae_live_...`, or `ae_test_...` when the server runs in Stripe test mode.
 - Create one in the web app at `/settings/keys` (sign in first), or `POST /api/keys` with `{"name": "my-agent"}` using a signed-in session.
 - The full key is shown once. Only a hash is stored. Revoke with `DELETE /api/keys/{id}`.
-- Missing, invalid, or revoked keys get `401`.
+- Missing, invalid, or revoked credentials get `401`.
 - Rate limit: 60 requests per 10 minutes per key. Over the limit returns `429` with a `Retry-After` header.
 
-Every tool is scoped to the key's customer. A job owned by someone else looks exactly like a job that does not exist ("not found").
+Every tool is scoped to the credential's customer. A job owned by someone else looks exactly like a job that does not exist ("not found").
 
-## Client configuration
-
-Claude Code:
+Claude Code with a key:
 
 ```bash
-claude mcp add --transport http autonomous-evals \
+claude mcp add --transport http standard-evals \
   https://autonomous-evals.vercel.app/api/mcp/mcp \
   --header "Authorization: Bearer ae_live_..."
 ```
 
-Cursor (`~/.cursor/mcp.json` or `.cursor/mcp.json` in a project) and most other clients use this shape:
+Cursor / most clients:
 
 ```json
 {
   "mcpServers": {
-    "autonomous-evals": {
+    "standard-evals": {
       "url": "https://autonomous-evals.vercel.app/api/mcp/mcp",
       "headers": { "Authorization": "Bearer ae_live_..." }
     }
@@ -50,22 +90,7 @@ Cursor (`~/.cursor/mcp.json` or `.cursor/mcp.json` in a project) and most other 
 }
 ```
 
-Stdio-only clients can bridge with `mcp-remote`:
-
-```json
-{
-  "mcpServers": {
-    "autonomous-evals": {
-      "command": "npx",
-      "args": [
-        "-y", "mcp-remote",
-        "https://autonomous-evals.vercel.app/api/mcp/mcp",
-        "--header", "Authorization: Bearer ae_live_..."
-      ]
-    }
-  }
-}
-```
+`mcp-remote` bridge: add `"--header", "Authorization: Bearer ae_live_..."` to the args.
 
 ## Packages and prices
 
@@ -97,6 +122,20 @@ An `endpoint` object has: `url` (HTTPS only), `model`, optional `apiKey`, `syste
 | `get_report` | `jobId` | Summary, findings (with `id`, `findingKey`, truncated evidence), verified remediations, full report markdown |
 | `rerun_finding` | `jobId`, `findingId` (a finding's `id`) | Re-check of one finding (job must be `delivered`, max 3 per finding) |
 | `cancel_job` | `jobId`, optional `reason` | `{ ok }`. Only before work starts; closes any open checkout |
+
+### Sandbox eval tools
+
+Evaluate your agent inside a sandbox copy of its own world (fake database, your tools, your policies). Flow: `sandbox_create_environment` -> `sandbox_generate_suite` (review the preview) -> `sandbox_run` -> poll `sandbox_status` -> `sandbox_report`. Your coding agent should read the relevant files from your repo and send their **contents** (not paths): `openapi.yaml`/`openapi.json`/`swagger.*`; tool/function definitions (`tools.ts`, `*.tools.json`, your MCP server's tool list); DB schema (`*.sql`, migrations, `prisma/schema.prisma`, Drizzle schema, converted to DDL); seed files; and policies (`docs/policies/*.md`, `POLICY*.md`, support playbooks). Never send real secrets; `apiKeyRef` is a reference name, not a key. In Claude Code the plugin's `/sandbox-eval` command does this for you.
+
+| Tool | Arguments | Returns |
+|------|-----------|---------|
+| `sandbox_create_environment` | `name`; at least one of `openapi` (<= 500 KB), `functions`, `mcpTools`; optional `ddl`, `seedSql`, `policies` (markdown strings or `{title, markdown}`), `workflows`; `agent` `{endpointUrl (https), model, apiKeyRef?}` | `environmentId` |
+| `sandbox_generate_suite` | `environmentId` | `suiteId` and a scenario preview to confirm |
+| `sandbox_run` | `environmentId`, `suiteId`, `k` (1-10, default 5 trials per scenario) | `runId` |
+| `sandbox_status` | `runId` | Progress; poll every 15-30 s |
+| `sandbox_report` | `runId` | Per-workflow pass rates and pass^k, failures, state diffs, fixes |
+
+Until the sandbox engine is live these tools validate your input and return `{"status":"coming_soon", ...}` with no ids and no results. Treat that as "not available yet", not as an error.
 
 Also exposed over MCP:
 
@@ -178,13 +217,14 @@ Failures come back as MCP tool errors with `isError: true` and a plain-language 
 
 | Status | Meaning | Action |
 |--------|---------|--------|
-| 401 | Missing, invalid, or revoked key | Check the header; create a new key |
+| 401 | Missing, invalid, expired or revoked credential | OAuth clients: re-authenticate (`/mcp`). Key users: check the header or create a new key |
 | 429 | Rate limit hit | Wait for `Retry-After`, then resume with slower polling |
 
 If `accept_quote` is called before a quote exists, or with a stale `quoteVersion`, re-read the job with `get_job` and use the latest quote.
 
 ## Security notes
 
+- OAuth access tokens (`aeo_at_...`) and API keys are bearer secrets. Revoke tokens at `/oauth/revoke` or keys at `/settings/keys`.
 - An API key is a bearer secret. Keep it in a secret store, never in prompts, logs, or repos. Revoke it if exposed.
 - Credentials you pass in `endpoint.apiKey` are encrypted at rest, never sent to agents or logs, and deleted after the job. Use a scoped, low-limit key for the target anyway.
 - Only submit targets you are authorized to test. Evaluations send adversarial and edge-case inputs to the endpoint you provide.
@@ -193,5 +233,5 @@ If `accept_quote` is called before a quote exists, or with a stale `quoteVersion
 
 ## Ready-made integrations
 
-- Claude Code plugin (`/audit-my-agent`): [`integrations/claude-code-plugin`](../integrations/claude-code-plugin/README.md)
+- Claude Code plugin (`/audit-my-agent`, `/sandbox-eval`): [`integrations/claude-code-plugin`](../integrations/claude-code-plugin/README.md)
 - Cursor MCP config and rule: [`integrations/cursor`](../integrations/cursor/README.md)

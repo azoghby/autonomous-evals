@@ -4,7 +4,7 @@ import { jsonError, readJson } from "@/server/http";
 import { rateLimit, clientIp } from "@/server/rate-limit";
 import { assertHuman } from "@/server/bot";
 
-const Body = z.object({ email: z.email().max(320), next: z.string().max(500).optional() });
+const Body = z.object({ email: z.email().max(320), next: z.string().max(2000).optional() });
 
 export async function POST(req: Request) {
   const blocked = await assertHuman(); if (blocked) return blocked;
