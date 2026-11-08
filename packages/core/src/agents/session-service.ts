@@ -472,6 +472,15 @@ export class AgentSessionService {
 
   private async finalize<T>(rec: AgentTaskRecord, snap: NaiveSessionSnapshot, spec: AgentTaskSpec<T>): Promise<AgentTaskOutcome<T>> {
     const consumed = snap.consumedMicroUsd;
+    // Unknown/invalid usage must retain the reservation for reconciliation. In
+    // particular, do not let undefined, fractional or unsafe amounts settle as zero
+    // in a downstream adapter, or leave a permanently crashing created task.
+    if (!Number.isSafeInteger(consumed) || consumed < 0 ||
+        !snap.tokenUsage || typeof snap.tokenUsage !== "object" || Array.isArray(snap.tokenUsage) ||
+        Object.values(snap.tokenUsage).some(n => !Number.isSafeInteger(n) || n < 0)) {
+      return this.escalate(rec, spec, "invalid_session_usage",
+        "terminal usage is unavailable or invalid; reconcile provider usage manually", [rec.sessionId!]);
+    }
     type Terminal = Pick<AgentTaskRecord, "state" | "result" | "error">;
     let terminal: Terminal;
     const clean = (snap.status === "idle" && snap.stopReason === "end_turn") || snap.status === "completed";
