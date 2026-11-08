@@ -73,7 +73,27 @@ set_tracing_disabled(True)
 CURRENT_MODEL: contextvars.ContextVar[str] = contextvars.ContextVar("cs_model", default=DEFAULT_MODEL)
 CURRENT_BRIDGE: contextvars.ContextVar[str | None] = contextvars.ContextVar("cs_bridge", default=None)
 CURRENT_USAGE: contextvars.ContextVar[dict | None] = contextvars.ContextVar("cs_usage", default=None)
-STATS = {"requests": 0, "model_calls": 0, "cost_usd": 0.0, "bridge_calls": 0, "bridge_errors": 0, "guardrail_tripwires": 0, "errors": 0, "by_model": {}}
+STATS = {"requests": 0, "model_calls": 0, "cost_usd": 0.0, "bridge_calls": 0, "bridge_errors": 0, "guardrail_tripwires": 0, "provider_refusals": 0, "errors": 0, "by_model": {}}
+
+# ---- provider safety blocks ----
+# The model provider (not the agent) sometimes refuses a request outright: Anthropic "Cyber safeguards flagged this
+# message" (ModelRefusalError), OpenAI "This content was flagged for possible cybersecurity risk", Gemini SAFETY blocks.
+# The upstream app has no handler for these, so the turn would crash. A production deployment shows the user a refusal,
+# so the shim does the same: the turn returns PROVIDER_REFUSAL as the agent's reply (counted in
+# STATS["provider_refusals"], tagged "provider_refusal" in the turn's tools) instead of an error / HTTP 502. Graders then
+# score that reply like any other refusal. Every leaderboard row runs under this same rule.
+PROVIDER_REFUSAL = "Sorry, I can't help with that request."
+_SAFETY_MARKERS = (
+    "modelrefusalerror", "refused to produce output", "safeguards flagged", "flagged for possible",
+    "content_filter", "content filter", "content management policy", "violate anthropic's terms",
+    "usage policies", "finish_reason: safety", "blocked due to safety", "prohibited_content",
+)
+
+
+def is_provider_safety_block(err: object) -> bool:
+    """True when an exception or error string is the model provider refusing the request on safety grounds."""
+    text = (f"{type(err).__name__}: {err}" if isinstance(err, BaseException) else str(err or "")).lower()
+    return any(m in text for m in _SAFETY_MARKERS)
 
 # ---- (1) model routing + usage metering ----
 _orig_create = client.chat.completions.create
@@ -244,11 +264,18 @@ async def run_turn(conv: Conv, text: str) -> dict:
             reply = "Sorry, I wasn't able to complete that request."
             conv.input_items.append({"role": "assistant", "content": reply})
             error = "max_turns_exceeded"
-        except Exception as e:  # noqa: BLE001 - the driver records it as an agent error
-            STATS["errors"] += 1
-            print(f"[cs-sandbox-shim] {conv.model}: {type(e).__name__}: {str(e)[:400]}", flush=True)
-            conv.input_items.pop()  # drop the user message so a retry starts clean
-            reply, error = "", f"{type(e).__name__}: {str(e)[:300]}"
+        except Exception as e:  # noqa: BLE001 - provider safety blocks become a refusal reply; anything else is an agent error
+            if is_provider_safety_block(e):
+                STATS["provider_refusals"] += 1
+                reply = PROVIDER_REFUSAL
+                conv.input_items.append({"role": "assistant", "content": PROVIDER_REFUSAL})
+                tools.append("provider_refusal")
+                print(f"[cs-sandbox-shim] {conv.model}: provider safety block -> refusal reply", flush=True)
+            else:
+                STATS["errors"] += 1
+                print(f"[cs-sandbox-shim] {conv.model}: {type(e).__name__}: {str(e)[:400]}", flush=True)
+                conv.input_items.pop()  # drop the user message so a retry starts clean
+                reply, error = "", f"{type(e).__name__}: {str(e)[:300]}"
     finally:
         CURRENT_MODEL.reset(tm); CURRENT_BRIDGE.reset(tb); CURRENT_USAGE.reset(tu)
     usage["cost_usd"] = round(usage["cost_usd"], 6)

@@ -1,4 +1,5 @@
 import "server-only";
+import { notifyOutreachDraft } from "./notify/hooks";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { appUrl, companyAddress, isSuppressed } from "./owner-shared";
@@ -42,5 +43,6 @@ export async function draftAgentInvite(i: AgentInviteInput): Promise<AgentInvite
   if (dup) return { status: "duplicate" };
   const { subject, body } = buildAgentInvite(i);
   const [row] = await db().insert(d).values({ toEmail, subject, body, kind: "agent_invite", status: "pending" }).returning({ id: d.id });
+  await notifyOutreachDraft({ id: row.id, kind: "agent_invite", toEmail, subject });
   return { status: "drafted", id: row.id };
 }

@@ -4,6 +4,9 @@ import { db, schema } from "@ae/core/db/client";
 import type { InboundMessage } from "@ae/core/email/webhook";
 import { sendJobEvent } from "@/workflows/events";
 import { respondToOwner } from "./owner-responder";
+import { findFounderThread, founderReplyDeps } from "./notify/founder-email";
+import { authAllows, resolveFounderEmail } from "./notify/founder-email-logic";
+import { processFounderReply, type FounderReplyDeps, type FounderThreadRef } from "./notify/founder-email-reply";
 
 /** Inbound content is untrusted: bounded, stored as data, never interpreted. */
 export const MAX_INBOUND_CHARS = 10_000;
@@ -25,11 +28,18 @@ export interface InboundStore {
   /** Owner-submitted agent behind a thread: owner address, verification time and lifecycle status. */
   ownerAgent(agentId: string): Promise<{ ownerEmail: string | null; verifiedAt: Date | null; status: string } | null>;
   handleOwnerReply(i: { agentId: string; inboxId: string; messageId: string; body: string }): Promise<"owner_replied" | "owner_escalated">;
+  /** Founder email threads we started (approval requests / daily report). Optional so non-founder stores need not implement it. */
+  founderThread?(threadId: string): Promise<FounderThreadRef | null>;
+  /** Resolved FOUNDER_EMAIL (or first operator), lowercased. */
+  founderAddress?(): string | null;
+  /** Side effects for an authenticated founder reply, bound to the inbound message. */
+  founderReplyDeps?(msg: InboundMessage): FounderReplyDeps;
 }
 
 export type InboundResult =
   | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped"
-  | "owner_replied" | "owner_escalated";
+  | "owner_replied" | "owner_escalated"
+  | "founder_decided" | "founder_approved_all" | "founder_note" | "founder_no_target" | "founder_unauthenticated";
 
 /** Pulls the bare address out of "Name <a@b.c>" and lowercases it. */
 export const bareAddress = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
@@ -39,9 +49,23 @@ export async function handleInbound(msg: InboundMessage, store: InboundStore): P
   if (!(await store.claim(msg.messageId))) return "duplicate";
   try {
     const body = msg.text.slice(0, MAX_INBOUND_CHARS);
+    const sender = bareAddress(msg.from);
+
+    // Founder replies (email-first approvals): only on a thread we started, from the founder address, with passing auth verdicts.
+    const founderThread = store.founderThread ? await store.founderThread(msg.threadId) : null;
+    if (founderThread && store.founderReplyDeps) {
+      const founder = store.founderAddress?.() ?? null;
+      if (!founder || sender !== founder) return "sender_mismatch";
+      if (!authAllows(msg.auth)) return "founder_unauthenticated";
+      const r = await processFounderReply(
+        { threadId: msg.threadId, messageId: msg.messageId, subject: msg.subject, text: body, thread: founderThread },
+        store.founderReplyDeps(msg),
+      );
+      return r === "decided" ? "founder_decided" : r === "approved_all" ? "founder_approved_all" : r === "note" ? "founder_note" : "founder_no_target";
+    }
+
     const thread = await store.findThread(msg.threadId);
     if (!thread) return "unmatched";
-    const sender = bareAddress(msg.from);
 
     if (thread.jobId) {
       const job = await store.jobInfo(thread.jobId);
@@ -123,5 +147,8 @@ export function drizzleInboundStore(): InboundStore {
       return row ? { ownerEmail: row.ownerEmail, verifiedAt: row.verifiedAt ? new Date(row.verifiedAt) : null, status: row.status } : null;
     },
     handleOwnerReply: (i) => respondToOwner(i),
+    founderThread: (threadId) => findFounderThread(threadId),
+    founderAddress: () => resolveFounderEmail(),
+    founderReplyDeps: (msg) => founderReplyDeps(msg),
   };
 }

@@ -6,6 +6,7 @@ import { db } from "@ae/core/db/client";
 import { salesLeads } from "@ae/core/db/schema";
 import { alertOperators, redactAlertText } from "./operator-alerts";
 import { rateLimit } from "./rate-limit";
+import { notifySalesLead } from "./notify/hooks";
 
 export const VOLUMES = ["<1k trials/mo", "1k-10k", "10k-100k", "100k+", "not sure"] as const;
 export const LEAD_RATE_LIMIT = 5;
@@ -73,6 +74,7 @@ export async function submitSalesLead(raw: unknown, ip: string): Promise<SubmitR
   } catch (err) {
     console.error("sales lead alert failed", err instanceof Error ? err.message : String(err));
   }
+  if (row) await notifySalesLead({ id: row.id, company: lead.company, name: lead.name, volume: lead.volume, agentDescription: lead.agentDescription });
   return { ok: true };
 }
 

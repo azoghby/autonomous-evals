@@ -243,6 +243,5 @@
     "For each candidate record: termsUrl (the page that permits testing) and authorizedNote (who approved, how, date). The runner refuses to test without both.",
     "Get an API key per agent (or use a public demo that explicitly allows it) and store it in an env var; put only the env var NAME in authEnvVar.",
     "Confirm the endpoint is OpenAI-compatible chat completions over HTTPS (or add an adapter); confirm rate limits and set a low per-agent budget.",
-    "Email the vendor before publishing results; record opt-out requests by setting active=false (or via `public-agents.ts add` with active:false)."
-  ]
+    "Email the vendor before publishing results; record opt-out requests by setting active=false (or via `public-agents.ts add` with active:false)."  ]
 }

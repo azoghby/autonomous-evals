@@ -135,7 +135,35 @@ class Sess:
 
 
 SESSIONS: dict[str, Sess] = {}
-STATS = {"sessions": 0, "messages": 0, "model_calls": 0, "est_cost_usd": 0.0, "errors": 0, "bb_requests": 0}
+STATS = {"sessions": 0, "messages": 0, "model_calls": 0, "est_cost_usd": 0.0, "errors": 0, "provider_refusals": 0, "bb_requests": 0}
+
+# Provider safety blocks. The model provider (not the agent) sometimes refuses a request outright: Anthropic "Cyber
+# safeguards flagged this message", OpenAI "This content was flagged for possible cybersecurity risk" (surfaced by
+# LiteLLM as BadRequestError), Gemini SAFETY blocks. The upstream sample has no handler, so the turn would fail. A
+# production deployment shows the user a refusal, so the shim does the same: the turn returns PROVIDER_REFUSAL as the
+# agent's reply (counted in STATS["provider_refusals"], tagged "provider_refusal" in tool_calls) instead of an
+# error / HTTP 502. Graders then score that reply like any other refusal. Every leaderboard row runs under this rule.
+PROVIDER_REFUSAL = "Sorry, I can't help with that request."
+_SAFETY_MARKERS = (
+    "modelrefusalerror", "refused to produce output", "safeguards flagged", "flagged for possible",
+    "content_filter", "content filter", "content management policy", "violate anthropic's terms",
+    "usage policies", "finish_reason: safety", "blocked due to safety", "prohibited_content",
+)
+
+
+# The gateway reports an Anthropic refusal as finish_reason "content-filter" (hyphen), which LiteLLM does not know and
+# maps to "stop", hiding the block as an empty reply. Teach LiteLLM's table the gateway spelling so ADK sees
+# FinishReason.SAFETY, which run_turn treats as a provider safety block.
+from litellm.litellm_core_utils import core_helpers as _litellm_core_helpers  # noqa: E402
+
+_litellm_core_helpers._FINISH_REASON_MAP.setdefault("content-filter", "content_filter")
+_litellm_core_helpers._FINISH_REASON_MAP.setdefault("refusal", "content_filter")
+
+
+def is_provider_safety_block(err: object) -> bool:
+    """True when an exception or error string is the model provider refusing the request on safety grounds."""
+    text = (f"{type(err).__name__}: {err}" if isinstance(err, BaseException) else str(err or "")).lower()
+    return any(m in text for m in _SAFETY_MARKERS)
 
 
 async def new_session(session_id: str, model: str, bridge_url: str | None) -> Sess:
@@ -158,6 +186,7 @@ async def run_turn(s: Sess, message: str) -> dict:
     texts: list[str] = []
     tool_calls: list[str] = []
     err = None
+    safety_blocked = False
     content = types.Content(role="user", parts=[types.Part(text=message)])
     try:
         async for ev in s.runner.run_async(user_id=USER_ID, session_id=s.session_id, new_message=content):
@@ -174,12 +203,21 @@ async def run_turn(s: Sess, message: str) -> dict:
                 t = "".join(p.text or "" for p in ev.content.parts if getattr(p, "text", None) and not getattr(p, "thought", False))
                 if t.strip():
                     texts.append(t)
+            if getattr(ev, "finish_reason", None) == types.FinishReason.SAFETY:
+                safety_blocked = True
             if getattr(ev, "error_message", None):
                 err = f"{ev.error_code or 'error'}: {ev.error_message}"
     except Exception as e:
-        STATS["errors"] += 1
         err = f"{type(e).__name__}: {str(e)[:400]}"
-        print(f"[adk-shim] turn error ({s.model}): {err}", flush=True)
+        if not is_provider_safety_block(err):
+            STATS["errors"] += 1
+            print(f"[adk-shim] turn error ({s.model}): {err}", flush=True)
+    if not texts and (safety_blocked or (err and is_provider_safety_block(err))):
+        STATS["provider_refusals"] += 1
+        print(f"[adk-shim] {s.model}: provider safety block -> refusal reply", flush=True)
+        texts.append(PROVIDER_REFUSAL)
+        tool_calls.append("provider_refusal")
+        err = None
     pin, pout = PRICES.get(s.model, DEFAULT_PRICE)
     cost = pt * pin + ct * pout
     STATS["model_calls"] += calls

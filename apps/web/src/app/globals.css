@@ -453,3 +453,45 @@ textarea.input { height: auto; min-height: 112px; padding: 10px 12px; resize: ve
 .cta-line { background: var(--spectrum); box-shadow: 0 0 24px 2px var(--violet-glow); }
 .cta-cta::before { background: var(--spectrum); }
 /* ---- end home-color ---- */
+
+/* ---- team ---- */
+:root { --tone-accent: var(--accent-bright); --tone-violet: var(--violet); --tone-cyan: var(--cyan); --tone-ok: var(--ok); --tone-warn: var(--warn); }
+.tm-dept { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+.tm-dept-label { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg); font-weight: 400; }
+.tm-dept-blurb { font-size: 13px; color: var(--subtle); }
+.tm-grid { display: grid; grid-template-columns: 1fr; gap: 12px; list-style: none; padding: 0; margin: 0; }
+@media (min-width: 720px) { .tm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .tm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tm-featured { grid-column: span 2; } }
+.tm-card { min-width: 0; display: flex; }
+.tm-inner { position: relative; display: flex; flex-direction: column; gap: 0.9rem; width: 100%; padding: 1.25rem; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; transition: border-color var(--dur-base) var(--ease-hover), background-color var(--dur-base) var(--ease-hover); }
+.tm-inner::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--t); opacity: 0.55; transition: opacity var(--dur-base) var(--ease-hover); }
+.tm-inner:hover { background: var(--bg-hover); border-color: var(--line-strong); }
+.tm-inner:hover::before { opacity: 1; }
+.tm-featured .tm-inner { padding: 1.6rem; }
+.tm-featured .tm-bio { font-size: 17px; color: var(--fg); }
+.tm-head { display: flex; align-items: center; gap: 0.85rem; }
+.tm-glyph { flex: none; }
+.tm-shape { fill: color-mix(in srgb, var(--t) 18%, transparent); stroke: var(--t); stroke-width: 1.5; }
+.tm-shape-hollow { fill: none; stroke-dasharray: 3 3; }
+.tm-initial { fill: var(--t); font-family: var(--font-mono); font-size: 15px; font-weight: 500; }
+.tm-name { font-size: 18px; letter-spacing: -0.02em; color: var(--fg); font-weight: 400; line-height: 1.2; }
+.tm-role { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; color: var(--muted); line-height: 1.3; margin-top: 2px; }
+.tm-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); white-space: nowrap; align-self: flex-start; }
+.tm-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tm-chip-live { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.tm-chip-live .tm-dot { box-shadow: 0 0 8px var(--ok-glow); }
+.tm-chip-coming { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.tm-chip-coming .tm-dot { background: transparent; border: 1px solid currentColor; }
+.tm-bio { font-size: 15px; line-height: 1.5; color: var(--muted); }
+.tm-meta { display: grid; gap: 0.5rem; margin: auto 0 0; padding-top: 0.9rem; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.4; }
+.tm-meta > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0.75rem; }
+.tm-meta dt { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; color: var(--subtle); padding-top: 2px; }
+.tm-meta dd { margin: 0; color: var(--muted); }
+.tm-founder { display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem; border: 1px dashed var(--line-strong); border-radius: var(--radius-card); background: var(--bg-band); }
+.tm-founder .tm-bio { color: var(--fg); margin-top: 0.25rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .tm-group[data-armed="true"]:not([data-inview="true"]) .tm-card { opacity: 0; transform: translateY(14px); }
+  .tm-group[data-inview="true"] .tm-card { transition: opacity 560ms var(--ease-out-expo) calc(var(--i) * 70ms), transform 560ms var(--ease-out-expo) calc(var(--i) * 70ms); }
+}
+@media (max-width: 480px) { .tm-meta > div { grid-template-columns: 1fr; gap: 0.1rem; } .tm-head { flex-wrap: wrap; } }
+/* ---- end team ---- */

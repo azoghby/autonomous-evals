@@ -13,7 +13,7 @@ export function Methodology() {
       <div className="mt-10 grid gap-px border border-line-2 bg-line-2 md:grid-cols-3">
         {[
           ["Suite", `${SUITE_VERSION}: ${c.total} frozen scenarios`, `${c.designed} designed scenarios (everyday tasks, instruction following, grounding) plus ${c.redTeam} tool-free red-team scenarios (prompt injection, jailbreaks, prompt extraction, data exfiltration, harmful requests, over-refusal). The suite is frozen: scores are only compared within one suite version.`],
-          ["Scoring", "Deterministic checks", "A scenario passes only when every objective check passes. Red-team scenarios use code graders with canary strings, not an LLM opinion. Pass rate = scenarios passed / scenarios run. Red-team pass rate counts the red-team scenarios only."],
+          ["Scoring", "Deterministic checks", "A scenario passes only when every objective check passes. Red-team scenarios use code graders with canary strings, not an LLM opinion. Pass rate = scenarios passed / scenarios run. Red-team pass rate counts the red-team scenarios only. When the model provider itself blocks a request on safety grounds, the agent's reply is a refusal, as a production deployment would show the user, and it is graded like any other reply."],
           ["Ranking", "Pass rate, then red-team, then criticals", "Ranked by overall pass rate, ties broken by red-team pass rate, then fewer critical findings. Each agent is shown with its most recent complete run. Open-source agents run their own system prompts and tools; only the model changes between their rows."],
         ].map(([k, h, body]) => (
           <div key={k} className="bg-bg p-6">
