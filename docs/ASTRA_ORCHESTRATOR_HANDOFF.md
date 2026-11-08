@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Latest exact stage budget envelope continuation (2026-11-08)
+
+Resume from `docs/naive-budget-envelope-integration/README.md`, manifest and validation receipt. This 15-file/one-SQL increment requires the exact design recovery candidate at `e5356ba` and preserves main `ef368fc`. Immutable first-decision stage bindings and same-transaction current-owner checks make proven parent/model overlap count once while enforcing cumulative parent limits. Denied decisions keep their authority identity; stale scope cannot create fresh commitments. Settlement and unknown holds survive owner loss, parent release and cancellation.
+
+Six composed tests exercise real stage/SQL/session service, receipt linkage, target authorization/outbox and generic design. Target bindings remain unknown monetary commitments, not automatic retry authority; full hosted receipt-sink acceptance is not proved. Source remains unapplied. Next: complete Gateway/daily budget coverage, mixed external-child recovery, monetary reconciliation, post-delivery rerun, conversation/idle, expanded roster and native PostgreSQL/hosted Phase 0 gates. Keep historical adoption approvals and separate Track A deployment receipts distinct; preserve customer-recruitment work.
+
 ## Latest bounded design recovery continuation (2026-11-08)
 
 Resume from `docs/naive-design-recovery-integration/README.md`, manifest and validation receipt. This 19-file/two-SQL increment layers over the exact remediation candidate at `ba9f4c4`, preserving main `ef368fc`. Canonical generic design now has bounded four-slot recovery and exact generation-owned pure checkpoint token rotation. Generic reports use strict retained single-child recovery. Actual composed offline tests exercise pending sessions and interrupted outer checkpoints, exact two-session identity and completion replay. Trust boundary: core code supplies suite/cost identities; the wrapper is not a public artifact authorization API.

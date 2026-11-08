@@ -1,0 +1,24 @@
+{
+  "manifestSha256": "73db89b2f1c4f3f85627ed25d1f55282c0c9721d473dbb9f480db671de5fcb6f",
+  "ownerPatchSha256": "a28c8108ca827d948227e1ef95db26df88d04ca94d1ff0a23f9c3009e3b452c7",
+  "ownerPatchApplied": true,
+  "independentPatchCheckedFiles": 2390,
+  "inheritedSourceAndBaselinePaths": 2366,
+  "incrementalPaths": 15,
+  "composedSourceAndBaselinePaths": 2370,
+  "inheritedSqlPaths": 20,
+  "incrementalSqlPaths": 1,
+  "checks": [
+    {
+      "assembly": "/private/tmp/naive-envelope-final-v2",
+      "checkedFiles": 2390,
+      "mismatches": []
+    },
+    {
+      "assembly": "/private/tmp/naive-envelope-repro-v2",
+      "checkedFiles": 2390,
+      "mismatches": []
+    }
+  ],
+  "reproducible": true
+}

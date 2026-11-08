@@ -1,0 +1,62 @@
+{
+  "reviewedRepositoryCommit": "e5356baeb961252825cbf33a50a9ab3241034d58",
+  "preservedSourceMain": "ef368fc",
+  "latestObservedMain": "8dc6c7d",
+  "latestMainDelta": "LEDGER.md demo video receipt only; application/core source unchanged",
+  "status": "unapplied_candidate_not_deployed",
+  "manifestSha256": "73db89b2f1c4f3f85627ed25d1f55282c0c9721d473dbb9f480db671de5fcb6f",
+  "ownerPatchSha256": "a28c8108ca827d948227e1ef95db26df88d04ca94d1ff0a23f9c3009e3b452c7",
+  "candidateTests": {
+    "numPassedTests": 4511,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1085,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "actualSourceTests": {
+    "numPassedTests": 3956,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 987,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "candidateWebTypes": "pass",
+  "candidateCoreTypes": "pass",
+  "actualSourceWebTypes": "pass",
+  "offlineFontProductionBuild": {
+    "status": "pass",
+    "workflowSteps": 63,
+    "workflows": 4
+  },
+  "independentPatchAndReproductionReceipt": "verification.json",
+  "postBuildVerifiedFiles": 2390,
+  "composedSqlEvidence": {
+    "cases": 6,
+    "realStageRuntimeTaskStoreSessionServiceAndLedger": true,
+    "nearCapStageAndSiblingCommitmentMicroUsd": 3000000,
+    "genericDesignParentMicroUsd": 600000,
+    "genericDesignMeasuredMicroUsd": 24690,
+    "genericDesignSessions": 2,
+    "actualTargetAuthorizationUnknownHeldMicroUsd": 2700000,
+    "targetTransportCalls": 0,
+    "externalProviderWorkflowMetadataPoolTransport": "fake",
+    "genericCostDelivery": "local recorder",
+    "receiptSubstitution": "retained SQL budget-link proof; not full hosted cost sink"
+  },
+  "reviewCorrections": [
+    "Persist precise stage versus job exhaustion scope and cap",
+    "Replay model role-cap refusals through immutable first scoped attempt binding",
+    "Pin scoped preflight refusals to their parent",
+    "Check local scope revocation before transaction commit; settle independently"
+  ],
+  "limitations": [
+    "Target monetary usage remains unknown; reservations/outbox retained",
+    "No new target/proxy/investigation/remediation callback recovery permission",
+    "Gateway envelopes, combined customer daily authority and other plan gates remain open",
+    "Expert honoraria and standalone copilot are outside stage model envelopes",
+    "Native PostgreSQL contention, hosted receipt sink and provider acceptance unverified",
+    "No actual source adoption, credentials, provider calls, live migration, outreach, spend or deployment"
+  ]
+}
