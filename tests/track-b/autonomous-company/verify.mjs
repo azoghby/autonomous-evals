@@ -9,6 +9,20 @@ const stage=await mkdtemp(join(tmpdir(),'company-autonomy-'));
 try {
  await cp(join(repo,'packages/core/src'),join(stage,'packages/core/src'),{recursive:true});
  await cp(join(repo,'tests/track-b/autonomous-company'),join(stage,'tests/track-b/autonomous-company'),{recursive:true});
+ // Accounting imports the shared service contracts; stage exact owner blobs read-only.
+ const contractRef='875ceef6a743df41736ee55c4145ca794e0854a8';
+ const listed=spawnSync('git',['ls-tree','-r','--name-only',contractRef,'packages/core/src/contracts'],{cwd:repo,encoding:'utf8'});
+ if(listed.status!==0)throw new Error('contract inventory unavailable');
+ const files=listed.stdout.trim().split('\n').filter(p=>p.endsWith('.ts')&&!p.endsWith('.test.ts'));
+ if(!files.length)throw new Error('shared contracts missing');
+ for(const file of files){
+  if(!/^packages\/core\/src\/contracts\/[A-Za-z0-9_./-]+\.ts$/.test(file)||file.includes('..'))throw new Error('unsafe contract path');
+  const blob=spawnSync('git',['show',`${contractRef}:${file}`],{cwd:repo});
+  if(blob.status!==0)throw new Error('contract blob unavailable');
+  await mkdir(dirname(join(stage,file)),{recursive:true});await writeFile(join(stage,file),blob.stdout);
+ }
+ console.log(`Read-only contracts: ${contractRef}`);
+
  await cp(join(repo,'docs/autonomous-company-integration/application.patch'),join(stage,'application.patch'));
  const apply=spawnSync('git',['apply','--check','application.patch'],{cwd:stage,encoding:'utf8'});if(apply.status!==0)throw new Error(apply.stderr);
  const applied=spawnSync('git',['apply','application.patch'],{cwd:stage,encoding:'utf8'});if(applied.status!==0)throw new Error(applied.stderr);
