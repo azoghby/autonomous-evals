@@ -1,0 +1,71 @@
+diff --git a/apps/web/src/components/app/job-private-chat.tsx b/apps/web/src/components/app/job-private-chat.tsx
+index 21964f2..8347e0d 100644
+--- a/apps/web/src/components/app/job-private-chat.tsx
++++ b/apps/web/src/components/app/job-private-chat.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
++import { ScoutMark } from "./scout-mark";
+ 
+ type Reply = { text: string; asOf: string; unknowns: string[] };
+ type Exchange = { messageId: string; sequence: number; reply: Reply };
+@@ -185,17 +186,20 @@ function PrivateChat({ jobId }: { jobId: string }) {
+   }
+ 
+   return <section aria-labelledby={`${fieldId}-title`} className="rounded-[4px] border border-line-2 bg-bg-raised">
+-    <header className="border-b border-line px-5 py-4">
+-      <h2 id={`${fieldId}-title`} className="t-eyebrow text-fg-2">Private progress chat</h2>
+-      <p className="mt-2 text-sm text-muted">Your conversation for this job. Ask about recorded progress, findings, blockers or cost, during the evaluation or after delivery.</p>
++    <header className="flex items-start gap-4 border-b border-line px-5 py-4">
++      <ScoutMark size={32} className="shrink-0 text-accent-text" />
++      <div className="min-w-0">
++        <h2 id={`${fieldId}-title`} className="t-eyebrow text-fg-2">Private progress chat</h2>
++        <p className="mt-2 text-sm text-muted">Your conversation for this job. Ask about recorded progress, findings, blockers or cost, during the evaluation or after delivery.</p>
++      </div>
+     </header>
+     <div className="space-y-5 p-5 sm:p-6">
+-      {snapshot && <div aria-label="Latest persisted progress" className="border-b border-line pb-5"><p className="t-eyebrow mb-3 text-subtle">Latest persisted progress</p><Answer reply={snapshot} /></div>}
++      {snapshot && <div aria-label="Latest persisted progress" className="border-b border-line pb-5"><p className="t-eyebrow mb-3 flex items-center gap-2 text-subtle"><ScoutMark size={16} className="shrink-0 text-fg" />Latest persisted progress</p><Answer reply={snapshot} /></div>}
+       {pollError && <p role="status" className="text-sm text-muted">Progress refresh is unavailable. Previously loaded answers may be out of date.</p>}
+       {loading && <p role="status" className="text-sm text-muted">Loading private history…</p>}
+       {historyError && <div role="alert"><p className="text-sm text-danger">{historyError}</p><button type="button" onClick={() => { accessBlocked.current = false; void loadHistory(abort.current?.signal); }} className={`${button} mt-2`}>Retry history</button></div>}
+       {!loading && !historyError && exchanges.length === 0 && <p className="text-sm text-muted">No answers yet. Try “What progress has been recorded?” Questions are not retained in history; answers are saved privately.</p>}
+-      <ol aria-label="Private chat answers" className="space-y-5">{exchanges.map(exchange => <li key={exchange.messageId} className="border-b border-line pb-5"><p className="t-eyebrow mb-3 text-subtle">Answer {exchange.sequence}</p><Answer reply={exchange.reply} /></li>)}</ol>
++      <ol aria-label="Private chat answers" className="space-y-5">{exchanges.map(exchange => <li key={exchange.messageId} className="border-b border-line pb-5"><p className="t-eyebrow mb-3 flex items-center gap-2 text-subtle"><ScoutMark size={16} className="shrink-0 text-fg" />Answer {exchange.sequence}</p><Answer reply={exchange.reply} /></li>)}</ol>
+       {hasMore && <button type="button" disabled={loading} className={button} onClick={() => void loadHistory(abort.current?.signal)}>Load next answers</button>}
+       <form onSubmit={send} className="space-y-3">
+         <label htmlFor={fieldId} className="block text-sm text-fg-2">Ask about this evaluation</label>
+diff --git a/b/apps/web/src/components/app/scout-mark.tsx b/apps/web/src/components/app/scout-mark.tsx
+new file mode 100644
+index 0000000..6797aeb
+--- /dev/null
++++ b/apps/web/src/components/app/scout-mark.tsx
+@@ -0,0 +1,27 @@
++/**
++ * Pixelated Scout bunny, approved artwork. Geometry is byte-identical to
++ * assets/brand/scout-pixel.svg (16x16 grid, folded right ear, squared face).
++ * Static, currentColor, no raster, no remote assets, no animation.
++ * Render at 16 or 32px only so every grid cell lands on whole device pixels.
++ * Decorative: always paired with a visible text label, so it is hidden from assistive technology.
++ */
++export const SCOUT_PIXEL_PATH =
++  "M4 1H7V7H9V3H10V1H13V2H15V5H13V4H12V7H13V8H14V10H15V13H14V14H12V15H4V14H2V13H1V10H2V8H4V1ZM4 10H6V12H4V10ZM10 10H12V12H10V10ZM7 13H9V14H7V13Z";
++
++export function ScoutMark({ size = 16, className }: { size?: 16 | 32; className?: string }) {
++  return (
++    <svg
++      xmlns="http://www.w3.org/2000/svg"
++      viewBox="0 0 16 16"
++      width={size}
++      height={size}
++      fill="none"
++      shapeRendering="crispEdges"
++      aria-hidden="true"
++      focusable="false"
++      className={className}
++    >
++      <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d={SCOUT_PIXEL_PATH} />
++    </svg>
++  );
++}
