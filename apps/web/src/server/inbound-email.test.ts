@@ -3,15 +3,16 @@ import { handleInbound, bareAddress, MAX_INBOUND_CHARS, type InboundStore } from
 
 vi.mock("@ae/core/db/client", () => ({ db: vi.fn(), schema: {} }));
 vi.mock("@/workflows/events", () => ({ sendJobEvent: vi.fn() }));
+vi.mock("./owner-responder", () => ({ respondToOwner: vi.fn() }));
 
 const msg = (over: Record<string, unknown> = {}) => ({
   eventType: "message.received", inboxId: "ae-commercial@agentmail.to", threadId: "t1", messageId: "m1",
   from: "Pat <Pat@Example.com>", subject: "Re: x", text: "my answer", ...over,
 });
 
-function fakeStore(opts: { thread?: { jobId: string | null; expertEngagementId: string | null } | null; state?: string; expertInvited?: boolean } = {}) {
+function fakeStore(opts: { thread?: { jobId: string | null; expertEngagementId: string | null; publicAgentId?: string | null } | null; owner?: { ownerEmail: string | null; verifiedAt: Date | null; status: string } | null; state?: string; expertInvited?: boolean } = {}) {
   const seen = new Set<string>();
-  const calls = { messages: [] as string[], clarifications: [] as string[], expertReplies: [] as string[] };
+  const calls = { ownerReplies: [] as string[], messages: [] as string[], clarifications: [] as string[], expertReplies: [] as string[] };
   const store: InboundStore = {
     claim: async (id) => (seen.has(id) ? false : (seen.add(id), true)),
     release: async (id) => { seen.delete(id); },
@@ -21,6 +22,8 @@ function fakeStore(opts: { thread?: { jobId: string | null; expertEngagementId: 
     expertEmail: async () => "pat@example.com",
     recordExpertReply: async (_e, raw) => { if (opts.expertInvited === false) return false; calls.expertReplies.push(raw); return true; },
     sendClarificationAnswer: async (_j, a) => { calls.clarifications.push(a); },
+    ownerAgent: async () => (opts.owner === undefined ? { ownerEmail: "pat@example.com", verifiedAt: new Date(), status: "active" } : opts.owner),
+    handleOwnerReply: async (i) => { calls.ownerReplies.push(i.body); return "owner_replied"; },
   };
   return { store, calls };
 }
@@ -81,5 +84,28 @@ describe("handleInbound", () => {
     store.addCustomerMessage = vi.fn().mockRejectedValueOnce(new Error("db down")).mockResolvedValue(undefined);
     await expect(handleInbound(msg(), store)).rejects.toThrow("db down");
     expect(await handleInbound(msg(), store)).toBe("job_message");
+  });
+
+  describe("owner agent threads", () => {
+    const t = { jobId: null, expertEngagementId: null, publicAgentId: "agent1" };
+    it("routes a verified owner's reply to the responder", async () => {
+      const { store, calls } = fakeStore({ thread: t });
+      expect(await handleInbound(msg(), store)).toBe("owner_replied");
+      expect(calls.ownerReplies).toEqual(["my answer"]);
+    });
+    it("rejects an unverified owner", async () => {
+      const { store, calls } = fakeStore({ thread: t, owner: { ownerEmail: "pat@example.com", verifiedAt: null, status: "pending_verification" } });
+      expect(await handleInbound(msg(), store)).toBe("sender_mismatch");
+      expect(calls.ownerReplies).toEqual([]);
+    });
+    it("rejects a sender who is not the owner", async () => {
+      const { store, calls } = fakeStore({ thread: t });
+      expect(await handleInbound(msg({ from: "evil@x.com" }), store)).toBe("sender_mismatch");
+      expect(calls.ownerReplies).toEqual([]);
+    });
+    it("is unmatched when the agent no longer exists", async () => {
+      const { store } = fakeStore({ thread: t, owner: null });
+      expect(await handleInbound(msg(), store)).toBe("unmatched");
+    });
   });
 });

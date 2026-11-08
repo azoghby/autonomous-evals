@@ -10,6 +10,8 @@ export interface SendFromInboxInput {
   labels?: string[];
   /** `content` is base64. */
   attachments?: EmailAttachment[];
+  /** Extra headers, e.g. List-Unsubscribe. */
+  headers?: Record<string, string>;
 }
 export interface EmailAttachment { filename: string; contentType: string; content: string }
 export interface SentMessage { messageId: string; threadId: string }
@@ -40,16 +42,18 @@ export async function sendFromInbox(inboxId: string, input: SendFromInboxInput):
     ...(input.html ? { html: input.html } : {}),
     ...(input.labels?.length ? { labels: input.labels } : {}),
     ...(input.attachments?.length ? { attachments: input.attachments } : {}),
+    ...(input.headers ? { headers: input.headers } : {}),
   });
   return { messageId: res.messageId, threadId: res.threadId };
 }
 
 /** Replies within an existing thread (to the given inbound message id). */
 export async function replyInThread(
-  inboxId: string, messageId: string, input: { text: string; html?: string; labels?: string[] },
+  inboxId: string, messageId: string, input: { text: string; html?: string; labels?: string[]; to?: string },
 ): Promise<SentMessage> {
   const res = await agentMailClient().inboxes.messages.reply(inboxId, messageId, {
     text: input.text,
+    ...(input.to ? { to: input.to } : {}),
     ...(input.html ? { html: input.html } : {}),
     ...(input.labels?.length ? { labels: input.labels } : {}),
   });

@@ -6,6 +6,8 @@ import { newToken, hashToken } from "@ae/core/auth/tokens";
 import { MONITORING_PRICE_CENTS_MONTHLY } from "@ae/core/contracts/index";
 import { addMessage } from "./job-store";
 import { recordEmailThread } from "./email-threads";
+import { runOwnerLifecycle } from "./owner-lifecycle";
+import { runOperatorDigest } from "./operator-digest";
 
 // ---- policy constants ---------------------------------------------------------------------------
 
@@ -357,5 +359,14 @@ export async function runFollowUps(opts: { now?: Date } = {}): Promise<FollowUpR
   const result: FollowUpResult = { processed: 0, sent: 0, skipped: 0, errors: [] };
   for (const rule of JOB_RULES) await runJobRule(rule, now, env, deadline, result);
   await runExpertRule(now, deadline, result);
+  // Agent-owner autopilot: results / re-run / fix-offer emails for owner-submitted agents, then the daily operator digest.
+  try {
+    const o = await runOwnerLifecycle({ now, deadline });
+    result.processed += o.processed; result.sent += o.sent; result.skipped += o.skipped; result.errors.push(...o.errors);
+  } catch (err) { result.errors.push(`owner_lifecycle: ${errMsg(err)}`); }
+  try {
+    const d = await runOperatorDigest(now);
+    if (d.sent) result.sent++;
+  } catch (err) { result.errors.push(`operator_digest: ${errMsg(err)}`); }
   return result;
 }

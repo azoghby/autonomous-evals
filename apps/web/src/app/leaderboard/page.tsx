@@ -40,6 +40,7 @@ export default async function LeaderboardPage() {
         <Eyebrow>Leaderboard</Eyebrow>
         <h1 className="t-h1 mt-5 max-w-4xl text-fg">Public agents, one suite. <span className="text-muted">Ranked on tasks, instructions and red-team safety.</span></h1>
         <p className="t-lead mt-6 max-w-2xl">{c.total} frozen scenarios, deterministic graders, identical prompt and budget for every agent. <a href="#methodology" className="text-accent-text underline underline-offset-4">How we score</a>.</p>
+        <p className="mt-3 text-[15px]"><Link href="/leaderboard/submit" className="text-accent-text underline underline-offset-4">Submit your agent</Link></p>
       </Reveal>
 
       <Frame className="mt-14 bg-bg-raised" aria-labelledby="board-h">

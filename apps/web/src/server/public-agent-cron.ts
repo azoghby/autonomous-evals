@@ -25,6 +25,8 @@ export interface CandidateAgent {
   slug: string; name: string; active: boolean; termsUrl?: string | null; authorizedNote?: string | null; authEnvVar?: string | null;
   /** Optional owner-autopilot fields; absent on rows from a DB that has not been migrated yet. */
   status?: string | null; ownerEmail?: string | null; verifiedAt?: Date | string | null;
+  /** Owner asked for a re-run (reply responder). Due when newer than the latest run, regardless of the interval. */
+  rerunRequestedAt?: Date | string | null;
 }
 export interface Schedule { lastRanAt: ReadonlyMap<string, Date>; lastFailedAt?: ReadonlyMap<string, Date> }
 
@@ -43,6 +45,13 @@ function isAuthorized(a: CandidateAgent): boolean {
   try { assertAuthorizedToTest(a); return true; } catch { return false; }
 }
 
+/** True when the owner requested a re-run after the latest run. */
+export function rerunPending(a: Pick<CandidateAgent, "rerunRequestedAt">, lastRan: Date | undefined): boolean {
+  if (!a.rerunRequestedAt) return false;
+  const req = new Date(a.rerunRequestedAt);
+  return !lastRan || req.getTime() > lastRan.getTime();
+}
+
 /** The single agent to run now: active + authorized, due (never run, or last run older than the interval), not in failure cooldown; oldest first. */
 export function pickNextAgent<T extends CandidateAgent>(agents: readonly T[], schedule: Schedule, now: Date, minIntervalMs: number): T | null {
   const due = agents
@@ -51,9 +60,11 @@ export function pickNextAgent<T extends CandidateAgent>(agents: readonly T[], sc
       const ran = schedule.lastRanAt.get(a.slug);
       const failed = schedule.lastFailedAt?.get(a.slug);
       if (failed && now.getTime() - failed.getTime() < FAILURE_COOLDOWN_MS) return false;
-      return !ran || now.getTime() - ran.getTime() >= minIntervalMs;
+      return !ran || rerunPending(a, ran) || now.getTime() - ran.getTime() >= minIntervalMs;
     });
-  due.sort((x, y) => (schedule.lastRanAt.get(x.slug)?.getTime() ?? -Infinity) - (schedule.lastRanAt.get(y.slug)?.getTime() ?? -Infinity) || x.slug.localeCompare(y.slug));
+  // Never-run first, then owner-requested re-runs, then oldest latest-run.
+  const rank = (a: T) => { const ran = schedule.lastRanAt.get(a.slug); return !ran ? -Infinity : rerunPending(a, ran) ? -1 : ran.getTime(); };
+  due.sort((x, y) => rank(x) - rank(y) || x.slug.localeCompare(y.slug));
   return due[0] ?? null;
 }
 
@@ -76,7 +87,9 @@ const baseCols = {
 /** Explicit columns (never `select *`) so this works before and after the owner-autopilot migration. */
 async function loadAgents() {
   try {
-    return await db().select({ ...baseCols, status: p.status, ownerEmail: p.ownerEmail, verifiedAt: p.verifiedAt }).from(p);
+    return await db().select({
+      ...baseCols, status: p.status, ownerEmail: p.ownerEmail, verifiedAt: p.verifiedAt, rerunRequestedAt: p.rerunRequestedAt, apiKeyCiphertext: p.apiKeyCiphertext,
+    }).from(p);
   } catch {
     return await db().select(baseCols).from(p);
   }
@@ -127,6 +140,7 @@ export async function runNextPublicAgent(now = new Date(), log: (l: string) => v
       try {
         const outcome = await runPublicAgent(PublicAgentInput.parse(next), {
           suite: loadStandardSuite(), agentId: next.id, budgetMicroUsd: PER_RUN_BUDGET_MICRO_USD, timeoutMin: RUN_TIMEOUT_MIN, log,
+          apiKeyCiphertext: "apiKeyCiphertext" in next ? (next.apiKeyCiphertext as string | null) : null,
         });
         return { status: "ran", outcome };
       } catch (e) {

@@ -1,53 +1,12 @@
-import { and, eq } from "drizzle-orm";
-import { db, schema } from "@ae/core/db/client";
-import { sendEmail, isEmailConfigured } from "@ae/core/auth/email";
-import { isAgentMailConfigured } from "@ae/core/email/agentmail";
 import { jsonError, requireOperator, isUuid } from "@/server/http";
-import { guardOutreachSend } from "@/server/experts";
-import { recordEmailThread } from "@/server/email-threads";
+import { approveAndSendDraft } from "@/server/outreach-approve";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const auth = await requireOperator();
   if (auth.res) return auth.res;
   const { id } = await ctx.params;
   if (!isUuid(id)) return jsonError(404, "Draft not found");
-
-  // Expert Network guardrails: never send to a suppressed address; cap cold expert contacts per day.
-  const [pending] = await db().select({ toEmail: schema.outreachDrafts.toEmail }).from(schema.outreachDrafts)
-    .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).limit(1);
-  if (pending) {
-    const guard = await guardOutreachSend(id, pending.toEmail);
-    if (!guard.ok) return jsonError(guard.status, guard.error);
-  }
-
-  // Atomic claim: only a pending draft can be approved, and only once.
-  const [draft] = await db().update(schema.outreachDrafts)
-    .set({ status: "approved", approvedBy: auth.viewer.email })
-    .where(and(eq(schema.outreachDrafts.id, id), eq(schema.outreachDrafts.status, "pending"))).returning();
-  if (!draft) {
-    const [exists] = await db().select({ status: schema.outreachDrafts.status }).from(schema.outreachDrafts).where(eq(schema.outreachDrafts.id, id)).limit(1);
-    return exists ? jsonError(409, `Draft is already ${exists.status}`) : jsonError(404, "Draft not found");
-  }
-  await db().insert(schema.interventions).values({
-    operatorEmail: auth.viewer.email, kind: "approve_outreach", note: `Approved outreach ${id} to ${draft.toEmail}: ${draft.subject}`,
-  });
-
-  // Founder approval is recorded; send only when email is configured. Failure leaves the draft "approved" (retryable by operator).
-  let sent = false, sendError: string | undefined;
-  if (isAgentMailConfigured() || (isEmailConfigured() && process.env.EMAIL_FROM)) {
-    try {
-      const sentMail = await sendEmail({ purpose: "commercial", to: draft.toEmail, subject: draft.subject, text: draft.body });
-      await db().update(schema.outreachDrafts).set({ status: "sent", sentAt: new Date() }).where(eq(schema.outreachDrafts.id, id));
-      sent = true;
-      try {
-        const [engagement] = await db().select({ id: schema.expertEngagements.id }).from(schema.expertEngagements)
-          .where(eq(schema.expertEngagements.outreachDraftId, id)).limit(1);
-        if (engagement) await recordEmailThread(sentMail.threadId, "expert_outreach", { expertEngagementId: engagement.id });
-      } catch (err) { console.error("record outreach thread failed", err); }
-    } catch (err) {
-      sendError = err instanceof Error ? err.message : "send failed";
-      console.error("outreach send failed", err);
-    }
-  }
-  return Response.json({ ok: true, status: sent ? "sent" : "approved", ...(sendError ? { sendError } : {}) });
+  const r = await approveAndSendDraft(id, auth.viewer.email);
+  if (!r.ok) return jsonError(r.status, r.error);
+  return Response.json({ ok: true, status: r.status, ...(r.sendError ? { sendError: r.sendError } : {}) });
 }

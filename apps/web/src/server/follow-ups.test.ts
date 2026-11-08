@@ -35,6 +35,8 @@ const addMessage = vi.fn(async () => "m1");
 vi.mock("./job-store", () => ({ addMessage: (...a: unknown[]) => addMessage(...(a as [])) }));
 const recordEmailThread = vi.fn(async () => undefined);
 vi.mock("./email-threads", () => ({ recordEmailThread: (...a: unknown[]) => recordEmailThread(...(a as [])) }));
+vi.mock("./owner-lifecycle", () => ({ runOwnerLifecycle: async () => ({ processed: 0, sent: 0, skipped: 0, errors: [] }) }));
+vi.mock("./operator-digest", () => ({ runOperatorDigest: async () => ({ sent: false, pending: 0 }) }));
 
 import {
   buildMonitoringPitch, clarificationNudgeDue, expertReminderDue, jobEmailAllowed, monitoringPitchDue,

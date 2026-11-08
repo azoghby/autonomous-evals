@@ -3,11 +3,12 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import type { InboundMessage } from "@ae/core/email/webhook";
 import { sendJobEvent } from "@/workflows/events";
+import { respondToOwner } from "./owner-responder";
 
 /** Inbound content is untrusted: bounded, stored as data, never interpreted. */
 export const MAX_INBOUND_CHARS = 10_000;
 
-export type ThreadRef = { jobId: string | null; expertEngagementId: string | null };
+export type ThreadRef = { jobId: string | null; expertEngagementId: string | null; publicAgentId?: string | null };
 
 /** Persistence seam so the routing logic is testable without a database. */
 export interface InboundStore {
@@ -21,10 +22,14 @@ export interface InboundStore {
   /** invited -> replied plus raw response; false if the engagement was not awaiting a reply. */
   recordExpertReply(engagementId: string, raw: string): Promise<boolean>;
   sendClarificationAnswer(jobId: string, answer: string): Promise<void>;
+  /** Owner-submitted agent behind a thread: owner address, verification time and lifecycle status. */
+  ownerAgent(agentId: string): Promise<{ ownerEmail: string | null; verifiedAt: Date | null; status: string } | null>;
+  handleOwnerReply(i: { agentId: string; inboxId: string; messageId: string; body: string }): Promise<"owner_replied" | "owner_escalated">;
 }
 
 export type InboundResult =
-  | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped";
+  | "ignored" | "duplicate" | "unmatched" | "sender_mismatch" | "job_message" | "clarification_delivered" | "expert_reply" | "expert_reply_skipped"
+  | "owner_replied" | "owner_escalated";
 
 /** Pulls the bare address out of "Name <a@b.c>" and lowercases it. */
 export const bareAddress = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
@@ -54,6 +59,12 @@ export async function handleInbound(msg: InboundMessage, store: InboundStore): P
       if (!expected || expected.toLowerCase() !== sender) return "sender_mismatch";
       return (await store.recordExpertReply(thread.expertEngagementId, body)) ? "expert_reply" : "expert_reply_skipped";
     }
+    if (thread.publicAgentId) {
+      const owner = await store.ownerAgent(thread.publicAgentId);
+      if (!owner) return "unmatched";
+      if (!owner.ownerEmail || !owner.verifiedAt || bareAddress(owner.ownerEmail) !== sender) return "sender_mismatch";
+      return store.handleOwnerReply({ agentId: thread.publicAgentId, inboxId: msg.inboxId, messageId: msg.messageId, body });
+    }
     return "unmatched";
   } catch (err) {
     await store.release(msg.messageId); // let AgentMail's retry reprocess it
@@ -74,7 +85,7 @@ export function drizzleInboundStore(): InboundStore {
       await d().delete(schema.idempotencyKeys).where(eq(schema.idempotencyKeys.key, `agentmail:${messageId}`));
     },
     async findThread(threadId) {
-      const [row] = await d().select({ jobId: schema.emailThreads.jobId, expertEngagementId: schema.emailThreads.expertEngagementId })
+      const [row] = await d().select({ jobId: schema.emailThreads.jobId, expertEngagementId: schema.emailThreads.expertEngagementId, publicAgentId: schema.emailThreads.publicAgentId })
         .from(schema.emailThreads).where(eq(schema.emailThreads.threadId, threadId)).limit(1);
       return row ?? null;
     },
@@ -106,5 +117,11 @@ export function drizzleInboundStore(): InboundStore {
     async sendClarificationAnswer(jobId, answer) {
       await sendJobEvent(jobId, { type: "clarification_answer", answer });
     },
+    async ownerAgent(agentId) {
+      const a = schema.publicAgents;
+      const [row] = await d().select({ ownerEmail: a.ownerEmail, verifiedAt: a.verifiedAt, status: a.status }).from(a).where(eq(a.id, agentId)).limit(1);
+      return row ? { ownerEmail: row.ownerEmail, verifiedAt: row.verifiedAt ? new Date(row.verifiedAt) : null, status: row.status } : null;
+    },
+    handleOwnerReply: (i) => respondToOwner(i),
   };
 }

@@ -7,5 +7,6 @@ initBotId({
     { path: "/api/auth/request-link", method: "POST" },
     { path: "/api/jobs", method: "POST" },
     { path: "/api/experts/signup", method: "POST" },
+    { path: "/api/leaderboard/submit", method: "POST" },
   ],
 });

@@ -56,3 +56,19 @@ describe("budget and config", () => {
     expect(readConfig({ PUBLIC_AGENT_RERUN_HOURS: "x", PUBLIC_AGENT_DAILY_BUDGET_USD: "" }).dailyBudgetMicroUsd).toBe(3_000_000);
   });
 });
+
+describe("owner re-run requests", () => {
+  const H2 = 3_600_000;
+  const t = new Date("2026-11-07T12:00:00Z");
+  const base = { name: "x", active: true, termsUrl: "https://example.com/terms", authorizedNote: "owner verified", status: "active", ownerEmail: "o@example.com", verifiedAt: new Date("2026-11-01") };
+  it("runs an agent whose rerun request is newer than its latest run, ahead of older agents", () => {
+    const owned = { ...base, slug: "owned", rerunRequestedAt: new Date(t.getTime() - 1 * H2) };
+    const old = { ...base, slug: "old", ownerEmail: null, verifiedAt: null };
+    const lastRanAt = new Map([["owned", new Date(t.getTime() - 3 * H2)], ["old", new Date(t.getTime() - 48 * H2)]]);
+    expect(pickNextAgent([old, owned], { lastRanAt }, t, 24 * H2)?.slug).toBe("owned");
+  });
+  it("ignores a rerun request older than the latest run", () => {
+    const owned = { ...base, slug: "owned", rerunRequestedAt: new Date(t.getTime() - 5 * H2) };
+    expect(pickNextAgent([owned], { lastRanAt: new Map([["owned", new Date(t.getTime() - 3 * H2)]]) }, t, 24 * H2)).toBeNull();
+  });
+});

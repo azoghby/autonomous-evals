@@ -1,5 +1,5 @@
 /** DB access for the leaderboard. No server-only import so scripts/public-agents.ts can use it. Never throws on missing tables when reading. */
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "../../../../packages/core/src/db/client";
 import { publicAgents, publicAgentRuns, ENSURE_TABLES_SQL } from "./leaderboard-schema";
 import {
@@ -44,7 +44,7 @@ export async function insertRun(run: NewRun): Promise<void> {
 
 async function loadRanking(suiteVersion: string): Promise<{ agents: PublicAgentRow[]; ranked: RankedEntry[]; runs: Array<typeof publicAgentRuns.$inferSelect> }> {
   const [agents, runs] = await Promise.all([
-    db().select().from(publicAgents).where(eq(publicAgents.active, true)),
+    db().select().from(publicAgents).where(and(eq(publicAgents.visibility, "public"), or(eq(publicAgents.active, true), eq(publicAgents.status, "paused")))),
     db().select().from(publicAgentRuns).orderBy(desc(publicAgentRuns.ranAt)).limit(2000),
   ]);
   const latest = latestRunPerAgent(runs, suiteVersion);

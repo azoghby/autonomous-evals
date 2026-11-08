@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { Suite, type Finding } from "@ae/core/contracts/index";
 import type { EvalServices, ServiceContext } from "@ae/core/contracts/services";
 import { createLiteServices } from "@ae/core/lite/index";
+import { decrypt } from "@ae/core/storage/crypto";
 import { redTeamById } from "@ae/core/redteam/index";
 import { PublicAgentInput, assertAuthorizedToTest } from "./leaderboard-agents";
 import { SUITE_VERSION, scoreRun, toStoredFindings, percent, type StoredFinding } from "./leaderboard";
@@ -52,6 +53,8 @@ export interface RunOptions {
   log?: (line: string) => void;
   /** Existing public_agents.id: skips the upsert (cron path; avoids writing to public_agents). */
   agentId?: string;
+  /** Owner-submitted agents: AES-GCM ciphertext of the owner's key (public_agents.api_key_ciphertext). Decrypted here, never logged. */
+  apiKeyCiphertext?: string | null;
   /** Test seam; defaults to the lite engine. */
   services?: EvalServices;
 }
@@ -64,10 +67,12 @@ export async function runPublicAgent(row: PublicAgentInput, opts: RunOptions): P
   const timeoutMin = opts.timeoutMin ?? DEFAULT_TIMEOUT_MIN;
   const log = opts.log ?? ((l: string) => console.log(l));
   assertAuthorizedToTest(row);
-  const apiKey = resolveApiKey(row.authEnvVar);
-  const plan = `${row.slug}: ${row.model} @ ${row.endpointUrl} | ${suite.scenarios.length} scenarios | budget $${(budget / 1e6).toFixed(2)} | key ${row.authEnvVar ? (apiKey ? `from $${row.authEnvVar}` : `MISSING $${row.authEnvVar}`) : "none"}`;
+  const ownerKey = !!opts.apiKeyCiphertext;
+  const apiKey = ownerKey ? decrypt(opts.apiKeyCiphertext!) : resolveApiKey(row.authEnvVar);
+  const keyNote = ownerKey ? "owner key (encrypted at rest)" : row.authEnvVar ? (apiKey ? `from $${row.authEnvVar}` : `MISSING $${row.authEnvVar}`) : "none";
+  const plan = `${row.slug}: ${row.model} @ ${row.endpointUrl} | ${suite.scenarios.length} scenarios | budget $${(budget / 1e6).toFixed(2)} | key ${keyNote}`;
   if (opts.dryRun) { log(`[dry-run] ${plan}`); return { slug: row.slug, dryRun: true }; }
-  if (row.authEnvVar && !apiKey) throw new Error(`env var ${row.authEnvVar} is not set`);
+  if (!ownerKey && row.authEnvVar && !apiKey) throw new Error(`env var ${row.authEnvVar} is not set`);
   log(`[run] ${plan}`);
 
   const services = opts.services ?? createLiteServices();
