@@ -1,0 +1,1532 @@
+openapi: 3.1.0
+info:
+  title: tau2-bench Retail API
+  version: 1.0.0
+  description: Retail customer-service backend converted from tau2-bench (Sierra Research, MIT). Look up users, orders and products; cancel or modify pending orders; return or exchange delivered orders; update a user's default address; transfer to a human agent.
+servers:
+  - url: https://api.retail.example/v1
+paths:
+  /calculate:
+    post:
+      operationId: calculate
+      summary: Calculate the result of a mathematical expression.
+      description: The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces. Returns the result of the expression as a string rounded to 2 decimal places (for example '2 + 2' returns '4.0'). Any other character is an invalid expression and is an error.
+      x-effect: read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - expression
+              properties:
+                expression:
+                  type: string
+                  description: The mathematical expression to calculate, such as '2 + 2'. The expression can contain numbers, operators (+, -, *, /), parentheses, and spaces.
+                  example: 2 + 2
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                example: '4.0'
+  /orders/{order_id}/cancel:
+    post:
+      operationId: cancel_pending_order
+      summary: Cancel a pending order.
+      description: Cancel a pending order. If the order is already processed or delivered, it cannot be cancelled. The agent needs to explain the cancellation detail and ask for explicit user confirmation (yes/no) to proceed. If the user confirms, the order status will be changed to 'cancelled' and the payment will be refunded. The refund will be added to the user's gift card balance immediately if the payment was made using a gift card, otherwise the refund would take 5-7 business days to process. The function returns the order details after the cancellation. If a precondition fails the database is left unchanged and the call returns an error.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH chk AS (SELECT o.id, o.user_id FROM orders o WHERE o.id = :order_id AND o.status = 'pending' AND :reason IN ('no longer needed', 'ordered by mistake')),
+            gc AS (UPDATE user_payment_methods pm SET balance = round(pm.balance + s.total, 2) FROM (SELECT p.payment_method_id, sum(p.amount) AS total FROM order_payments p JOIN chk ON chk.id = p.order_id GROUP BY p.payment_method_id) s, chk WHERE pm.id = s.payment_method_id AND pm.user_id = chk.user_id AND pm.source = 'gift_card' RETURNING pm.id),
+            ins AS (INSERT INTO order_payments (order_id, transaction_type, amount, payment_method_id) SELECT p.order_id, 'refund', p.amount, p.payment_method_id FROM order_payments p JOIN chk ON chk.id = p.order_id ORDER BY p.id RETURNING *),
+            upd AS (UPDATE orders SET status = 'cancelled', cancel_reason = :reason FROM chk WHERE orders.id = chk.id RETURNING orders.*)
+            SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id UNION ALL SELECT n.id, n.transaction_type, n.amount, n.payment_method_id FROM ins n WHERE n.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM upd o
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  enum:
+                    - no longer needed
+                    - ordered by mistake
+                  description: The reason for cancellation, which should be either 'no longer needed' or 'ordered by mistake'.
+                  example: no longer needed
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /orders/{order_id}/exchange:
+    post:
+      operationId: exchange_delivered_order_items
+      summary: Exchange items in a delivered order to new items of the same product type.
+      description: Exchange items in a delivered order to new items of the same product type. For a delivered order, return or exchange can be only done once by the agent. The agent needs to explain the exchange detail and ask for explicit user confirmation (yes/no) to proceed. The order status becomes 'exchange requested'. Each new item must be an available variant of the same product as the item it replaces; if the payment method is a gift card it must have enough balance to cover the price difference. If a precondition fails the database is left unchanged and the call returns an error.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH req AS (SELECT t.old_id, n.new_id, t.ord, row_number() OVER (PARTITION BY t.old_id ORDER BY t.ord) AS occ FROM jsonb_array_elements_text(CAST(:item_ids AS jsonb)) WITH ORDINALITY AS t(old_id, ord) JOIN jsonb_array_elements_text(CAST(:new_item_ids AS jsonb)) WITH ORDINALITY AS n(new_id, ord) ON n.ord = t.ord),
+            oi AS (SELECT DISTINCT ON (i.item_id) i.item_id, i.product_id, i.price FROM order_items i WHERE i.order_id = :order_id ORDER BY i.item_id, i.id),
+            matched AS (SELECT r.old_id, r.new_id, oi.price AS old_price, v.price AS new_price FROM req r JOIN oi ON oi.item_id = r.old_id JOIN product_variants v ON v.item_id = r.new_id AND v.product_id = oi.product_id AND v.available),
+            chk AS (SELECT o.id, round(COALESCE((SELECT sum(m.new_price - m.old_price) FROM matched m), 0), 2) AS diff FROM orders o JOIN user_payment_methods pm ON pm.id = :payment_method_id AND pm.user_id = o.user_id WHERE o.id = :order_id AND o.status = 'delivered' AND jsonb_array_length(CAST(:item_ids AS jsonb)) = jsonb_array_length(CAST(:new_item_ids AS jsonb)) AND NOT EXISTS (SELECT 1 FROM (SELECT e.x, count(*) AS c FROM jsonb_array_elements_text(CAST(:item_ids AS jsonb)) AS e(x) GROUP BY e.x) r WHERE r.c > (SELECT count(*) FROM order_items i WHERE i.order_id = :order_id AND i.item_id = r.x)) AND (SELECT count(*) FROM matched) = jsonb_array_length(CAST(:item_ids AS jsonb)) AND (pm.source <> 'gift_card' OR pm.balance >= round(COALESCE((SELECT sum(m.new_price - m.old_price) FROM matched m), 0), 2))),
+            upd AS (UPDATE orders SET status = 'exchange requested', exchange_items = COALESCE((SELECT jsonb_agg(e.x ORDER BY e.x COLLATE "C") FROM jsonb_array_elements_text(CAST(:item_ids AS jsonb)) AS e(x)), '[]'::jsonb), exchange_new_items = COALESCE((SELECT jsonb_agg(e.x ORDER BY e.x COLLATE "C") FROM jsonb_array_elements_text(CAST(:new_item_ids AS jsonb)) AS e(x)), '[]'::jsonb), exchange_payment_method_id = :payment_method_id, exchange_price_difference = chk.diff FROM chk WHERE orders.id = chk.id RETURNING orders.*)
+            SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM upd o
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - item_ids
+                - new_item_ids
+                - payment_method_id
+              properties:
+                item_ids:
+                  type: array
+                  items:
+                    type: string
+                  description: The item ids to be exchanged, each such as '1008292230'. There could be duplicate items in the list.
+                  example:
+                    - '1008292230'
+                new_item_ids:
+                  type: array
+                  items:
+                    type: string
+                  description: The item ids to be exchanged for, each such as '1008292230'. There could be duplicate items in the list. Each new item id should match the item id in the same position and be of the same product.
+                  example:
+                    - '1008292231'
+                payment_method_id:
+                  type: string
+                  description: The payment method id to pay or receive refund for the item price difference, such as 'gift_card_0000000' or 'credit_card_0000000'. These can be looked up from the user or order details.
+                  example: credit_card_0000000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /users/lookup-by-name:
+    get:
+      operationId: find_user_id_by_name_zip
+      summary: Find user id by first name, last name, and zip code.
+      description: Find user id by first name, last name, and zip code. If the user is not found (or the match is ambiguous), the call returns an error. By default, find user id by email, and only call this function if the user is not found by email or cannot remember email.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT min(id) AS user_id FROM users WHERE lower(btrim(first_name)) = lower(btrim(:first_name)) AND lower(btrim(last_name)) = lower(btrim(:last_name)) AND zip = :zip HAVING count(*) = 1
+      parameters:
+        - name: first_name
+          in: query
+          required: true
+          description: The first name of the customer, such as 'John'.
+          schema:
+            type: string
+          example: Mei
+        - name: last_name
+          in: query
+          required: true
+          description: The last name of the customer, such as 'Doe'.
+          schema:
+            type: string
+          example: Davis
+        - name: zip
+          in: query
+          required: true
+          description: The zip code of the customer, such as '12345'.
+          schema:
+            type: string
+          example: '80217'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user_id
+                properties:
+                  user_id:
+                    type: string
+                    example: mei_davis_8935
+  /users/lookup-by-email:
+    get:
+      operationId: find_user_id_by_email
+      summary: Find user id by email.
+      description: Find user id by email. If the user is not found (or the match is ambiguous), the call returns an error.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT min(id) AS user_id FROM users WHERE lower(btrim(email)) = lower(btrim(:email)) HAVING count(*) = 1
+      parameters:
+        - name: email
+          in: query
+          required: true
+          description: The email of the user, such as 'something@example.com'.
+          schema:
+            type: string
+          example: mei.davis6811@example.com
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user_id
+                properties:
+                  user_id:
+                    type: string
+                    example: mei_davis_8935
+  /orders/{order_id}:
+    get:
+      operationId: get_order_details
+      summary: Get the status and details of an order.
+      description: Get the status and details of an order.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM orders o WHERE o.id = :order_id
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /products/{product_id}:
+    get:
+      operationId: get_product_details
+      summary: Get the inventory details of a product.
+      description: Get the inventory details of a product, including every variant item with its options, availability and price.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT p.name, p.id AS product_id, COALESCE((SELECT json_object_agg(v.item_id, json_build_object('item_id', v.item_id, 'options', v.options, 'available', v.available, 'price', v.price) ORDER BY v.item_id) FROM product_variants v WHERE v.product_id = p.id), '{}'::json) AS variants FROM products p WHERE p.id = :product_id
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          description: The product id, such as '6086499569'. Be careful the product id is different from the item id.
+          schema:
+            type: string
+          example: '9523456873'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - name
+                  - product_id
+                  - variants
+                properties:
+                  name:
+                    type: string
+                  product_id:
+                    type: string
+                  variants:
+                    type: object
+                    description: Variants keyed by item id; each has item_id, options, available, price.
+  /users/{user_id}:
+    get:
+      operationId: get_user_details
+      summary: Get the details of a user, including their orders.
+      description: Get the details of a user, including their orders.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT u.id AS user_id, json_build_object('first_name', u.first_name, 'last_name', u.last_name) AS name, json_build_object('address1', u.address1, 'address2', u.address2, 'city', u.city, 'country', u.country, 'state', u.state, 'zip', u.zip) AS address, u.email, COALESCE((SELECT json_object_agg(m.id, CASE m.source WHEN 'credit_card' THEN json_build_object('source', m.source, 'id', m.id, 'brand', m.brand, 'last_four', m.last_four) WHEN 'gift_card' THEN json_build_object('source', m.source, 'id', m.id, 'balance', m.balance) ELSE json_build_object('source', m.source, 'id', m.id) END ORDER BY m.id) FROM user_payment_methods m WHERE m.user_id = u.id), '{}'::json) AS payment_methods, COALESCE((SELECT json_agg(r.id ORDER BY r.id) FROM orders r WHERE r.user_id = u.id), '[]'::json) AS orders FROM users u WHERE u.id = :user_id
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The user id, such as 'sara_doe_496'.
+          schema:
+            type: string
+          example: mei_davis_8935
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user_id
+                  - name
+                  - address
+                  - email
+                  - payment_methods
+                  - orders
+                properties:
+                  user_id:
+                    type: string
+                  name:
+                    type: object
+                    properties:
+                      first_name:
+                        type: string
+                      last_name:
+                        type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  email:
+                    type: string
+                  payment_methods:
+                    type: object
+                  orders:
+                    type: array
+                    items:
+                      type: string
+  /products:
+    get:
+      operationId: list_all_product_types
+      summary: List the name and product id of all product types.
+      description: List the name and product id of all product types. Each product type has a variety of different items with unique item ids and options. Returns an object mapping product names to their product IDs, sorted alphabetically by name.
+      x-effect: read
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - SELECT json_object_agg(name, id ORDER BY name COLLATE "C") AS product_types FROM products
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - product_types
+                properties:
+                  product_types:
+                    type: object
+                    description: Product name -> product id.
+  /orders/{order_id}/address:
+    post:
+      operationId: modify_pending_order_address
+      summary: Modify the shipping address of a pending order.
+      description: Modify the shipping address of a pending order. The agent needs to explain the modification detail and ask for explicit user confirmation (yes/no) to proceed. If a precondition fails the database is left unchanged and the call returns an error.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH upd AS (UPDATE orders SET address1 = :address1, address2 = :address2, city = :city, state = :state, country = :country, zip = :zip WHERE id = :order_id AND status LIKE '%pending%' RETURNING *)
+            SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM upd o
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address1
+                - address2
+                - city
+                - state
+                - country
+                - zip
+              properties:
+                address1:
+                  type: string
+                  description: The first line of the address, such as '123 Main St'.
+                  example: 123 Main St
+                address2:
+                  type: string
+                  description: The second line of the address, such as 'Apt 1' or ''.
+                  example: Apt 1
+                city:
+                  type: string
+                  description: The city, such as 'San Francisco'.
+                  example: San Francisco
+                state:
+                  type: string
+                  description: The state, such as 'CA'.
+                  example: CA
+                country:
+                  type: string
+                  description: The country, such as 'USA'.
+                  example: USA
+                zip:
+                  type: string
+                  description: The zip code, such as '12345'.
+                  example: '12345'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /orders/{order_id}/items:
+    post:
+      operationId: modify_pending_order_items
+      summary: Modify items in a pending order to new items of the same product type.
+      description: Modify items in a pending order to new items of the same product type. For a pending order, this function can only be called once. The agent needs to explain the exchange detail and ask for explicit user confirmation (yes/no) to proceed. The order status becomes 'pending (item modified)'. The price difference is charged to (or refunded to) the given payment method; a gift card must have enough balance. If a precondition fails the database is left unchanged and the call returns an error.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH oi AS (SELECT i.*, row_number() OVER (PARTITION BY i.item_id ORDER BY i.id) AS occ FROM order_items i WHERE i.order_id = :order_id),
+            req AS (SELECT t.old_id, n.new_id, t.ord, row_number() OVER (PARTITION BY t.old_id ORDER BY t.ord) AS occ FROM jsonb_array_elements_text(CAST(:item_ids AS jsonb)) WITH ORDINALITY AS t(old_id, ord) JOIN jsonb_array_elements_text(CAST(:new_item_ids AS jsonb)) WITH ORDINALITY AS n(new_id, ord) ON n.ord = t.ord),
+            matched AS (SELECT oi.id AS line_id, r.new_id, v.price AS new_price, v.options AS new_options, oi.price AS old_price FROM req r JOIN oi ON oi.item_id = r.old_id AND oi.occ = r.occ JOIN product_variants v ON v.item_id = r.new_id AND v.product_id = oi.product_id AND v.available),
+            chk AS (SELECT o.id, o.user_id, COALESCE((SELECT sum(m.new_price - m.old_price) FROM matched m), 0) AS diff FROM orders o JOIN user_payment_methods pm ON pm.id = :payment_method_id AND pm.user_id = o.user_id WHERE o.id = :order_id AND o.status = 'pending' AND jsonb_array_length(CAST(:item_ids AS jsonb)) = jsonb_array_length(CAST(:new_item_ids AS jsonb)) AND (SELECT count(*) FROM matched) = jsonb_array_length(CAST(:item_ids AS jsonb)) AND NOT EXISTS (SELECT 1 FROM req WHERE old_id = new_id) AND (pm.source <> 'gift_card' OR pm.balance >= COALESCE((SELECT sum(m.new_price - m.old_price) FROM matched m), 0))),
+            pay AS (INSERT INTO order_payments (order_id, transaction_type, amount, payment_method_id) SELECT chk.id, CASE WHEN chk.diff > 0 THEN 'payment' ELSE 'refund' END, abs(chk.diff), CAST(:payment_method_id AS text) FROM chk RETURNING *),
+            gc AS (UPDATE user_payment_methods pm SET balance = round(pm.balance - chk.diff, 2) FROM chk WHERE pm.id = :payment_method_id AND pm.user_id = chk.user_id AND pm.source = 'gift_card' RETURNING pm.id),
+            ui AS (UPDATE order_items i SET item_id = m.new_id, price = m.new_price, options = m.new_options FROM matched m, chk WHERE i.id = m.line_id AND i.order_id = chk.id RETURNING i.*),
+            uo AS (UPDATE orders SET status = 'pending (item modified)' FROM chk WHERE orders.id = chk.id RETURNING orders.*)
+            SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id AND x.id NOT IN (SELECT u.id FROM ui u) UNION ALL SELECT u.id, u.name, u.product_id, u.item_id, u.price, u.options FROM ui u) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id UNION ALL SELECT n.id, n.transaction_type, n.amount, n.payment_method_id FROM pay n WHERE n.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM uo o
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - item_ids
+                - new_item_ids
+                - payment_method_id
+              properties:
+                item_ids:
+                  type: array
+                  items:
+                    type: string
+                  description: The item ids to be modified, each such as '1008292230'. There could be duplicate items in the list.
+                  example:
+                    - '1008292230'
+                new_item_ids:
+                  type: array
+                  items:
+                    type: string
+                  description: The item ids to be modified for, each such as '1008292230'. There could be duplicate items in the list. Each new item id should match the item id in the same position and be of the same product.
+                  example:
+                    - '1008292231'
+                payment_method_id:
+                  type: string
+                  description: The payment method id to pay or receive refund for the item price difference, such as 'gift_card_0000000' or 'credit_card_0000000'. These can be looked up from the user or order details.
+                  example: credit_card_0000000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /orders/{order_id}/payment:
+    post:
+      operationId: modify_pending_order_payment
+      summary: Modify the payment method of a pending order.
+      description: Modify the payment method of a pending order. The agent needs to explain the modification detail and ask for explicit user confirmation (yes/no) to proceed. The new payment method must differ from the current one, and a gift card must have enough balance to cover the order amount. If a precondition fails the database is left unchanged and the call returns an error.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH chk AS (SELECT o.id, o.user_id, p.amount, p.payment_method_id AS old_pm FROM orders o JOIN order_payments p ON p.order_id = o.id JOIN user_payment_methods npm ON npm.id = :payment_method_id AND npm.user_id = o.user_id WHERE o.id = :order_id AND o.status LIKE '%pending%' AND (SELECT count(*) FROM order_payments x WHERE x.order_id = o.id) = 1 AND p.transaction_type = 'payment' AND p.payment_method_id <> :payment_method_id AND (npm.source <> 'gift_card' OR npm.balance >= p.amount)),
+            gc AS (UPDATE user_payment_methods pm SET balance = round(pm.balance + CASE WHEN pm.id = chk.old_pm THEN chk.amount ELSE 0 END - CASE WHEN pm.id = :payment_method_id THEN chk.amount ELSE 0 END, 2) FROM chk WHERE pm.user_id = chk.user_id AND pm.source = 'gift_card' AND pm.id IN (chk.old_pm, :payment_method_id) RETURNING pm.id),
+            ins AS (INSERT INTO order_payments (order_id, transaction_type, amount, payment_method_id) SELECT v.order_id, v.t, v.amount, v.pm FROM (SELECT chk.id AS order_id, 1 AS n, 'payment' AS t, chk.amount, CAST(:payment_method_id AS text) AS pm FROM chk UNION ALL SELECT chk.id, 2, 'refund', chk.amount, chk.old_pm FROM chk) v ORDER BY v.n RETURNING *)
+            SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id UNION ALL SELECT n.id, n.transaction_type, n.amount, n.payment_method_id FROM ins n WHERE n.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM orders o JOIN chk ON chk.id = o.id
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - payment_method_id
+              properties:
+                payment_method_id:
+                  type: string
+                  description: The payment method id to pay or receive refund for the item price difference, such as 'gift_card_0000000' or 'credit_card_0000000'. These can be looked up from the user or order details.
+                  example: credit_card_0000000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /users/{user_id}/address:
+    post:
+      operationId: modify_user_address
+      summary: Modify the default address of a user.
+      description: Modify the default address of a user. The agent needs to explain the modification detail and ask for explicit user confirmation (yes/no) to proceed.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH upd AS (UPDATE users SET address1 = :address1, address2 = :address2, city = :city, state = :state, country = :country, zip = :zip WHERE id = :user_id RETURNING *)
+            SELECT u.id AS user_id, json_build_object('first_name', u.first_name, 'last_name', u.last_name) AS name, json_build_object('address1', u.address1, 'address2', u.address2, 'city', u.city, 'country', u.country, 'state', u.state, 'zip', u.zip) AS address, u.email, COALESCE((SELECT json_object_agg(m.id, CASE m.source WHEN 'credit_card' THEN json_build_object('source', m.source, 'id', m.id, 'brand', m.brand, 'last_four', m.last_four) WHEN 'gift_card' THEN json_build_object('source', m.source, 'id', m.id, 'balance', m.balance) ELSE json_build_object('source', m.source, 'id', m.id) END ORDER BY m.id) FROM user_payment_methods m WHERE m.user_id = u.id), '{}'::json) AS payment_methods, COALESCE((SELECT json_agg(r.id ORDER BY r.id) FROM orders r WHERE r.user_id = u.id), '[]'::json) AS orders FROM upd u
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The user id, such as 'sara_doe_496'.
+          schema:
+            type: string
+          example: mei_davis_8935
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address1
+                - address2
+                - city
+                - state
+                - country
+                - zip
+              properties:
+                address1:
+                  type: string
+                  description: The first line of the address, such as '123 Main St'.
+                  example: 123 Main St
+                address2:
+                  type: string
+                  description: The second line of the address, such as 'Apt 1' or ''.
+                  example: Apt 1
+                city:
+                  type: string
+                  description: The city, such as 'San Francisco'.
+                  example: San Francisco
+                state:
+                  type: string
+                  description: The state, such as 'CA'.
+                  example: CA
+                country:
+                  type: string
+                  description: The country, such as 'USA'.
+                  example: USA
+                zip:
+                  type: string
+                  description: The zip code, such as '12345'.
+                  example: '12345'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - user_id
+                  - name
+                  - address
+                  - email
+                  - payment_methods
+                  - orders
+                properties:
+                  user_id:
+                    type: string
+                  name:
+                    type: object
+                    properties:
+                      first_name:
+                        type: string
+                      last_name:
+                        type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  email:
+                    type: string
+                  payment_methods:
+                    type: object
+                  orders:
+                    type: array
+                    items:
+                      type: string
+  /orders/{order_id}/return:
+    post:
+      operationId: return_delivered_order_items
+      summary: Return some items of a delivered order.
+      description: Return some items of a delivered order. The order status will be changed to 'return requested'. The agent needs to explain the return detail and ask for explicit user confirmation (yes/no) to proceed. The user will receive follow-up email for how and where to return the item. The refund payment method must be the original payment method or a gift card of the user. If a precondition fails the database is left unchanged and the call returns an error.
+      x-effect: write
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - |-
+            WITH chk AS (SELECT o.id FROM orders o JOIN user_payment_methods pm ON pm.id = :payment_method_id AND pm.user_id = o.user_id WHERE o.id = :order_id AND o.status = 'delivered' AND (pm.source = 'gift_card' OR pm.id = (SELECT p.payment_method_id FROM order_payments p WHERE p.order_id = o.id ORDER BY p.id LIMIT 1)) AND NOT EXISTS (SELECT 1 FROM (SELECT e.x, count(*) AS c FROM jsonb_array_elements_text(CAST(:item_ids AS jsonb)) AS e(x) GROUP BY e.x) r WHERE r.c > (SELECT count(*) FROM order_items i WHERE i.order_id = :order_id AND i.item_id = r.x))),
+            upd AS (UPDATE orders SET status = 'return requested', return_items = COALESCE((SELECT jsonb_agg(e.x ORDER BY e.x COLLATE "C") FROM jsonb_array_elements_text(CAST(:item_ids AS jsonb)) AS e(x)), '[]'::jsonb), return_payment_method_id = :payment_method_id FROM chk WHERE orders.id = chk.id RETURNING orders.*)
+            SELECT o.id AS order_id, o.user_id, json_build_object('address1', o.address1, 'address2', o.address2, 'city', o.city, 'country', o.country, 'state', o.state, 'zip', o.zip) AS address, COALESCE((SELECT json_agg(json_build_object('name', i.name, 'product_id', i.product_id, 'item_id', i.item_id, 'price', i.price, 'options', i.options) ORDER BY i.id) FROM (SELECT x.id, x.name, x.product_id, x.item_id, x.price, x.options FROM order_items x WHERE x.order_id = o.id) i), '[]'::json) AS items, o.status, COALESCE((SELECT json_agg(json_build_object('tracking_id', f.tracking_ids, 'item_ids', f.item_ids) ORDER BY f.id) FROM order_fulfillments f WHERE f.order_id = o.id), '[]'::json) AS fulfillments, COALESCE((SELECT json_agg(json_build_object('transaction_type', p.transaction_type, 'amount', p.amount, 'payment_method_id', p.payment_method_id) ORDER BY p.id) FROM (SELECT x.id, x.transaction_type, x.amount, x.payment_method_id FROM order_payments x WHERE x.order_id = o.id) p), '[]'::json) AS payment_history, o.cancel_reason, o.exchange_items, o.exchange_new_items, o.exchange_payment_method_id, o.exchange_price_difference, o.return_items, o.return_payment_method_id FROM upd o
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          description: The order id, such as '#W0000000'. Be careful there is a '#' symbol at the beginning of the order id.
+          schema:
+            type: string
+          example: '#W1267569'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - item_ids
+                - payment_method_id
+              properties:
+                item_ids:
+                  type: array
+                  items:
+                    type: string
+                  description: The item ids to be returned, each such as '1008292230'. There could be duplicate items in the list.
+                  example:
+                    - '1008292230'
+                payment_method_id:
+                  type: string
+                  description: The payment method id to pay or receive refund for the item price difference, such as 'gift_card_0000000' or 'credit_card_0000000'. These can be looked up from the user or order details.
+                  example: credit_card_0000000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - order_id
+                  - user_id
+                  - address
+                  - items
+                  - status
+                  - fulfillments
+                  - payment_history
+                properties:
+                  order_id:
+                    type: string
+                    example: '#W1267569'
+                  user_id:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      address1:
+                        type: string
+                      address2:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+                      zip:
+                        type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        product_id:
+                          type: string
+                        item_id:
+                          type: string
+                        price:
+                          type: number
+                        options:
+                          type: object
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - pending (item modified)
+                      - processed
+                      - delivered
+                      - cancelled
+                      - exchange requested
+                      - return requested
+                  fulfillments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tracking_id:
+                          type: array
+                          items:
+                            type: string
+                        item_ids:
+                          type: array
+                          items:
+                            type: string
+                  payment_history:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        transaction_type:
+                          type: string
+                          enum:
+                            - payment
+                            - refund
+                        amount:
+                          type: number
+                        payment_method_id:
+                          type: string
+                  cancel_reason:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_new_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  exchange_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+                  exchange_price_difference:
+                    type:
+                      - number
+                      - 'null'
+                  return_items:
+                    type:
+                      - array
+                      - 'null'
+                    items:
+                      type: string
+                  return_payment_method_id:
+                    type:
+                      - string
+                      - 'null'
+  /transfers:
+    post:
+      operationId: transfer_to_human_agents
+      summary: Transfer the user to a human agent, with a summary of the user's issue.
+      description: Transfer the user to a human agent, with a summary of the user's issue. Only transfer if the user explicitly asks for a human agent, or given the policy and the available tools, you cannot solve the user's issue. Returns a message indicating the user has been transferred to a human agent; the transfer is recorded in the sandbox outbox.
+      x-effect: external
+      x-sandbox-sql:
+        resultShape: row
+        statements:
+          - INSERT INTO sandbox_outbox (tool, args, payload) VALUES ('transfer_to_human_agents', jsonb_build_object('summary', CAST(:summary AS text)), jsonb_build_object('summary', CAST(:summary AS text), 'result', 'Transfer successful')) RETURNING 'Transfer successful' AS result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - summary
+              properties:
+                summary:
+                  type: string
+                  description: A summary of the user's issue.
+                  example: The user wants a price match, which is not supported.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - result
+                properties:
+                  result:
+                    type: string
+                    example: Transfer successful
