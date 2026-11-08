@@ -1,0 +1,108 @@
+diff --git a/apps/web/src/server/naive-text-execution-selection.test.ts b/apps/web/src/server/naive-text-execution-selection.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-text-execution-selection.test.ts
+@@ -0,0 +1,30 @@
++import { readFileSync } from 'node:fs';
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,expect,it } from 'vitest';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++import { enrollNewNaiveTextExecution,resolveNaiveTextExecution } from './naive-text-execution-selection';
++const identity={jobId:'123e4567-e89b-42d3-a456-426614174000',customerId:'223e4567-e89b-42d3-a456-426614174000',environment:'test' as const};
++const enabled={realMode:true,factualGapEnabled:true};
++const dbs:PGlite[]=[];
++afterEach(async()=>{for(const pg of dbs.splice(0))await pg.close();});
++async function fixture(){
++ const pg=new PGlite();dbs.push(pg);
++ await pg.exec('CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid,environment text,package text,is_mock boolean)');
++ await pg.exec(readFileSync('packages/core/src/evals/integration/migrations/001-text-integration.sql','utf8'));
++ const sql:AgentTransactionalSql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(tx=>fn({query:(q,p)=>tx.query(q,p)}))};
++ async function insert(tx:Parameters<Parameters<AgentTransactionalSql['transaction']>[0]>[0]){await tx.query(`INSERT INTO jobs VALUES($1,$2,'test','text_eval',false)`,[identity.jobId,identity.customerId]);}
++ async function enroll(factualGapEnabled=true,expertTaskId='owner-task-v1'){return sql.transaction(async tx=>{await insert(tx);return enrollNewNaiveTextExecution(tx,identity,{factualGapEnabled,expertTaskId});});}
++ async function bind(id:string){const value={job:identity,designId:id,versionLabel:id};await pg.query(`INSERT INTO text_integration.checkpoints VALUES($1,'naive_method_binding',$2,$3,'token','completed',$4::jsonb)`,[identity.jobId,id,reviewDigest(value),JSON.stringify(value)]);}
++ return {pg,sql,insert,enroll,bind,resolve:(options=enabled)=>resolveNaiveTextExecution(sql,identity,options)};
++}
++it('an absent enrollment marker pins legacy despite enabled flags',async()=>{const f=await fixture();await f.sql.transaction(f.insert);expect(await f.resolve()).toMatchObject({status:'ready',profile:{designId:'generic-text-v1'}});expect(await f.resolve()).toEqual(await f.resolve());});
++it('atomically enrolls a new job and pins exact owner task across restart',async()=>{const f=await fixture();const profile=await f.enroll();expect(profile).toMatchObject({designId:'generic-text-factual-gap-v1',factualGapPolicy:'propose_missing_reference.v1',expertTaskId:'owner-task-v1'});expect(await f.resolve()).toEqual({status:'ready',profile});expect(await f.sql.transaction(tx=>enrollNewNaiveTextExecution(tx,identity,{factualGapEnabled:true,expertTaskId:'owner-task-v1'}))).toEqual(profile);});
++it('rolls back job insertion with invalid enrollment',async()=>{const f=await fixture();await expect(f.enroll(true,'bad task')).rejects.toThrow();expect((await f.pg.query('SELECT * FROM jobs')).rows).toHaveLength(0);});
++it('rollback flags hold selected factual jobs without rewriting identity',async()=>{const f=await fixture();const profile=await f.enroll();for(const options of [{realMode:true,factualGapEnabled:false},{realMode:false,factualGapEnabled:true}])expect(await f.resolve(options)).toEqual({status:'on_hold',profile});expect(await f.resolve()).toEqual({status:'ready',profile});});
++it('disabled real mode holds legacy execution too',async()=>{const f=await fixture();await f.enroll(false);expect(await f.resolve({realMode:false,factualGapEnabled:false})).toMatchObject({status:'on_hold',profile:{designId:'generic-text-v1'}});});
++it('rejects changed task and attempted upgrade of a pinned legacy job',async()=>{const f=await fixture();await f.enroll(false);await expect(f.sql.transaction(tx=>enrollNewNaiveTextExecution(tx,identity,{factualGapEnabled:true,expertTaskId:'owner-task-v1'}))).rejects.toThrow('selection_conflict');const g=await fixture();await g.enroll();await expect(g.sql.transaction(tx=>enrollNewNaiveTextExecution(tx,identity,{factualGapEnabled:true,expertTaskId:'different-task'}))).rejects.toThrow('selection_conflict');});
++it('accepts exact legacy binding without a selection marker',async()=>{const f=await fixture();await f.sql.transaction(f.insert);await f.bind('generic-text-v1');expect(await f.resolve()).toMatchObject({profile:{designId:'generic-text-v1'}});});
++it('rejects multiple bindings, unknown versions, and unmarked new-policy bindings',async()=>{for(const ids of [['generic-text-v1','generic-text-factual-gap-v1'],['unknown'],['generic-text-factual-gap-v1']]){const f=await fixture();await f.sql.transaction(f.insert);for(const id of ids)await f.bind(id);await expect(f.resolve()).rejects.toThrow('selection_conflict');}});
++it('rejects enrollment after any design binding',async()=>{const f=await fixture();await f.sql.transaction(f.insert);await f.bind('generic-text-v1');await expect(f.sql.transaction(tx=>enrollNewNaiveTextExecution(tx,identity,{factualGapEnabled:true,expertTaskId:'owner-task-v1'}))).rejects.toThrow('selection_conflict');});
++it('rejects canonical owner/environment changes and corrupt checkpoint bodies',async()=>{const f=await fixture();await f.enroll();for(const changed of [{...identity,customerId:'323e4567-e89b-42d3-a456-426614174000'},{...identity,environment:'live' as const}])await expect(resolveNaiveTextExecution(f.sql,changed,enabled)).rejects.toThrow('selection_conflict');await f.pg.query(`UPDATE text_integration.checkpoints SET value=jsonb_set(value,'{profile,expertTaskId}','"changed"')`);await expect(f.resolve()).rejects.toThrow('selection_conflict');});
+diff --git a/apps/web/src/server/naive-text-execution-selection.ts b/apps/web/src/server/naive-text-execution-selection.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/naive-text-execution-selection.ts
+@@ -0,0 +1,68 @@
++import 'server-only';
++import { randomUUID } from 'node:crypto';
++import { z } from 'zod';
++import type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { reviewDigest } from '@ae/core/evals/data/binding';
++
++const identitySchema = z.object({ jobId: z.string().uuid(), customerId: z.string().uuid(), environment: z.enum(['test','live']) }).strict();
++export type NaiveTextExecutionIdentity = z.infer<typeof identitySchema>;
++const legacy = { policyId:'generic-text-v1', designId:'generic-text-v1', versionLabel:'generic-text-v1', admissionPolicyId:'automated-text-design-v1' } as const;
++const factual = { policyId:'generic-text-factual-gap-v1', designId:'generic-text-factual-gap-v1', versionLabel:'generic-text-factual-gap-v1', admissionPolicyId:'automated-text-design-factual-gap-v1', factualGapPolicy:'propose_missing_reference.v1' } as const;
++const task = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:_-]{0,95}$/);
++const legacySchema = z.object({policyId:z.literal(legacy.policyId),designId:z.literal(legacy.designId),versionLabel:z.literal(legacy.versionLabel),admissionPolicyId:z.literal(legacy.admissionPolicyId)}).strict();
++const factualSchema = z.object({policyId:z.literal(factual.policyId),designId:z.literal(factual.designId),versionLabel:z.literal(factual.versionLabel),admissionPolicyId:z.literal(factual.admissionPolicyId),factualGapPolicy:z.literal(factual.factualGapPolicy),expertTaskId:task}).strict();
++const selectionSchema = z.object({schemaVersion:z.literal('naive_text_execution_selection.v1'),identity:identitySchema,profile:z.union([legacySchema,factualSchema])}).strict();
++export type NaiveTextExecutionProfile = z.infer<typeof selectionSchema>['profile'];
++type Selection = z.infer<typeof selectionSchema>;
++const fail = ():never => { throw new Error('naive_text_execution_selection_conflict'); };
++async function canonicalJob(tx:AgentSqlExecutor,identity:NaiveTextExecutionIdentity){
++ identity=identitySchema.parse(identity);
++ const row=(await tx.query<{customer_id:string;environment:string;package:string;is_mock:boolean}>('SELECT customer_id::text,environment,package,is_mock FROM jobs WHERE id=$1 FOR UPDATE',[identity.jobId])).rows[0];
++ if(!row||row.customer_id!==identity.customerId||row.environment!==identity.environment||row.package!=='text_eval'||row.is_mock)return fail();
++}
++async function bindings(tx:AgentSqlExecutor,identity:NaiveTextExecutionIdentity,profile?:NaiveTextExecutionProfile){
++ const rows=(await tx.query<{id:string;state:string;input_digest:string;value:any}>(`SELECT id,state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_method_binding' FOR SHARE`,[identity.jobId])).rows;
++ if(rows.length>1)return fail();
++ for(const r of rows){
++  if(!profile||r.id!==profile.designId||r.state!=='completed'||r.input_digest!==reviewDigest(r.value)||r.value?.designId!==profile.designId||r.value?.versionLabel!==profile.versionLabel||r.value?.job?.jobId!==identity.jobId||r.value?.job?.customerId!==identity.customerId||r.value?.job?.environment!==identity.environment)return fail();
++ }
++ return rows.length;
++}
++async function retained(tx:AgentSqlExecutor,identity:NaiveTextExecutionIdentity):Promise<Selection|null>{
++ const row=(await tx.query<{state:string;input_digest:string;value:unknown}>(`SELECT state,input_digest,value FROM text_integration.checkpoints WHERE job_id=$1 AND kind='naive_execution_policy' AND id='selection-v1' FOR UPDATE`,[identity.jobId])).rows[0];
++ if(!row)return null;
++ const parsed=selectionSchema.safeParse(row.value);
++ if(!parsed.success||row.state!=='completed'||row.input_digest!==reviewDigest(parsed.data)||reviewDigest(parsed.data.identity)!==reviewDigest(identity))return fail();
++ return parsed.data;
++}
++async function pin(tx:AgentSqlExecutor,value:Selection){
++ await tx.query(`INSERT INTO text_integration.checkpoints(job_id,kind,id,input_digest,token,state,value) VALUES($1,'naive_execution_policy','selection-v1',$2,$3,'completed',$4::jsonb) ON CONFLICT DO NOTHING`,[value.identity.jobId,reviewDigest(value),randomUUID(),JSON.stringify(value)]);
++ const saved=await retained(tx,value.identity);
++ if(!saved||reviewDigest(saved)!==reviewDigest(value))return fail();
++ return saved.profile;
++}
++/** Caller MUST invoke in the same transaction that inserts this previously nonexistent job,
++ * before exposing it. This function never opens a nested transaction. Calling it later is
++ * not authorized enrollment; absence of evaluation rows alone does not establish newness. */
++export async function enrollNewNaiveTextExecution(tx:AgentSqlExecutor,identity:NaiveTextExecutionIdentity,options:{factualGapEnabled:boolean;expertTaskId?:string}):Promise<NaiveTextExecutionProfile>{
++ identity=identitySchema.parse(identity);await canonicalJob(tx,identity);
++ const profile:NaiveTextExecutionProfile=options.factualGapEnabled?{...factual,expertTaskId:task.parse(options.expertTaskId)}:{...legacy};
++ const saved=await retained(tx,identity);
++ if(saved){if(reviewDigest(saved.profile)!==reviewDigest(profile))return fail();await bindings(tx,identity,profile);return saved.profile;}
++ // A new job cannot already own a design operation of any version.
++ await bindings(tx,identity);
++ return pin(tx,{schemaVersion:'naive_text_execution_selection.v1',identity,profile});
++}
++/** Runtime resolution NEVER upgrades a job without its atomic enrollment marker. Flags
++ * are current execution permission only; rollback retains selected identity and holds. */
++export async function resolveNaiveTextExecution(sql:AgentTransactionalSql,identity:NaiveTextExecutionIdentity,options:{realMode:boolean;factualGapEnabled:boolean}):Promise<{status:'ready'|'on_hold';profile:NaiveTextExecutionProfile}>{
++ identity=identitySchema.parse(identity);
++ return sql.transaction(async tx=>{
++  await canonicalJob(tx,identity);
++  const saved=await retained(tx,identity);
++  const profile=saved?.profile??{...legacy};
++  await bindings(tx,identity,profile);
++  if(!saved)await pin(tx,{schemaVersion:'naive_text_execution_selection.v1',identity,profile});
++  return {status:!options.realMode||profile.policyId===factual.policyId&&!options.factualGapEnabled?'on_hold':'ready',profile};
++ });
++}

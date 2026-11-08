@@ -1,21 +1,44 @@
-# Factual Workflow integration — execution selection slice
+# Factual-data Workflow adoption candidate
 
-Unapplied candidate source only. This slice adds a private selection helper and real SQL tests. It does not adopt or copy the generic sixteen-file candidate, edit application source, mount Workflow entry, install a plan, grant scope/consent, migrate a database, dispatch providers or deploy. Generic method/profile propagation and Workflow proposal handling remain separate dependent slices.
+This combined owner patch is **not adopted or deployed**. It is based on Track A merge `7118f3a` (main `d1ceaf0`) and supersedes the earlier operator10, generic16, guarded entry6 and selection-only candidates. Do not apply those patches on top of this one. The previous selection-only receipt is retained under `historical-c24e341-selection/`.
 
-## Private API
+The candidate contains 39 source/test postimages. It preserves the current Feedback and Revenue console changes, adding only the existing expert-review navigation link. It adds no application migration, provider credential, deployment, outbound message or spending operation during assembly/validation. The separate judge owner recovery candidate is not included.
 
-`enrollNewNaiveTextExecution(tx, identity, {factualGapEnabled, expertTaskId?})` pins a legacy or factual profile in `text_integration.checkpoints` (`kind=naive_execution_policy`, `id=selection-v1`). Its exact caller contract is mandatory: invoke inside the SAME transaction that inserts the previously nonexistent job, before commit/exposure or any evaluation operation. The helper takes an existing transaction and never nests one. It cannot independently prove that a previously stored job is new: absence of design rows is insufficient. No route currently invokes it. Enrollment configuration and task ID are trusted operator/application inputs, never customer or model inputs. Enrollment grants no expert authority; the exact scope still must exist when the proposal arrives.
+## Connected behavior
 
-`resolveNaiveTextExecution(sql, identity, {realMode, factualGapEnabled})` locks the canonical job, verifies customer/environment/text package/nonmock mode, verifies the selection digest/schema, rejects all multiple, unknown or conflicting generic method bindings, and returns `{status: ready | on_hold, profile}`. Missing enrollment pins legacy regardless of current feature flags. A new-policy binding without its selection marker is rejected. Existing legacy binding bodies and design results are not modified.
+1. Trusted server configuration `EVAL_NAIVE_FACTUAL_GAPS=1`, `EVAL_SERVICES=real`, and all three selected methods (`designSuite,runSuite,investigate`) enroll new nonmock text jobs. Job, encrypted credentials and selection commit in one SQL transaction before Workflow start. Raced idempotency keys return the existing job without replacing credentials or enrolling it. Existing jobs never upgrade merely because flags change.
+2. The durable profile pins design/version/admission identity and an internally assigned expert task. Legacy jobs retain `generic-text-v1`; enrolled jobs use `generic-text-factual-gap-v1`. Authority, engine replay, admission, budgets and publication use the selected profile. Disabling the factual flag or rolling back real routing holds enrolled work instead of invoking lite. Retained billing and committed delivery recovery remain independent of current execution flags.
+3. A typed missing-reference proposal survives both service error wrappers and is captured inside the design step, before Workflow error serialization. SQL retains exact proposal, canonical input, owner/environment, profile and credential-aware target digest. The Workflow result contains only a bounded status; the proposal is not returned as a suite or exposed in Workflow I/O.
+4. On retry, the Workflow checks durable proposal state before constructing a paid designer. Missing scope, consent, qualifications or other prerequisites keep the job pending. A validated retained proposal can release a stranded outer design-stage reservation; a failed or unknown binding cannot. The original inner provider/session accounting remains unchanged.
+5. Installation requires the exact configured expert scope and policy, sharing consent and qualified contributors. The installer compares the retained target digest again under its canonical job/credential locks. Rotation between proposal validation and installation rejects. Existing consumer guards revalidate that binding before acquisition/evaluation side effects.
+6. Initial owner plans and newly discovered gaps share the existing expert acquisition timers and reviewed-data consumer. The Workflow uses one pending event read across expert and generic waits, respects cancellation, counts only elapsed timer polls, and never routes the factual result into generic publication. Reviewed expert data proceeds through the adopted expert text evaluation/report path.
 
-Legacy uses design/version `generic-text-v1` and admission policy `automated-text-design-v1`. New policy uses design/version `generic-text-factual-gap-v1`, admission policy `automated-text-design-factual-gap-v1`, `factualGapPolicy=propose_missing_reference.v1`, and an exact pinned `expertTaskId`. Disabled real mode holds both profiles. Disabling factual execution holds existing factual jobs with their identity intact; reenabling resumes the same selection. The caller supplies explicit booleans; environment-name parsing is not installed by this slice.
+## Authorization and remaining gates
 
-All helper writes are insert-once plus exact canonical readback under the job lock. Changed profiles, task IDs and canonical owners reject. Existing checkpoint SQL has no database immutability trigger: this is application-enforced selection immutability, not protection from a privileged SQL writer rewriting body and digest together. Adopters requiring database-enforced immutability must add a reviewed migration; this candidate applies none. All cooperating writers must acquire the job lock before selection/binding writes, or the enclosing transaction must provide equivalent serialization. Existing generic authority binding writers do not yet obey this coordinated selection protocol; integration must update them before activating enrollment.
+This wiring does **not** manufacture expert authority. The exact `expert_automation_scopes.request_hash`, enabled policy, tenant sharing consent and expert qualifications must already exist. Because proposed coverage is generated later, automatic creation of a newly proposed exact scope is still an unimplemented owner-policy bridge. Until that bridge or explicit owner configuration exists, the connected Workflow deliberately waits. Do not describe this patch as fully automatic end-to-end expert sourcing.
 
-## Dependent integration requirements
+Opted-in experts retain the existing automatic-contact policy; new cold contacts retain founder approval. Scope installation does not itself authorize a message, approve evidence, promise payment or increase the existing honorarium limits. Independent review and provenance remain required before factual data is used.
 
-Before activation: atomically wire new-job enrollment; call runtime resolution before budget/provider construction and before flag-based fallback; propagate profile into generic authority, budget slots, cost reconciliation, admission replay and publication/receipt recovery; pass policy in engine design input and deterministic admission reconstruction. Catch typed gaps within the Workflow step before error serialization, retain canonical proposal identity in SQL, and retry only entry installation when prerequisites are missing. Reuse existing expert acquisition timers and reviewed-data consumer. Preserve legacy design/checkpoint/admission policy semantics. No dependent integration is claimed here.
+Selection/proposal immutability is enforced by cooperating application writers under the canonical job lock, insert-once and exact digest comparison. It is not protection from a privileged SQL writer rewriting checkpoint body and digest. PostgreSQL multi-connection contention, real credentials/provider acceptance, hosted Workflow restart/cancellation, owner-policy configuration and source adoption remain gates. PGlite and local build results do not prove those gates.
 
-Run portable SQL tests with `npx vitest run --config docs/naive-factual-workflow-integration/tests/vitest.config.mjs` and candidate types with `npx tsc -p docs/naive-factual-workflow-integration/tests/tsconfig.json --noEmit`.
+## Review and reproduction
 
-`manifest.json` pins the new-file postimages and `owner.patch` against source checkpoint `c24e341`. Parent verified patch applicability and independently repeated the documented SQL tests and types. This is a focused candidate check, not a complete composed application build.
+`manifest.json` pins the baseline and every pre/postimage. `owner.patch` is the complete source patch; it passes applicability checks against the baseline. `validation/baseline-pins.json` records the committed build/test inputs and explicit overlays. No `.env` files or production database URLs are copied into the stage.
+
+The staged checkout uses the installed root lockfile dependency graph, with `@ae/core` bound to the staged source. The production Webpack build uses only a stage-local offline Google-font CSS fixture; no app, Next or Workflow config is substituted. Full-suite, type and build results are recorded in `validation/results.json` (final: **4,029 passed, zero failed, two documented skips**, web/core types and production build passed; 62 steps/four workflows). Browser and hosted acceptance are not claimed.
+
+The earlier isolated test configs under `historical-c24e341-selection/tests/` describe the historical selection-only slice; run the combined candidate in a staged app tree using the repository's normal test/type/build commands. The historical owner patches remain evidence of earlier work, not additional patches to apply.
+
+For a fresh private review tree (destination must not exist):
+
+```sh
+python3 docs/naive-factual-workflow-integration/assemble.py /tmp/factual-review
+cd /tmp/factual-review
+npm test -- --maxWorkers=4
+npx tsc -p apps/web --noEmit
+npx tsc -p packages/core --noEmit
+cd apps/web
+NEXT_FONT_GOOGLE_MOCKED_RESPONSES=/tmp/factual-review/font-mock.cjs NEXT_TELEMETRY_DISABLED=1 npx next build --webpack
+```
+
+Run `npx next typegen` from `apps/web` before the first web typecheck in a fresh tree. `assemble.py` verifies committed baseline blobs and patch pre/postimages before linking installed dependencies; it does not run providers or copy `.env` files.

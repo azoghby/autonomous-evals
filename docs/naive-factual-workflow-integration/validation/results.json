@@ -1,0 +1,40 @@
+{
+  "baseCommit": "7118f3af0d472b3a453aa9b5443e6f63b5b0df59",
+  "sourceAdopted": false,
+  "postimages": 39,
+  "baselinePins": 1296,
+  "independentPatchApplication": "passed all39postimages",
+  "assemblyScript": "passed independent fresh tree",
+  "postBuildUnownedDifferences": 0,
+  "tests": {
+    "passed": 4029,
+    "failed": 0,
+    "skipped": 2
+  },
+  "webTypes": "passed (standalone and final Next build)",
+  "coreTypes": "passed",
+  "productionBuild": "passed webpack offline-font fixture",
+  "workflowSteps": 62,
+  "workflows": 4,
+  "providers": "no live calls",
+  "deployment": "not performed",
+  "phase0Exit": "not achieved",
+  "commands": [
+    "npm test -- --maxWorkers=4 --reporter=json --outputFile=/tmp/factual-composed-final.json",
+    "npx tsc -p apps/web --noEmit",
+    "npx tsc -p packages/core --noEmit",
+    "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=/tmp/naive-factual-workflow-7118f3a/font-mock.cjs NEXT_TELEMETRY_DISABLED=1 npx next build --webpack"
+  ],
+  "rootVerification": {
+    "passed": 3869,
+    "failed": 0,
+    "skipped": 2,
+    "webTypes": "passed"
+  },
+  "newerFetchedMain": {
+    "commit": "61e46bc752c06fababc686e7207d8253758873fc",
+    "merged": false,
+    "all39PatchPreimagesUnchanged": true,
+    "fullSuiteAndBuildCertified": false
+  }
+}

@@ -1,0 +1,1862 @@
+{
+  "success": true,
+  "passed": 4029,
+  "failed": 0,
+  "skipped": 2,
+  "files": [
+    {
+      "path": "scripts/public-agents.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "scripts/real-agents-lite.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "scripts/stripe-setup-lib.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "scripts/tau2/tasks-to-scenarios.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 1
+    },
+    {
+      "path": "apps/web/src/proxy.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/robots.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/lib/palette.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/lib/run-compare.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/workflows/decisions.test.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/workflows/job-naive-routing.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/workflows/resume-plan.test.ts",
+      "status": "passed",
+      "passed": 38,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/access.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/agent-invites.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/api-key-format.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/approve-all-route.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/billing-usage.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/body-limit.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/csp.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/diff-apply.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/expert-calls.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan-binding.test.ts",
+      "status": "passed",
+      "passed": 30,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/expert-data-plan.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/expert-routes-ratelimit.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/experts-mode.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/experts.test.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/feedback.test.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/follow-ups.test.ts",
+      "status": "passed",
+      "passed": 26,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/github-pr.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/github-routes.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/ics.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/inbound-email.test.ts",
+      "status": "passed",
+      "passed": 27,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/infra.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/job-actions.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/leaderboard-agents.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/leaderboard-suite.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/leaderboard.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/lite-target.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/mcp-sandbox-list-runs.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/mcp-sandbox-tools.test.ts",
+      "status": "passed",
+      "passed": 24,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/mcp-tools.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/monitoring.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-factual-gap-workflow.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-new-job.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-services-registration.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-text-execution-selection.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.test.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/operator-alerts.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/operator-digest.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/outreach-approve.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/owner-emails.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/owner-lifecycle.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/owner-policy.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/owner-responder.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/owner-submit.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/page-auth.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/public-agent-cron.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/public-agent-runner.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/public-error.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/public-url.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/queries.operator.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/rate-limit.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/redteam-mock.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/regression-api.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/regression-check.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/report-summary.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/rerun-slots.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/revenue-metrics-core.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/revenue.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sales-leads.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox-service.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/services-lite.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/services.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/session-lock.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/share-core.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/stale-jobs.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/status-logic.test.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/target-url.test.ts",
+      "status": "passed",
+      "passed": 54,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/x402-pay.test.ts",
+      "status": "passed",
+      "passed": 26,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/sample/sample-report.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/components/demo/recording.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/components/demo/replay.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/adapters/artifacts.test.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/adapters/budget.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/adapters/sessions.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/company-provision-plan.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/company-resources.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/company-roles.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/live-diagnostic.test.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/naive-provisioning.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/naive-resources.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/postgres-ports.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/provision-config.test.ts",
+      "status": "passed",
+      "passed": 36,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/provision-file-journal.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/provision-verification.test.ts",
+      "status": "passed",
+      "passed": 51,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/redact-regression.test.ts",
+      "status": "passed",
+      "passed": 36,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/components/eval-chat/format.test.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/ai/gateway.test.ts",
+      "status": "passed",
+      "passed": 24,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/auth/magic-link.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/auth/tokens.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/email/auth-parse.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/email/email.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/company/onboarding-report.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/company/onboarding.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/company/outreach.test.ts",
+      "status": "passed",
+      "passed": 21,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/company/planner.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/company/research.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/contracts/conformance.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/contracts/contracts.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/contracts/per-finding.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/integration/compose.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-artifact-store.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-contract-mapping.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-cost-boundary.test.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-design-service.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-investigation-service.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-remediation-service.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-rerun-service.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-run-service.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-runtime-integration.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/naive-services.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/monitoring/index.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/neon/api.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/neon/ttl.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/judges/gateway.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy-dispatch-store.test.ts",
+      "status": "passed",
+      "passed": 24,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy-reconcile.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy-service.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/judges/naive-proxy.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/pricing/overage.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/pricing/plans.test.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/pricing/roi.test.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/lite/design.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/lite/investigate.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/lite/run.test.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/invoices.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/late-payment.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/overage-billing.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/per-finding.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/plans-checkout.test.ts",
+      "status": "passed",
+      "passed": 26,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/reconcile.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/stripe.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/subscription-changes.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/usage-warnings.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/payments/x402.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/acceptance-scenarios.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/branch-ledger.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/calendar.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/connection.test.ts",
+      "status": "passed",
+      "passed": 79,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/hostile-text.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/neon-retry.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/neon.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/pool.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/storage/blob.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/storage/crypto.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/storage/neon-storage.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/redteam/redteam.test.ts",
+      "status": "passed",
+      "passed": 45,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/targets/connectivity.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/targets/public-source.test.ts",
+      "status": "passed",
+      "passed": 55,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/targets/remediation.test.ts",
+      "status": "passed",
+      "passed": 31,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/targets/text.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/targets/tls.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/targets/transport.test.ts",
+      "status": "passed",
+      "passed": 51,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/cron/cron-auth.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/sandbox/sandbox-routes.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/actions.test.ts",
+      "status": "passed",
+      "passed": 60,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/chat.test.ts",
+      "status": "passed",
+      "passed": 29,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/grounding.test.ts",
+      "status": "passed",
+      "passed": 38,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/job-grounding.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/patch.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/prompt.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/service.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/tools.test.ts",
+      "status": "passed",
+      "passed": 32,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/oauth/oauth.test.ts",
+      "status": "passed",
+      "passed": 47,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/approval-handlers.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/contacts.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/inbound-leads.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/market-research.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/onboarding.test.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/outreach.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/planner.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/prospecting.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/queries.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/runtime.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/structured.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/company/web-search.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/approvals-logic.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/approvals.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/channels.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/daily-report-logic.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email-logic.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/founder-email-reply.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/handlers.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/telegram.test.ts",
+      "status": "passed",
+      "passed": 35,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/notify/whatsapp.test.ts",
+      "status": "passed",
+      "passed": 51,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox/engine-service.seed.test.ts",
+      "status": "passed",
+      "passed": 28,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox/engine-service.test.ts",
+      "status": "passed",
+      "passed": 46,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox/env-build.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox/pipeline.test.ts",
+      "status": "passed",
+      "passed": 39,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox/target.test.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/server/sandbox/views.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/oauth/register/route.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/__tests__/advisory-outcomes.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/__tests__/commercial-operator.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/__tests__/naive-adapter.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/__tests__/operator-labels.test.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/__tests__/resume-identity.test.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/agents/__tests__/session-service.test.ts",
+      "status": "passed",
+      "passed": 28,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/__tests__/service-adapter.test.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/calendar-integration/services.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/integration/approved-suite-replay.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/integration/approved-suite.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/integration/checkpoint.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/integration/services.test.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/remediation/remediation.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/acquisition.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/expert.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/orchestration-resume.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/orchestration-session-resume.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/persistence.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/postgres-operations.test.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/postgres-store.test.ts",
+      "status": "passed",
+      "passed": 39,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/quality.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/__tests__/render.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/chat/answers.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/chat/file-conversations.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/chat/postgres-conversations.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/chat/service.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/workflow/postgres-journal.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/simulator/workflow/workflow.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/agents.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/driver.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/gates.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/generate.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/graders.test.ts",
+      "status": "passed",
+      "passed": 20,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/runner.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/engine/simulator.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/media/media.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/media/perturb.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/media/render.test.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/faults.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/json-schema.test.ts",
+      "status": "passed",
+      "passed": 18,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/neon-branches.test.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/run.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/runtime.live.test.ts",
+      "status": "passed",
+      "passed": 0,
+      "skipped": 1
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/runtime.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/simulate.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/sql-text.test.ts",
+      "status": "passed",
+      "passed": 70,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/runtime/world-sql.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/adk-customer-service.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/bindings.test.ts",
+      "status": "passed",
+      "passed": 19,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/build.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/cs-agents-airline.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/functions.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/mcp.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/openapi.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/policies.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/prebuilt.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/safety.test.ts",
+      "status": "passed",
+      "passed": 48,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/tau2-retail.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/sandbox/ingest/validate.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/auth/verify/route.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/cron/overage/schedule.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/cron/public-agents/route.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/cron/stale-jobs/route.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/billing/checkout/route.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/billing/portal/route.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/leaderboard/unsubscribe/route.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/notify/decide/route.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/notify/telegram/route.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/notify/whatsapp/route.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/operator/infra/route.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/operator/revenue/route.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/stripe/webhook/route.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/leaderboard/[slug]/badge.svg/route.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/remediation/accounting/accounting.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/trace/__tests__/audit-redaction.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/trace/__tests__/detect-regression.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/trace/__tests__/normalize-regression.test.ts",
+      "status": "passed",
+      "passed": 29,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/trace/__tests__/trace-audit.test.ts",
+      "status": "passed",
+      "passed": 24,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/sandbox/scenario-dispatch/dispatch.test.ts",
+      "status": "passed",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/admission.test.ts",
+      "status": "passed",
+      "passed": 50,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/behavioral-gateway.test.ts",
+      "status": "passed",
+      "passed": 17,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/design-investigate.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/factual-gap.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/live-v3.test.ts",
+      "status": "passed",
+      "passed": 16,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/objective-execution.test.ts",
+      "status": "passed",
+      "passed": 29,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/rubric-admission.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/text/__tests__/safety-monitoring.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/discovery/index.test.ts",
+      "status": "passed",
+      "passed": 26,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/automated-expert.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/expert-response.test.ts",
+      "status": "passed",
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/expert.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/generation.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/mapping.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/postgres-expert-loop.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/adapters/sources.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/chat/projection/negative.test.ts",
+      "status": "passed",
+      "passed": 22,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/reporting/chat/projection/projection.test.ts",
+      "status": "passed",
+      "passed": 43,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/messages/route.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/retest/route.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "skipped": 0
+    },
+    {
+      "path": "packages/core/src/evals/data/discovery/persistence/persistence.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "skipped": 0
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "skipped": 0
+    }
+  ]
+}

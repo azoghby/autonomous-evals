@@ -4,11 +4,13 @@ Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explici
 
 ## Latest repository checkpoint
 
-Track A main `41bb78f` is preserved in `track-a` merge `c24e341`, including security, feedback, billing/trial and migration source changes. Required current web TypeScript passes; the original npm suite passes **3,850 tests, zero failures and two documented opt-in skips**. Fresh installed dependencies are available. Earlier checkpoint counts and missing-executable statements below are historical. A final fetch observed newer Track A `d1ceaf0`; it remains unmerged and outside this verification baseline.
+Track A main `d1ceaf0` is preserved in `track-a` merge `7118f3a`, including the security, feedback, billing/trial and subsequent review fixes. Required source web TypeScript passes; the original npm suite passes **3,869 tests, zero failures and two documented opt-in skips**. Earlier checkpoint counts and missing-executable statements below are historical.
 
-The approved 15-file accounting/expert and 26-file expert text patches are actual source. Typed factual-gap proposals and optional judge-attempt recovery are core source at `35fbcab`; their application wiring is not complete. Operator review/recovery, generic text routing and guarded factual-gap entry remain proposed artifacts. The operator console candidate must be refreshed to preserve current Feedback and Revenue tabs before adoption; its older build receipt does not certify the changed console.
+The approved 15-file accounting/expert and 26-file expert text patches are actual source. Typed factual-gap proposals and optional judge-attempt recovery are core source at `35fbcab`. The current **39-file combined factual Workflow candidate** supersedes the earlier operator, generic, entry and selection-only patches; it connects those capabilities and preserves Feedback/Revenue, but is not adopted or deployed. Its staged suite passes **4,029 tests**, plus web/core types and the offline production build. See the latest section below for remaining gates.
 
-This orchestrator's isolated staging has the 27 app migrations through 0026 plus four sidecars; later application migrations and the optional judge dispatch sidecar have not been applied there. Track A separately records production `19766e0` and migrations 0029–0030 in LEDGER; this is their receipt, not a deployment by this work. Full Phase 0 and later acceptance gates remain open.
+This orchestrator's isolated staging has 27 app migrations through 0026 plus four sidecars; later application migrations and the optional judge dispatch sidecar have not been applied there. Track A separately records its production `41bb78f` and migration 0031 in LEDGER. Those are their receipts, not a deployment by this work. Full Phase 0 and later acceptance gates remain open.
+
+Final fetch observed newer Track A `61e46bc` (leaderboard and open-source agent shims). It is not merged or covered by this full-suite/build receipt. All 39 candidate preimages are unchanged there; reconcile that batch before final source release.
 
 ## Phase 0
 
@@ -241,3 +243,11 @@ Two new, unapplied app integration slices are pinned by manifests and owner patc
 - `naive-factual-workflow-integration`: selection-only helper pins legacy versus opt-in factual policy identity and trusted expert task. Parent independently ran ten SQL tests and candidate types. Missing selection preserves legacy; disabling factual execution holds selected factual jobs without changing identity. New-job enrollment requires the same transaction that inserts the job; no route invokes it yet. Existing authority writers must join the job-lock protocol. Generic profile propagation, durable proposal capture and expert Workflow handoff remain unimplemented integration work.
 
 Both patches pass applicability checks against `c24e341`; no active application source was changed. Local SQL tests do not certify multi-connection PostgreSQL behavior, production deployment or Phase 0 completion.
+
+## Connected factual Workflow candidate (7118f3a)
+
+`docs/naive-factual-workflow-integration/owner.patch` now combines39files on current merged main d1ceaf0. It supersedes operator10, generic16, guarded entry6 and its earlier selection-only slice; these are not additive patches. Existing Feedback/Revenue changes are preserved. Atomic new-job enrollment, versioned policy propagation, typed gap capture, durable proposal/credential binding, entry retries before paid design, and the existing expert acquisition/consumer Workflow are connected in the staged app. Legacy jobs retain their identity; flag rollback holds enrolled jobs. Review found and fixed service error conversion, timer/event cancellation and unvalidated reservation-release bugs.
+
+Parent verified39pre/postimages and independentpatchapplication,1296committed baselinepins with zero unowned post-build differences, plus reproducible assembly. Fullstagedsuite **4029passed/0failed/2skips**, web/coretypes and offline-font productionbuild **62steps/4workflows** pass. Actual application source remains unchanged; source adoption and hosted/provider acceptance remain open.
+
+Exact owner scope creation is still not automatic: new model-proposed coverage requires a preconfigured exact scope or a future deterministic owner-policy bridge. Consent, qualifications, independent review, cold-contact approval and budget gates are preserved. Do not claim fully automatic expert sourcing. Separate judge owner recovery/background accounting remains outside this patch. Full Naïve Phase0/roster and later phase gates remain open.

@@ -1,3 +1,4 @@
+import {resolveJobNaiveExecution} from './naive-text-execution-runtime';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach,expect,it } from 'vitest';
@@ -28,3 +29,16 @@ it('accepts exact legacy binding without a selection marker',async()=>{const f=a
 it('rejects multiple bindings, unknown versions, and unmarked new-policy bindings',async()=>{for(const ids of [['generic-text-v1','generic-text-factual-gap-v1'],['unknown'],['generic-text-factual-gap-v1']]){const f=await fixture();await f.sql.transaction(f.insert);for(const id of ids)await f.bind(id);await expect(f.resolve()).rejects.toThrow('selection_conflict');}});
 it('rejects enrollment after any design binding',async()=>{const f=await fixture();await f.sql.transaction(f.insert);await f.bind('generic-text-v1');await expect(f.sql.transaction(tx=>enrollNewNaiveTextExecution(tx,identity,{factualGapEnabled:true,expertTaskId:'owner-task-v1'}))).rejects.toThrow('selection_conflict');});
 it('rejects canonical owner/environment changes and corrupt checkpoint bodies',async()=>{const f=await fixture();await f.enroll();for(const changed of [{...identity,customerId:'323e4567-e89b-42d3-a456-426614174000'},{...identity,environment:'live' as const}])await expect(resolveNaiveTextExecution(f.sql,changed,enabled)).rejects.toThrow('selection_conflict');await f.pg.query(`UPDATE text_integration.checkpoints SET value=jsonb_set(value,'{profile,expertTaskId}','"changed"')`);await expect(f.resolve()).rejects.toThrow('selection_conflict');});
+
+it('runtime refuses flag rollback before it can select lite for an enrolled factual job',async()=>{
+ const f=await fixture();await f.enroll();
+ for(const env of [{EVAL_SERVICES:'lite'},{EVAL_SERVICES:'real',EVAL_NAIVE_METHODS:''},{EVAL_SERVICES:'real',EVAL_NAIVE_METHODS:'designSuite,runSuite,investigate',EVAL_NAIVE_FACTUAL_GAPS:'0'}]){
+  await expect(resolveJobNaiveExecution(identity.jobId,{sql:f.sql,env})).rejects.toThrow('NAIVE_EXECUTION_SELECTION_HOLD');
+ }
+ expect(await resolveJobNaiveExecution(identity.jobId,{sql:f.sql,env:{EVAL_SERVICES:'real',EVAL_NAIVE_METHODS:'designSuite,runSuite,investigate',EVAL_NAIVE_FACTUAL_GAPS:'1'}})).toMatchObject({generic:true,profile:{policyId:'generic-text-factual-gap-v1'}});
+});
+it('runtime keeps an unenrolled legacy job on its configured path without enabling factual policy',async()=>{
+ const f=await fixture();await f.sql.transaction(f.insert);
+ expect(await resolveJobNaiveExecution(identity.jobId,{sql:f.sql,env:{EVAL_SERVICES:'lite'}})).toEqual({generic:false});
+ expect(await resolveJobNaiveExecution(identity.jobId,{sql:f.sql,env:{EVAL_SERVICES:'real',EVAL_NAIVE_METHODS:'designSuite,runSuite,investigate',EVAL_NAIVE_FACTUAL_GAPS:'1'}})).toMatchObject({generic:true,profile:{policyId:'generic-text-v1'}});
+});
