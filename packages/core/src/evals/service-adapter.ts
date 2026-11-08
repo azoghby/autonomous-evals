@@ -100,7 +100,7 @@ const CONTRACT_CATEGORIES = new Set<ContractFinding["category"]>([
 
 export function toContractFinding(f: Finding): ContractFinding {
   const category = (CONTRACT_CATEGORIES.has(f.category as ContractFinding["category"]) ? f.category : "other") as ContractFinding["category"];
-  const description = [f.summary, f.investigatorNote ? `Investigator: ${f.investigatorNote}` : null, `Basis: ${f.basis}.`].filter(Boolean).join("\n\n");
+  const description = [f.summary, f.investigatorNote ? `Investigator: ${f.investigatorNote}` : null, f.basis === "unspecified" ? null : `Basis: ${f.basis}.`].filter(Boolean).join("\n\n");
   return ContractFindingSchema.parse({
     id: f.id,
     title: f.title.slice(0, 300),
@@ -275,7 +275,9 @@ export function createTrackBServices(deps: TrackBServiceDeps) {
         summary: rendered.summary.slice(0, 10_000),
         markdown: rendered.markdown,
         html: rendered.html ?? "",
-        findings: findings.map(toContractFinding),
+        // Preserve the contract artifact verbatim when no richer authoritative input
+        // was supplied. The rendering inverse cannot reconstruct lost provenance.
+        findings: input.richFindings ? findings.map(toContractFinding) : input.findings.map(f => ContractFindingSchema.parse(f)),
         ...(rendered.monitoringPitch ? { monitoringPitch: rendered.monitoringPitch.slice(0, 2_000) } : {}),
       };
     },

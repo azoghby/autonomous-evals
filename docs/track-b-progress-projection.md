@@ -52,6 +52,15 @@ manager is invented here because those belong to Track A.
 
 ## Exact status mapping
 
+Finding visibility: Text investigation plans with nonempty findings must include
+`runId`, `suiteDigest`, `scenarioIds` and the matching completed `text_run` checkpoint
+in the same consistent inventory. The investigation key ID must equal its run ID.
+Validated findings project status and severity only, with HMAC identities and
+checkpoint references. Confirmed Text findings must match an original objective
+failure and a completed failed reproduction. Calendar findings use their checked
+job/branch/suite/original/reproduction associations. Incomplete or mismatched finding
+identity fails closed rather than silently showing an empty list.
+
 | Durable evidence | Projection |
 | --- | --- |
 | Application job status | Same allowed chat enum; never inferred from evaluator completion |

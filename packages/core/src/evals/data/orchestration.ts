@@ -58,6 +58,9 @@ export function createDataCostCapture(operations: DataOperationLedger, knownSecr
 export async function advanceDataOrchestration(
   spec: DataTaskSpec, initial: DataBatch, context: DataDesignContext, ports: DataOrchestrationPorts,
 ): Promise<DataOrchestrationResult> {
+  spec = structuredClone(spec);
+  initial = structuredClone(initial);
+  context = structuredClone(context);
   const secrets = [...new Set([...(ports.knownSecrets ?? []), ...(context.knownSecrets ?? [])])];
   const screen = (value: unknown) => { if (!inspectDataSafety(value, secrets).safe) throw new Error('Unsafe orchestration data'); };
   screen({ spec, initial, context: { ...context, knownSecrets: undefined } });
@@ -116,6 +119,7 @@ export async function advanceDataOrchestration(
       || !/^[A-Za-z0-9_-]{1,96}$/.test(review.receiptId) || !review.principalId.trim() || review.principalId === spec.targetId
       || data.cases.some(c => c.generatorId === review.principalId)
       || data.sources.some(s => s.provenance.producerId === review.principalId)
+      || review.data.sources.some(s => s.provenance.producerId === review.principalId)
       || review.data.sources.some(s => s.review.reviewerId !== review.principalId)
       || review.data.cases.some(c => c.verification && c.verification.verifierId !== review.principalId)
       || review.data.cases.length !== data.cases.length

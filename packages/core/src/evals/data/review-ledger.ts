@@ -21,12 +21,15 @@ export function createAuthenticatedDataReviewLedger(config: {
   const keyFor = (digest: string) => `authenticated-data-review:${digest}`;
   return {
     async submit(input) {
+      // Authorization and receipt binding must observe one private snapshot across awaits.
+      input = structuredClone(input);
       screen(input);
       const principal = await config.authenticateHuman(structuredClone(input.task));
       if (!principal || !/^[A-Za-z0-9_-]{1,96}$/.test(input.receiptId) || !principal.principalId.trim()
         || principal.principalId === input.task.targetId
         || input.candidates.cases.some(c => c.generatorId === principal.principalId)
-        || input.candidates.sources.some(s => s.provenance.producerId === principal.principalId)) throw new Error('Independent human authorization required');
+        || input.candidates.sources.some(s => s.provenance.producerId === principal.principalId)
+        || input.reviewed.sources.some(s => s.provenance.producerId === principal.principalId)) throw new Error('Independent human authorization required');
       const reviewed = structuredClone(input.reviewed);
       if (new Set(reviewed.cases.map(c => c.id)).size !== reviewed.cases.length
         || new Set(reviewed.sources.map(s => s.id)).size !== reviewed.sources.length

@@ -75,16 +75,16 @@ export async function acquireEvaluationData(
     const assessment = assessDataQuality(spec, initial.cases, initial.sources, ports.knownSecrets ? { knownSecrets: ports.knownSecrets } : {});
     const record: EvaluationDataTask = {
       taskId: spec.taskId, revision: 0, spec, requestHash,
-      state: assessment.status === "sufficient" ? "ready" : "acquiring",
-      phase: assessment.status === "sufficient" ? "complete" : "discovery",
+      state: assessment.status === "sufficient" && !ports.reviewCandidates ? "ready" : "acquiring",
+      phase: assessment.status === "sufficient" && !ports.reviewCandidates ? "complete" : "discovery",
       sources: initial.sources, cases: initial.cases, assessment,
       decisions: [{ id: `${spec.taskId}:initial`, phase: "discovery", outcome: assessment.status, at: now() }], updatedAt: now(),
     };
     task = (await ports.store.insertIfAbsent(record)).record;
   }
   validateLoaded(task);
-  if (task.phase === "complete") return task;
-  const phase = task.phase;
+  if (task.phase === "complete" && (!ports.reviewCandidates || task.decisions.some(d => d.outcome === "reviewed_sufficient"))) return task;
+  const phase = task.phase === "complete" ? "discovery" : task.phase;
   const operationKey = `evaluation-data:${spec.taskId}:${requestHash}:${phase}`;
   const request: AcquisitionRequest = {
     operationKey, task: spec, gaps: task.assessment.coverage.filter((gap) => !gap.covered),
@@ -93,7 +93,11 @@ export async function acquireEvaluationData(
   };
   let result: AcquisitionResult;
   try {
-    result = await ports[phase === "discovery" ? "discover" : phase === "generation" ? "generate" : "expert"](structuredClone(request));
+    // Sufficient imported/legacy data still needs the configured human review;
+    // no acquisition provider is needed merely to route it through that gate.
+    result = task.assessment.status === "sufficient" && ports.reviewCandidates
+      ? { status: "complete", data: { sources: [], cases: [] } }
+      : await ports[phase === "discovery" ? "discover" : phase === "generation" ? "generate" : "expert"](structuredClone(request));
   } catch {
     return save(task, { ...task, state: phase === "expert" ? "waiting_for_expert" : "waiting_for_data" }, "provider_unavailable");
   }
@@ -154,7 +158,7 @@ export async function acquireEvaluationData(
       // Independent evidence fetched by the authenticated reviewer may be added with distinct IDs.
       sources = merge(sources, reviewed.sources);
     } catch {
-      return save(task, { ...task, state: phase === "expert" ? "waiting_for_expert" : "waiting_for_data" }, "review_unavailable");
+      return save(task, { ...task, phase, state: phase === "expert" ? "waiting_for_expert" : "waiting_for_data" }, "review_unavailable");
     }
   }
   const assessment = assessDataQuality(spec, cases, sources, ports.knownSecrets ? { knownSecrets: ports.knownSecrets } : {});
@@ -162,7 +166,7 @@ export async function acquireEvaluationData(
   return save(task, {
     ...task, sources, cases, assessment, phase: phaseAfter,
     state: assessment.status === "sufficient" ? "ready" : phaseAfter === "expert" ? "waiting_for_expert" : phaseAfter === "complete" ? "waiting_for_data" : "acquiring",
-  }, safe ? assessment.status : "unsafe_batch_rejected");
+  }, safe ? ports.reviewCandidates && assessment.status === "sufficient" ? "reviewed_sufficient" : assessment.status : "unsafe_batch_rejected");
 
   function validateLoaded(record: EvaluationDataTask): void {
     if (!inspectDataSafety(record, ports.knownSecrets).safe) throw new Error("Unsafe persisted evaluation data rejected");

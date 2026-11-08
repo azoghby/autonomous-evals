@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createProgressChatService } from '../service.js';
 import { createDurableProgressProjection } from './index.js';
 import type { DurableProgressRead, ProgressProjectionPorts, ProjectionPlan, ProjectedOutcome } from './types.js';
+import { SuiteRunSchema } from '../../../evals/text/schema.js';
+import { FindingSchema } from '../../../evals/types.js';
 
 const time = '2026-11-07T10:00:00.000Z';
 const scope = { subjectId: 'viewer', jobId: 'job' };
@@ -23,7 +25,50 @@ function textRun(s: ReturnType<typeof setup>, status: string, outcome = 'complet
       checks: [{ checkId: 'S01.o1', kind: 'objective', status, detail: 'PRIVATE DETAIL', evidenceQuotes: [], reason: null }] }],
   } } } });
 }
+function textFinding() {
+  const s = setup(); textRun(s, 'fail');
+  const value = (s.read.checkpoints[0].record as { state: 'completed'; value: { run: unknown } }).value;
+  const run = SuiteRunSchema.parse(value.run);
+  const reproduction = { ...structuredClone(run.executions[0]), runId: 'repro-run', attempt: 'reproduction' as const };
+  const finding = FindingSchema.parse({ id: 'text:S01:S01.o1', source: 'text_eval', category: 'explicit_constraint', title: 'PRIVATE TITLE',
+    label: 'confirmed', severity: 'high', basis: 'objective', summary: 'PRIVATE SUMMARY', investigatorNote: null,
+    evidence: [{ kind: 'check', checkId: 'S01.o1', detail: 'PRIVATE DETAIL' }],
+    reproduction: { attempted: true, reproduced: true, runId: 'repro-run' } });
+  const investigation = { investigatorStatus: 'completed', findings: [finding], reproductions: [reproduction], testDefects: [] };
+  const key = { jobId: 'job', kind: 'investigation', id: 'run', inputDigest: 'c'.repeat(64) };
+  s.plan.checkpoints.push({ ...s.plan.checkpoints[0], key, phase: 'investigating', format: 'text_investigation' });
+  s.read.checkpoints.push({ key, record: { state: 'completed', value: investigation } });
+  return { ...s, finding, investigation };
+}
 describe('durable progress projection', () => {
+  it('projects confirmed text findings with stable private references and no prose', async () => {
+    const s = textFinding(); const first = await s.adapter().project(scope);
+    expect(first.snapshot.findings).toHaveLength(1);
+    expect(first.snapshot.findings[0]).toMatchObject({ status: 'confirmed', severity: 'high' });
+    expect(first.snapshot.findings[0].id).toMatch(/^ev_[a-f0-9]{64}$/);
+    expect(JSON.stringify(first)).not.toContain('PRIVATE');
+    expect(await s.adapter().project(scope)).toEqual(first);
+  });
+  it.each(['rubric_concern', 'inconclusive'] as const)('retains %s findings without requiring confirmed reproduction', async label => {
+    const s = textFinding(); s.finding.label = label; s.finding.reproduction = null;
+    s.investigation.reproductions = [];
+    expect((await s.adapter().project(scope)).snapshot.findings[0].status).toBe(label);
+  });
+  it.each(['missing_baseline', 'wrong_run', 'wrong_suite', 'wrong_check', 'wrong_source', 'duplicate', 'missing_reproduction', 'wrong_reproduction', 'passing_reproduction', 'infrastructure_reproduction'])(
+    'rejects text finding association: %s', async kind => {
+      const s = textFinding();
+      if (kind === 'missing_baseline') { s.plan.checkpoints.shift(); s.read.checkpoints.shift(); }
+      if (kind === 'wrong_run') s.plan.checkpoints[1].runId = 'other';
+      if (kind === 'wrong_suite') s.plan.checkpoints[1].suiteDigest = 'd'.repeat(64);
+      if (kind === 'wrong_check') s.finding.evidence = [{ kind: 'check', checkId: 'other', detail: 'private' }];
+      if (kind === 'wrong_source') s.finding.source = 'trace_audit';
+      if (kind === 'duplicate') s.investigation.findings.push(structuredClone(s.finding));
+      if (kind === 'missing_reproduction') s.investigation.reproductions = [];
+      if (kind === 'wrong_reproduction') s.finding.reproduction!.runId = 'other';
+      if (kind === 'passing_reproduction') s.investigation.reproductions[0].checks[0].status = 'pass';
+      if (kind === 'infrastructure_reproduction') s.investigation.reproductions[0].outcome = 'infrastructure_error';
+      await expect(s.adapter().project(scope)).rejects.toMatchObject({ code: 'invalid_snapshot' });
+    });
   it.each<[string, ProjectedOutcome]>([['pass', 'passed'], ['fail', 'product_failure'], ['concern', 'rubric_concern'], ['inconclusive', 'inconclusive'], ['not_assessed', 'not_assessed'], ['error', 'error']])('preserves text check %s', async (input, expected) => {
     const s = setup(); textRun(s, input);
     const p = await s.adapter().project(scope);
@@ -80,7 +125,7 @@ describe('investigation resolution and get-only reader composition', () => {
     const runScope = { jobId: 'job', version: 'v1', runId: 'scenario-run' };
     s.read.checkpoints = [{ key, record: { state: 'completed', value: {
       original: { jobId: 'job', runId: 'run', branchId: 'branch', suiteHash: 'suite', versionLabel: 'v1', results: [{ scenarioId: 'scenario', scope: runScope, outcome: 'product_failure' }] },
-      findings: [{ scenarioId: 'scenario', status: 'inconclusive', reproductions: 0, association: { jobId: 'job', branchId: 'branch', suiteHash: 'suite', scope: runScope } }],
+      findings: [{ id: 'finding', severity: 'medium', scenarioId: 'scenario', status: 'inconclusive', reproductions: 0, association: { jobId: 'job', branchId: 'branch', suiteHash: 'suite', scope: runScope } }],
       pendingScenarioIds: ['scenario'], reproductions: [],
     } } }];
     expect((await s.adapter().project(scope)).phases[0].state).toBe('blocked');

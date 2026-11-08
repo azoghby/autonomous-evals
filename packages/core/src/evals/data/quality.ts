@@ -81,6 +81,7 @@ export function assessDataQuality(
       const evidenceValid = independentSources.length > 0 && independentSources.every(source => source
         && source.provenance.origin !== "synthetic" && source.provenance.origin !== "evaluation_target"
         && source.provenance.producerId !== spec.targetId && source.provenance.producerId !== candidate.generatorId
+        && source.provenance.producerId !== verification.verifierId
         && source.review.reviewerId !== candidate.generatorId);
       const expertValid = verification.method === "expert" && verification.expertAttestation?.qualified === true
         && verification.expertAttestation.consentToEvaluation === true && nonblank(verification.expertAttestation.contributionId)

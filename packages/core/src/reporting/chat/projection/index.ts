@@ -4,7 +4,7 @@ import { containsSecret } from '../../../agents/redact.js';
 import { assessDataQuality } from '../../../evals/data/quality.js';
 import { reviewDigest } from '../../../evals/data/binding.js';
 import { verifyFrozenSuite } from '../../../evals/text/freeze.js';
-import { CostEntrySchema } from '../../../evals/types.js';
+import { CostEntrySchema, FindingSchema } from '../../../evals/types.js';
 import { SuiteRunSchema, ScenarioExecutionSchema } from '../../../evals/text/schema.js';
 import { ChatError, ChatScopeSchema, ProgressSnapshotSchema, type ChatScope, type ProgressPort } from '../types.js';
 import type { DurableProgressRead, GroundedProgressProjection, ProgressProjectionPorts, ProjectedOutcome, ProjectionPlan } from './types.js';
@@ -58,6 +58,11 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
       const ref = (kind: string, id: string) => 'ev_' + createHmac('sha256', ports.referenceKey).update(JSON.stringify([scope, kind, id])).digest('hex');
       const snapshot = ProgressSnapshotSchema.parse({ jobId: scope.jobId, observedAt, status: read.job.status,
         statusEvidenceRef: ref('job', scope.jobId), milestones: [], findings: [], blockers: [], costs: [], unknownCosts: read.unknownCosts });
+      const addFinding = (checkpoint: string, finding: { id: string; status: 'confirmed' | 'rubric_concern' | 'inconclusive'; severity: 'critical' | 'high' | 'medium' | 'low' }) => {
+        if (!nonempty(finding.id)) invalid();
+        const id = ref('finding', JSON.stringify([checkpoint, finding.id]));
+        snapshot.findings.push({ id, status: finding.status, severity: finding.severity, evidenceRefs: [checkpoint] });
+      };
       const phases: GroundedProgressProjection['phases'] = [];
       const acquisition: GroundedProgressProjection['acquisition'] = [];
       const block = (kind: 'input' | 'provider' | 'other', evidenceRef: string) => snapshot.blockers.push({ id: evidenceRef, kind, evidenceRef });
@@ -101,9 +106,38 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
           } else if (p.format === 'text_investigation') {
             const v = object(record.value);
             if (typeof v.investigatorStatus !== 'string' || !Array.isArray(v.findings) || !Array.isArray(v.testDefects)) invalid();
+            const findings = z.array(FindingSchema).parse(v.findings);
+            const reproductions = z.array(ScenarioExecutionSchema).parse(v.reproductions);
+            unique(findings.map(f => f.id));
+            unique(reproductions.map(e => e.scenarioId));
+            if (findings.length) {
+              if (!nonempty(p.runId) || !nonempty(p.suiteDigest) || !p.scenarioIds?.length || p.key.id !== p.runId) invalid();
+              const baselines = plan.checkpoints.filter(b => b.format === 'text_run' && b.runId === p.runId && b.suiteDigest === p.suiteDigest);
+              if (baselines.length !== 1) invalid();
+              const baselineRecord = read.checkpoints.find(r => keyId(r.key) === keyId(baselines[0].key))?.record;
+              if (baselineRecord?.state !== 'completed') return invalid();
+              const envelope = object(baselineRecord.value);
+              const baseline = SuiteRunSchema.parse(envelope.run);
+              if (envelope.environment !== plan.environment || baseline.jobId !== scope.jobId || baseline.runId !== p.runId || baseline.suiteDigest !== p.suiteDigest) invalid();
+              checkScenarios(baseline.executions.map(e => e.scenarioId), p.scenarioIds!);
+              if (reproductions.length > 3 || reproductions.some(e => e.runId === baseline.runId || e.attempt !== 'reproduction' || !p.scenarioIds!.includes(e.scenarioId))) invalid();
+              for (const f of findings) {
+                const checkIds = f.evidence.filter(e => e.kind === 'check').map(e => e.checkId);
+                if (f.source !== 'text_eval' || !checkIds.length) invalid();
+                const original = baseline.executions.find(e => e.checks.some(c => f.id === `text:${e.scenarioId}:${c.checkId}` && checkIds.every(id => id === c.checkId)));
+                if (!original || original.runId !== baseline.runId) return invalid();
+                const check = original.checks.find(c => c.checkId === checkIds[0])!;
+                if (!['fail', 'concern'].includes(check.status) || f.evidence.some(e => e.kind === 'trace_event' || (e.kind === 'scenario_response' && (e.scenarioId !== original.scenarioId || e.runId !== baseline.runId)))) invalid();
+                const repro = reproductions.find(e => e.scenarioId === original.scenarioId);
+                if (f.reproduction?.attempted && (!repro || f.reproduction.runId !== repro.runId)) invalid();
+                if (f.label === 'confirmed' && (original.outcome !== 'completed' || !original.target.ok || repro?.outcome !== 'completed' || !repro.target.ok || f.basis !== 'objective' || check.kind !== 'objective' || check.status !== 'fail'
+                  || !f.reproduction?.attempted || f.reproduction.reproduced !== true || repro?.checks.find(c => c.checkId === check.checkId)?.status !== 'fail')) invalid();
+                addFinding(evidenceRef, { id: f.id, status: f.label, severity: f.severity });
+              }
+            }
             if (!['completed', 'skipped'].includes(v.investigatorStatus as string)) state = 'blocked';
             if (v.testDefects.length || v.findings.some(f => object(f).label === 'inconclusive')) outcomes.push('inconclusive');
-            for (const e of z.array(ScenarioExecutionSchema).parse(v.reproductions)) {
+            for (const e of reproductions) {
               at(e.startedAt); at(e.completedAt);
               if (e.outcome === 'infrastructure_error') outcomes.push('infrastructure_error');
               else if (e.checks.some(c => ['not_assessed', 'inconclusive', 'error'].includes(c.status))) outcomes.push('inconclusive');
@@ -151,6 +185,7 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
                 || !['confirmed', 'inconclusive'].includes(String(finding.status))
                 || (rerun ? !sameRunScope(association.reproductionScope, rerun.scope) : association.reproductionScope !== undefined)
                 || (finding.status === 'confirmed' && (!rerun || rerun.outcome !== 'product_failure'))) invalid();
+              addFinding(evidenceRef, z.object({ id: z.string().min(1), status: z.enum(['confirmed', 'inconclusive']), severity: z.enum(['critical', 'high', 'medium', 'low']) }).parse(finding));
             }
           } else if (p.format === 'text_design') {
             const v = object(record.value);
@@ -199,7 +234,8 @@ export function createDurableProgressProjection(ports: ProgressProjectionPorts):
       if (!Number.isSafeInteger(snapshot.costs.reduce((s, c) => s + c.microUsd, 0))) invalid();
       // Terminal delivery requires a separate application fact AND resolved durable evidence.
       if (snapshot.status === 'delivered' && (snapshot.blockers.length || !phases.length || phases.some(p => p.state !== 'completed'))) invalid();
-      for (const rows of [snapshot.milestones, snapshot.blockers, snapshot.costs]) rows.sort((a, b) => a.id.localeCompare(b.id));
+      unique(snapshot.findings.map(f => f.id));
+      for (const rows of [snapshot.milestones, snapshot.blockers, snapshot.costs, snapshot.findings]) rows.sort((a, b) => a.id.localeCompare(b.id));
       phases.sort((a, b) => a.evidenceRef.localeCompare(b.evidenceRef)); acquisition.sort((a, b) => a.evidenceRef.localeCompare(b.evidenceRef));
       const result = { snapshot: ProgressSnapshotSchema.parse(snapshot), phases, acquisition };
       const encoded = JSON.stringify(result);

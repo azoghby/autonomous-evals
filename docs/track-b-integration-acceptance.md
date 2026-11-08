@@ -1,5 +1,25 @@
 # Track B independent integration acceptance
 
+## Parent fixes
+
+G2 and G4 are now acceptance regressions. Contract-only report rendering returns
+the validated original contract findings, preserving descriptions, severity,
+evidence and reproduction counts without appending a new basis. Internally the
+missing typed basis stays `unspecified`; free-form description text is never
+promoted to authoritative provenance. Rich inputs retain their explicit basis.
+
+Progress now projects finding status/severity with HMAC IDs and checkpoint evidence
+references. Nonempty Text investigations require an authorized matching baseline
+run, suite and scenario inventory; findings must bind to its failing checks, and
+confirmed findings require matching failed reproductions. Calendar findings retain
+the original/reproduction association checks and now populate the same safe list.
+Raw titles, summaries, responses and evidence remain excluded. Missing identity,
+duplicate findings or invalid associations reject the whole snapshot.
+
+The historical report and output below describe the original failures. Current
+integration tests contain seven acceptance/regression tests and two open
+characterizations (G1 app composition and G3 appended-pack integration).
+
 ECC disabled. Owned changes are only `tests/track-b/integration-acceptance/**` and this document. No production source, shared harness, contracts, manifests, Track A checkout, provider/cloud resources, secrets, outreach, push or PR was changed or used. All provider responses and calendar targets here are explicitly internal fixtures, never customer/provider validation.
 
 ## Reproduce

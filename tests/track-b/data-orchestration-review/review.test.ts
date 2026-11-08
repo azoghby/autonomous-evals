@@ -45,7 +45,7 @@ function reviewed(candidates: DataBatch, human = 'review-human'): DataBatch {
 }
 
 describe('independent orchestration review', () => {
-  it('CHARACTERIZATION P2: caller initial behavioral synthetic coverage bypasses human intake (actual SQL)', async () => {
+  it('REGRESSION R1: initial behavioral coverage waits for authenticated review (actual SQL)', async () => {
     const { store, engine } = await sqlStore(); let reads = 0; let freezes = 0; let providers = 0;
     const spec = { ...fixtureSpec, factualAnswersRequired: false };
     const initial: DataBatch = { sources: [], cases: [{ id: 'behavior', input: 'Return a short greeting', requirementIds: ['export-format'], synthetic: true, generatorId: 'caller-generator', sourceIds: [] }] };
@@ -57,14 +57,20 @@ describe('independent orchestration review', () => {
       freeze: async () => { freezes++; return { status: 'pending' }; }, deliverCost: async () => {},
     };
     const result = await advanceDataOrchestration(spec, initial, { job: fixtureJob, versionLabel: 'review', systemPrompt: null }, ports);
-    expect(result.task.state).toBe('ready'); expect(result.task.assessment.acceptedCaseIds).toEqual(['behavior']);
-    expect(reads).toBe(0); expect(providers).toBe(0); expect(freezes).toBe(1);
-    expect(result.status).toBe('reconciliation_required'); expect(result.progress.factualCorrectness).toBe('unassessed');
+    expect(result.task.state).toBe('waiting_for_data'); expect(result.task.assessment.acceptedCaseIds).toEqual(['behavior']);
+    expect(reads).toBe(1); expect(providers).toBe(0); expect(freezes).toBe(0);
+    expect(result.status).toBe('waiting_for_review'); expect(result.progress.factualCorrectness).toBe('unassessed');
     const rows = await engine.query<{ state: string }>("SELECT record->>'state' AS state FROM evaluation_data_persistence.tasks");
-    expect(rows.rows).toEqual([{ state: 'ready' }]);
+    expect(rows.rows).toEqual([{ state: 'waiting_for_data' }]);
+    const intake = createAuthenticatedDataReviewLedger({ operations: ports.operations, authenticateHuman: async () => ({ principalId: 'review-human' }) });
+    await intake.submit({ receiptId: 'behavior-reviewed', task: spec, candidates: initial, reviewed: initial, decision: 'approved' });
+    ports.readReview = intake.readReview;
+    const resumed = await advanceDataOrchestration(spec, initial, { job: fixtureJob, versionLabel: 'review', systemPrompt: null }, ports);
+    expect(resumed.task.state).toBe('ready');
+    expect(providers).toBe(0); expect(freezes).toBe(1);
   });
 
-  it('CHARACTERIZATION P1 conditional: mutable input changes authorized job after authenticateHuman snapshots it', async () => {
+  it('REGRESSION R2: mutable input cannot change the authorized receipt snapshot', async () => {
     const operations = await ledger(); let release!: () => void; let authenticatedJob = '';
     const gate = new Promise<void>(resolve => { release = resolve; });
     const intake = createAuthenticatedDataReviewLedger({ operations, authenticateHuman: async task => {
@@ -72,31 +78,39 @@ describe('independent orchestration review', () => {
       return task.jobId === fixtureJob.jobId ? { principalId: 'review-human' } : null;
     } });
     const candidates: DataBatch = { sources: [fixtureSource()], cases: [fixtureCase()] };
-    const input = { receiptId: 'scope-race', task: structuredClone(fixtureSpec), candidates, reviewed: reviewed(candidates), decision: 'approved' as const };
+    const input = { receiptId: 'scope-race', task: structuredClone(fixtureSpec), candidates, reviewed: reviewed(candidates), decision: 'approved' as 'approved' | 'rejected' };
+    const original = structuredClone(input);
     const pending = intake.submit(input);
     input.task.jobId = 'unauthorized-job';
+    input.candidates.cases[0].input = 'changed candidate';
+    input.reviewed.cases[0].input = 'changed review';
+    input.receiptId = 'changed-receipt'; input.decision = 'rejected';
     release(); await pending;
     const digest = dataReviewRequestDigest(input.task, candidates);
     expect(authenticatedJob).toBe(fixtureJob.jobId);
     const receipt = await intake.readReview({ digest, task: input.task, data: candidates });
-    expect(receipt.status).toBe('decided');
-    if (receipt.status !== 'decided') throw new Error('missing receipt');
-    expect(receipt.review.requestDigest).toBe(digest);
+    expect(receipt.status).toBe('pending');
+    const authorizedDigest = dataReviewRequestDigest(original.task, original.candidates);
+    const authorized = await intake.readReview({ digest: authorizedDigest, task: original.task, data: original.candidates });
+    expect(authorized.status).toBe('decided');
+    if (authorized.status !== 'decided') throw new Error('missing authorized receipt');
+    expect(authorized.review.requestDigest).toBe(authorizedDigest);
+    expect(authorized.review).toMatchObject({ receiptId: original.receiptId, decision: 'approved', data: original.reviewed });
     // This demonstrates the immutable authority record itself, not factual admission.
   });
 
-  it('CHARACTERIZATION P2: reviewer-added source can be self-produced and self-reviewed factual evidence', async () => {
+  it('REGRESSION R3: reviewer-added self-produced evidence cannot authorize factual assessment', async () => {
     const operations = await ledger();
     const intake = createAuthenticatedDataReviewLedger({ operations, authenticateHuman: async () => ({ principalId: 'review-human' }) });
     const c = fixtureCase(); c.synthetic = true; c.generatorId = 'independent-generator'; c.sourceIds = []; delete c.verification;
     const candidates: DataBatch = { sources: [], cases: [c] };
     const added = fixtureSource(); added.provenance.producerId = 'review-human'; added.review.reviewerId = 'review-human';
     const data = reviewed({ sources: [added], cases: [c] });
-    await intake.submit({ receiptId: 'self-source', task: fixtureSpec, candidates, reviewed: data, decision: 'approved' });
+    await expect(intake.submit({ receiptId: 'self-source', task: fixtureSpec, candidates, reviewed: data, decision: 'approved' })).rejects.toThrow('authorization');
     const digest = dataReviewRequestDigest(fixtureSpec, candidates);
-    expect((await intake.readReview({ digest, task: fixtureSpec, data: candidates })).status).toBe('decided');
+    expect((await intake.readReview({ digest, task: fixtureSpec, data: candidates })).status).toBe('pending');
     const assessment = assessDataQuality(fixtureSpec, data.cases, data.sources);
-    expect(assessment.status).toBe('sufficient'); expect(assessment.factualCorrectness).toBe('assessed');
+    expect(assessment.status).toBe('insufficient'); expect(assessment.factualCorrectness).toBe('unassessed');
     expect(data.sources[0]!.provenance.producerId).toBe(data.cases[0]!.verification!.verifierId);
     const { store, engine } = await sqlStore(); let freezeCalls = 0;
     const result = await advanceDataOrchestration(fixtureSpec, { sources: [], cases: [] },
@@ -106,10 +120,10 @@ describe('independent orchestration review', () => {
         readReview: intake.readReview,
         freeze: async () => { freezeCalls++; return { status: 'pending' }; }, deliverCost: async () => {},
       });
-    expect(result.task.state).toBe('ready'); expect(result.progress.factualCorrectness).toBe('assessed');
-    expect(freezeCalls).toBe(1);
+    expect(result.task.state).toBe('waiting_for_data'); expect(result.progress.factualCorrectness).toBe('unassessed');
+    expect(freezeCalls).toBe(0);
     const persisted = await engine.query<{ factual: string }>("SELECT record->'assessment'->>'factualCorrectness' AS factual FROM evaluation_data_persistence.tasks");
-    expect(persisted.rows).toEqual([{ factual: 'assessed' }]);
+    expect(persisted.rows).toEqual([{ factual: 'unassessed' }]);
   });
 
   it('ACCEPTANCE: authenticated intake rejects the same producer conflict when evidence was already a candidate', async () => {

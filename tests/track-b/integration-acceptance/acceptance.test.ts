@@ -258,22 +258,27 @@ describe('ACCEPTANCE — locally composed durable seams', () => {
   });
 });
 
-describe('CHARACTERIZATION — open integration gaps, not acceptance', () => {
-  it('G4 persisted confirmed Text findings are absent from private chat projection', async () => {
+describe('REGRESSION — report and chat finding preservation', () => {
+  it('G4 persisted confirmed Text findings appear as private opaque chat findings', async () => {
     const { projected, investigation } = await textSeam('acceptance-text-gap');
     expect(investigation.findings.filter(f => f.label === 'confirmed')).toHaveLength(3);
-    expect(projected.snapshot.findings).toEqual([]);
+    expect(projected.snapshot.findings.filter(f => f.status === 'confirmed')).toHaveLength(3);
+    expect(projected.snapshot.findings.every(f => /^ev_[a-f0-9]{64}$/.test(f.id) && f.evidenceRefs.length > 0)).toBe(true);
+    expect(JSON.stringify(projected)).not.toContain('WRONG');
   });
-  it('G2 shared finding round trip appends unspecified basis to an objective Trace finding', async () => {
+  it('G2 shared finding round trip preserves the original artifact without inferring provenance from prose', async () => {
     const job = fixtureJob({ jobId: 'acceptance-basis-gap' });
     const h = harness(() => { throw new Error('operator disabled'); });
     const finding = { id: 'F1', title: 'Unsupported send', status: 'confirmed' as const, severity: 'high' as const, category: 'unsupported_claim' as const, description: 'Tool failed.\n\nBasis: objective.', evidence: [{ kind: 'trace_excerpt' as const, excerpt: 'smtp down', location: 'event e2' }], reproductions: 0 };
     const report = await createTrackBServices({ runner: h.service, resolveJob: async () => job, operatorSummary: false }).renderReport(context(job), {
       intake: { package: 'trace_audit', trace, authorizedToTest: true }, findings: [finding],
     });
-    expect(report.findings[0]?.description).toContain('Basis: objective.\n\nBasis: unspecified.');
+    expect(report.findings).toEqual([finding]);
+    expect(report.markdown).not.toContain('Basis: unspecified');
     expect(h.naive.createCalls).toHaveLength(0);
   });
+});
+describe('CHARACTERIZATION — open integration gaps, not acceptance', () => {
   it('G3 Track A accepts 32 shared scenarios but this establishes no appended red-team execution', () => {
     const scenario = { id: 'S1', title: 'Schema fixture', category: 'instruction', input: 'Return READY', checks: [{ kind: 'objective', description: 'Exact answer', spec: {} }] };
     const suite = { jobId: '7d3f0c5e-4b1a-4e8e-9d55-0a1b2c3d4e5f', versionLabel: 'v1', frozenAt: time, scenarios: Array.from({ length: 32 }, (_, i) => ({ ...scenario, id: `S${i}` })) };

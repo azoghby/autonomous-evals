@@ -4,6 +4,17 @@ Status: implementation in progress. This document specifies integration requirem
 
 ## Parent integration checkpoint (2026-11-07)
 
+Latest combined checkpoint: data orchestration is integrated; report round-trip,
+private finding projection, initial-data human review, immutable intake snapshots,
+and reviewer/source independence defects are fixed. The data-review runner's full
+component selection passed strict TypeScript and **1,033 tests across 64 files**,
+none skipped, against Track A `9cc9db954eb00fc16a5c8f832d4e75eb417f4cf9`.
+This includes the 25 explicit open contract-gap pins. Independent cross-service
+validation passed **9 tests**: seven acceptance/regressions and two still-open
+app-composition/appended-pack characterizations. These remain offline checks.
+
+Earlier checkpoint evidence:
+
 The remediation factory is exported and its invalid-initial-budget recovery defect
 is fixed. The current private-chat patch package is integrated as a handoff artifact.
 Against pinned Track A `eee9939b290190886fa9aa11fd32ff84442f05f2`, the full harness

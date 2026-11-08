@@ -1,5 +1,28 @@
 # Independent review of evaluation-data orchestration
 
+## Parent remediation
+
+R1–R3 are now ordinary acceptance regressions, not defect characterizations.
+Initial sufficient data enters the configured review gate without provider dispatch;
+pending review persists a non-ready task and blocks freeze. An authenticated approval
+can resume that same data. Previously complete records without a durable reviewed
+completion decision also pass the review gate before reuse.
+
+Review intake snapshots its complete input synchronously before authorization and
+uses that snapshot for all receipt writes. The regression mutates task, candidates,
+reviewed data, decision and receipt ID during authentication and requires that only
+the original authorized snapshot has a receipt. Orchestration likewise snapshots
+its caller inputs. Both intake and orchestration check reviewer independence against
+all reviewed sources, including additions; the quality gate separately refuses an
+answer verifier's own source as independent evidence. Expert contributions still
+need the established independent-review path.
+
+The findings and recorded results below are historical pre-fix evidence. Production
+authentication, shared ledger, cost delivery and app Workflow wiring remain open.
+Parent validation: full strict component check plus orchestration/review tests
+passed **1,033 tests across 64 files**, none skipped, against Track A `9cc9db9`.
+The original result artifact is retained as pre-fix evidence.
+
 Reviewed integrated `b302b36` (original `7aa0bbb`) at worktree HEAD `e47a852`. ECC disabled. Read the supplied AGENTS instructions, local PLAN/TRACKS, orchestration implementation/documentation, acquisition, review/operation ledgers, quality/binding/expert helpers, mapping/generation adapters, PostgreSQL/file stores and existing orchestration tests. No repository AGENTS.md was found. Changes are limited to this document and `tests/track-b/data-orchestration-review/**`; production is untouched. No network/provider/cloud calls, secrets, spending, outreach, manifests, push or PR.
 
 ## Findings
