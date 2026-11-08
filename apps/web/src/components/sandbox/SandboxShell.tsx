@@ -5,6 +5,7 @@ const SANDBOX_NAV: NavItem[] = [
   { label: "Sandbox evals", href: "/sandbox" },
   { label: "New sandbox eval", href: "/sandbox/new" },
   { label: "Sample report", href: "/sandbox/runs/sample" },
+  { label: "Compare", href: "/sandbox/compare" },
   { label: "Leaderboard", href: "/leaderboard" },
   { label: "My evals", href: "/evals" },
   { label: "My jobs", href: "/jobs" },

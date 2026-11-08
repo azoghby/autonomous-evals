@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentCustomer } from "@/server/session";
 import { getSandboxService } from "@/server/sandbox-service";
@@ -33,6 +34,11 @@ export default async function SandboxRunPage({ params }: { params: Promise<{ run
     <EvalCopilotLayout copilot={<EvalCopilot evalRef={{ kind: "sandbox_run", id: runId }} title={report.name} />}>
     <div className="min-w-0 pb-24 pt-10">
       <ReportHeader report={report} />
+      {hasResults && (
+        <p className="mt-4 text-[13px]">
+          <Link className="rc-link" href={`/sandbox/compare?other=${encodeURIComponent(runId)}`}>Compare with another run →</Link>
+        </p>
+      )}
       <RunProgress report={report} />
       <RunErrorNotice report={report} />
       {hasResults && <Headline report={report} />}
