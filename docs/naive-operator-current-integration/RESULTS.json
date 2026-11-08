@@ -1,0 +1,17 @@
+{
+  "baseCommit": "7c610084dd9827e5cbecca27e09d5b8ca5e2ae8a",
+  "applicationSourceAdopted": false,
+  "focusedTests": {
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0,
+    "files": 4
+  },
+  "typegen": 0,
+  "webTypecheck": 0,
+  "coreTypecheck": 0,
+  "webpackBuild": 0,
+  "trackedPinsVerified": 1162,
+  "postimagesVerified": 10,
+  "revenuePreserved": true
+}
