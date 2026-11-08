@@ -18,3 +18,9 @@ both returned HTTP 401. This establishes failed authentication only. It does not
 establish a missing seed, wrong project, SQL connectivity or deployed settings.
 No mutation or database query occurred. The private key was neither printed nor
 committed. A replacement credential must use the private secret form.
+
+With a replacement private credential, the subsequent check succeeded: both
+configured branches exist in the project; main is default and seed is nondefault.
+Nonsecret evidence is in `verified-branches.json`. This supersedes the credential
+block, not the unverified SQL schema or deployed configuration. It does not explain
+the older application's snapshot/TTL error for an individual job branch.

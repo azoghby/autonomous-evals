@@ -1,0 +1,23 @@
+{
+  "observedAt": "2026-11-07",
+  "projectId": "icy-star-64097833",
+  "mainBranchId": "br-long-voice-bdogu70i",
+  "seedBranchId": "br-dry-wave-bdhrghkh",
+  "readOnly": true,
+  "checks": [
+    {
+      "role": "main",
+      "existsInProject": true,
+      "isDefault": true
+    },
+    {
+      "role": "seed",
+      "existsInProject": true,
+      "isDefault": false
+    }
+  ],
+  "sqlConnectivity": "not_checked",
+  "seedSchema": "not_checked",
+  "deploymentConfiguration": "not_checked",
+  "mutations": 0
+}
