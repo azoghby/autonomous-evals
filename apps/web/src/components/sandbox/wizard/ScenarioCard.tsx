@@ -60,7 +60,9 @@ export function ScenarioCard({ item, sample, busy, onReview }: Props) {
       <div className="flex flex-wrap items-center gap-2">
         <Chip tone="neutral">{CATEGORY_LABELS[s.category]}</Chip>
         {sample && <Chip tone="warn">Sample</Chip>}
-        {s.oracleValidated ? <Chip tone="ok">Oracle validated</Chip> : <Chip tone="warn">Not oracle-validated</Chip>}
+        {item.validated === true && <Chip tone="ok">Validated</Chip>}
+        {item.validated === false && <Chip tone="warn">Not validated</Chip>}
+        {item.validated === undefined && (s.oracleValidated ? <Chip tone="ok">Oracle validated</Chip> : <Chip tone="warn">Not oracle-validated</Chip>)}
         {item.edited && <Chip tone="muted">Edited</Chip>}
         <Chip tone={DECISION_TONE[decision]} variant="plain" dot className="ml-auto">{decision}</Chip>
       </div>
@@ -82,6 +84,10 @@ export function ScenarioCard({ item, sample, busy, onReview }: Props) {
             Goal: {s.persona.goal}
           </p>
         </>
+      )}
+
+      {item.validated === false && item.gateReasons?.[0] && (
+        <p className="text-sm text-warn break-words">Why: {item.gateReasons[0]}</p>
       )}
 
       <Bullets title="Setup" items={fixtureLines(s)} />

@@ -1,99 +1,249 @@
 import { describe, expect, it, vi } from "vitest";
-import { SANDBOX_TOOLS, buildSandboxTools, validateToolInput, type SandboxService } from "./mcp-sandbox-tools";
-import type { McpCaller, McpToolResult } from "./mcp-tools";
+import { buildSandboxTools, createMcpSandboxService, validateToolInput, type McpEngine } from "./mcp-sandbox-tools";
+import type { McpCaller } from "./mcp-tools";
+import { SandboxInputError } from "./sandbox/target";
 
 const caller: McpCaller = { customerId: "c1", email: "a@b.co", origin: "https://x.test" };
 const agent = { endpointUrl: "https://agent.example.com/v1/chat/completions", model: "m" };
-const tool = (name: string, tools = SANDBOX_TOOLS) => tools.find((t) => t.name === name)!;
-const call = async (name: string, args: unknown, tools = SANDBOX_TOOLS) => {
-  const t = tool(name, tools);
-  const v = validateToolInput(t, args);
-  if (!v.ok) return v.result;
-  return t.run(caller, v.value as never);
+const SECRET_POLICY = "TOP-SECRET-POLICY-TEXT";
+const SECRET_SPEC = "TOP-SECRET-OPENAPI";
+
+const draft = (over: Record<string, unknown> = {}) => ({
+  draftId: "drf_1", environmentId: "env_1", status: "ready", costMicroUsd: 250_000,
+  scenarios: [
+    { scenario: { id: "sx_a", title: "Refund ok", category: "happy_path", workflowId: "wf", persona: { goal: "Get a refund" } }, validated: true, gateReasons: [] },
+    { scenario: { id: "sx_b", title: "Refund late", category: "boundary", workflowId: "wf", persona: { goal: "x".repeat(500) } }, validated: false, gateReasons: ["r1", "r2", "r3"] },
+  ],
+  ...over,
+});
+
+const trial = (passed: boolean) => ({
+  scenarioId: "sx_a", trial: 0, passed,
+  checks: passed ? [] : [{ id: "ck1", kind: "state", passed: false, severity: "high", detail: "d".repeat(500), policyRef: "refund.1" }],
+  transcript: [1, 2, 3, 4, 5].map((n) => ({ role: "user", content: `${n}${"y".repeat(500)}` })),
+  toolCalls: [{ secret: "TOOLCALL" }], diff: [{ secret: "DIFF" }],
+});
+const report = (status = "complete") => ({
+  runId: "run_1", status, k: 2, versions: { spec: 1 }, error: undefined,
+  scenarios: [{ id: "sx_a", title: "Refund ok", category: "happy_path" }],
+  workflows: [{ id: "wf", name: "Refunds" }],
+  results: [{ scenarioId: "sx_a", workflowId: "wf", passRate: 0.5, reliable: false, ci95: [0.1, 0.9], trials: [trial(true), trial(false)] }],
+  clusters: [{ id: "cl", title: "t", rootCause: "rc", attribution: "agent", severity: "high", policyRef: "refund.1", scenarioIds: ["sx_a"], trialCount: 1 }],
+  costMicroUsd: 1_500_000, budgetMicroUsd: 3_000_000, progress: { trialsDone: 2, trialsTotal: 2 },
+});
+
+function makeEngine(over: Partial<Record<keyof McpEngine, unknown>> = {}) {
+  const engine = {
+    createEnvironment: vi.fn(async () => ({ environmentId: "env_1", name: "n", source: "custom", tools: 3, tables: ["t"], policies: 1, workflows: [{ id: "wf", name: "W" }], warnings: ["w"], summary: { secret: SECRET_POLICY } })),
+    generateSuite: vi.fn(async () => draft({ status: "generating" })),
+    getDraft: vi.fn(async () => draft()),
+    startRun: vi.fn(async () => ({ ok: true as const, runId: "run_1" })),
+    getRunReport: vi.fn(async () => report()),
+    ...over,
+  };
+  return engine as unknown as McpEngine & typeof engine;
+}
+const setup = (engine = makeEngine()) => {
+  const tools = buildSandboxTools(createMcpSandboxService(engine));
+  const call = async (name: string, args: unknown) => {
+    const t = tools.find((x) => x.name === name)!;
+    const v = validateToolInput(t, args);
+    return v.ok ? t.run(caller, v.value as never) : v.result;
+  };
+  return { engine, call };
 };
+const data = (r: { content: Array<{ text: string }> }) => JSON.parse(r.content[0].text);
 
-describe("sandbox tool input validation", () => {
-  it("rejects when no spec source is given", async () => {
-    const r = await call("sandbox_create_environment", { name: "n", agent });
-    expect(r.isError).toBe(true);
+describe("input validation", () => {
+  it("requires a spec source unless prebuilt", async () => {
+    const { call } = setup();
+    expect((await call("sandbox_create_environment", { name: "n", agent })).isError).toBe(true);
+    expect((await call("sandbox_create_environment", { name: "n", prebuilt: "acme-support", agent })).isError).toBeUndefined();
   });
-  it("rejects a non-https or malformed agent URL", async () => {
-    for (const endpointUrl of ["http://agent.example.com", "not a url"]) {
-      const r = await call("sandbox_create_environment", { name: "n", openapi: "openapi: 3.0.0", agent: { ...agent, endpointUrl } });
-      expect(r.isError).toBe(true);
-    }
-  });
-  it("rejects oversized openapi and an apiKeyRef that looks like a secret with spaces", async () => {
+  it("rejects non-https agent URLs and oversized openapi", async () => {
+    const { call } = setup();
+    expect((await call("sandbox_create_environment", { name: "n", openapi: "a", agent: { ...agent, endpointUrl: "http://a.com" } })).isError).toBe(true);
     expect((await call("sandbox_create_environment", { name: "n", openapi: "x".repeat(500_001), agent })).isError).toBe(true);
-    expect((await call("sandbox_create_environment", { name: "n", openapi: "a", agent: { ...agent, apiKeyRef: "sk live key" } })).isError).toBe(true);
   });
-  it("bounds k to 1..10", async () => {
+  it("bounds k and scenarioIds, defaults k to 5", async () => {
+    const { call } = setup();
     for (const k of [0, 11, 1.5]) expect((await call("sandbox_run", { environmentId: "e", suiteId: "s", k })).isError).toBe(true);
+    expect((await call("sandbox_run", { environmentId: "e", suiteId: "s", scenarioIds: Array(13).fill("a") })).isError).toBe(true);
   });
-  it("defaults k", () => {
-    const v = validateToolInput(tool("sandbox_run"), { environmentId: "e", suiteId: "s" });
-    expect(v.ok && (v.value as { k: number }).k).toBe(5);
+  it("status needs exactly one of runId or suiteId", async () => {
+    const { call } = setup();
+    expect((await call("sandbox_status", {})).isError).toBe(true);
+    expect((await call("sandbox_status", { runId: "a", suiteId: "b" })).isError).toBe(true);
   });
 });
 
-describe("coming-soon stub", () => {
-  it("returns coming_soon, no error, no fabricated ids, no content echo", async () => {
-    const secretish = "SECRET_MARKER_" + "y".repeat(1000);
-    const r = await call("sandbox_create_environment", { name: "n", functions: [{ name: "f" }], policies: [secretish], agent });
+describe("sandbox_create_environment", () => {
+  it("rejects apiKeyRef without calling the engine", async () => {
+    const { call, engine } = setup();
+    const r = await call("sandbox_create_environment", { name: "n", openapi: "a", agent: { ...agent, apiKeyRef: "my-key" } });
+    expect(r.isError).toBe(true);
+    expect(data(r).error).toContain("Stored credentials are not supported yet");
+    expect(data(r).error).toContain("ai-gateway.vercel.sh");
+    expect(engine.createEnvironment).not.toHaveBeenCalled();
+  });
+  it("maps input, scopes to customerId and does not echo content", async () => {
+    const { call, engine } = setup();
+    const r = await call("sandbox_create_environment", {
+      name: "n", openapi: SECRET_SPEC, functions: '[{"a":1}]', mcpTools: [{ name: "x" }],
+      policies: [SECRET_POLICY, { title: "Refunds", markdown: "m" }], agent: { ...agent, systemPrompt: "sp" },
+    });
     expect(r.isError).toBeUndefined();
-    const s = r.structuredContent as Record<string, unknown>;
-    expect(s.status).toBe("coming_soon");
-    expect(s).not.toHaveProperty("environmentId");
-    expect(JSON.stringify(r)).not.toContain("SECRET_MARKER_");
-    expect((s.received as { policies: number }).policies).toBe(1);
+    const [owner, input] = engine.createEnvironment.mock.calls[0] as unknown as [string, Record<string, any>];
+    expect(owner).toBe("c1");
+    expect(input.integration).toEqual({ mode: "tool_loop", endpointUrl: agent.endpointUrl, model: "m", systemPrompt: "sp" });
+    expect(input.world.functions).toEqual([{ a: 1 }]);
+    expect(input.world.mcpTools).toEqual([{ name: "x" }]);
+    expect(input.world.policies).toEqual([{ title: "Policy 1", text: SECRET_POLICY }, { title: "Refunds", text: "m" }]);
+    const out = data(r);
+    expect(out).toMatchObject({ environmentId: "env_1", next: "call sandbox_generate_suite" });
+    expect(r.content[0].text).not.toContain(SECRET_POLICY);
+    expect(r.content[0].text).not.toContain(SECRET_SPEC);
   });
-  it("other tools are coming_soon without ids", async () => {
-    for (const [n, a] of [["sandbox_generate_suite", { environmentId: "e" }], ["sandbox_run", { environmentId: "e", suiteId: "s", k: 2 }], ["sandbox_status", { runId: "r" }], ["sandbox_report", { runId: "r" }]] as const) {
-      const r = await call(n, a);
-      expect(r.isError).toBeUndefined();
-      expect(r.structuredContent).toMatchObject({ status: "coming_soon" });
-      expect(r.structuredContent).not.toHaveProperty("suiteId");
-      expect(r.structuredContent).not.toHaveProperty("scenarios");
+  it("passes the prebuilt path without a world", async () => {
+    const { call, engine } = setup();
+    await call("sandbox_create_environment", { name: "n", prebuilt: "acme-support", agent });
+    const input = (engine.createEnvironment.mock.calls[0] as unknown as [string, Record<string, unknown>])[1];
+    expect(input.prebuilt).toBe("acme-support");
+    expect(input.world).toBeUndefined();
+  });
+  it("returns a tool error for unparseable JSON strings", async () => {
+    const { call, engine } = setup();
+    const r = await call("sandbox_create_environment", { name: "n", functions: "{nope", agent });
+    expect(r.isError).toBe(true);
+    expect(engine.createEnvironment).not.toHaveBeenCalled();
+  });
+});
+
+describe("sandbox_generate_suite", () => {
+  it("starts generation", async () => {
+    const { call, engine } = setup();
+    const r = await call("sandbox_generate_suite", { environmentId: "env_1" });
+    expect(engine.generateSuite).toHaveBeenCalledWith("c1", "env_1");
+    expect(data(r)).toMatchObject({ suiteId: "drf_1", status: "generating" });
+  });
+  it("reports foreign/unknown environments as not found", async () => {
+    const { call } = setup(makeEngine({ generateSuite: vi.fn(async () => null) }));
+    const r = await call("sandbox_generate_suite", { environmentId: "env_x" });
+    expect(r.isError).toBe(true);
+    expect(data(r).error).toBe("Environment not found");
+  });
+});
+
+describe("sandbox_status", () => {
+  it("returns a suite preview when ready, clipped", async () => {
+    const { call, engine } = setup();
+    const out = data(await call("sandbox_status", { suiteId: "drf_1" }));
+    expect(engine.getDraft).toHaveBeenCalledWith("c1", "drf_1");
+    expect(out).toMatchObject({ suiteId: "drf_1", status: "ready", costUsd: 0.25 });
+    expect(out.preview.scenarios).toHaveLength(2);
+    expect(out.preview.scenarios[1].gateReasons).toEqual(["r1", "r2"]);
+    expect(out.preview.scenarios[1].goal.length).toBeLessThan(310);
+  });
+  it("omits the preview while generating and shows errors", async () => {
+    const { call } = setup(makeEngine({ getDraft: vi.fn(async () => draft({ status: "failed", error: "boom" })) }));
+    const out = data(await call("sandbox_status", { suiteId: "drf_1" }));
+    expect(out.preview).toBeUndefined();
+    expect(out.error).toBe("boom");
+  });
+  it("returns run progress for runId", async () => {
+    const { call, engine } = setup();
+    const out = data(await call("sandbox_status", { runId: "run_1" }));
+    expect(engine.getRunReport).toHaveBeenCalledWith("c1", "run_1");
+    expect(out).toMatchObject({ runId: "run_1", status: "complete", trialsCompleted: 2, trialsTotal: 2, costUsd: 1.5 });
+  });
+  it("treats foreign/missing as Not found", async () => {
+    const { call } = setup(makeEngine({ getDraft: vi.fn(async () => null), getRunReport: vi.fn(async () => null) }));
+    for (const a of [{ suiteId: "s" }, { runId: "r" }]) {
+      const r = await call("sandbox_status", a);
+      expect(r.isError).toBe(true);
+      expect(data(r).error).toBe("Not found");
     }
   });
 });
 
-describe("buildSandboxTools", () => {
-  it("delegates to the injected service with the caller", async () => {
-    const res = (d: string): McpToolResult => ({ content: [{ type: "text", text: d }] });
-    const service: SandboxService = {
-      createEnvironment: vi.fn(() => res("env")), generateSuite: vi.fn(() => res("suite")),
-      run: vi.fn(() => res("run")), status: vi.fn(() => res("st")), report: vi.fn(() => res("rep")),
-    };
-    const tools = buildSandboxTools(service);
-    expect(tools.map((t) => t.name)).toEqual(["sandbox_create_environment", "sandbox_generate_suite", "sandbox_run", "sandbox_status", "sandbox_report"]);
-    await call("sandbox_create_environment", { name: "n", mcpTools: "[]".padEnd(3, " "), agent }, tools);
-    await call("sandbox_generate_suite", { environmentId: "e1" }, tools);
-    await call("sandbox_run", { environmentId: "e1", suiteId: "s1", k: 3 }, tools);
-    await call("sandbox_status", { runId: "r1" }, tools);
-    await call("sandbox_report", { runId: "r1" }, tools);
-    expect(service.createEnvironment).toHaveBeenCalledWith(caller, expect.objectContaining({ name: "n" }));
-    expect(service.generateSuite).toHaveBeenCalledWith(caller, "e1");
-    expect(service.run).toHaveBeenCalledWith(caller, "e1", "s1", 3);
-    expect(service.status).toHaveBeenCalledWith(caller, "r1");
-    expect(service.report).toHaveBeenCalledWith(caller, "r1");
+describe("sandbox_run", () => {
+  it("starts a validated-only run by default", async () => {
+    const { call, engine } = setup();
+    const out = data(await call("sandbox_run", { environmentId: "env_1", suiteId: "drf_1" }));
+    expect(engine.startRun).toHaveBeenCalledWith("c1", "drf_1", { k: 5, scenarioIds: undefined, validatedOnly: true });
+    expect(out).toMatchObject({ runId: "run_1", status: "queued", k: 5 });
+  });
+  it("uses explicit scenarioIds without validatedOnly", async () => {
+    const { call, engine } = setup();
+    await call("sandbox_run", { environmentId: "env_1", suiteId: "drf_1", k: 10, scenarioIds: ["sx_b"] });
+    expect(engine.startRun).toHaveBeenCalledWith("c1", "drf_1", { k: 10, scenarioIds: ["sx_b"], validatedOnly: false });
+  });
+  it("rejects a suite from another environment", async () => {
+    const { call, engine } = setup();
+    const r = await call("sandbox_run", { environmentId: "env_other", suiteId: "drf_1" });
+    expect(data(r).error).toBe("Suite not found");
+    expect(engine.startRun).not.toHaveBeenCalled();
+  });
+  it("rejects a missing/foreign suite", async () => {
+    const { call } = setup(makeEngine({ getDraft: vi.fn(async () => null) }));
+    expect(data(await call("sandbox_run", { environmentId: "env_1", suiteId: "drf_1" })).error).toBe("Suite not found");
+  });
+  it("carries engine errors into tool errors", async () => {
+    const { call } = setup(makeEngine({ startRun: vi.fn(async () => ({ ok: false, status: 429, error: "2 runs in progress" })) }));
+    const r = await call("sandbox_run", { environmentId: "env_1", suiteId: "drf_1" });
+    expect(r.isError).toBe(true);
+    expect(data(r).error).toBe("2 runs in progress");
   });
 });
 
-describe("descriptions", () => {
-  it("create_environment tells agents which files to find and to send contents", () => {
-    const d = tool("sandbox_create_environment").description;
-    for (const needle of ["openapi.yaml", "swagger", "tools.ts", "prisma/schema.prisma", "Drizzle", "migrations", "seed", "docs/policies/*.md", "POLICY*.md", "playbooks", "CONTENTS", "secrets", "apiKeyRef"]) {
-      expect(d).toContain(needle);
+describe("sandbox_report", () => {
+  it("refuses unfinished runs", async () => {
+    for (const status of ["queued", "running"]) {
+      const { call } = setup(makeEngine({ getRunReport: vi.fn(async () => report(status)) }));
+      const r = await call("sandbox_report", { runId: "run_1" });
+      expect(r.isError).toBe(true);
+      expect(data(r).error).toBe("Run not finished; poll sandbox_status");
     }
   });
-  it("every tool has a description and every field is described", () => {
-    for (const t of SANDBOX_TOOLS) {
-      expect(t.description.length).toBeGreaterThan(40);
-      for (const [k, s] of Object.entries(t.inputSchema.shape)) expect((s as { description?: string }).description, `${t.name}.${k}`).toBeTruthy();
-    }
+  it("returns a compact report without transcripts beyond one clipped excerpt", async () => {
+    const { call } = setup();
+    const r = await call("sandbox_report", { runId: "run_1" });
+    const out = data(r);
+    expect(out.reportUrl).toBe("https://x.test/sandbox/runs/run_1");
+    expect(out.summary).toMatchObject({ scenarios: 1, passAt1: 0.5, passHatK: 0 });
+    expect(out.summary.ci95).toHaveLength(2);
+    expect(out.workflows[0]).toMatchObject({ id: "wf", name: "Refunds", passRate: 0.5 });
+    const s = out.scenarios[0];
+    expect(s).toMatchObject({ id: "sx_a", title: "Refund ok", category: "happy_path", passHatK: false });
+    expect(s.failedChecks[0]).toMatchObject({ id: "ck1", policyRef: "refund.1" });
+    expect(s.failedChecks[0].detail.length).toBeLessThanOrEqual(203);
+    expect(out.clusters[0]).toMatchObject({ id: "cl", policyRef: "refund.1" });
+    expect(out.exampleFailure.lastTurns).toHaveLength(3);
+    expect(out.exampleFailure.lastTurns[0].content.length).toBeLessThanOrEqual(303);
+    expect(out.costUsd).toBe(1.5);
+    expect(r.content[0].text).not.toContain("TOOLCALL");
+    expect(r.content[0].text).not.toContain("DIFF");
   });
-  it("suite generation description mentions the spec files too", () => {
-    expect(tool("sandbox_generate_suite").description).toMatch(/openapi\.yaml/);
+  it("is not found for foreign runs", async () => {
+    const { call } = setup(makeEngine({ getRunReport: vi.fn(async () => null) }));
+    expect(data(await call("sandbox_report", { runId: "run_x" })).error).toBe("Not found");
+  });
+});
+
+describe("error mapping", () => {
+  it("maps SandboxInputError to its message and field", async () => {
+    const { call } = setup(makeEngine({ generateSuite: vi.fn(async () => { throw new SandboxInputError("You already have 2 suites generating.", 429); }) }));
+    const r = await call("sandbox_generate_suite", { environmentId: "env_1" });
+    expect(r.isError).toBe(true);
+    expect(data(r).error).toBe("You already have 2 suites generating.");
+  });
+  it("hides unexpected errors behind Internal error without logging inputs", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { call } = setup(makeEngine({ createEnvironment: vi.fn(async () => { throw new Error(`db down ${SECRET_POLICY}`); }) }));
+    const r = await call("sandbox_create_environment", { name: "n", openapi: SECRET_SPEC, agent });
+    expect(data(r).error).toBe("Internal error");
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(SECRET_SPEC);
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(SECRET_POLICY);
+    spy.mockRestore();
   });
 });

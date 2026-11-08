@@ -124,7 +124,7 @@ export function McpTerminal({ command }: McpProps) {
           </div>
         </div>
       </div>
-      <p className="mt-3 text-[13px] leading-relaxed text-subtle">Sandbox tools are rolling out. Until the engine is live they validate input and return coming_soon.</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-subtle">Sandbox tools are live: create an environment (or use the prebuilt acme-support world), generate and review a suite, run k trials, then poll status and fetch the report.</p>
     </div>
   );
 }

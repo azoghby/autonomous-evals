@@ -4,9 +4,9 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; error: string; field?: string; issues?: Array<{ path: Array<string | number>; message: string }> };
 
-async function call<T>(url: string, method: string, body: unknown): Promise<ApiResult<T>> {
+async function call<T>(url: string, method: string, body?: unknown): Promise<ApiResult<T>> {
   try {
-    const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetch(url, body === undefined ? { method, cache: "no-store" } : { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const json: unknown = await res.json().catch(() => ({}));
     if (res.ok) return { ok: true, data: json as T };
     const e = json as { error?: string; field?: string; issues?: Array<{ path: Array<string | number>; message: string }> };
@@ -29,3 +29,5 @@ export const reviewScenario = (draftId: string, scenarioId: string, body: Scenar
 
 export const startRun = (draftId: string, k: number) =>
   call<{ runId: string }>(`/api/sandbox/drafts/${encodeURIComponent(draftId)}/runs`, "POST", { k });
+
+export const getDraft = (draftId: string) => call<{ draft: SandboxDraft }>(`/api/sandbox/drafts/${encodeURIComponent(draftId)}`, "GET");

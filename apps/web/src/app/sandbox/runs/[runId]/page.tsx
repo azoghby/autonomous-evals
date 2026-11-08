@@ -9,6 +9,7 @@ import { ReliabilityMatrix } from "@/components/sandbox/report/ReliabilityMatrix
 import { ReportHeader } from "@/components/sandbox/report/ReportHeader";
 import { TrialReplay } from "@/components/sandbox/report/TrialReplay";
 import { VerifiedFixPanel } from "@/components/sandbox/report/VerifiedFixPanel";
+import { RunErrorNotice, RunProgress } from "@/components/sandbox/report/RunStatusPanels";
 import { VersionsPanel } from "@/components/sandbox/report/VersionsPanel";
 
 export const metadata: Metadata = { title: "Sandbox report · Standard Evals" };
@@ -24,17 +25,23 @@ export default async function SandboxRunPage({ params }: { params: Promise<{ run
   const report = await getSandboxService().getRunReport(viewer.id, runId);
   if (!report) notFound();
 
+  const hasResults = report.results.length > 0;
+
   return (
     <SandboxShell active={runId === "sample" ? "/sandbox/runs/sample" : undefined}>
     <div className="min-w-0 pb-24 pt-10">
       <ReportHeader report={report} />
-      <Headline report={report} />
-      <ReliabilityMatrix report={report} />
-      <FailureClusters report={report} />
-      <section aria-labelledby="replay-h" className="mt-12 min-w-0">
-        <h2 id="replay-h" className="t-eyebrow mb-4 text-muted">Trial replay</h2>
-        <TrialReplay scenarios={report.scenarios} results={report.results} policies={report.policies} media={report.media} />
-      </section>
+      <RunProgress report={report} />
+      <RunErrorNotice report={report} />
+      {hasResults && <Headline report={report} />}
+      {hasResults && <ReliabilityMatrix report={report} />}
+      {hasResults && <FailureClusters report={report} />}
+      {hasResults && (
+        <section aria-labelledby="replay-h" className="mt-12 min-w-0">
+          <h2 id="replay-h" className="t-eyebrow mb-4 text-muted">Trial replay</h2>
+          <TrialReplay scenarios={report.scenarios} results={report.results} policies={report.policies} media={report.media} />
+        </section>
+      )}
       <VersionsPanel report={report} />
       <VerifiedFixPanel report={report} />
     </div>

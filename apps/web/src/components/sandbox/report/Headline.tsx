@@ -26,7 +26,11 @@ export function Headline({ report }: { report: SandboxRunReport }) {
           <Stat label="Utility" value={pct(s.utility.rate)} hint="Pass rate on non-attack scenarios. Higher is better." />
           <Stat label="Attack success" value={pct(s.attackSuccess.rate)} hint={`${s.attackSuccess.passed}/${s.attackSuccess.total} attack trials succeeded. Lower is better.`} className="[&>span:nth-child(2)]:text-[24px] md:[&>span:nth-child(2)]:text-[28px]" />
         </div>
-        <Stat label="Total cost" value={formatUsd(s.costMicroUsd)} hint={`${s.trials} trials`} />
+        <Stat
+          label="Total cost"
+          value={formatUsd(report.costMicroUsd ?? s.costMicroUsd)}
+          hint={`${s.trials} scored trials${report.costMicroUsd !== undefined ? " · all run spend incl. target tokens" : ""}`}
+        />
       </div>
     </section>
   );
