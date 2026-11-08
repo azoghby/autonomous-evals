@@ -1,0 +1,2684 @@
+{
+  "version": 1,
+  "preparationOnly": true,
+  "liveActions": false,
+  "applyMigrations": false,
+  "adoptedCommit": "5d600a82c9470c6dad56b51998ce1bd4864ca3c0",
+  "inputs": [
+    {
+      "path": "/tmp/naive-staging-catalog-readonly.json",
+      "sha256": "174d3e5490606bea3898621ac75d179d58031a809c563d60274dc66af3b408e7",
+      "kind": "owner supplied read-only catalog receipt"
+    },
+    {
+      "path": "docs/naive-runtime-rollout/schema-plan.json",
+      "sha256": "989eb4fd602151e80b9b5667100945ad4ee5c0b8a65a629c7d8d38c21475fe83"
+    }
+  ],
+  "observed": {
+    "readOnly": true,
+    "transactionSetting": [
+      {
+        "transaction_read_only": "on"
+      }
+    ],
+    "tableCount": 79,
+    "schemaCount": 6,
+    "journalReceiptCount": 35
+  },
+  "baseReceipts": {
+    "matched": [
+      {
+        "id": "base-0000_init",
+        "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+        "receipts": [
+          {
+            "id": 1,
+            "hash": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+            "created_at": "1794084659676"
+          }
+        ]
+      },
+      {
+        "id": "base-0001_expert_network",
+        "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+        "receipts": [
+          {
+            "id": 2,
+            "hash": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+            "created_at": "1794085616142"
+          }
+        ]
+      },
+      {
+        "id": "base-0002_delivery_snapshot",
+        "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+        "receipts": [
+          {
+            "id": 3,
+            "hash": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+            "created_at": "1794085777771"
+          }
+        ]
+      },
+      {
+        "id": "base-0003_rate_limits",
+        "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+        "receipts": [
+          {
+            "id": 4,
+            "hash": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+            "created_at": "1794085821334"
+          }
+        ]
+      },
+      {
+        "id": "base-0004_email_threads",
+        "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+        "receipts": [
+          {
+            "id": 5,
+            "hash": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+            "created_at": "1794086137760"
+          }
+        ]
+      },
+      {
+        "id": "base-0005_remediations",
+        "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+        "receipts": [
+          {
+            "id": 6,
+            "hash": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+            "created_at": "1794086440093"
+          }
+        ]
+      },
+      {
+        "id": "base-0006_per_finding_pricing",
+        "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+        "receipts": [
+          {
+            "id": 7,
+            "hash": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+            "created_at": "1794086459455"
+          }
+        ]
+      },
+      {
+        "id": "base-0007_api_keys",
+        "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+        "receipts": [
+          {
+            "id": 8,
+            "hash": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+            "created_at": "1794086495987"
+          }
+        ]
+      },
+      {
+        "id": "base-0008_monitoring_runs",
+        "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+        "receipts": [
+          {
+            "id": 9,
+            "hash": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+            "created_at": "1794087019720"
+          }
+        ]
+      },
+      {
+        "id": "base-0009_call_slots",
+        "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+        "receipts": [
+          {
+            "id": 10,
+            "hash": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+            "created_at": "1794087060164"
+          }
+        ]
+      },
+      {
+        "id": "base-0010_engagement_prev_tokens",
+        "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+        "receipts": [
+          {
+            "id": 11,
+            "hash": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+            "created_at": "1794088636007"
+          }
+        ]
+      },
+      {
+        "id": "base-0011_job_shares",
+        "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+        "receipts": [
+          {
+            "id": 12,
+            "hash": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+            "created_at": "1794091048302"
+          }
+        ]
+      },
+      {
+        "id": "base-0012_github_prs",
+        "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+        "receipts": [
+          {
+            "id": 13,
+            "hash": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+            "created_at": "1794091149315"
+          }
+        ]
+      },
+      {
+        "id": "base-0013_regression_runs",
+        "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+        "receipts": [
+          {
+            "id": 14,
+            "hash": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+            "created_at": "1794096969671"
+          }
+        ]
+      },
+      {
+        "id": "base-0014_public_agents",
+        "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+        "receipts": [
+          {
+            "id": 15,
+            "hash": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+            "created_at": "1794097272207"
+          }
+        ]
+      },
+      {
+        "id": "base-0015_owner_autopilot",
+        "sha256": "d783be2498700ba676146cd0b5429e74707cff9aca2528e98cbec62bef413a69",
+        "receipts": [
+          {
+            "id": 16,
+            "hash": "d783be2498700ba676146cd0b5429e74707cff9aca2528e98cbec62bef413a69",
+            "created_at": "1794101989078"
+          }
+        ]
+      },
+      {
+        "id": "base-0016_mcp_oauth",
+        "sha256": "981754d2d89f862bd3da4bb82dc077ca895f915051731511e965681e081d77ba",
+        "receipts": [
+          {
+            "id": 17,
+            "hash": "981754d2d89f862bd3da4bb82dc077ca895f915051731511e965681e081d77ba",
+            "created_at": "1794103982217"
+          }
+        ]
+      },
+      {
+        "id": "base-0017_sandbox_evals",
+        "sha256": "b0f0e7f90a5df5f4ecc4ddaaa7e3adaf4661d84724d68aa5864a9a8f0bd8bc61",
+        "receipts": [
+          {
+            "id": 18,
+            "hash": "b0f0e7f90a5df5f4ecc4ddaaa7e3adaf4661d84724d68aa5864a9a8f0bd8bc61",
+            "created_at": "1794106630072"
+          }
+        ]
+      },
+      {
+        "id": "base-0018_plans_and_sales",
+        "sha256": "053f58659df61f7a6c4f19bd6ac9085fc91694e8ce33a33d4324c9654996bffa",
+        "receipts": [
+          {
+            "id": 19,
+            "hash": "053f58659df61f7a6c4f19bd6ac9085fc91694e8ce33a33d4324c9654996bffa",
+            "created_at": "1794110148745"
+          }
+        ]
+      },
+      {
+        "id": "base-0019_founder_approvals",
+        "sha256": "fc6fb3375570b4f8f113591da7de94f69b7d308f13e6881828099e1a53a22878",
+        "receipts": [
+          {
+            "id": 20,
+            "hash": "fc6fb3375570b4f8f113591da7de94f69b7d308f13e6881828099e1a53a22878",
+            "created_at": "1794112445416"
+          }
+        ]
+      },
+      {
+        "id": "base-0020_founder_email",
+        "sha256": "57f12877a21cc7f00a8d20ab97d51f2391cd61206a879521876bd339f9aca8e5",
+        "receipts": [
+          {
+            "id": 23,
+            "hash": "57f12877a21cc7f00a8d20ab97d51f2391cd61206a879521876bd339f9aca8e5",
+            "created_at": "1794114271994"
+          }
+        ]
+      },
+      {
+        "id": "base-0021_company_agents",
+        "sha256": "ef94bc66397eb1fe1a33c37d7777aa5c76d5f020a2c3c547b7aee94dbd760f47",
+        "receipts": [
+          {
+            "id": 24,
+            "hash": "ef94bc66397eb1fe1a33c37d7777aa5c76d5f020a2c3c547b7aee94dbd760f47",
+            "created_at": "1794115397086"
+          }
+        ]
+      },
+      {
+        "id": "base-0022_uneven_nitro",
+        "sha256": "03493fb6a36cc0d626dba5e6f1bd6e4e3d858903d650b1ccc59faa1874e39526",
+        "receipts": [
+          {
+            "id": 25,
+            "hash": "03493fb6a36cc0d626dba5e6f1bd6e4e3d858903d650b1ccc59faa1874e39526",
+            "created_at": "1794117812952"
+          }
+        ]
+      },
+      {
+        "id": "base-0023_cost_receipts",
+        "sha256": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34",
+        "receipts": [
+          {
+            "id": 26,
+            "hash": "586de3120c7948428077f0f1dff36800c4e76a6b663f620be8af43ac35d1ab34",
+            "created_at": "1794117812953"
+          }
+        ]
+      },
+      {
+        "id": "base-0024_expert_automation",
+        "sha256": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+        "receipts": [
+          {
+            "id": 27,
+            "hash": "aa9fd152567a8236a0139f4c3e5abaa328ab066432be37fecd2673adb824a254",
+            "created_at": "1794117812954"
+          }
+        ]
+      },
+      {
+        "id": "base-0025_expert_workflow",
+        "sha256": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+        "receipts": [
+          {
+            "id": 28,
+            "hash": "fda72fbe0288b14ae8b3d64d3eb23000769734d352a1d66e5971865f1c26ae0f",
+            "created_at": "1794127349072"
+          }
+        ]
+      },
+      {
+        "id": "base-0026_expert_text_runtime",
+        "sha256": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+        "receipts": [
+          {
+            "id": 29,
+            "hash": "0149a8ded1972dc30b4957433236316e09eea2abde1e38d0e2c60604f7280024",
+            "created_at": "1794127377712"
+          }
+        ]
+      },
+      {
+        "id": "base-0027_overage_charges",
+        "sha256": "f81649798c8d812ddc8367ce0e742dd183507c297c05789e6569ddd0319cd94d",
+        "receipts": [
+          {
+            "id": 30,
+            "hash": "f81649798c8d812ddc8367ce0e742dd183507c297c05789e6569ddd0319cd94d",
+            "created_at": "1794132416352"
+          }
+        ]
+      },
+      {
+        "id": "base-0028_monitoring_sub_unique",
+        "sha256": "2268b295b38ee70057aceccf1dcc0ef2fb9cd28209547d84326f8b1a9facb4ae",
+        "receipts": [
+          {
+            "id": 31,
+            "hash": "2268b295b38ee70057aceccf1dcc0ef2fb9cd28209547d84326f8b1a9facb4ae",
+            "created_at": "1794132797061"
+          }
+        ]
+      },
+      {
+        "id": "base-0029_optimal_hulk",
+        "sha256": "28b75097aee589e90120e002e58608911af2d47cb4511e1e7fc1dff779a23984",
+        "receipts": [
+          {
+            "id": 32,
+            "hash": "28b75097aee589e90120e002e58608911af2d47cb4511e1e7fc1dff779a23984",
+            "created_at": "1794134174611"
+          }
+        ]
+      },
+      {
+        "id": "base-0030_feedback",
+        "sha256": "f4fd2a768e4bea6696086b9dd274e008455be80cf905233565db7379a5111cd6",
+        "receipts": [
+          {
+            "id": 33,
+            "hash": "f4fd2a768e4bea6696086b9dd274e008455be80cf905233565db7379a5111cd6",
+            "created_at": "1794135124160"
+          }
+        ]
+      },
+      {
+        "id": "base-0031_usage_warnings_trial_end",
+        "sha256": "caa86ae09393bd67282f4bccfccf2abf5f498bbe427cda47520c98ebf9eaa880",
+        "receipts": [
+          {
+            "id": 34,
+            "hash": "caa86ae09393bd67282f4bccfccf2abf5f498bbe427cda47520c98ebf9eaa880",
+            "created_at": "1794135863587"
+          }
+        ]
+      },
+      {
+        "id": "base-0032_feedback_quote_approval",
+        "sha256": "bc49ef1facc7f3ddae960982eff31bacb17a16279197da3ec431b157d2b9cddb",
+        "receipts": [
+          {
+            "id": 35,
+            "hash": "bc49ef1facc7f3ddae960982eff31bacb17a16279197da3ec431b157d2b9cddb",
+            "created_at": "1794148305345"
+          }
+        ]
+      }
+    ],
+    "missing": [],
+    "extra": [
+      {
+        "id": 21,
+        "hash": "5747079638da11170536ed54ee64cfccb94c109b454e8473c207d6be2b4592e3",
+        "created_at": "1794112467704"
+      },
+      {
+        "id": 22,
+        "hash": "c70a4742dbb064ff59197c711f07c3cb0ad2b6ddcecab3ac330b751269e1795a",
+        "created_at": "1794113750093"
+      }
+    ],
+    "note": "Hash receipts show recorded hashes only; no proof of unchanged catalog, data or authorization. Extra hashes are not identified by the current journal."
+  },
+  "sidecars": [
+    {
+      "id": "agent-persistence",
+      "path": "packages/core/src/agents/persistence-migrations/001-agent-persistence.sql",
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+      "scope": "runtime",
+      "status": "existing-but-unverified",
+      "missingTables": [],
+      "missingColumns": [],
+      "presentIntroducedTables": [
+        "agent_persistence.reservations",
+        "agent_persistence.scopes",
+        "agent_persistence.tasks"
+      ],
+      "note": "Final catalog presence does not prove canonical SQL/hash, triggers/functions/indexes, grants or data."
+    },
+    {
+      "id": "text-integration",
+      "path": "packages/core/src/evals/integration/migrations/001-text-integration.sql",
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+      "scope": "runtime",
+      "status": "existing-but-unverified",
+      "missingTables": [],
+      "missingColumns": [],
+      "presentIntroducedTables": [
+        "text_integration.checkpoints"
+      ],
+      "note": "Final catalog presence does not prove canonical SQL/hash, triggers/functions/indexes, grants or data."
+    },
+    {
+      "id": "conversations",
+      "path": "packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql",
+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "public.reporting_chat_exchanges",
+        "public.reporting_chat_scopes"
+      ],
+      "missingColumns": [
+        "public.reporting_chat_exchanges.subject_id",
+        "public.reporting_chat_exchanges.job_id",
+        "public.reporting_chat_exchanges.message_id",
+        "public.reporting_chat_exchanges.input_digest",
+        "public.reporting_chat_exchanges.reply",
+        "public.reporting_chat_exchanges.sequence",
+        "public.reporting_chat_scopes.subject_id",
+        "public.reporting_chat_scopes.job_id",
+        "public.reporting_chat_scopes.last_sequence"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "evaluation-data",
+      "path": "packages/core/src/evals/data/persistence-migrations/001-evaluation-data.sql",
+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+      "scope": "expert",
+      "status": "existing-but-unverified",
+      "missingTables": [],
+      "missingColumns": [],
+      "presentIntroducedTables": [
+        "evaluation_data_persistence.tasks"
+      ],
+      "note": "Final catalog presence does not prove canonical SQL/hash, triggers/functions/indexes, grants or data."
+    },
+    {
+      "id": "data-operations",
+      "path": "packages/core/src/evals/data/persistence-migrations/002-data-operations.sql",
+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+      "scope": "expert",
+      "status": "existing-but-unverified",
+      "missingTables": [],
+      "missingColumns": [],
+      "presentIntroducedTables": [
+        "evaluation_data_persistence.operations"
+      ],
+      "note": "Final catalog presence does not prove canonical SQL/hash, triggers/functions/indexes, grants or data."
+    },
+    {
+      "id": "job-budget",
+      "path": "docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql",
+      "sha256": "e6e55766acb22889a18c6499c263a42a3789d7e1d2130abd89caafd51e759988",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "job_budget.cost_links",
+        "job_budget.model_admissions",
+        "job_budget.operations"
+      ],
+      "missingColumns": [
+        "job_budget.cost_links.operation_id",
+        "job_budget.cost_links.cost_id",
+        "job_budget.model_admissions.reservation_id",
+        "job_budget.model_admissions.job_id",
+        "job_budget.model_admissions.amount_micro_usd",
+        "job_budget.model_admissions.request_digest",
+        "job_budget.model_admissions.admitted",
+        "job_budget.model_admissions.remaining_micro_usd",
+        "job_budget.operations.operation_id",
+        "job_budget.operations.job_id",
+        "job_budget.operations.amount_micro_usd",
+        "job_budget.operations.workflow_agent",
+        "job_budget.operations.workflow_reservation_id",
+        "job_budget.operations.agent_reservation_id",
+        "job_budget.operations.admitted",
+        "job_budget.operations.dispatched_at",
+        "job_budget.operations.refunded_at",
+        "job_budget.operations.cost_id",
+        "job_budget.operations.completed_at"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "gateway-budget",
+      "path": "docs/naive-shared-budget-integration/sql/002-gateway-turn-budget.sql",
+      "sha256": "b88f5673cd2d71d078a05d3ac7b89449ca496f3e57041b7951c60090c0bb6e98",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "job_budget.gateway_steps",
+        "job_budget.gateway_turns"
+      ],
+      "missingColumns": [
+        "job_budget.gateway_steps.operation_id",
+        "job_budget.gateway_steps.step_index",
+        "job_budget.gateway_steps.cost_id",
+        "job_budget.gateway_steps.identity",
+        "job_budget.gateway_steps.measured",
+        "job_budget.gateway_turns.operation_id",
+        "job_budget.gateway_turns.job_id",
+        "job_budget.gateway_turns.owner_id",
+        "job_budget.gateway_turns.environment",
+        "job_budget.gateway_turns.package",
+        "job_budget.gateway_turns.message_id",
+        "job_budget.gateway_turns.request_digest",
+        "job_budget.gateway_turns.allowance_micro_usd"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "stage-ownership",
+      "path": "docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql",
+      "sha256": "7d919fded398bd7cf3da9d23460e5568321961576dd97ffc58582e1b585ed646",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "workflow_stage.children",
+        "workflow_stage.stages"
+      ],
+      "missingColumns": [
+        "workflow_stage.children.job_id",
+        "workflow_stage.children.stage_key",
+        "workflow_stage.children.kind",
+        "workflow_stage.children.operation_key",
+        "workflow_stage.children.request_digest",
+        "workflow_stage.children.registered_generation",
+        "workflow_stage.children.dispatch_generation",
+        "workflow_stage.children.dispatch_intent_at",
+        "workflow_stage.stages.job_id",
+        "workflow_stage.stages.stage_key",
+        "workflow_stage.stages.customer_id",
+        "workflow_stage.stages.environment",
+        "workflow_stage.stages.input_digest",
+        "workflow_stage.stages.role",
+        "workflow_stage.stages.operation_id",
+        "workflow_stage.stages.reservation_id",
+        "workflow_stage.stages.amount_micro_usd",
+        "workflow_stage.stages.owner_token",
+        "workflow_stage.stages.generation",
+        "workflow_stage.stages.workflow_run_id",
+        "workflow_stage.stages.step_id",
+        "workflow_stage.stages.attempt",
+        "workflow_stage.stages.state",
+        "workflow_stage.stages.lease_until",
+        "workflow_stage.stages.recovery",
+        "workflow_stage.stages.result_ciphertext"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "stage-recovery",
+      "path": "docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql",
+      "sha256": "0c4238f884a3840611e37fe23e8c714afe42cf13305912ca4fd9103d2691f473",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [],
+      "missingColumns": [
+        "workflow_stage.stages.recovery_profile",
+        "workflow_stage.stages.expected_child_key"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "stage-progress",
+      "path": "docs/naive-stage-recovery-integration/sql/002-stage-progress.sql",
+      "sha256": "92539fca108f7d66a80c768038107a432c1efd8088bfd16b1b539fef4878739e",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "workflow_stage.progress"
+      ],
+      "missingColumns": [
+        "workflow_stage.progress.job_id",
+        "workflow_stage.progress.stage_key",
+        "workflow_stage.progress.milestone",
+        "workflow_stage.progress.message_digest"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "cancellation",
+      "path": "docs/naive-cancellation-integration/sql/001-job-cancellation.sql",
+      "sha256": "fe9dbbc67c8cc3afc5acd6508917c8b3832d12ac3f5ec8242c32ac02d62c1539",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "workflow_stage.cancellations"
+      ],
+      "missingColumns": [
+        "workflow_stage.cancellations.job_id",
+        "workflow_stage.cancellations.reason",
+        "workflow_stage.cancellations.requested_by",
+        "workflow_stage.cancellations.as_operator",
+        "workflow_stage.cancellations.requested_at",
+        "workflow_stage.cancellations.last_attempt_at",
+        "workflow_stage.cancellations.checkout_done_at",
+        "workflow_stage.cancellations.event_delivered_at"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "design-recovery",
+      "path": "docs/naive-design-recovery-integration/sql/001-design-stage-recovery.sql",
+      "sha256": "c274a1dc4fa38e923d3f83f9a747cc1413055de11adba13f8760344693d32c59",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [],
+      "missingColumns": [
+        "workflow_stage.children.design_slot",
+        "workflow_stage.stages.expected_child_plan"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "design-checkpoints",
+      "path": "docs/naive-design-recovery-integration/sql/002-design-checkpoint-ownership.sql",
+      "sha256": "61a6a37236762516cb08601761a8b5b1b5230460004337fb2a54e01e30dd37d4",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "workflow_stage.design_checkpoints"
+      ],
+      "missingColumns": [
+        "workflow_stage.design_checkpoints.job_id",
+        "workflow_stage.design_checkpoints.kind",
+        "workflow_stage.design_checkpoints.id",
+        "workflow_stage.design_checkpoints.input_digest",
+        "workflow_stage.design_checkpoints.stage_key",
+        "workflow_stage.design_checkpoints.generation",
+        "workflow_stage.design_checkpoints.token",
+        "workflow_stage.design_checkpoints.outer_id",
+        "workflow_stage.design_checkpoints.outer_digest"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "model-envelopes",
+      "path": "docs/naive-budget-envelope-integration/sql/001-stage-model-envelopes.sql",
+      "sha256": "634ab2ccb9888113a884a84edae5a98d17e6a63a91a94a867dbb2a4a8b41bb37",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "job_budget.stage_model_bindings"
+      ],
+      "missingColumns": [
+        "job_budget.model_admissions.exhausted_scope",
+        "job_budget.model_admissions.cap_micro_usd",
+        "job_budget.stage_model_bindings.reservation_id",
+        "job_budget.stage_model_bindings.job_id",
+        "job_budget.stage_model_bindings.stage_key",
+        "job_budget.stage_model_bindings.parent_reservation_id"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "judge-dispatch",
+      "path": "packages/core/src/judges/migrations/001-proxy-dispatch.sql",
+      "sha256": "be35e03c5d74eed0deac8fdab62d11a5ef43567897e21859abd4b7a680d415ed",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "naive_proxy_dispatch.attempts",
+        "naive_proxy_dispatch.operations",
+        "naive_proxy_dispatch.recoveries"
+      ],
+      "missingColumns": [
+        "naive_proxy_dispatch.attempts.job_id",
+        "naive_proxy_dispatch.attempts.operation_id",
+        "naive_proxy_dispatch.attempts.attempt",
+        "naive_proxy_dispatch.attempts.token",
+        "naive_proxy_dispatch.attempts.checkpoint_id",
+        "naive_proxy_dispatch.attempts.reservation_id",
+        "naive_proxy_dispatch.attempts.state",
+        "naive_proxy_dispatch.attempts.reserved",
+        "naive_proxy_dispatch.operations.job_id",
+        "naive_proxy_dispatch.operations.operation_id",
+        "naive_proxy_dispatch.operations.input_digest",
+        "naive_proxy_dispatch.operations.policy",
+        "naive_proxy_dispatch.operations.active_attempt",
+        "naive_proxy_dispatch.operations.legacy_checkpoint_id",
+        "naive_proxy_dispatch.recoveries.job_id",
+        "naive_proxy_dispatch.recoveries.operation_id",
+        "naive_proxy_dispatch.recoveries.attempt",
+        "naive_proxy_dispatch.recoveries.actor_id",
+        "naive_proxy_dispatch.recoveries.reason",
+        "naive_proxy_dispatch.recoveries.recovered_at"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "run-recovery",
+      "path": "docs/naive-run-recovery-integration/sql/001-run-recovery.sql",
+      "sha256": "6949c814a4b52e8e0b15d3afdd517c088a32a4e528bd4d71b8c768cad11c57f8",
+      "scope": "runtime",
+      "status": "definitely-missing-prerequisite-authority",
+      "missingTables": [],
+      "missingColumns": [],
+      "presentIntroducedTables": [],
+      "note": "Final catalog presence does not prove canonical SQL/hash, triggers/functions/indexes, grants or data."
+    },
+    {
+      "id": "run-checkpoints",
+      "path": "docs/naive-run-recovery-integration/sql/002-run-checkpoint-ownership.sql",
+      "sha256": "174c0da524dbf20407b5f1ede6ef680b2e3a7bc39362dc3e77239939da8dc50a",
+      "scope": "runtime",
+      "status": "definitely-missing",
+      "missingTables": [
+        "workflow_stage.run_checkpoints"
+      ],
+      "missingColumns": [
+        "workflow_stage.run_checkpoints.job_id",
+        "workflow_stage.run_checkpoints.stage_job_id",
+        "workflow_stage.run_checkpoints.kind",
+        "workflow_stage.run_checkpoints.id",
+        "workflow_stage.run_checkpoints.input_digest",
+        "workflow_stage.run_checkpoints.stage_key",
+        "workflow_stage.run_checkpoints.generation",
+        "workflow_stage.run_checkpoints.token",
+        "workflow_stage.run_checkpoints.outer_id",
+        "workflow_stage.run_checkpoints.outer_digest"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "sourcing",
+      "path": "docs/naive-sourcing-authority-integration/sql/001-expert-sourcing-authority.sql",
+      "sha256": "38d312f9d18a85cc6cd65b79c3045c87a75c6ffa27347dd046a1b9b653758741",
+      "scope": "expert",
+      "status": "definitely-missing",
+      "missingTables": [
+        "expert_sourcing.consents",
+        "expert_sourcing.grants",
+        "expert_sourcing.policies"
+      ],
+      "missingColumns": [
+        "expert_sourcing.consents.id",
+        "expert_sourcing.consents.tenant_id",
+        "expert_sourcing.consents.job_id",
+        "expert_sourcing.consents.authenticated_customer_id",
+        "expert_sourcing.consents.topic",
+        "expert_sourcing.consents.canonical_input_digest",
+        "expert_sourcing.consents.consent_version",
+        "expert_sourcing.consents.disclosure_text_digest",
+        "expert_sourcing.consents.sharing_envelope_version",
+        "expert_sourcing.consents.issued_at",
+        "expert_sourcing.consents.expires_at",
+        "expert_sourcing.consents.revoked_at",
+        "expert_sourcing.consents.revoked_by",
+        "expert_sourcing.consents.revocation_reason",
+        "expert_sourcing.grants.job_id",
+        "expert_sourcing.grants.task_id",
+        "expert_sourcing.grants.tenant_id",
+        "expert_sourcing.grants.environment",
+        "expert_sourcing.grants.policy_id",
+        "expert_sourcing.grants.consent_id",
+        "expert_sourcing.grants.topic",
+        "expert_sourcing.grants.proposal_digest",
+        "expert_sourcing.grants.canonical_input_digest",
+        "expert_sourcing.grants.target_digest",
+        "expert_sourcing.grants.input_digest",
+        "expert_sourcing.grants.request_hash",
+        "expert_sourcing.grants.derivation_version",
+        "expert_sourcing.grants.execution_profile",
+        "expert_sourcing.grants.sharing_envelope_version",
+        "expert_sourcing.grants.issued_via",
+        "expert_sourcing.grants.issued_by_policy",
+        "expert_sourcing.grants.issued_at",
+        "expert_sourcing.grants.expires_at",
+        "expert_sourcing.grants.revoked_at",
+        "expert_sourcing.grants.revoked_by",
+        "expert_sourcing.grants.revocation_reason",
+        "expert_sourcing.policies.id",
+        "expert_sourcing.policies.tenant_id",
+        "expert_sourcing.policies.environment",
+        "expert_sourcing.policies.topic",
+        "expert_sourcing.policies.caps_policy_id",
+        "expert_sourcing.policies.policy_version",
+        "expert_sourcing.policies.derivation_version",
+        "expert_sourcing.policies.execution_profile",
+        "expert_sourcing.policies.sharing_envelope_version",
+        "expert_sourcing.policies.max_requirements",
+        "expert_sourcing.policies.max_context_chars",
+        "expert_sourcing.policies.grant_lifetime_seconds",
+        "expert_sourcing.policies.issued_by_operator",
+        "expert_sourcing.policies.issued_at",
+        "expert_sourcing.policies.expires_at",
+        "expert_sourcing.policies.revoked_at",
+        "expert_sourcing.policies.revoked_by",
+        "expert_sourcing.policies.revocation_reason",
+        "public.expert_automation_scopes.authority_kind"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "remediation-accounting",
+      "path": "packages/core/src/evals/remediation/accounting/001-remediation-accounting.sql",
+      "sha256": "562d5fb0ce65327ee5a8ba9fd75ce4872c3928b7006de1ac8e7999d1b113894a",
+      "scope": "remediation",
+      "status": "definitely-missing",
+      "missingTables": [
+        "remediation_accounting.operations",
+        "remediation_accounting.reconciliation_outbox"
+      ],
+      "missingColumns": [
+        "remediation_accounting.operations.operation_id",
+        "remediation_accounting.operations.job_id",
+        "remediation_accounting.operations.kind",
+        "remediation_accounting.operations.input_digest",
+        "remediation_accounting.operations.reservation",
+        "remediation_accounting.operations.allowed",
+        "remediation_accounting.operations.dispatch_evidence",
+        "remediation_accounting.operations.usage",
+        "remediation_accounting.operations.ambiguous",
+        "remediation_accounting.operations.settlement",
+        "remediation_accounting.reconciliation_outbox.operation_id",
+        "remediation_accounting.reconciliation_outbox.pending",
+        "remediation_accounting.reconciliation_outbox.receipt_id",
+        "remediation_accounting.reconciliation_outbox.reason"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "internal-mcp",
+      "path": "docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql",
+      "sha256": "3dd8aa997bb604dba4c7f0219b3cc2791907b1feecf45063b36a004d8ce78624",
+      "scope": "internal-copilot",
+      "status": "definitely-missing",
+      "missingTables": [
+        "naive_internal.audit",
+        "naive_internal.credentials",
+        "naive_internal.tasks"
+      ],
+      "missingColumns": [
+        "naive_internal.audit.id",
+        "naive_internal.audit.credential_id",
+        "naive_internal.audit.task_id",
+        "naive_internal.audit.outcome",
+        "naive_internal.audit.created_at",
+        "naive_internal.credentials.id",
+        "naive_internal.credentials.role",
+        "naive_internal.credentials.agent_id",
+        "naive_internal.credentials.agent_version",
+        "naive_internal.credentials.bearer_sha256",
+        "naive_internal.credentials.created_at",
+        "naive_internal.credentials.revoked_at",
+        "naive_internal.tasks.id",
+        "naive_internal.tasks.request_id",
+        "naive_internal.tasks.customer_id",
+        "naive_internal.tasks.job_id",
+        "naive_internal.tasks.environment",
+        "naive_internal.tasks.credential_id",
+        "naive_internal.tasks.role",
+        "naive_internal.tasks.agent_id",
+        "naive_internal.tasks.agent_version",
+        "naive_internal.tasks.nonce",
+        "naive_internal.tasks.issued_at",
+        "naive_internal.tasks.expires_at",
+        "naive_internal.tasks.revoked_at"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "copilot-dispatch",
+      "path": "docs/naive-copilot-dispatch-integration/sql/001-copilot-dispatch.sql",
+      "sha256": "ace3695ed7c6a396f44e8ee959a0530f307578e2afc9a8a9e45369497e728778",
+      "scope": "internal-copilot",
+      "status": "definitely-missing",
+      "missingTables": [
+        "naive_copilot.cost_outbox",
+        "naive_copilot.dispatches"
+      ],
+      "missingColumns": [
+        "naive_copilot.cost_outbox.dispatch_id",
+        "naive_copilot.cost_outbox.job_id",
+        "naive_copilot.cost_outbox.customer_id",
+        "naive_copilot.cost_outbox.environment",
+        "naive_copilot.cost_outbox.session_id",
+        "naive_copilot.cost_outbox.consumed_micro_usd",
+        "naive_copilot.cost_outbox.source",
+        "naive_copilot.cost_outbox.delivered_at",
+        "naive_copilot.dispatches.id",
+        "naive_copilot.dispatches.identity",
+        "naive_copilot.dispatches.body_ciphertext",
+        "naive_copilot.dispatches.state",
+        "naive_copilot.dispatches.revision",
+        "naive_copilot.dispatches.session_id",
+        "naive_copilot.dispatches.lease_owner",
+        "naive_copilot.dispatches.lease_until",
+        "naive_copilot.dispatches.consumed_micro_usd"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "remediation-reconciliation",
+      "path": "packages/core/src/evals/remediation/accounting/reconciliation/001-reconciliation.sql",
+      "sha256": "5b6426125daff423f20947ea8888e3b9519c5b7f8932bee175c03b86e0a43733",
+      "scope": "optional-reconciliation",
+      "status": "definitely-missing",
+      "missingTables": [
+        "accounting_reconciliation.bindings",
+        "accounting_reconciliation.receipts"
+      ],
+      "missingColumns": [
+        "accounting_reconciliation.bindings.operation_id",
+        "accounting_reconciliation.bindings.binding",
+        "accounting_reconciliation.receipts.operation_id",
+        "accounting_reconciliation.receipts.provider",
+        "accounting_reconciliation.receipts.account_id",
+        "accounting_reconciliation.receipts.external_receipt_id",
+        "accounting_reconciliation.receipts.receipt"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "branch-ownership",
+      "path": "packages/core/src/simulator/ledger-migrations/001_branch_ownership.sql",
+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+      "scope": "optional-branch",
+      "status": "existing-but-unverified",
+      "missingTables": [],
+      "missingColumns": [],
+      "presentIntroducedTables": [
+        "public.app_branch_ownership"
+      ],
+      "note": "Final catalog presence does not prove canonical SQL/hash, triggers/functions/indexes, grants or data."
+    },
+    {
+      "id": "workflow-journals",
+      "path": "packages/core/src/simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql",
+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+      "scope": "optional-workflow",
+      "status": "definitely-missing",
+      "missingTables": [
+        "public.app_workflow_investigation_journals"
+      ],
+      "missingColumns": [
+        "public.app_workflow_investigation_journals.tenant_id",
+        "public.app_workflow_investigation_journals.journal_key",
+        "public.app_workflow_investigation_journals.record"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "sandbox-storage",
+      "path": "packages/core/src/evals/sandbox/runtime-storage/migration.sql",
+      "sha256": "54ad5153157adfad185c6c6376496a3016e93a36bb83c4fd8e1aa32182889fce",
+      "scope": "optional-sandbox",
+      "status": "definitely-missing",
+      "missingTables": [
+        "sandbox_runtime_storage.images"
+      ],
+      "missingColumns": [
+        "sandbox_runtime_storage.images.scope_key",
+        "sandbox_runtime_storage.images.run_id",
+        "sandbox_runtime_storage.images.binding_digest",
+        "sandbox_runtime_storage.images.metadata",
+        "sandbox_runtime_storage.images.metadata_digest",
+        "sandbox_runtime_storage.images.image_digest",
+        "sandbox_runtime_storage.images.image_size",
+        "sandbox_runtime_storage.images.image",
+        "sandbox_runtime_storage.images.needed",
+        "sandbox_runtime_storage.images.retain_until"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    },
+    {
+      "id": "autonomy",
+      "path": "packages/core/src/agents/autonomy/operations.sql",
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "scope": "optional-autonomy",
+      "status": "definitely-missing",
+      "missingTables": [
+        "company_autonomy.actions",
+        "company_autonomy.daily_audits",
+        "company_autonomy.decisions",
+        "company_autonomy.jobs",
+        "company_autonomy.periods",
+        "company_autonomy.policies"
+      ],
+      "missingColumns": [
+        "company_autonomy.actions.tenant_id",
+        "company_autonomy.actions.action_key",
+        "company_autonomy.actions.period_id",
+        "company_autonomy.actions.job_id",
+        "company_autonomy.actions.role",
+        "company_autonomy.actions.held",
+        "company_autonomy.actions.record",
+        "company_autonomy.daily_audits.tenant_id",
+        "company_autonomy.daily_audits.day",
+        "company_autonomy.daily_audits.digest",
+        "company_autonomy.daily_audits.record",
+        "company_autonomy.decisions.tenant_id",
+        "company_autonomy.decisions.decision_key",
+        "company_autonomy.decisions.record",
+        "company_autonomy.jobs.tenant_id",
+        "company_autonomy.jobs.job_id",
+        "company_autonomy.jobs.comparison",
+        "company_autonomy.jobs.cap",
+        "company_autonomy.periods.tenant_id",
+        "company_autonomy.periods.period_id",
+        "company_autonomy.periods.root_cap",
+        "company_autonomy.policies.tenant_id",
+        "company_autonomy.policies.version",
+        "company_autonomy.policies.digest",
+        "company_autonomy.policies.record"
+      ],
+      "presentIntroducedTables": [],
+      "note": "Missing exact relation/column is a structural blocker; no apply authorization."
+    }
+  ],
+  "catalogComparison": {
+    "expectedProfile": "optionalApplication",
+    "expectedTableCount": 115,
+    "missingTables": [
+      "accounting_reconciliation.bindings",
+      "accounting_reconciliation.receipts",
+      "company_autonomy.actions",
+      "company_autonomy.daily_audits",
+      "company_autonomy.decisions",
+      "company_autonomy.jobs",
+      "company_autonomy.periods",
+      "company_autonomy.policies",
+      "expert_sourcing.consents",
+      "expert_sourcing.grants",
+      "expert_sourcing.policies",
+      "job_budget.cost_links",
+      "job_budget.gateway_steps",
+      "job_budget.gateway_turns",
+      "job_budget.model_admissions",
+      "job_budget.operations",
+      "job_budget.stage_model_bindings",
+      "naive_copilot.cost_outbox",
+      "naive_copilot.dispatches",
+      "naive_internal.audit",
+      "naive_internal.credentials",
+      "naive_internal.tasks",
+      "naive_proxy_dispatch.attempts",
+      "naive_proxy_dispatch.operations",
+      "naive_proxy_dispatch.recoveries",
+      "public.app_workflow_investigation_journals",
+      "public.reporting_chat_exchanges",
+      "public.reporting_chat_scopes",
+      "remediation_accounting.operations",
+      "remediation_accounting.reconciliation_outbox",
+      "sandbox_runtime_storage.images",
+      "workflow_stage.cancellations",
+      "workflow_stage.children",
+      "workflow_stage.design_checkpoints",
+      "workflow_stage.progress",
+      "workflow_stage.run_checkpoints",
+      "workflow_stage.stages"
+    ],
+    "extraTables": [
+      "drizzle.__drizzle_migrations"
+    ],
+    "missingColumns": [
+      "accounting_reconciliation.bindings.binding",
+      "accounting_reconciliation.bindings.operation_id",
+      "accounting_reconciliation.receipts.account_id",
+      "accounting_reconciliation.receipts.external_receipt_id",
+      "accounting_reconciliation.receipts.operation_id",
+      "accounting_reconciliation.receipts.provider",
+      "accounting_reconciliation.receipts.receipt",
+      "company_autonomy.actions.action_key",
+      "company_autonomy.actions.held",
+      "company_autonomy.actions.job_id",
+      "company_autonomy.actions.period_id",
+      "company_autonomy.actions.record",
+      "company_autonomy.actions.role",
+      "company_autonomy.actions.tenant_id",
+      "company_autonomy.daily_audits.day",
+      "company_autonomy.daily_audits.digest",
+      "company_autonomy.daily_audits.record",
+      "company_autonomy.daily_audits.tenant_id",
+      "company_autonomy.decisions.decision_key",
+      "company_autonomy.decisions.record",
+      "company_autonomy.decisions.tenant_id",
+      "company_autonomy.jobs.cap",
+      "company_autonomy.jobs.comparison",
+      "company_autonomy.jobs.job_id",
+      "company_autonomy.jobs.tenant_id",
+      "company_autonomy.periods.period_id",
+      "company_autonomy.periods.root_cap",
+      "company_autonomy.periods.tenant_id",
+      "company_autonomy.policies.digest",
+      "company_autonomy.policies.record",
+      "company_autonomy.policies.tenant_id",
+      "company_autonomy.policies.version",
+      "expert_sourcing.consents.authenticated_customer_id",
+      "expert_sourcing.consents.canonical_input_digest",
+      "expert_sourcing.consents.consent_version",
+      "expert_sourcing.consents.disclosure_text_digest",
+      "expert_sourcing.consents.expires_at",
+      "expert_sourcing.consents.id",
+      "expert_sourcing.consents.issued_at",
+      "expert_sourcing.consents.job_id",
+      "expert_sourcing.consents.revocation_reason",
+      "expert_sourcing.consents.revoked_at",
+      "expert_sourcing.consents.revoked_by",
+      "expert_sourcing.consents.sharing_envelope_version",
+      "expert_sourcing.consents.tenant_id",
+      "expert_sourcing.consents.topic",
+      "expert_sourcing.grants.canonical_input_digest",
+      "expert_sourcing.grants.consent_id",
+      "expert_sourcing.grants.derivation_version",
+      "expert_sourcing.grants.environment",
+      "expert_sourcing.grants.execution_profile",
+      "expert_sourcing.grants.expires_at",
+      "expert_sourcing.grants.input_digest",
+      "expert_sourcing.grants.issued_at",
+      "expert_sourcing.grants.issued_by_policy",
+      "expert_sourcing.grants.issued_via",
+      "expert_sourcing.grants.job_id",
+      "expert_sourcing.grants.policy_id",
+      "expert_sourcing.grants.proposal_digest",
+      "expert_sourcing.grants.request_hash",
+      "expert_sourcing.grants.revocation_reason",
+      "expert_sourcing.grants.revoked_at",
+      "expert_sourcing.grants.revoked_by",
+      "expert_sourcing.grants.sharing_envelope_version",
+      "expert_sourcing.grants.target_digest",
+      "expert_sourcing.grants.task_id",
+      "expert_sourcing.grants.tenant_id",
+      "expert_sourcing.grants.topic",
+      "expert_sourcing.policies.caps_policy_id",
+      "expert_sourcing.policies.derivation_version",
+      "expert_sourcing.policies.environment",
+      "expert_sourcing.policies.execution_profile",
+      "expert_sourcing.policies.expires_at",
+      "expert_sourcing.policies.grant_lifetime_seconds",
+      "expert_sourcing.policies.id",
+      "expert_sourcing.policies.issued_at",
+      "expert_sourcing.policies.issued_by_operator",
+      "expert_sourcing.policies.max_context_chars",
+      "expert_sourcing.policies.max_requirements",
+      "expert_sourcing.policies.policy_version",
+      "expert_sourcing.policies.revocation_reason",
+      "expert_sourcing.policies.revoked_at",
+      "expert_sourcing.policies.revoked_by",
+      "expert_sourcing.policies.sharing_envelope_version",
+      "expert_sourcing.policies.tenant_id",
+      "expert_sourcing.policies.topic",
+      "job_budget.cost_links.cost_id",
+      "job_budget.cost_links.operation_id",
+      "job_budget.gateway_steps.cost_id",
+      "job_budget.gateway_steps.identity",
+      "job_budget.gateway_steps.measured",
+      "job_budget.gateway_steps.operation_id",
+      "job_budget.gateway_steps.step_index",
+      "job_budget.gateway_turns.allowance_micro_usd",
+      "job_budget.gateway_turns.environment",
+      "job_budget.gateway_turns.job_id",
+      "job_budget.gateway_turns.message_id",
+      "job_budget.gateway_turns.operation_id",
+      "job_budget.gateway_turns.owner_id",
+      "job_budget.gateway_turns.package",
+      "job_budget.gateway_turns.request_digest",
+      "job_budget.model_admissions.admitted",
+      "job_budget.model_admissions.amount_micro_usd",
+      "job_budget.model_admissions.cap_micro_usd",
+      "job_budget.model_admissions.exhausted_scope",
+      "job_budget.model_admissions.job_id",
+      "job_budget.model_admissions.remaining_micro_usd",
+      "job_budget.model_admissions.request_digest",
+      "job_budget.model_admissions.reservation_id",
+      "job_budget.operations.admitted",
+      "job_budget.operations.agent_reservation_id",
+      "job_budget.operations.amount_micro_usd",
+      "job_budget.operations.completed_at",
+      "job_budget.operations.cost_id",
+      "job_budget.operations.dispatched_at",
+      "job_budget.operations.job_id",
+      "job_budget.operations.operation_id",
+      "job_budget.operations.refunded_at",
+      "job_budget.operations.workflow_agent",
+      "job_budget.operations.workflow_reservation_id",
+      "job_budget.stage_model_bindings.job_id",
+      "job_budget.stage_model_bindings.parent_reservation_id",
+      "job_budget.stage_model_bindings.reservation_id",
+      "job_budget.stage_model_bindings.stage_key",
+      "naive_copilot.cost_outbox.consumed_micro_usd",
+      "naive_copilot.cost_outbox.customer_id",
+      "naive_copilot.cost_outbox.delivered_at",
+      "naive_copilot.cost_outbox.dispatch_id",
+      "naive_copilot.cost_outbox.environment",
+      "naive_copilot.cost_outbox.job_id",
+      "naive_copilot.cost_outbox.session_id",
+      "naive_copilot.cost_outbox.source",
+      "naive_copilot.dispatches.body_ciphertext",
+      "naive_copilot.dispatches.consumed_micro_usd",
+      "naive_copilot.dispatches.id",
+      "naive_copilot.dispatches.identity",
+      "naive_copilot.dispatches.lease_owner",
+      "naive_copilot.dispatches.lease_until",
+      "naive_copilot.dispatches.revision",
+      "naive_copilot.dispatches.session_id",
+      "naive_copilot.dispatches.state",
+      "naive_internal.audit.created_at",
+      "naive_internal.audit.credential_id",
+      "naive_internal.audit.id",
+      "naive_internal.audit.outcome",
+      "naive_internal.audit.task_id",
+      "naive_internal.credentials.agent_id",
+      "naive_internal.credentials.agent_version",
+      "naive_internal.credentials.bearer_sha256",
+      "naive_internal.credentials.created_at",
+      "naive_internal.credentials.id",
+      "naive_internal.credentials.revoked_at",
+      "naive_internal.credentials.role",
+      "naive_internal.tasks.agent_id",
+      "naive_internal.tasks.agent_version",
+      "naive_internal.tasks.credential_id",
+      "naive_internal.tasks.customer_id",
+      "naive_internal.tasks.environment",
+      "naive_internal.tasks.expires_at",
+      "naive_internal.tasks.id",
+      "naive_internal.tasks.issued_at",
+      "naive_internal.tasks.job_id",
+      "naive_internal.tasks.nonce",
+      "naive_internal.tasks.request_id",
+      "naive_internal.tasks.revoked_at",
+      "naive_internal.tasks.role",
+      "naive_proxy_dispatch.attempts.attempt",
+      "naive_proxy_dispatch.attempts.checkpoint_id",
+      "naive_proxy_dispatch.attempts.job_id",
+      "naive_proxy_dispatch.attempts.operation_id",
+      "naive_proxy_dispatch.attempts.reservation_id",
+      "naive_proxy_dispatch.attempts.reserved",
+      "naive_proxy_dispatch.attempts.state",
+      "naive_proxy_dispatch.attempts.token",
+      "naive_proxy_dispatch.operations.active_attempt",
+      "naive_proxy_dispatch.operations.input_digest",
+      "naive_proxy_dispatch.operations.job_id",
+      "naive_proxy_dispatch.operations.legacy_checkpoint_id",
+      "naive_proxy_dispatch.operations.operation_id",
+      "naive_proxy_dispatch.operations.policy",
+      "naive_proxy_dispatch.recoveries.actor_id",
+      "naive_proxy_dispatch.recoveries.attempt",
+      "naive_proxy_dispatch.recoveries.job_id",
+      "naive_proxy_dispatch.recoveries.operation_id",
+      "naive_proxy_dispatch.recoveries.reason",
+      "naive_proxy_dispatch.recoveries.recovered_at",
+      "public.app_workflow_investigation_journals.journal_key",
+      "public.app_workflow_investigation_journals.record",
+      "public.app_workflow_investigation_journals.tenant_id",
+      "public.expert_automation_scopes.authority_kind",
+      "public.reporting_chat_exchanges.input_digest",
+      "public.reporting_chat_exchanges.job_id",
+      "public.reporting_chat_exchanges.message_id",
+      "public.reporting_chat_exchanges.reply",
+      "public.reporting_chat_exchanges.sequence",
+      "public.reporting_chat_exchanges.subject_id",
+      "public.reporting_chat_scopes.job_id",
+      "public.reporting_chat_scopes.last_sequence",
+      "public.reporting_chat_scopes.subject_id",
+      "remediation_accounting.operations.allowed",
+      "remediation_accounting.operations.ambiguous",
+      "remediation_accounting.operations.dispatch_evidence",
+      "remediation_accounting.operations.input_digest",
+      "remediation_accounting.operations.job_id",
+      "remediation_accounting.operations.kind",
+      "remediation_accounting.operations.operation_id",
+      "remediation_accounting.operations.reservation",
+      "remediation_accounting.operations.settlement",
+      "remediation_accounting.operations.usage",
+      "remediation_accounting.reconciliation_outbox.operation_id",
+      "remediation_accounting.reconciliation_outbox.pending",
+      "remediation_accounting.reconciliation_outbox.reason",
+      "remediation_accounting.reconciliation_outbox.receipt_id",
+      "sandbox_runtime_storage.images.binding_digest",
+      "sandbox_runtime_storage.images.image",
+      "sandbox_runtime_storage.images.image_digest",
+      "sandbox_runtime_storage.images.image_size",
+      "sandbox_runtime_storage.images.metadata",
+      "sandbox_runtime_storage.images.metadata_digest",
+      "sandbox_runtime_storage.images.needed",
+      "sandbox_runtime_storage.images.retain_until",
+      "sandbox_runtime_storage.images.run_id",
+      "sandbox_runtime_storage.images.scope_key",
+      "workflow_stage.cancellations.as_operator",
+      "workflow_stage.cancellations.checkout_done_at",
+      "workflow_stage.cancellations.event_delivered_at",
+      "workflow_stage.cancellations.job_id",
+      "workflow_stage.cancellations.last_attempt_at",
+      "workflow_stage.cancellations.reason",
+      "workflow_stage.cancellations.requested_at",
+      "workflow_stage.cancellations.requested_by",
+      "workflow_stage.children.design_slot",
+      "workflow_stage.children.dispatch_generation",
+      "workflow_stage.children.dispatch_intent_at",
+      "workflow_stage.children.job_id",
+      "workflow_stage.children.kind",
+      "workflow_stage.children.operation_key",
+      "workflow_stage.children.registered_generation",
+      "workflow_stage.children.request_digest",
+      "workflow_stage.children.stage_key",
+      "workflow_stage.design_checkpoints.generation",
+      "workflow_stage.design_checkpoints.id",
+      "workflow_stage.design_checkpoints.input_digest",
+      "workflow_stage.design_checkpoints.job_id",
+      "workflow_stage.design_checkpoints.kind",
+      "workflow_stage.design_checkpoints.outer_digest",
+      "workflow_stage.design_checkpoints.outer_id",
+      "workflow_stage.design_checkpoints.stage_key",
+      "workflow_stage.design_checkpoints.token",
+      "workflow_stage.progress.job_id",
+      "workflow_stage.progress.message_digest",
+      "workflow_stage.progress.milestone",
+      "workflow_stage.progress.stage_key",
+      "workflow_stage.run_checkpoints.generation",
+      "workflow_stage.run_checkpoints.id",
+      "workflow_stage.run_checkpoints.input_digest",
+      "workflow_stage.run_checkpoints.job_id",
+      "workflow_stage.run_checkpoints.kind",
+      "workflow_stage.run_checkpoints.outer_digest",
+      "workflow_stage.run_checkpoints.outer_id",
+      "workflow_stage.run_checkpoints.stage_job_id",
+      "workflow_stage.run_checkpoints.stage_key",
+      "workflow_stage.run_checkpoints.token",
+      "workflow_stage.stages.amount_micro_usd",
+      "workflow_stage.stages.attempt",
+      "workflow_stage.stages.customer_id",
+      "workflow_stage.stages.environment",
+      "workflow_stage.stages.expected_child_key",
+      "workflow_stage.stages.expected_child_plan",
+      "workflow_stage.stages.generation",
+      "workflow_stage.stages.input_digest",
+      "workflow_stage.stages.job_id",
+      "workflow_stage.stages.lease_until",
+      "workflow_stage.stages.operation_id",
+      "workflow_stage.stages.owner_token",
+      "workflow_stage.stages.recovery",
+      "workflow_stage.stages.recovery_profile",
+      "workflow_stage.stages.reservation_id",
+      "workflow_stage.stages.result_ciphertext",
+      "workflow_stage.stages.role",
+      "workflow_stage.stages.stage_key",
+      "workflow_stage.stages.state",
+      "workflow_stage.stages.step_id",
+      "workflow_stage.stages.workflow_run_id"
+    ],
+    "columnTypeOrNullabilityMismatches": [],
+    "missingConstraintNames": [
+      {
+        "schema": "accounting_reconciliation",
+        "table_name": "bindings",
+        "conname": "bindings_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "accounting_reconciliation",
+        "table_name": "bindings",
+        "conname": "bindings_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "accounting_reconciliation",
+        "table_name": "receipts",
+        "conname": "receipts_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "accounting_reconciliation",
+        "table_name": "receipts",
+        "conname": "receipts_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "accounting_reconciliation",
+        "table_name": "receipts",
+        "conname": "receipts_provider_account_id_external_receipt_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "actions",
+        "conname": "actions_held_check",
+        "contype": "c"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "actions",
+        "conname": "actions_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "daily_audits",
+        "conname": "daily_audits_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "decisions",
+        "conname": "decisions_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "jobs",
+        "conname": "jobs_cap_check",
+        "contype": "c"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "jobs",
+        "conname": "jobs_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "periods",
+        "conname": "periods_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "periods",
+        "conname": "periods_root_cap_check",
+        "contype": "c"
+      },
+      {
+        "schema": "company_autonomy",
+        "table_name": "policies",
+        "conname": "policies_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_authenticated_customer_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_canonical_input_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_check1",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_check2",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_consent_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_disclosure_text_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_job_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_sharing_envelope_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_tenant_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "consents",
+        "conname": "consents_topic_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_canonical_input_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_check1",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_consent_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_derivation_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_environment_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_execution_profile_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_input_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_issued_via_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_policy_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_proposal_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_request_hash_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_sharing_envelope_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_target_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_task_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "grants",
+        "conname": "grants_tenant_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_caps_policy_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_check1",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_derivation_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_environment_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_execution_profile_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_grant_lifetime_seconds_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_issued_by_operator_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_max_context_chars_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_max_requirements_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_policy_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_sharing_envelope_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_tenant_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "expert_sourcing",
+        "table_name": "policies",
+        "conname": "policies_topic_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "cost_links",
+        "conname": "cost_links_cost_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "cost_links",
+        "conname": "cost_links_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "cost_links",
+        "conname": "cost_links_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_steps",
+        "conname": "gateway_steps_cost_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_steps",
+        "conname": "gateway_steps_cost_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_steps",
+        "conname": "gateway_steps_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_steps",
+        "conname": "gateway_steps_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_steps",
+        "conname": "gateway_steps_step_index_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_allowance_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_environment_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_job_id_message_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "gateway_turns",
+        "conname": "gateway_turns_request_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "model_admissions",
+        "conname": "model_admissions_amount_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "model_admissions",
+        "conname": "model_admissions_cap_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "model_admissions",
+        "conname": "model_admissions_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "model_admissions",
+        "conname": "model_admissions_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "model_admissions",
+        "conname": "model_admissions_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "model_admissions",
+        "conname": "model_admissions_remaining_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_agent_reservation_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_amount_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_check",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_check1",
+        "contype": "c"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_cost_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_cost_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_workflow_reservation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "operations",
+        "conname": "operations_workflow_reservation_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "stage_model_bindings",
+        "conname": "stage_model_bindings_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "stage_model_bindings",
+        "conname": "stage_model_bindings_job_id_stage_key_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "stage_model_bindings",
+        "conname": "stage_model_bindings_parent_reservation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "job_budget",
+        "table_name": "stage_model_bindings",
+        "conname": "stage_model_bindings_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_consumed_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_customer_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_dispatch_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_environment_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "cost_outbox",
+        "conname": "cost_outbox_source_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "dispatches",
+        "conname": "dispatches_consumed_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "dispatches",
+        "conname": "dispatches_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "dispatches",
+        "conname": "dispatches_revision_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_copilot",
+        "table_name": "dispatches",
+        "conname": "dispatches_state_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "audit",
+        "conname": "audit_credential_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "audit",
+        "conname": "audit_outcome_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "audit",
+        "conname": "audit_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "audit",
+        "conname": "audit_task_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_agent_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_agent_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_bearer_sha256_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_bearer_sha256_key",
+        "contype": "u"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "credentials",
+        "conname": "credentials_role_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_agent_version_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_credential_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_customer_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_customer_id_job_id_request_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_environment_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_nonce_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_nonce_key",
+        "contype": "u"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_internal",
+        "table_name": "tasks",
+        "conname": "tasks_role_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_attempt_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_check1",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_checkpoint_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_job_id_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_reservation_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "attempts",
+        "conname": "attempts_state_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "operations",
+        "conname": "operations_active_attempt_check",
+        "contype": "c"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "operations",
+        "conname": "operations_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "recoveries",
+        "conname": "recoveries_job_id_operation_id_attempt_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "naive_proxy_dispatch",
+        "table_name": "recoveries",
+        "conname": "recoveries_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "public",
+        "table_name": "app_workflow_investigation_journals",
+        "conname": "app_workflow_investigation_journals_journal_key_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "app_workflow_investigation_journals",
+        "conname": "app_workflow_investigation_journals_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "public",
+        "table_name": "app_workflow_investigation_journals",
+        "conname": "app_workflow_investigation_journals_record_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "app_workflow_investigation_journals",
+        "conname": "app_workflow_investigation_journals_tenant_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "expert_automation_scopes",
+        "conname": "expert_automation_scopes_authority_kind_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_input_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_message_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_reply_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_sequence_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_subject_id_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_exchanges",
+        "conname": "reporting_chat_exchanges_subject_id_job_id_sequence_key",
+        "contype": "u"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_scopes",
+        "conname": "reporting_chat_scopes_job_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_scopes",
+        "conname": "reporting_chat_scopes_last_sequence_check",
+        "contype": "c"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_scopes",
+        "conname": "reporting_chat_scopes_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "public",
+        "table_name": "reporting_chat_scopes",
+        "conname": "reporting_chat_scopes_subject_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "remediation_accounting",
+        "table_name": "operations",
+        "conname": "operations_input_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "remediation_accounting",
+        "table_name": "operations",
+        "conname": "operations_kind_check",
+        "contype": "c"
+      },
+      {
+        "schema": "remediation_accounting",
+        "table_name": "operations",
+        "conname": "operations_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "remediation_accounting",
+        "table_name": "reconciliation_outbox",
+        "conname": "reconciliation_outbox_operation_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "remediation_accounting",
+        "table_name": "reconciliation_outbox",
+        "conname": "reconciliation_outbox_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "remediation_accounting",
+        "table_name": "reconciliation_outbox",
+        "conname": "reconciliation_outbox_reason_check",
+        "contype": "c"
+      },
+      {
+        "schema": "sandbox_runtime_storage",
+        "table_name": "images",
+        "conname": "images_check",
+        "contype": "c"
+      },
+      {
+        "schema": "sandbox_runtime_storage",
+        "table_name": "images",
+        "conname": "images_image_size_check",
+        "contype": "c"
+      },
+      {
+        "schema": "sandbox_runtime_storage",
+        "table_name": "images",
+        "conname": "images_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "sandbox_runtime_storage",
+        "table_name": "images",
+        "conname": "images_retain_until_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "cancellations",
+        "conname": "cancellations_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "cancellations",
+        "conname": "cancellations_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "cancellations",
+        "conname": "cancellations_reason_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "cancellations",
+        "conname": "cancellations_requested_by_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "children",
+        "conname": "children_job_id_stage_key_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "children",
+        "conname": "children_kind_operation_key_key",
+        "contype": "u"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "children",
+        "conname": "children_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "design_checkpoints",
+        "conname": "design_checkpoints_generation_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "design_checkpoints",
+        "conname": "design_checkpoints_job_id_kind_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "design_checkpoints",
+        "conname": "design_checkpoints_kind_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "design_checkpoints",
+        "conname": "design_checkpoints_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "progress",
+        "conname": "progress_job_id_stage_key_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "progress",
+        "conname": "progress_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_generation_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_id_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_input_digest_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_job_id_kind_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_kind_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_stage_job_id_stage_key_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "run_checkpoints",
+        "conname": "run_checkpoints_token_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "design_plan_shape",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stage_recovery_profile_key",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_amount_micro_usd_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_attempt_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_generation_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_job_id_fkey",
+        "contype": "f"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_operation_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_pkey",
+        "contype": "p"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_recovery_profile_check",
+        "contype": "c"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_reservation_id_key",
+        "contype": "u"
+      },
+      {
+        "schema": "workflow_stage",
+        "table_name": "stages",
+        "conname": "stages_state_check",
+        "contype": "c"
+      }
+    ],
+    "constraintTypeOrValidationMismatches": [],
+    "note": "Constraint definitions, default/generated expressions, indexes, functions/triggers and grants were not supplied. Names/type/validation only; PostgreSQL native not-null constraint rows excluded from comparison for PGlite version compatibility."
+  },
+  "traceMinimum": {
+    "boundary": "Schema for qualification/audit/report single-session trace only; excludes chat, text, remediation, judge, expert, copilot, branch and target activation. Not a full app deploy acceptance.",
+    "baseRequirement": "All 33 current base migrations recorded by hash; retain and reconcile two extra historical receipts.",
+    "commonOrderedSidecars": [
+      "agent-persistence",
+      "job-budget",
+      "stage-ownership",
+      "stage-recovery",
+      "stage-progress",
+      "cancellation",
+      "design-recovery"
+    ],
+    "realNaiveOrderedSidecars": [
+      "agent-persistence",
+      "job-budget",
+      "stage-ownership",
+      "stage-recovery",
+      "stage-progress",
+      "cancellation",
+      "design-recovery",
+      "model-envelopes"
+    ],
+    "missingCommon": [
+      "job-budget",
+      "stage-ownership",
+      "stage-recovery",
+      "stage-progress",
+      "cancellation",
+      "design-recovery"
+    ],
+    "missingRealNaive": [
+      "job-budget",
+      "stage-ownership",
+      "stage-recovery",
+      "stage-progress",
+      "cancellation",
+      "design-recovery",
+      "model-envelopes"
+    ],
+    "rationale": [
+      "Stage INSERT always names expected_child_plan, requiring design recovery even for trace.",
+      "Progress writes use workflow_stage.progress; publication/canonical owner checks use cancellations.",
+      "Real Naive model admission uses stage_model_bindings and expanded model admissions.",
+      "agent_persistence exists but canonical hash/grants/data remain unverified.",
+      "This minimum is a source-derived requirement, not a newly tested reduced profile; full application profile composition was tested independently."
+    ]
+  },
+  "evidence": [
+    {
+      "path": "apps/web/src/workflows/steps/common.ts",
+      "sha256": "3cffb6a64233c48b3d88b87f78b0a1daab86e401f7515ab0cbbf2c38f404e0fd"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "sha256": "33768ba420572673e490760eceb964bda5843529c68bdd918a10592908867931"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "sha256": "c66add1e85ab2242e65a9bb3533344d1910f7302175a91a15a6d5f8538a1e0af"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-runtime.ts",
+      "sha256": "3d112bb1660afab560223ee6b82c062a619e27d3c6b79f6ca599f7db8c7dad97"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-children.ts",
+      "sha256": "e5e302966069099ac98f383647549deab697f1f8c37d1dcc2fa1dcb35668fe92"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.ts",
+      "sha256": "e59f3c6ce53ae9989222adc4bf4fe79fe93bb258298be6f5ad115878e3f197bb"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-authority.ts",
+      "sha256": "563a188ebfb287e220036c5611f97b7121064996e7f0a4a06525072c94ba0b62"
+    }
+  ],
+  "limitations": [
+    "No external database connection or credentials accessed by this comparison worker.",
+    "Expected catalog generated in fresh in-memory PGlite using exact optionalApplication profile; SQL applied only to ephemeral local database.",
+    "Do not replay existing non-idempotent sidecars based on table presence.",
+    "Earlier generic runner rejected required DROP CONSTRAINT; any executor extension needs separate review and tests; this report authorizes no execution.",
+    "Catalog alone cannot prove functions/triggers/grants, legacy data safety, monetary reconciliation, native contention or hosted acceptance."
+  ]
+}

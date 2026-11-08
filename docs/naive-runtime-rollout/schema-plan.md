@@ -27,3 +27,5 @@ Offline acceptance should reject missing/changed files, alias hash drift, duplic
 Retained target responses establish behavioral replay only. Unknown target money keeps stage/run and target holds pending; independent judge/remediation reconciliation does not establish target settlement, report publication or delivered-job recovery. Files and passing local composition are not live migration receipts or activation acceptance.
 
 The existing `scripts/apply-sidecar-sql.mjs` runner rejects `ALTER TABLE ... DROP` through its `DESTRUCTIVE` filter, including the constraint replacements required by design/run recovery. A separately reviewed migration executor capability is required before any authorized live rollout. This plan supplies no bypass and performs no live execution.
+
+Runner follow-up: source now supports explicit `--reviewed-constraints` for the exact canonical design/run hashes, plus offline `--dry-run`. The original default guard remains; no generic destructive override or live execution was added. See README and the separate runner validation receipt. The dependency manifest above is unchanged.

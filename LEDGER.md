@@ -10,13 +10,15 @@ Last prod deploy: e99f8c4 (merged main), https://standard-evals.vercel.app (alia
 
 ## Current Naïve source adoption (2026-11-08)
 
+Current working branch is **main**, per Alex’s latest instruction. Runtime adoption and PR #3 are merged. Finish the reviewed runner/database-gap preparation, then stop as requested.
+
 The explicit user-approved 147-file cumulative patch from `0e759c4` is adopted on **track-a**, after preserving main `029f45c` in merge `ce59be9`. This scoped continuation uses track-a; the older main-only operating note below records Track A history. All 147 source postimages match the reviewed patch exactly (43 modified, 104 added, no deletions). Historical candidate/unapplied statements for this dependency chain below are superseded; their test receipts remain historical evidence.
 
 | Scope | Current status |
 | --- | --- |
 | Shared budgets, stage recovery/cancellation, expert sourcing, initial copilot/MCP, remediation, design/run recovery and judge accounting | Actual source adopted; not deployed |
 | Actual-source verification | 4,609 passing tests, zero failures, two documented skips; web/core types and clean production build pass; 2,286 build input hashes match |
-| Activation and full Naïve plan | Offline schema rehearsal passes (54/59/1 migrations); live runner constraint support, schema/data review and hosted checks remain open |
+| Activation and full Naïve plan | Offline schema rehearsal passes (54/59/1 migrations); reviewed runner support is implemented; missing database schema/data review and hosted checks remain open |
 
 See `docs/naive-current-runtime-adoption/adoption-receipt.json`. No migration, configuration change, deployment, provider call, outreach or spending occurred. Unrelated customer recruitment files remain untouched.
 
@@ -483,3 +485,5 @@ Times are PT, as recorded.
 - 2026-11-08: Adopted the explicitly approved cumulative 147-file source patch from `0e759c4`, preserving main `029f45c` at `ce59be9`. Exact postimages and outside-path preservation verified. Actual suite: 4,609 passed / zero failed / two documented skips; web/core types and clean production build pass (63 steps/four workflows, 2,286 matching input pins). Reversibly quarantined 35 identical filesystem conflict copies; no unique content deleted. Three Sol review/build/documentation workers completed. Receipt: `docs/naive-current-runtime-adoption/adoption-receipt.json`. No migration, deployment, outreach or spend. Full Naïve goal remains unfinished.
 
 - 2026-11-08: Three Sol workers prepared and reviewed offline rollout plan, schema verifier and hosted acceptance matrix after `5d600a8`. 69 inventory paths deduplicated into 60 canonical SQL nodes; fresh application/optional/simulator PGlite sequences pass 54/59/1 migrations. Parent added omitted-inventory and cross-database rejection; 12 focused tests pass. Required web types and 4,609 root tests pass, zero failed/two documented skips; all 2,286 prior build inputs unchanged. No live actions. User requested immediate commit/push/merge; main `029f45c` is already an ancestor of track-a. Preserve unrelated customer recruitment work.
+
+- 2026-11-08: Switched to main at Alex’s request after PR #3 merged. Added exact reviewed sidecar constraint support, offline dry-run, redacted errors and fail-stop transactions. Independent review fixed pg query routing override and unknown-COMMIT receipt issues; 24 focused / 4,633 full tests pass (zero failed/two documented skips), web types and script syntax pass. Private user credential used only for read-only catalog inspection; no migration/deployment/provider/outreach/spend. Record exact schema gaps in `docs/naive-runtime-rollout/staging-schema-gap.md`; user requested stop after this preparation. Full plan/live acceptance remain incomplete.

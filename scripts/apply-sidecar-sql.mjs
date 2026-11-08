@@ -1,57 +1,93 @@
 /**
- * Applies Track B sidecar SQL files (not in the Drizzle journal) to ONE explicitly named Neon endpoint.
- * `npm run deploy` / `drizzle-kit migrate` never apply these; run this once per database, in order.
+ * Apply sidecar SQL to one explicitly named direct endpoint, one transaction per file.
+ * Default destructive refusal remains in force. --reviewed-constraints admits only
+ * the two code-pinned canonical constraint replacement files. --dry-run validates
+ * SQL and the endpoint label without reading an environment file or opening a DB.
  *
- *   node scripts/apply-sidecar-sql.mjs <env-file> <expected-endpoint-id> <file.sql>...
- *
- * - Reads DATABASE_URL_UNPOOLED from <env-file> (direct host; never the -pooler host).
- * - Refuses unless that host starts with <expected-endpoint-id> (e.g. ep-blue-river-bd88lxip).
- * - Refuses any file containing DROP TABLE/SCHEMA/COLUMN, TRUNCATE or DELETE FROM.
- * - Each file runs in its own transaction; the first failure rolls back and stops.
- * - Prints file path + sha256 receipts only (never the URL).
+ * node scripts/apply-sidecar-sql.mjs [--dry-run] [--reviewed-constraints] <env-file> <expected-endpoint-id> <file.sql>...
  */
-import { config } from "dotenv";
-import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
-import pg from "pg";
+import { readFile, realpath } from "node:fs/promises";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { PolicyError, parseArguments, validateSqlSource, validateDatabaseUrl } from "./sidecar-sql-policy.mjs";
 
-const DESTRUCTIVE = /\b(DROP\s+(TABLE|SCHEMA|COLUMN|INDEX|FUNCTION)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE\s+\S+\s+DROP)\b/i;
-
-const [envFile, expected, ...files] = process.argv.slice(2);
-if (!envFile || !expected || files.length === 0) {
-  console.error("usage: node scripts/apply-sidecar-sql.mjs <env-file> <expected-endpoint-id> <file.sql>...");
-  process.exit(2);
-}
-const parsed = config({ path: envFile, processEnv: {}, quiet: true }).parsed ?? {};
-const url = parsed.DATABASE_URL_UNPOOLED;
-if (!url || !new URL(url).host.startsWith(`${expected}.`)) {
-  console.error("refusing: DATABASE_URL_UNPOOLED is missing or is not the expected direct endpoint");
-  process.exit(2);
-}
-const sources = files.map((f) => ({ f, sql: readFileSync(f, "utf8") }));
-for (const { f, sql } of sources) {
-  if (DESTRUCTIVE.test(sql)) {
-    console.error(`refusing: destructive statement in ${f}`);
-    process.exit(2);
+export async function run(argv, {
+  readSql = async (file) => ({ sql: await readFile(file, "utf8"), realPath: await realpath(file) }),
+  readEnvironment = async (envFile) => {
+    const { parse } = await import("dotenv");
+    return parse(await readFile(envFile));
+  },
+  createClient = async (url) => {
+    const { default: pg } = await import("pg");
+    return new pg.Client({ connectionString: url });
+  },
+  log = console.log,
+  error = console.error,
+} = {}) {
+  let options;
+  let sources;
+  let url;
+  try {
+    options = parseArguments(argv);
+    sources = [];
+    const seen = new Set();
+    for (const file of options.files) {
+      const source = await readSql(file);
+      const identity = source.realPath ?? resolve(file);
+      if (seen.has(identity)) throw new PolicyError("refusing: duplicate SQL file");
+      seen.add(identity);
+      sources.push(validateSqlSource({ ...source, file }, options));
+    }
+    if (options.dryRun) {
+      log(`dry-run endpoint=${options.expected}; no environment read or database connection`);
+      for (const { f, sha } of sources) log(`validated ${f} sha256=${sha}`);
+      return 0;
+    }
+    const parsed = await readEnvironment(options.envFile);
+    url = validateDatabaseUrl(parsed.DATABASE_URL_UNPOOLED, options.expected);
+  } catch (cause) {
+    // Only policy-owned messages may reach output; filesystem/provider errors can
+    // contain secrets or arbitrary SQL. Never print their message or stack.
+    error(cause instanceof PolicyError ? cause.message : "refusing: could not validate migration inputs");
+    return 2;
   }
-}
-const client = new pg.Client({ connectionString: url });
-await client.connect();
-try {
-  for (const { f, sql } of sources) {
-    const sha = createHash("sha256").update(sql).digest("hex");
-    await client.query("BEGIN");
-    try {
-      await client.query(sql);
-      await client.query("COMMIT");
-      console.log(`applied ${f} sha256=${sha}`);
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error(`FAILED (rolled back) ${f} sha256=${sha}: ${error instanceof Error ? error.message : String(error)}`);
-      process.exitCode = 1;
-      break;
+
+  let client;
+  let status = 0;
+  try {
+    client = await createClient(url);
+    await client.connect();
+    for (const { f, sql, sha } of sources) {
+      let began = false;
+      let commitAttempted = false;
+      try {
+        await client.query("BEGIN");
+        began = true;
+        await client.query(sql);
+        commitAttempted = true;
+        await client.query("COMMIT");
+        log(`applied ${f} sha256=${sha}`);
+      } catch {
+        let rolledBack = false;
+        if (began) {
+          try { await client.query("ROLLBACK"); rolledBack = true; } catch { /* stop even if rollback fails */ }
+        }
+        error(`FAILED (${commitAttempted ? "commit outcome unknown; inspect database before retry" : rolledBack ? "rolled back" : "transaction not confirmed"}) ${f} sha256=${sha}`);
+        status = 1;
+        break;
+      }
+    }
+  } catch {
+    error("FAILED: database connection or execution failed");
+    status = 1;
+  } finally {
+    if (client) {
+      try { await client.end(); } catch { error("FAILED: database connection cleanup failed"); status = 1; }
     }
   }
-} finally {
-  await client.end();
+  return status;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  process.exitCode = await run(process.argv.slice(2));
 }

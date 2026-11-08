@@ -2,6 +2,14 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Reviewed migration runner and database gap (2026-11-08)
+
+Work now continues on **main** at Alex's request. The cumulative source is merged, and PR #3 merged his recruitment document. The sidecar runner now supports an offline dry-run and explicit exact-hash/path exceptions for the two reviewed design/run constraint replacements. Independent review fixed driver query-parameter endpoint overrides and misleading rollback claims after uncertain COMMIT; 24 focused tests and 4,633 full repository tests pass (zero failures, two documented skips), with web types and script syntax checks passing.
+
+A user-provided private database credential enabled a read-only catalog inspection, not migration authorization. The database lacks `job_budget` and `workflow_stage`; the detailed gap report distinguishes missing objects from existing-but-unverified sidecars and extra historical receipts. No live schema writes, deployment, provider calls, outreach or spending occurred. The runner is ready for separately reviewed target-specific use; a source merge is not a hosted acceptance receipt.
+
+Alex requested finishing this necessary preparation and then stopping. The full Naïve plan and live demo are not claimed complete. Next live work, if resumed, is exact schema/data review and authorized missing migrations, deployment/configuration and the bounded hosted trace gate—not another round of unrelated feature expansion.
+
 ## Runtime schema rehearsal and release gates (2026-11-08)
 
 After source adoption `5d600a8`, `docs/naive-runtime-rollout/` now binds all 69 SQL inventory paths to 60 canonical migrations and aliases, with separate application/optional/simulator profiles. Fresh in-memory PGlite applies 54/59/1 migrations respectively without SQL rewrites or synthetic prerequisites. Twelve focused verifier tests and standalone types pass; current root web types and 4,609 tests pass (zero failed, two documented skips). All 2,286 production-build input hashes remain unchanged. This is offline schema evidence, not a live migration or deployed feature.

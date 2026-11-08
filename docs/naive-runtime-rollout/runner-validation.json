@@ -1,0 +1,46 @@
+{
+  "status": "source-verified-no-migrations-applied",
+  "baseCommit": "9f3ec5ae0bce6e83c26a2112451dba5235139835",
+  "files": {
+    "scripts/apply-sidecar-sql.mjs": "29e36a6c596fe2247ffe47fcb14df78f6423b8267916a8fefcf2557684ee79cb",
+    "scripts/sidecar-sql-policy.mjs": "ca10d356334194388eec9ed45a3b3978c0189452612430c205f1be98fdcbaf91",
+    "scripts/sidecar-sql-policy.test.ts": "4eb1c6550952452df052262b4d3ceada44d2fb51807de7292f6af635dc274fa6"
+  },
+  "focusedTests": {
+    "passed": 24,
+    "failed": 0
+  },
+  "rootTests": {
+    "passed": 4633,
+    "failed": 0,
+    "skipped": 2
+  },
+  "webTypes": "passed",
+  "syntaxChecks": "passed",
+  "dryRun": {
+    "verified": true,
+    "environmentRead": false,
+    "databaseConnection": false,
+    "exactReviewedFiles": 2
+  },
+  "reviewFixes": [
+    "Reject pg URL query routing overrides before client construction",
+    "Report uncertain COMMIT outcome without falsely claiming rollback",
+    "Refuse unreviewed DROP CONSTRAINT with IF EXISTS or ONLY syntax"
+  ],
+  "databaseInspection": {
+    "readOnly": true,
+    "migrationsApplied": false,
+    "rawReceiptCommitted": false
+  },
+  "deployment": false,
+  "providerCalls": false,
+  "outreach": false,
+  "spending": false,
+  "limitations": [
+    "Requires operator-reviewed order and installed-state/data/grant checks",
+    "Earlier successful per-file transactions remain committed after a later failure",
+    "No automatic migration replay or unknown-commit retry",
+    "No native migration or hosted acceptance claim"
+  ]
+}
