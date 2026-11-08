@@ -1,0 +1,22 @@
+{
+  "docs/current-company-main-adoption/scout-extension/INPUTS.json": "bbcdeb9b7a68d9fbf9aa99b7a797edcd3b86545c14e3ecb87f95c9c156417b08",
+  "docs/current-company-main-adoption/scout-extension/ORIGINAL-PREIMAGES.json": "57e48bc4a687a3daecd79735d9c514482b235dcf1a580547ac798714a1604aec",
+  "docs/current-company-main-adoption/scout-extension/README.md": "4d2de07d7394de46f7d03850c1d950caea74cfb6a70f74e8239e775f63903210",
+  "docs/current-company-main-adoption/scout-extension/apply.mjs": "3647b837d8a9317af24162fe4cb90b68b02c79902583ca455d2f0123ae59b4d8",
+  "docs/current-company-main-adoption/scout-extension/owner.patch": "00f707abf4378326a4e97aedadd8243aca5799c348d34f0fe3d9e126ceda9722",
+  "docs/current-company-main-adoption/scout-extension/scout-mark.tsx": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435",
+  "docs/current-company-main-adoption/scout-extension/scout-pixel.svg": "dbcc61e36930cd25472a308564f26e96219aa4e7bec9805e3c4d441e27f55302",
+  "tests/track-b/current-company-main-adoption/scout-extension/chat.test.tsx": "c4f23e427f16bfdc2d23f8195d020eac7f128e09600533af8798294aaf2a49bb",
+  "tests/track-b/current-company-main-adoption/scout-extension/helper-verification/TEST-INPUTS.json": "4c76460cdfad2f74a2bafd777ec5d0070070c72783531e29870b5585e8e86640",
+  "tests/track-b/current-company-main-adoption/scout-extension/helper-verification/result.json": "f47666ebf3034c44ebf84beff69fe752b080e91316cf9e64f70af622090f7654",
+  "tests/track-b/current-company-main-adoption/scout-extension/helper-verification/suites.log": "ecd498b106748c203a534ff66ecf5ddfdf53a7e2d33a71e3a7d38ae8041e8e78",
+  "tests/track-b/current-company-main-adoption/scout-extension/helper-verification/types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "tests/track-b/current-company-main-adoption/scout-extension/hook.test.tsx": "d579f9dfb83b799d10cd570214e280176bb6f0d71a954c9e3cea9b57b9aa65f3",
+  "tests/track-b/current-company-main-adoption/scout-extension/interactions.test.tsx": "dfc6531eb5e5b703be962fef2344c16c5f30c2dad41695955bc43ab237263b2a",
+  "tests/track-b/current-company-main-adoption/scout-extension/job-bindings.test.tsx": "51f9215bf985aef482e8a62ca5730ae8f63234b3bff8c7ca7172f5a9289eed82",
+  "tests/track-b/current-company-main-adoption/scout-extension/mount-fixture.tsx": "3132b0a43fb24725c87ba45196906b84aa3a7e405e86a57206898256466d2da8",
+  "tests/track-b/current-company-main-adoption/scout-extension/pixel-scout.test.tsx": "88098ce4f9df9d495ac0295391dcfb0ef0a1a53415400b7885d4d77019002e7a",
+  "tests/track-b/current-company-main-adoption/scout-extension/privacy.test.tsx": "e0fab0a0343710228498d7d098fb18d4c9c32cea6aa1a48242c4b80f2346ad93",
+  "tests/track-b/current-company-main-adoption/scout-extension/reauth.test.tsx": "ff15d2f5a64c56a34b476a11bdcc29406323470d98f6bb1007f46c0c1864c5c4",
+  "tests/track-b/current-company-main-adoption/scout-extension/run.mjs": "4891ce55fb209329abfbb274d2cf8229f1e7f9e35510c86ed0ab5403d4af1765"
+}

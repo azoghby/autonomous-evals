@@ -1,117 +1,594 @@
 {
-  "additions": [
-    "apps/web/migrations/001-workflow-integration.sql",
-    "apps/web/migrations/003-workflow-data.sql",
-    "apps/web/migrations/004-workflow-remediation.sql",
-    "apps/web/migrations/005-workflow-packs.sql",
-    "apps/web/migrations/006-rich-comparison.sql",
-    "apps/web/migrations/007-workflow-resumption.sql",
-    "apps/web/migrations/008-workflow-finding-reruns.sql",
-    "apps/web/src/app/api/cron/autonomy/route.ts",
-    "apps/web/src/app/api/cron/review-resumption/route.ts",
-    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts",
-    "apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts",
-    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts",
-    "apps/web/src/app/api/jobs/[jobId]/comparison/route.ts",
-    "apps/web/src/app/api/jobs/[jobId]/data-review/route.ts",
-    "apps/web/src/app/api/operator/jobs/[jobId]/comparison-binding/route.ts",
-    "apps/web/src/app/api/operator/jobs/[jobId]/comparison-reconcile/route.ts",
-    "apps/web/src/app/api/operator/jobs/[jobId]/workflow-binding/route.ts",
-    "apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts",
-    "apps/web/src/components/app/job-private-chat.tsx",
-    "apps/web/src/server/autonomous-company.ts",
-    "apps/web/src/server/autonomous-paid-authority.sql",
-    "apps/web/src/server/autonomous-paid.sql",
-    "apps/web/src/server/autonomous-paid.ts",
-    "apps/web/src/server/autonomy-release.sql",
-    "apps/web/src/server/autonomy-release.ts",
-    "apps/web/src/server/comparison-production.ts",
-    "apps/web/src/server/current-agent-deps.ts",
-    "apps/web/src/server/current-autonomy-owner.ts",
-    "apps/web/src/server/current-autonomy-runtime.ts",
-    "apps/web/src/server/current-autonomy.ts",
-    "apps/web/src/server/current-payment-startup.ts",
-    "apps/web/src/server/current-payment.ts",
-    "apps/web/src/server/current-stripe-payment.ts",
-    "apps/web/src/server/data-production.ts",
-    "apps/web/src/server/judge-accounting.ts",
-    "apps/web/src/server/progress-chat.ts",
-    "apps/web/src/server/rich-artifacts.ts",
-    "apps/web/src/server/rich-comparison.ts",
-    "apps/web/src/server/rich-judge.ts",
-    "apps/web/src/server/rich-remediation.ts",
-    "apps/web/src/server/rich-rerun.ts",
-    "apps/web/src/server/rich-services.ts",
-    "apps/web/src/server/structured-progress-inventory.ts",
-    "apps/web/src/server/structured-progress.ts",
-    "apps/web/src/server/workflow-costs.ts",
-    "apps/web/src/server/workflow-data.ts",
-    "apps/web/src/server/workflow-inventory.ts",
-    "apps/web/src/server/workflow-pack-projection.ts",
-    "apps/web/src/server/workflow-pack-registry.ts",
-    "apps/web/src/server/workflow-packs.ts",
-    "apps/web/src/server/workflow-resumption.ts",
-    "apps/web/src/workflows/current-autonomy.ts",
-    "apps/web/src/workflows/steps/review-wake.ts",
-    "apps/web/src/workflows/steps/rich-evaluation.ts",
-    "apps/web/src/workflows/steps/rich-inventory-refresh.ts",
-    "apps/web/src/workflows/steps/rich-mode.ts",
-    "owner-migrations/app.agent.sql",
-    "owner-migrations/app.baseline.0000_init.sql",
-    "owner-migrations/app.baseline.0001_expert_network.sql",
-    "owner-migrations/app.baseline.0002_delivery_snapshot.sql",
-    "owner-migrations/app.baseline.0003_rate_limits.sql",
-    "owner-migrations/app.baseline.0004_email_threads.sql",
-    "owner-migrations/app.baseline.0005_remediations.sql",
-    "owner-migrations/app.baseline.0006_per_finding_pricing.sql",
-    "owner-migrations/app.baseline.0007_api_keys.sql",
-    "owner-migrations/app.baseline.0008_monitoring_runs.sql",
-    "owner-migrations/app.baseline.0009_call_slots.sql",
-    "owner-migrations/app.baseline.0010_engagement_prev_tokens.sql",
-    "owner-migrations/app.baseline.0011_job_shares.sql",
-    "owner-migrations/app.baseline.0012_github_prs.sql",
-    "owner-migrations/app.baseline.0013_regression_runs.sql",
-    "owner-migrations/app.baseline.0014_public_agents.sql",
-    "owner-migrations/app.chat.sql",
-    "owner-migrations/app.checkpoint.sql",
-    "owner-migrations/app.data001.sql",
-    "owner-migrations/app.data002.sql",
-    "owner-migrations/app.inventory.sql",
-    "owner-migrations/app.journal.sql",
-    "owner-migrations/app.ledger.sql",
-    "owner-migrations/app.rich-comparison.006.sql",
-    "owner-migrations/app.workflow-data.003.sql",
-    "owner-migrations/app.workflow-finding-reruns.008.sql",
-    "owner-migrations/app.workflow-packs.005.sql",
-    "owner-migrations/app.workflow-remediation.004.sql",
-    "owner-migrations/app.workflow-resumption.007.sql",
-    "owner-migrations/app.workflow001.sql",
-    "owner-migrations/app.workflow002.sql",
-    "owner-migrations/autonomy-release.access.sql",
-    "owner-migrations/autonomy-release.communications.sql",
-    "owner-migrations/autonomy-release.json",
-    "owner-migrations/autonomy-release.operations.sql",
-    "owner-migrations/manifest.json",
-    "tests/track-b/current-autonomy-integration/current-app.test.ts",
-    "tests/track-b/current-autonomy-integration/current-baseline.test.ts",
-    "tests/track-b/current-autonomy-integration/registration.test.ts",
-    "tests/track-b/current-autonomy-integration/run.mjs"
-  ],
-  "changes": [
-    "apps/web/next.config.ts",
-    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx",
-    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts",
-    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts",
-    "apps/web/src/app/api/stripe/webhook/route.ts",
-    "apps/web/src/components/app/job-view.tsx",
-    "apps/web/src/lib/client/use-live-job.ts",
-    "packages/core/src/evals/calendar-integration/index.ts",
-    "packages/core/src/simulator/runner.ts",
-    "packages/core/src/simulator/workflow/index.ts",
-    "tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts"
-  ],
-  "overlaps": [],
-  "scope": "Initial historical comparison only; final adoption is APPLICATION.json",
-  "initialMain": "a7851f848ecea7621b227cf71744f888985d9f7b",
-  "historicalParent": "039851736eabb94e85c2c111bbccc78374716275"
+  "parent": "2df678268926da50d0219889fd2190b7edb6f6e8",
+  "changes": {
+    "apps/web/next.config.ts": {
+      "sha256": "55354a2dd54b0b82f9d24ce4590c5525ec7bb83f2c1f58835d964d9907145de0",
+      "bytes": 1372,
+      "preimageSha256": "917c81385f48e989fd26f5838524a781063bccbb683ef9072ce8467331cc7ddc",
+      "preimageBytes": 1010
+    },
+    "apps/web/src/app/(app)/jobs/[jobId]/page.tsx": {
+      "sha256": "f3da0dff5edaec093ee109b86de5d322595044a448573edb8ce690ec9dcf5160",
+      "bytes": 438,
+      "preimageSha256": "193196cbc292bbff84021ba373c005d6e5030b66ae86c3e3a7e81efb794fd5ab",
+      "preimageBytes": 426
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts": {
+      "sha256": "5725aed8d88cc2f5aa18f8213f8f9e12db97dddf116f6e1e6e1917e30129c61d",
+      "bytes": 2305,
+      "preimageSha256": "7ed2c88fa0086cbdc0aacc7592eeeb290d2aec595535fa6b5b71ee544e90cc08",
+      "preimageBytes": 2287
+    },
+    "apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.ts": {
+      "sha256": "d7acd6e33a07dc088e5f5c5e634294483c881cc50b984767429689cdede1c0fe",
+      "bytes": 3378,
+      "preimageSha256": "5d91977306f6647bfce7643b1b616145be3eecfa84f9fc0aeb5d9b2e2782eddf",
+      "preimageBytes": 2778
+    },
+    "apps/web/src/app/api/stripe/webhook/route.ts": {
+      "sha256": "692755ad5afb21959fccb334a5eb39ab6a6ff2e8d76b69d41a2c09f4f9c1ebad",
+      "bytes": 6909,
+      "preimageSha256": "c23fc95184a38eec968a09a130e44e1b6f09b2d41182565b012bc39b4a44fab5",
+      "preimageBytes": 6108
+    },
+    "apps/web/src/components/app/job-view.tsx": {
+      "sha256": "301e956a554b931cf396eccbf70262c9225eb02f216e97fdbe9a7f05b9ae588b",
+      "bytes": 9674,
+      "preimageSha256": "9b3d5e11bb7a232aa4b3cfb5e29e034dde0585b0b7c9fc85d9affe47453f9ae2",
+      "preimageBytes": 9419
+    },
+    "apps/web/src/lib/client/use-live-job.ts": {
+      "sha256": "67b7ae84de16c2a41dfe0d13f877e31dd0b13db9720742e403f681d7ea15046d",
+      "bytes": 3043,
+      "preimageSha256": "610f3740aa96bed573fd632ff91015e6673a4a973a5e88444af7d2763625d431",
+      "preimageBytes": 2925
+    },
+    "packages/core/src/evals/calendar-integration/index.ts": {
+      "sha256": "70c00e21087b99dcc2493effb07b381771a28be5b162b0debe3df69cad97c2b3",
+      "bytes": 12289,
+      "preimageSha256": "34954cc1063f162672ff4a94da139e4ee5042b83b2029bc17174fe2b1f1d53c4",
+      "preimageBytes": 11778
+    },
+    "packages/core/src/simulator/runner.ts": {
+      "sha256": "3709dc2a5faca4ebe4affce64ae952df73bcce3af8d9d3e93b8f94d09d4644f9",
+      "bytes": 3914,
+      "preimageSha256": "a4eae5578d1c791d9241d216b8d4a01215e326b95896aea45fc7e00b5ac820fe",
+      "preimageBytes": 3564
+    },
+    "packages/core/src/simulator/workflow/index.ts": {
+      "sha256": "94d861f26b4dbb8c1bd2ebdd8e2e239aed9b0796aa6615d1b3308ae5c68e558d",
+      "bytes": 21766,
+      "preimageSha256": "7d807c446ff170ee8767c903d52125faa312a5c14d97ebded1dfaf4a4b84ebdd",
+      "preimageBytes": 19096
+    },
+    "tests/track-b/autonomous-company/communications.test.ts": {
+      "sha256": "e75e4bd88ae945c9990a847c73e4ebb432b716701d8b7aa3a53516900de4c611",
+      "bytes": 8722,
+      "preimageSha256": "497bf7790fc7a39f53b1f2c4bb0cfde71c31f98089c35cf07ae5143f3280d133",
+      "preimageBytes": 8625
+    },
+    "tests/track-b/autonomous-company/company.test.ts": {
+      "sha256": "0408413e7be2be9fdaccca5d5698ae8433eef76362a71b472eec271753b2e212",
+      "bytes": 12648,
+      "preimageSha256": "0d88cb9c69d297066d6d82deb995de252cfe9ae9b3ab90d677690e7b8033bbee",
+      "preimageBytes": 12553
+    },
+    "tests/track-b/autonomy-paid-app-integration/acceptance-authority.test.ts": {
+      "sha256": "f8e8fc796cf310b532298b12cfeb6b2645834085a3ad1100bd847fe5cd1f9894",
+      "bytes": 14211,
+      "preimageSha256": "245bd611e8c737169210eb277f81a30c37cc02cd1d54321150edc8c3bfa7ed0f",
+      "preimageBytes": 14063
+    },
+    "tests/track-b/autonomy-paid-app-integration/acceptance-baseline.test.ts": {
+      "sha256": "ea34eda7833973aee79d5ebcee255450a37da2d0d8fae20cafe1a9e64e565422",
+      "bytes": 6194,
+      "preimageSha256": "be2b9179fb20cdfd7181e65cca38bef0c94dc1579c9019dd022de6a4be16ef8c",
+      "preimageBytes": 5997
+    },
+    "tests/track-b/autonomy-release-adoption/server.test.ts": {
+      "sha256": "694fafc3a030707ba59d7411ee44edb6cbfab4158f6dc8a781730cfcc423ccfd",
+      "bytes": 10664,
+      "preimageSha256": "743ecd4f30ccf000fe3b1174754e04cce91de3f7c81b95151112e741a723c204",
+      "preimageBytes": 10516
+    },
+    "tests/track-b/current-autonomy-integration/current-app.test.ts": {
+      "sha256": "447387b91be4bcc6fd58105a35af6654a45b03c62ffaf964504495c4df4378db",
+      "bytes": 8347,
+      "preimageSha256": "a2553aac1bd63effda99132727fe193d1a9180234df86f15cfcd6394c46da1b3",
+      "preimageBytes": 7209
+    },
+    "tests/track-b/current-autonomy-integration/current-baseline.test.ts": {
+      "sha256": "f9b6995e84e42b1ae3312148d6db9e2082edd4ae18b6724141d92b89c9a9e316",
+      "bytes": 6850,
+      "preimageSha256": "c4315f66486aa505fb5c1b53f1ee4bf0ee3a94ce14bfa70921b0d4bb3cfa117d",
+      "preimageBytes": 6732
+    },
+    "tests/track-b/current-autonomy-integration/registration.test.ts": {
+      "sha256": "714b1af0cafffeee088fcf7637e7b20796e9a7e067d96cd989707d000423ae05",
+      "bytes": 2991,
+      "preimageSha256": "6705022f8d243c800d363f2d203253df3dd83c6bff43dad1bf8ea086c1c98dac",
+      "preimageBytes": 2976
+    },
+    "tests/track-b/current-autonomy-integration/run.mjs": {
+      "sha256": "3ffb5ac794580de30f4023db1fddedde432decf3aa019c65c540d5b54720e8f6",
+      "bytes": 8971,
+      "preimageSha256": "b18fa3e476891f9d833931b227a548cd625d19730637442f04b6b8b657412e01",
+      "preimageBytes": 9055
+    },
+    "tests/track-b/current-autonomy-payment-startup/bridge.test.ts": {
+      "sha256": "6d23f2c2a33e8b460b0662edc0de84c7f40640b3be63fce891fdb53ff0387855",
+      "bytes": 5289,
+      "preimageSha256": "d9430e537880d2592dea3c13e72e683ee02c5a6b81a74c0a165b7992f2dcc0ca",
+      "preimageBytes": 5201
+    },
+    "tests/track-b/current-autonomy-payment-startup/composition.test.ts": {
+      "sha256": "01ed0e87d646597f51e31050b4a62e87e56bdd0eb62b4b713558161159e05e0c",
+      "bytes": 1132,
+      "preimageSha256": "7f968755dd53b89d847edba4996ab057c437ae84e5f71069f0aac4ca69604cc7",
+      "preimageBytes": 1164
+    },
+    "tests/track-b/current-company-main-adoption/PAYMENT-FIX-INPUTS.json": {
+      "sha256": "99633b72ab1059a5b971feb3a10da5eddfd6e286db82c861a3a2ffeeb7c92694",
+      "bytes": 8710,
+      "preimageSha256": "7732e10b34532e3ad92314c6c380adb22f160d5a081988ddf4483a325f2ac856",
+      "preimageBytes": 7803
+    },
+    "tests/track-b/current-company-main-adoption/run.mjs": {
+      "sha256": "2cd3eebe4f6cb43ac219193a1cc6b60c44863469f1552b6ac4f088109b30b85f",
+      "bytes": 11199,
+      "preimageSha256": "bedd1b0e3e2709ddb929e2bbf896154f9e08a5ee083fffa0a2e70aabbae7ea96",
+      "preimageBytes": 11338
+    }
+  },
+  "additions": {
+    "apps/web/migrations/001-workflow-integration.sql": {
+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+      "bytes": 1575
+    },
+    "apps/web/migrations/003-workflow-data.sql": {
+      "sha256": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+      "bytes": 968
+    },
+    "apps/web/migrations/004-workflow-remediation.sql": {
+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+      "bytes": 825
+    },
+    "apps/web/migrations/005-workflow-packs.sql": {
+      "sha256": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+      "bytes": 683
+    },
+    "apps/web/migrations/006-rich-comparison.sql": {
+      "sha256": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+      "bytes": 1304
+    },
+    "apps/web/migrations/007-workflow-resumption.sql": {
+      "sha256": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
+      "bytes": 564
+    },
+    "apps/web/migrations/008-workflow-finding-reruns.sql": {
+      "sha256": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+      "bytes": 851
+    },
+    "apps/web/src/app/api/cron/autonomy/route.ts": {
+      "sha256": "e89c00e1f522be2c24ad27602d05f00647e18ba2f409ad3182505e5a9174672f",
+      "bytes": 577
+    },
+    "apps/web/src/app/api/cron/review-resumption/route.ts": {
+      "sha256": "07342be0da76332e2661851069b997c4318fbbb00fb4f3e6589c5af48c44a64e",
+      "bytes": 1320
+    },
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": {
+      "sha256": "5e609197aa4f11b679418158a40fc63c9832e76bd5f173dccecf37d510d93a9a",
+      "bytes": 385
+    },
+    "apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts": {
+      "sha256": "cb011fc8e9e28a11f0cd57720245464afce47e7405249a348ea7ac8bbf90567a",
+      "bytes": 384
+    },
+    "apps/web/src/app/api/jobs/[jobId]/chat/route.ts": {
+      "sha256": "6d6d86a40a98e9f0ecb7483297382b7941eb004cbdebb5cd042feb1a3caa2716",
+      "bytes": 3276
+    },
+    "apps/web/src/app/api/jobs/[jobId]/comparison/route.ts": {
+      "sha256": "3f28e6cc0a1f4b988af8a4cd91c9eda93ec899e76997eec2ece3bda10db1f2fe",
+      "bytes": 2256
+    },
+    "apps/web/src/app/api/jobs/[jobId]/data-review/route.ts": {
+      "sha256": "d5c2d36d078ec3747442b88b53b4b73c88c2f66b73106882de59badbccf48309",
+      "bytes": 1591
+    },
+    "apps/web/src/app/api/operator/jobs/[jobId]/comparison-binding/route.ts": {
+      "sha256": "f1ff409a3d7ea4479d25ff763b32633c154330005bbc8e13cfc5a478a8666dd5",
+      "bytes": 2736
+    },
+    "apps/web/src/app/api/operator/jobs/[jobId]/comparison-reconcile/route.ts": {
+      "sha256": "ec24409857d986f9d157f45ac0419121faab8725262108e907b629913f7456fa",
+      "bytes": 1959
+    },
+    "apps/web/src/app/api/operator/jobs/[jobId]/workflow-binding/route.ts": {
+      "sha256": "aab64e8c43e67fb03efd280487651a14e6082ea5d2d86031dedfbcfc6d56fffb",
+      "bytes": 3797
+    },
+    "apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts": {
+      "sha256": "6e6eec9a6c622427abc33dc2e226c3acc62d2669796fa4e185bc92a4b5dabdcf",
+      "bytes": 4725
+    },
+    "apps/web/src/components/app/job-private-chat.tsx": {
+      "sha256": "fd4d2fcc8a1fadebc52089ca72c3f58fa1dc81d8ecc7ea4e91861f83d3cee9b4",
+      "bytes": 13071
+    },
+    "apps/web/src/components/app/scout-mark.tsx": {
+      "sha256": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435",
+      "bytes": 1052
+    },
+    "apps/web/src/server/autonomous-company.ts": {
+      "sha256": "7c598dfefdfdd0b89427ab7eaf79e9d4c409ac9b331f32ec1eebb72115e7fda6",
+      "bytes": 2662
+    },
+    "apps/web/src/server/autonomous-paid-authority.sql": {
+      "sha256": "0b508bde681c43c965f8e04dfad26c3dbeb62581c9b1f428a4603219a9c11755",
+      "bytes": 443
+    },
+    "apps/web/src/server/autonomous-paid.sql": {
+      "sha256": "4184a090bc12cad229d6b410671e1aac32e7cab21c7fd64d122c5836d2f2faa3",
+      "bytes": 683
+    },
+    "apps/web/src/server/autonomous-paid.ts": {
+      "sha256": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c",
+      "bytes": 9173
+    },
+    "apps/web/src/server/autonomy-release.sql": {
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "bytes": 3536
+    },
+    "apps/web/src/server/autonomy-release.ts": {
+      "sha256": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb",
+      "bytes": 16536
+    },
+    "apps/web/src/server/comparison-production.ts": {
+      "sha256": "cc29a08234c61236dcbf4a8e54d2495053f70716e69a0ffc6e53e4735af0c19b",
+      "bytes": 9829
+    },
+    "apps/web/src/server/current-agent-deps.ts": {
+      "sha256": "1b38e747a75f0b529436e7f27ba3304e132d33fdb280a4eb04f69c0917d22ff3",
+      "bytes": 4253
+    },
+    "apps/web/src/server/current-autonomy-owner.ts": {
+      "sha256": "299e8b26c4bc0d15bcf8f370f4b365c1ac31ade25adbf0cdcfc1ed4ad8ae314a",
+      "bytes": 893
+    },
+    "apps/web/src/server/current-autonomy-runtime.ts": {
+      "sha256": "3f763e57fadf21e5f4677ed9359da6a9ab9620d824112ea1c38f61d1e8935e18",
+      "bytes": 638
+    },
+    "apps/web/src/server/current-autonomy.ts": {
+      "sha256": "1c636ffc40c9954f8780d3cb77f9b1699196db9f9d520db336490790c0013698",
+      "bytes": 5202
+    },
+    "apps/web/src/server/current-payment-startup.ts": {
+      "sha256": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5",
+      "bytes": 4865
+    },
+    "apps/web/src/server/current-payment.ts": {
+      "sha256": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae",
+      "bytes": 14818
+    },
+    "apps/web/src/server/current-stripe-payment.ts": {
+      "sha256": "7c3015b39f9e104880cfbd1789e2ddd32b3d63351ce7d7082c0cc50e88e26ae6",
+      "bytes": 742
+    },
+    "apps/web/src/server/data-production.ts": {
+      "sha256": "91797178aa6c386452d0dc7b4cd76c8659683c030505033a784922cfbc64b8d8",
+      "bytes": 11892
+    },
+    "apps/web/src/server/judge-accounting.ts": {
+      "sha256": "ed23cec8f4e73bf222965560e3ed99a3f976e7ecc7a2c14bea2fa3493bd1aa34",
+      "bytes": 5735
+    },
+    "apps/web/src/server/progress-chat.ts": {
+      "sha256": "cc7f9cebd369be039b200ce3d4cfaeb0a19fd06621585d897904993eda177794",
+      "bytes": 9500
+    },
+    "apps/web/src/server/rich-artifacts.ts": {
+      "sha256": "ac6ba7d8d0e4cc78e73942294aaa9a58d4499db19d9eb3a1dc20ef4a0479dcb8",
+      "bytes": 2789
+    },
+    "apps/web/src/server/rich-comparison.ts": {
+      "sha256": "cddcc9b4b283be75fbeededa6892fe57928abaaba0cff43cfda5731701329f8a",
+      "bytes": 14947
+    },
+    "apps/web/src/server/rich-judge.ts": {
+      "sha256": "ac9050e532933d8e7a857f82466e802de8ddb355dcb8d142107c4355a5d31862",
+      "bytes": 8739
+    },
+    "apps/web/src/server/rich-remediation.ts": {
+      "sha256": "d51c60027312d613f0cb931a8ba8d05ec092eff89f76bc7a0baa70f58fa96f6d",
+      "bytes": 7572
+    },
+    "apps/web/src/server/rich-rerun.ts": {
+      "sha256": "7d4d4996eeb80ad1c2e97d0439c22e51c7e718ef3adfe74d0746732aca3a8cc3",
+      "bytes": 12490
+    },
+    "apps/web/src/server/rich-services.ts": {
+      "sha256": "1c345b2cc9168e26ad631dce826693f9bf195a22ac629f6e8759abea005165b6",
+      "bytes": 20098
+    },
+    "apps/web/src/server/structured-progress-inventory.ts": {
+      "sha256": "52e7108c30aa76b52d32c821ec3019500dd3107e248d75a9ef78782e457c27e2",
+      "bytes": 4774
+    },
+    "apps/web/src/server/structured-progress.ts": {
+      "sha256": "1c9e2e3cad47bdbc6529920082b4123e89346f84ae7d6c2c145021e467917ebb",
+      "bytes": 5519
+    },
+    "apps/web/src/server/workflow-costs.ts": {
+      "sha256": "5def0833ac515b6fe7bab33f6c8f900e58523de3708bcc2d8b131fcf0ba0ef52",
+      "bytes": 1442
+    },
+    "apps/web/src/server/workflow-data.ts": {
+      "sha256": "322202336e0f609df2168418f07b07b2f7f8000eb2701602f566fd9a92be5352",
+      "bytes": 6219
+    },
+    "apps/web/src/server/workflow-inventory.ts": {
+      "sha256": "edcf6923c6a49f43c9ea037c42f005c8ccb9010a1b1cad6d0c5ddb60a7697fc9",
+      "bytes": 4599
+    },
+    "apps/web/src/server/workflow-pack-projection.ts": {
+      "sha256": "5ffc101da717935b13af391b9041eacf1e67cced5cba80e93e81bd5e78a83488",
+      "bytes": 7799
+    },
+    "apps/web/src/server/workflow-pack-registry.ts": {
+      "sha256": "d90f86341ae2945e20806211a76579712aa69f68a8eaf80d885dec8dd76d85eb",
+      "bytes": 904
+    },
+    "apps/web/src/server/workflow-packs.ts": {
+      "sha256": "eda6a972512884db2fb92e02d1b798e2abf6056444591fc198070334ef1d08d4",
+      "bytes": 5759
+    },
+    "apps/web/src/server/workflow-resumption.ts": {
+      "sha256": "347b343c09908e2013446d87e986701e72ebf9aefae73c4bd8dff6cb72c1a201",
+      "bytes": 5847
+    },
+    "apps/web/src/workflows/current-autonomy.ts": {
+      "sha256": "1802db89b2ee2f3527f2a4a3aaef5f644feddf8244519e5e351db8869bb21c8a",
+      "bytes": 619
+    },
+    "apps/web/src/workflows/steps/review-wake.ts": {
+      "sha256": "a4a6bff643a84cf03a393fe40b6b60669087abfc81bd654a3b6f19c34d071f76",
+      "bytes": 575
+    },
+    "apps/web/src/workflows/steps/rich-evaluation.ts": {
+      "sha256": "bb21604804318180d76b9cde33b17f21c550435a94fe4f8e9f126ad7bd4e9ab4",
+      "bytes": 12562
+    },
+    "apps/web/src/workflows/steps/rich-inventory-refresh.ts": {
+      "sha256": "f8484e50b13a77e9ee4535579f3cb26451bcad9be905ff0475242b7a85d83785",
+      "bytes": 718
+    },
+    "apps/web/src/workflows/steps/rich-mode.ts": {
+      "sha256": "cc0b9060df2d2242cecec87b2681bfa70f82eb806dd7613c35889dd50cef57a6",
+      "bytes": 120
+    },
+    "owner-migrations/app.agent.sql": {
+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
+      "bytes": 1075
+    },
+    "owner-migrations/app.baseline.0000_init.sql": {
+      "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
+      "bytes": 10796
+    },
+    "owner-migrations/app.baseline.0001_expert_network.sql": {
+      "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
+      "bytes": 4454
+    },
+    "owner-migrations/app.baseline.0002_delivery_snapshot.sql": {
+      "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
+      "bytes": 58
+    },
+    "owner-migrations/app.baseline.0003_rate_limits.sql": {
+      "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
+      "bytes": 167
+    },
+    "owner-migrations/app.baseline.0004_email_threads.sql": {
+      "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
+      "bytes": 889
+    },
+    "owner-migrations/app.baseline.0005_remediations.sql": {
+      "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
+      "bytes": 874
+    },
+    "owner-migrations/app.baseline.0006_per_finding_pricing.sql": {
+      "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
+      "bytes": 342
+    },
+    "owner-migrations/app.baseline.0007_api_keys.sql": {
+      "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
+      "bytes": 752
+    },
+    "owner-migrations/app.baseline.0008_monitoring_runs.sql": {
+      "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
+      "bytes": 1422
+    },
+    "owner-migrations/app.baseline.0009_call_slots.sql": {
+      "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
+      "bytes": 763
+    },
+    "owner-migrations/app.baseline.0010_engagement_prev_tokens.sql": {
+      "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
+      "bytes": 105
+    },
+    "owner-migrations/app.baseline.0011_job_shares.sql": {
+      "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
+      "bytes": 652
+    },
+    "owner-migrations/app.baseline.0012_github_prs.sql": {
+      "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
+      "bytes": 1491
+    },
+    "owner-migrations/app.baseline.0013_regression_runs.sql": {
+      "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
+      "bytes": 798
+    },
+    "owner-migrations/app.baseline.0014_public_agents.sql": {
+      "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
+      "bytes": 1372
+    },
+    "owner-migrations/app.chat.sql": {
+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
+      "bytes": 1301
+    },
+    "owner-migrations/app.checkpoint.sql": {
+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
+      "bytes": 587
+    },
+    "owner-migrations/app.data001.sql": {
+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
+      "bytes": 1023
+    },
+    "owner-migrations/app.data002.sql": {
+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
+      "bytes": 2070
+    },
+    "owner-migrations/app.inventory.sql": {
+      "sha256": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
+      "bytes": 644
+    },
+    "owner-migrations/app.journal.sql": {
+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
+      "bytes": 710
+    },
+    "owner-migrations/app.ledger.sql": {
+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
+      "bytes": 1028
+    },
+    "owner-migrations/app.rich-comparison.006.sql": {
+      "sha256": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
+      "bytes": 1304
+    },
+    "owner-migrations/app.workflow-data.003.sql": {
+      "sha256": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+      "bytes": 968
+    },
+    "owner-migrations/app.workflow-finding-reruns.008.sql": {
+      "sha256": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
+      "bytes": 851
+    },
+    "owner-migrations/app.workflow-packs.005.sql": {
+      "sha256": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
+      "bytes": 683
+    },
+    "owner-migrations/app.workflow-remediation.004.sql": {
+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
+      "bytes": 825
+    },
+    "owner-migrations/app.workflow-resumption.007.sql": {
+      "sha256": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
+      "bytes": 564
+    },
+    "owner-migrations/app.workflow001.sql": {
+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
+      "bytes": 1575
+    },
+    "owner-migrations/app.workflow002.sql": {
+      "sha256": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
+      "bytes": 380
+    },
+    "owner-migrations/autonomy-release.access.sql": {
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "bytes": 3536
+    },
+    "owner-migrations/autonomy-release.communications.sql": {
+      "sha256": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
+      "bytes": 455
+    },
+    "owner-migrations/autonomy-release.json": {
+      "sha256": "ea7fc7adf25eebd840dd012b94463332ec6c567ec7eec5a5e0357316f3379461",
+      "bytes": 1181
+    },
+    "owner-migrations/autonomy-release.operations.sql": {
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "bytes": 1618
+    },
+    "owner-migrations/manifest.json": {
+      "sha256": "a78942f41acfccca32ca6303526a5361282e78f01436ecd9243cac7dd5b375c1",
+      "bytes": 17089
+    },
+    "tests/track-b/current-company-adoption-payment-fixes/receipt-fairness.test.ts": {
+      "sha256": "57c33da9f9c193c66c1f6c8ea1f8ff21868602354d897ff0ec15dc0d3378ea2f",
+      "bytes": 1885
+    },
+    "tests/track-b/current-company-adoption-payment-fixes/refund-reconciliation.test.ts": {
+      "sha256": "ccc5d535de045668f516f8e63c4794be906cdbc045740c720c29cb9753820db6",
+      "bytes": 3473
+    },
+    "tests/track-b/current-company-adoption-review/authorization-payment/calendar.invariants.test.ts": {
+      "sha256": "baec3608d638d59d40a0333c8e381a51eb03d615361b175150f3cb9b6a5c759b",
+      "bytes": 11860
+    },
+    "tests/track-b/current-company-adoption-review/authorization-payment/composed.invariants.test.ts": {
+      "sha256": "42b5dac2c979dbb0544c6408cecc2bbbe4c9fee5c330434366c78bce0aaadb01",
+      "bytes": 16469
+    },
+    "tests/track-b/current-company-adoption-review/authorization-payment/findings.test.ts": {
+      "sha256": "c7a81a6aa79880870e6b7c8c665acf926d09a105ba2efa9588a9ffae13591d35",
+      "bytes": 5115
+    },
+    "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts": {
+      "sha256": "6f03cae013c50905bbd7f1d9b4d000731719d3955251dae0c6ff974c57a06875",
+      "bytes": 9838
+    },
+    "tests/track-b/current-company-adoption-review/authorization-payment/payment.characterization.test.ts": {
+      "sha256": "b925cffd29845b7f441e5b471aace2bea632b42426f995060670f6c4b755d70f",
+      "bytes": 4554
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/calendar-identity.characterization.test.ts": {
+      "sha256": "678209ae71a54b63671f1ee1cf327c594c5d863b160a7748e4181c58824b34cd",
+      "bytes": 4018
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/calendar-identity.invariants.test.ts": {
+      "sha256": "dc94abbc00f57ea2d6bae25d1e3b6ce0d5f5768286100fb430e856fa1c053a9e",
+      "bytes": 10110
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/calendar-replay.invariants.test.ts": {
+      "sha256": "f9c8ea2b1d5e6979c5cb19441003f9c1eb254bbc2d6a3d9751c6181fd4b509b5",
+      "bytes": 6807
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/current-app-calendar.invariants.test.ts": {
+      "sha256": "12a37f0d2a14126b969814719980acc197a6f55ec1e47b61bb00232906e05bb2",
+      "bytes": 6300
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/fixture.ts": {
+      "sha256": "26b01f2f5f4fae5568990717a75d35c126d1684de7dd0b730407f95ffbe950d5",
+      "bytes": 8650
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/payment-fixture.ts": {
+      "sha256": "250f46a4d2a64f2fed48ffd5e750b2707f9e92d49f7cb64b7fd590e7035b69c2",
+      "bytes": 4948
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain-starvation.repro.test.ts": {
+      "sha256": "5d5b3555c8406eb9abc68b642a721faca94b11d1e30e93eb2faa32f682e1e090",
+      "bytes": 1412
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain.characterization.test.ts": {
+      "sha256": "66d58d997ef07071d28f5e9c23d053dfacc5cba9c19ca2861fc47a8d40322f1e",
+      "bytes": 1548
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/startup.characterization.test.ts": {
+      "sha256": "a6ca247579b54f2ffca2832e7ad78adbdf86e46f562889de3443c78c7638c367",
+      "bytes": 1688
+    },
+    "tests/track-b/current-company-adoption-review/replay-verification/startup.invariants.test.ts": {
+      "sha256": "d333aa74049ebe91c8495b962f1fa7c7a5af823a83ee0fa6df47ae9aad9de6a6",
+      "bytes": 3816
+    },
+    "tests/track-b/current-company-adoption-review/run.mjs": {
+      "sha256": "d8f9270f2838333c1f76403a31bd502ae949940b272da92acf1e4d1c9d135f2e",
+      "bytes": 6018
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts": {
+      "sha256": "f35bd174947df518b6e4849c6fb58cd928bea8e6ed3c21a40f2742a2eb2b2e8f",
+      "bytes": 1876
+    }
+  },
+  "patchSha256": "ed958bfc6ed14d865a85e6159b2d77fcbc9ea5bc76fe8fbc8a007d16f9d9c238"
 }

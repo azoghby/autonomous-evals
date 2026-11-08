@@ -572,7 +572,7 @@
  import { and, eq } from "drizzle-orm";
  import { db, schema } from "@ae/core/db/client";
  import { stripe, webhookSecret, getStripeMode } from "@ae/core/payments/stripe";
-@@ -36,8 +37,16 @@
+@@ -37,8 +38,16 @@
      return Response.json({ error: "Invalid signature" }, { status: 400 });
    }
  
@@ -590,7 +590,7 @@
  
    if (event.type.startsWith("customer.subscription.")) {
      try {
-@@ -66,6 +75,11 @@
+@@ -67,6 +76,11 @@
    try {
      // Persist the resumable payment signal BEFORE acknowledging.
      const { payment, inserted } = await recordPaymentFromSession(session, event.id);
@@ -604,10 +604,11 @@
      }
 --- /dev/null
 +++ b/apps/web/src/components/app/job-private-chat.tsx
-@@ -0,0 +1,212 @@
+@@ -0,0 +1,216 @@
 +"use client";
 +
 +import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
++import { ScoutMark } from "./scout-mark";
 +
 +type Reply = { text: string; asOf: string; unknowns: string[] };
 +type Exchange = { messageId: string; sequence: number; reply: Reply };
@@ -792,17 +793,20 @@
 +  }
 +
 +  return <section aria-labelledby={`${fieldId}-title`} className="rounded-[4px] border border-line-2 bg-bg-raised">
-+    <header className="border-b border-line px-5 py-4">
-+      <h2 id={`${fieldId}-title`} className="t-eyebrow text-fg-2">Private progress chat</h2>
-+      <p className="mt-2 text-sm text-muted">Your conversation for this job. Ask about recorded progress, findings, blockers or cost, during the evaluation or after delivery.</p>
++    <header className="flex items-start gap-4 border-b border-line px-5 py-4">
++      <ScoutMark size={32} className="shrink-0 text-accent-text" />
++      <div className="min-w-0">
++        <h2 id={`${fieldId}-title`} className="t-eyebrow text-fg-2">Private progress chat</h2>
++        <p className="mt-2 text-sm text-muted">Your conversation for this job. Ask about recorded progress, findings, blockers or cost, during the evaluation or after delivery.</p>
++      </div>
 +    </header>
 +    <div className="space-y-5 p-5 sm:p-6">
-+      {snapshot && <div aria-label="Latest persisted progress" className="border-b border-line pb-5"><p className="t-eyebrow mb-3 text-subtle">Latest persisted progress</p><Answer reply={snapshot} /></div>}
++      {snapshot && <div aria-label="Latest persisted progress" className="border-b border-line pb-5"><p className="t-eyebrow mb-3 flex items-center gap-2 text-subtle"><ScoutMark size={16} className="shrink-0 text-fg" />Latest persisted progress</p><Answer reply={snapshot} /></div>}
 +      {pollError && <p role="status" className="text-sm text-muted">Progress refresh is unavailable. Previously loaded answers may be out of date.</p>}
 +      {loading && <p role="status" className="text-sm text-muted">Loading private history…</p>}
 +      {historyError && <div role="alert"><p className="text-sm text-danger">{historyError}</p><button type="button" onClick={() => { accessBlocked.current = false; void loadHistory(abort.current?.signal); }} className={`${button} mt-2`}>Retry history</button></div>}
 +      {!loading && !historyError && exchanges.length === 0 && <p className="text-sm text-muted">No answers yet. Try “What progress has been recorded?” Questions are not retained in history; answers are saved privately.</p>}
-+      <ol aria-label="Private chat answers" className="space-y-5">{exchanges.map(exchange => <li key={exchange.messageId} className="border-b border-line pb-5"><p className="t-eyebrow mb-3 text-subtle">Answer {exchange.sequence}</p><Answer reply={exchange.reply} /></li>)}</ol>
++      <ol aria-label="Private chat answers" className="space-y-5">{exchanges.map(exchange => <li key={exchange.messageId} className="border-b border-line pb-5"><p className="t-eyebrow mb-3 flex items-center gap-2 text-subtle"><ScoutMark size={16} className="shrink-0 text-fg" />Answer {exchange.sequence}</p><Answer reply={exchange.reply} /></li>)}</ol>
 +      {hasMore && <button type="button" disabled={loading} className={button} onClick={() => void loadHistory(abort.current?.signal)}>Load next answers</button>}
 +      <form onSubmit={send} className="space-y-3">
 +        <label htmlFor={fieldId} className="block text-sm text-fg-2">Ask about this evaluation</label>
@@ -846,6 +850,36 @@
            {EXPLAIN[current] && (
              <Reveal>
                <Panel title="Status">
+--- /dev/null
++++ b/apps/web/src/components/app/scout-mark.tsx
+@@ -0,0 +1,27 @@
++/**
++ * Pixelated Scout bunny, approved artwork. Geometry is byte-identical to
++ * assets/brand/scout-pixel.svg (16x16 grid, folded right ear, squared face).
++ * Static, currentColor, no raster, no remote assets, no animation.
++ * Render at 16 or 32px only so every grid cell lands on whole device pixels.
++ * Decorative: always paired with a visible text label, so it is hidden from assistive technology.
++ */
++export const SCOUT_PIXEL_PATH =
++  "M4 1H7V7H9V3H10V1H13V2H15V5H13V4H12V7H13V8H14V10H15V13H14V14H12V15H4V14H2V13H1V10H2V8H4V1ZM4 10H6V12H4V10ZM10 10H12V12H10V10ZM7 13H9V14H7V13Z";
++
++export function ScoutMark({ size = 16, className }: { size?: 16 | 32; className?: string }) {
++  return (
++    <svg
++      xmlns="http://www.w3.org/2000/svg"
++      viewBox="0 0 16 16"
++      width={size}
++      height={size}
++      fill="none"
++      shapeRendering="crispEdges"
++      aria-hidden="true"
++      focusable="false"
++      className={className}
++    >
++      <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d={SCOUT_PIXEL_PATH} />
++    </svg>
++  );
++}
 --- a/apps/web/src/lib/client/use-live-job.ts
 +++ b/apps/web/src/lib/client/use-live-job.ts
 @@ -22,14 +22,16 @@
@@ -5844,13 +5878,50 @@
   const payment=JSON.parse(read(join(stage,'PAYMENT-COMPOSITION.json'),'utf8'));
   expect(payment.artifact).toBe('f88811c8fb7509dc5996bb8cd1d148e4c23f3de3');
 - expect(base.parent).toBe('039851736eabb94e85c2c111bbccc78374716275');
-+ expect(base.parent).toBe('3f0bd8a589101c9902ad50d402b7948b6dee4c68');
++ expect(base.parent).toBe('2df678268926da50d0219889fd2190b7edb6f6e8');
   for(const [path,entry] of Object.entries({...base.preserved,...base.changes,...base.additions}) as [string,{sha256:string}][])
    expect(hash(path),path).toBe(payment.changes[path]?.sha256??payment.reviewChanges?.[path]?.sha256??entry.sha256);
 - expect(Object.keys(payment.changes).filter(p=>base.preserved[p])).toEqual(['apps/web/src/app/api/stripe/webhook/route.ts']);
 + expect(Object.keys(base.changes)).toContain('apps/web/src/app/api/stripe/webhook/route.ts');
   expect(payment.releaseAccepted).toBe(false);expect(payment.liveRunPerformed).toBe(false);
  });
+--- /dev/null
++++ b/tests/track-b/current-company-adoption-payment-fixes/receipt-fairness.test.ts
+@@ -0,0 +1,34 @@
++import {expect,it} from 'vitest';
++import {createCurrentPaymentBridge} from '@/server/current-payment';
++import {paymentFixture} from '../current-company-adoption-review/replay-verification/payment-fixture';
++
++it('temporarily unauthorized jobs rotate behind unattempted payments even with a frozen clock, then recover without data loss',async()=>{
++ const f=await paymentFixture();
++ try {
++  let restored=false;
++  const bridge=createCurrentPaymentBridge({sql:f.sql,now:()=>0,
++   authorize:async p=>restored || p.tenantId.startsWith('ffffffff'),
++   verifyStripe:()=>{throw new Error('no provider access');}});
++  for(let n=1;n<=25;n++){
++   const j=await f.job(n,'00000000');
++   expect(await f.ingest(j.tenant,j.id,'evt_wait_'+n,'paid',j.session,j.payment)).toBe('queued');
++  }
++  const healthy=await f.job(1000,'ffffffff');
++  expect(await f.ingest(healthy.tenant,healthy.id,'evt_healthy','paid',healthy.session,healthy.payment)).toBe('queued');
++  const first=await bridge.drainPendingReceipts();
++  expect(first.outcomes).toHaveLength(25);
++  expect(first.outcomes.every(o=>'blocked' in o && o.blocked)).toBe(true);
++  expect(await f.undelivered()).toBe(26);
++  expect(await f.published(healthy.tenant,healthy.id,'evt_healthy')).toBe(false);
++  const second=await bridge.drainPendingReceipts();
++  expect(second.outcomes[0]).toEqual({jobId:healthy.id,checked:1});
++  expect(await f.published(healthy.tenant,healthy.id,'evt_healthy')).toBe(true);
++  expect(await f.undelivered()).toBe(25);
++  // Failed authorization never retires valid payments. Restoring authority drains them normally.
++  restored=true;
++  await bridge.drainPendingReceipts();
++  expect(await f.undelivered()).toBe(0);
++  const receipts=await f.db.query<{count:number}>('SELECT count(*)::int AS count FROM company_autonomy_release.payment_receipts');
++  expect(receipts.rows[0].count).toBe(26);
++ } finally {await f.db.close();}
++},60000);
 --- /dev/null
 +++ b/tests/track-b/current-company-adoption-payment-fixes/refund-reconciliation.test.ts
 @@ -0,0 +1,41 @@
@@ -7041,1459 +7112,77 @@
 +const r=spawnSync(process.execPath,[join(nm,'vitest/vitest.mjs'),'run','--config','review-vitest.config.mjs',...filters],{cwd:stage,env,stdio:'inherit'});
 +console.log(JSON.stringify({stage,candidateFiles:files.length,supplemental:supplemental.length,baseline,exit:r.status}));
 +process.exit(r.status??1);
---- /dev/null
+--- a/tests/track-b/current-company-main-adoption/PAYMENT-FIX-INPUTS.json
 +++ b/tests/track-b/current-company-main-adoption/PAYMENT-FIX-INPUTS.json
-@@ -0,0 +1,144 @@
-+{
-+  "parentPaymentPin": {
-+    "parent": "039851736eabb94e85c2c111bbccc78374716275",
-+    "patchSha256": "fb5e1802969c73aef0698f3d39f0d1d7ed9bce5041bc2fb63a5fd5f898f20b43",
-+    "sqlSha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
-+    "paths": {
-+      "apps/web/src/server/autonomous-paid.ts": {
-+        "before": "fd02f944d70ae3cd2bfaf6a4a5c8955cd82f07fc375110c48cedc5bb2622bedc",
-+        "after": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c"
-+      },
-+      "apps/web/src/server/autonomy-release.ts": {
-+        "before": "d79ba38f92a9de6964f6e60287dc740ebccbfe2e245b2edda6ca5690d5feb54f",
-+        "after": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb"
-+      },
-+      "apps/web/src/server/current-payment-startup.ts": {
-+        "before": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
-+        "after": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5"
-+      },
-+      "apps/web/src/server/current-payment.ts": {
-+        "before": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
-+        "after": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae"
-+      }
-+    }
-+  },
-+  "files": [
+@@ -113,6 +113,23 @@
+       "bytes": 14818,
+       "kind": "parent-extension-evidence",
+       "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
++    },
 +    {
-+      "path": "tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts",
-+      "sha256": "fedcb420adc52f10f007408fb37333ce8534f46d3311da67e69ddc9584e98bde",
-+      "bytes": 3464,
++      "path": "tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts",
++      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts",
++      "sha256": "f35bd174947df518b6e4849c6fb58cd928bea8e6ed3c21a40f2742a2eb2b2e8f",
++      "bytes": 1876,
 +      "kind": "payment-regression",
-+      "stagePath": "tests/track-b/current-company-adoption-payment-fixes/refund-reconciliation.test.ts",
-+      "stageSha256": "ccc5d535de045668f516f8e63c4794be906cdbc045740c720c29cb9753820db6",
-+      "stageBytes": 3473,
++      "stagePath": "tests/track-b/current-company-adoption-payment-fixes/receipt-fairness.test.ts",
++      "stageSha256": "57c33da9f9c193c66c1f6c8ea1f8ff21868602354d897ff0ec15dc0d3378ea2f",
++      "stageBytes": 1885,
++      "authenticatedSourceCommit": "2df678268926da50d0219889fd2190b7edb6f6e8",
++      "authenticatedSourceTree": "4be9ea6e53cbe19d043d6f2464f14df6fc7f83d4",
 +      "stageCompatibility": {
-+        "onlyChangedImport": {
-+          "before": "from '../current-company-review/authorization-payment/fixture'",
-+          "after": "from '../current-company-adoption-review/authorization-payment/fixture'"
-+        },
-+        "assertionsBefore": 8,
-+        "assertionsAfter": 8
-+      },
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-payment-fixes/run.mjs",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/run.mjs",
-+      "sha256": "783e14f21d77496841e26aae565b5d215efc3e7a2ac1daa69f55402292984106",
-+      "bytes": 8835,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/PIN.json",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/PIN.json",
-+      "sha256": "8bba5421172ec995671eecaae2b013c18400aafde95a6a59f49581ee1349c8a3",
-+      "bytes": 1137,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/README.md",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/README.md",
-+      "sha256": "c88a10f077a672d17fe6d7b1c48c27879f5caf5b83e6e5daa0244a5d2f271067",
-+      "bytes": 3343,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/owner.patch",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/owner.patch",
-+      "sha256": "fb5e1802969c73aef0698f3d39f0d1d7ed9bce5041bc2fb63a5fd5f898f20b43",
-+      "bytes": 9153,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/sql/002-payment-recovery.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/sql/002-payment-recovery.sql",
-+      "sha256": "77b298b916fcd5d8880791b079c5d3b78b9d5f4144433b9e9de852918dad928a",
-+      "bytes": 1584,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/source/autonomous-paid.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/autonomous-paid.ts",
-+      "sha256": "00d146511365ac0968c0f3bbe35c59735d93fee8226ada1e5d35e50c1b09396c",
-+      "bytes": 9173,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/source/autonomy-release.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/autonomy-release.ts",
-+      "sha256": "2b3d5c4baa9a00fa16a99fe01e7dc70aba8c2dfbaf826d4dc7db24486d7d9cdb",
-+      "bytes": 16536,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/source/current-payment-startup.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/current-payment-startup.ts",
-+      "sha256": "c4fe9f1fa481f36bcc65560fa4a8c415f326de7217b338c890b44df7c26d68e5",
-+      "bytes": 4865,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-company-payment-fixes/source/current-payment.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/current-payment.ts",
-+      "sha256": "3f230adf0aebd7325acefde7c020d19aaa7e4e929f89e01e2dcc88998bf993ae",
-+      "bytes": 14818,
-+      "kind": "parent-extension-evidence",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    }
-+  ],
-+  "runtimePostimagesVerified": 4,
-+  "sqlVerified": true,
-+  "parentProvidedPaymentCommit": "d55699f7e831a2192441ecab97ffdbefe55ebe60",
-+  "preserveOriginalNamespace": true,
-+  "authenticatedSourceCommit": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
-+  "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc",
-+  "fixtureInputs": [
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
-+      "stagePath": "owner-migrations/app.workflow001.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
-+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
-+      "bytes": 1575,
-+      "kind": "committed-regression-fixture",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
-+      "stagePath": "owner-migrations/app.workflow-remediation.004.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
-+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
-+      "bytes": 825,
-+      "kind": "committed-regression-fixture",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    }
-+  ]
-+}
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/REVIEW-INPUTS.json
-@@ -0,0 +1,714 @@
-+{
-+  "reviewCommit": "8756a5a",
-+  "reviewRoot": "/Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-2fbc49fe",
-+  "mapping": [
-+    {
-+      "path": "tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
-+      "sha256": "baec3608d638d59d40a0333c8e381a51eb03d615361b175150f3cb9b6a5c759b",
-+      "bytes": 11860,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/calendar.invariants.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
-+      "sha256": "42b5dac2c979dbb0544c6408cecc2bbbe4c9fee5c330434366c78bce0aaadb01",
-+      "bytes": 16469,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/composed.invariants.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/findings.test.ts",
-+      "sha256": "d7ad0120faaea2172a39a12f261525920810a7d93cd7c4a36e16e70b4289c8df",
-+      "bytes": 5125,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/findings.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/fixture.ts",
-+      "sha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
-+      "bytes": 9637,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
-+      "sha256": "b925cffd29845b7f441e5b471aace2bea632b42426f995060670f6c4b755d70f",
-+      "bytes": 4554,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/payment.characterization.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
-+      "sha256": "678209ae71a54b63671f1ee1cf327c594c5d863b160a7748e4181c58824b34cd",
-+      "bytes": 4018,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/calendar-identity.characterization.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
-+      "sha256": "dc94abbc00f57ea2d6bae25d1e3b6ce0d5f5768286100fb430e856fa1c053a9e",
-+      "bytes": 10110,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/calendar-identity.invariants.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
-+      "sha256": "f9c8ea2b1d5e6979c5cb19441003f9c1eb254bbc2d6a3d9751c6181fd4b509b5",
-+      "bytes": 6807,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/calendar-replay.invariants.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
-+      "sha256": "12a37f0d2a14126b969814719980acc197a6f55ec1e47b61bb00232906e05bb2",
-+      "bytes": 6300,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/current-app-calendar.invariants.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/fixture.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/fixture.ts",
-+      "sha256": "26b01f2f5f4fae5568990717a75d35c126d1684de7dd0b730407f95ffbe950d5",
-+      "bytes": 8650,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/fixture.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
-+      "sha256": "2a2929ce09548c653f2ed3fcb247deb1bb06914ddc38b7ec6bad1e316fa7b39f",
-+      "bytes": 4859,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/payment-fixture.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
-+      "sha256": "5d5b3555c8406eb9abc68b642a721faca94b11d1e30e93eb2faa32f682e1e090",
-+      "bytes": 1412,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain-starvation.repro.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
-+      "sha256": "e83e7839741204d2a6c9955debc73b093e16a498c33c182d52d33d5f060d7985",
-+      "bytes": 1571,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain.characterization.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
-+      "sha256": "a6ca247579b54f2ffca2832e7ad78adbdf86e46f562889de3443c78c7638c367",
-+      "bytes": 1688,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/startup.characterization.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
-+      "sha256": "d333aa74049ebe91c8495b962f1fa7c7a5af823a83ee0fa6df47ae9aad9de6a6",
-+      "bytes": 3816,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/startup.invariants.test.ts"
-+    },
-+    {
-+      "path": "tests/track-b/current-company-review/run.mjs",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/run.mjs",
-+      "sha256": "d8f9270f2838333c1f76403a31bd502ae949940b272da92acf1e4d1c9d135f2e",
-+      "bytes": 6018,
-+      "kind": "immutable-review",
-+      "stagePath": "tests/track-b/current-company-adoption-review/run.mjs"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/APPLICATION.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/APPLICATION.json",
-+      "sha256": "a3112fcb7238ab2d3ef776cb2762873b3f42c8769b20b8a4b0144160df966b77",
-+      "bytes": 2493,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/CANDIDATE.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/CANDIDATE.json",
-+      "sha256": "606c2128e034e759c046cba4d390522e73eb776b46127f92226e0e4b78223445",
-+      "bytes": 3826,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/COMMIT-BLOCKED.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/COMMIT-BLOCKED.md",
-+      "sha256": "b43a82f2ec9fea7a208966e7ee03bcd24f35944c17297506abd200cffb88549e",
-+      "bytes": 822,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/FILES.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/FILES.json",
-+      "sha256": "6eba4e3cf2ea5a874d4b71c37826cdce5692f7993ed741f2a959af483fdf6b14",
-+      "bytes": 2691,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/HANDOFF.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/HANDOFF.json",
-+      "sha256": "29efefc30c0c0a99ebe57cde32eaa71ef29be0ee166f3dd27676c7f69ca945cd",
-+      "bytes": 2348,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/LEDGER.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/LEDGER.md",
-+      "sha256": "3812a36fe84de7be55dc005c55af671bfe67f7360fd9a04c0b14789ebdf6b459",
-+      "bytes": 1742,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/README.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/README.md",
-+      "sha256": "d89fa46facf1c6cf8f3b67a91c7015e04ea593f80f5d6331aa128e9b2d85c752",
-+      "bytes": 7111,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/VERIFICATION.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/VERIFICATION.md",
-+      "sha256": "2e12fd7e1675cb7d1d7f4701e3c59ded8b950ff7f4f32c5874f3da9b9fcc3ca1",
-+      "bytes": 3202,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/application.patch",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/application.patch",
-+      "sha256": "5980a5ef898a9c7c4b18fdb8a2e27a262dce334ae1afd82108896192396c4233",
-+      "bytes": 28821,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/bridge/README.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/bridge/README.md",
-+      "sha256": "1a117735dcf66f183eb97d5301d2f1af924196e827eb1d5c42aaaa9b7994baff",
-+      "bytes": 3647,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment.ts",
-+      "sha256": "ef6752a30ca2ef6aa116e30000289b36dcc7c1f251601078eaf3df099bf5c18c",
-+      "bytes": 13166,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/build-artifact.mjs",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/build-artifact.mjs",
-+      "sha256": "a3ffbef75a70b20090df87e214eacc0506c431db9b6d1fc668f72cbe876f477e",
-+      "bytes": 1835,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/sql/001-current-payment.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/sql/001-current-payment.sql",
-+      "sha256": "59ce4e894c5415e47adfc9bf9fda996614daf84de2b9c9a3e04eb934024addb1",
-+      "bytes": 10020,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/sql/README.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/sql/README.md",
-+      "sha256": "e4d9f216f5fb57616a6bc9e80c1f688b2bb61ac083ca78aecfebcd7258c914b4",
-+      "bytes": 2945,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/stage.mjs",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/stage.mjs",
-+      "sha256": "643397cdf1b3631e1da9d4419985f7c48953e948e04950c46312139447ed4484",
-+      "bytes": 5178,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/HANDOFF.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/HANDOFF.md",
-+      "sha256": "79be260f4b4f744f116eb8cbb69d668cde93e8aa6be43c32356f50ab48061775",
-+      "bytes": 4232,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/cron/autonomy/route.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/cron/autonomy/route.ts",
-+      "sha256": "e89c00e1f522be2c24ad27602d05f00647e18ba2f409ad3182505e5a9174672f",
-+      "bytes": 577,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts",
-+      "sha256": "5e609197aa4f11b679418158a40fc63c9832e76bd5f173dccecf37d510d93a9a",
-+      "bytes": 385,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts",
-+      "sha256": "cb011fc8e9e28a11f0cd57720245464afce47e7405249a348ea7ac8bbf90567a",
-+      "bytes": 384,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/stripe/webhook/route.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/stripe/webhook/route.ts",
-+      "sha256": "f77094afea138f1a32e99edabe25083146ccf611d2ff2bd64c91c8907673e8e2",
-+      "bytes": 4890,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-owner.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-owner.ts",
-+      "sha256": "299e8b26c4bc0d15bcf8f370f4b365c1ac31ade25adbf0cdcfc1ed4ad8ae314a",
-+      "bytes": 893,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-runtime.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-runtime.ts",
-+      "sha256": "3f763e57fadf21e5f4677ed9359da6a9ab9620d824112ea1c38f61d1e8935e18",
-+      "bytes": 638,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-payment-startup.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-payment-startup.ts",
-+      "sha256": "b8935dcbcdd1b27890824cd9fbd49198375cd9b46fe2ee6141749d079b129428",
-+      "bytes": 4794,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-stripe-payment.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-stripe-payment.ts",
-+      "sha256": "7c3015b39f9e104880cfbd1789e2ddd32b3d63351ce7d7082c0cc50e88e26ae6",
-+      "bytes": 742,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-payment-startup/startup/source/apps/web/src/workflows/current-autonomy.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/workflows/current-autonomy.ts",
-+      "sha256": "1802db89b2ee2f3527f2a4a3aaef5f644feddf8244519e5e351db8869bb21c8a",
-+      "bytes": 619,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.agent.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.agent.sql",
-+      "sha256": "5616d2ac3b1c337bdffa972be8a287fbd9596d3b101da28c19af797f23d2f596",
-+      "bytes": 1075,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0000_init.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0000_init.sql",
-+      "sha256": "de78983ca0f120af848c8c27bd012a2a4711de270ca87e536b1e0fdf8982c62e",
-+      "bytes": 10796,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0001_expert_network.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0001_expert_network.sql",
-+      "sha256": "9188747b2dd3fa4625dd0b63c37b4436c922164c98c468068f26ab59a9546c82",
-+      "bytes": 4454,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0002_delivery_snapshot.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0002_delivery_snapshot.sql",
-+      "sha256": "5030197c5ea61b57edd9d957fbf8ade5b84b7137cc22b40097b492f24dc8c70d",
-+      "bytes": 58,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0003_rate_limits.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0003_rate_limits.sql",
-+      "sha256": "5a2376711217d2879a286d7952272a525536064efe59b6c7e24e2bf5df679b4f",
-+      "bytes": 167,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0004_email_threads.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0004_email_threads.sql",
-+      "sha256": "5d8dc21f0ec2e3a596490a2d435b041babe2780808168767c162584cd16a3898",
-+      "bytes": 889,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0005_remediations.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0005_remediations.sql",
-+      "sha256": "86a54709256436dcda984d9a10520e911a010ee1ef4f31f303a4cb529fc90bee",
-+      "bytes": 874,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0006_per_finding_pricing.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0006_per_finding_pricing.sql",
-+      "sha256": "38581ba9be593507c5957323781b127fb1cc95f271765cdb78d3bbd2013f85ea",
-+      "bytes": 342,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0007_api_keys.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0007_api_keys.sql",
-+      "sha256": "4221a17594f0c8551af0c1aa99c6b6c3ef45d03f25a7e89b530d84957ac7b25a",
-+      "bytes": 752,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0008_monitoring_runs.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0008_monitoring_runs.sql",
-+      "sha256": "c8f4a3c12a7cc518ee9f33eb32a9003b45ce43297b9585b89d685cf02c5da9f0",
-+      "bytes": 1422,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0009_call_slots.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0009_call_slots.sql",
-+      "sha256": "7c374e73faca7beee79121f2add09dd95507e3ab6f743fd42910e229aa4c20d8",
-+      "bytes": 763,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0010_engagement_prev_tokens.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0010_engagement_prev_tokens.sql",
-+      "sha256": "e00130be98478e079c70c919cbf661cd5007546fde79d31a443054c45e470231",
-+      "bytes": 105,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0011_job_shares.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0011_job_shares.sql",
-+      "sha256": "eaffe009127b8805b8324e8fe76d409eaa8d25e4c0fd00d226e3df43d7e0212c",
-+      "bytes": 652,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0012_github_prs.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0012_github_prs.sql",
-+      "sha256": "3c99670fa740d01afdcfcced2057022fd4549eb5e2c43589a3904e0b602f805b",
-+      "bytes": 1491,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0013_regression_runs.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0013_regression_runs.sql",
-+      "sha256": "6a4e67afaf7a9088b11ea67d9c83e348aba408272ac5e32a5866ff51ecd9dac0",
-+      "bytes": 798,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0014_public_agents.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0014_public_agents.sql",
-+      "sha256": "ae16aeceb7c228bd5d490d4d37141c40edf06102a4961bfa2d9af646954b584b",
-+      "bytes": 1372,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.chat.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.chat.sql",
-+      "sha256": "155182af3135075a6c1937f91a0b1cf0a96a13d5e9fc354a648e43d183cef34a",
-+      "bytes": 1301,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.checkpoint.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.checkpoint.sql",
-+      "sha256": "1bf43608b66888049107b771d4498cffde015bdb6d079ef8738138d433fb3666",
-+      "bytes": 587,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.data001.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.data001.sql",
-+      "sha256": "7f0eca2781e9b372d825fbc12a4364efadff226c03db11b52f12ca3d079b9ae9",
-+      "bytes": 1023,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.data002.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.data002.sql",
-+      "sha256": "bca40dfef8fc97e39375853811c3d6b164b2d7180fb10d99b9c775ef5717d7d9",
-+      "bytes": 2070,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.inventory.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.inventory.sql",
-+      "sha256": "8819b4bda8da044aa68b9f2907b07e872bcdae07dca566ba014b243cbdfa37ee",
-+      "bytes": 644,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.journal.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.journal.sql",
-+      "sha256": "b9699bc9b7f6aa90e244978fabf0bba876891c20a3b3557c3eea432d85b51ea0",
-+      "bytes": 710,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.ledger.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.ledger.sql",
-+      "sha256": "4ce40a4fb7f740a9e9bef5b12382303ce99c664b2cb86d6099fd50c18009fb2d",
-+      "bytes": 1028,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.rich-comparison.006.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.rich-comparison.006.sql",
-+      "sha256": "3c325cb8b2fe4e7f49eebf0e0caf63a27fc44770fa3173b83118ef3d98696089",
-+      "bytes": 1304,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-data.003.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-data.003.sql",
-+      "sha256": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
-+      "bytes": 968,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-finding-reruns.008.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-finding-reruns.008.sql",
-+      "sha256": "9884992989f6aafb1861708ad426924651f172b90295fb13e8a78e06e1e688e7",
-+      "bytes": 851,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-packs.005.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-packs.005.sql",
-+      "sha256": "8eb84559f4ec43c281b6f8510e74bf3818777ceab3ad9f6992dec6552080872d",
-+      "bytes": 683,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
-+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
-+      "bytes": 825,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-resumption.007.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-resumption.007.sql",
-+      "sha256": "4b2a5ff4cebddd145075019e0197f79949ba197d01d08fc6ba655ee3f3b825fb",
-+      "bytes": 564,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
-+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
-+      "bytes": 1575,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow002.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow002.sql",
-+      "sha256": "01abd7e65108c433a9f21d9b7a127afbfdd919a4a613b40e5ba38fae3ffa9095",
-+      "bytes": 380,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.access.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.access.sql",
-+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
-+      "bytes": 3536,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.communications.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.communications.sql",
-+      "sha256": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
-+      "bytes": 455,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.json",
-+      "sha256": "ea7fc7adf25eebd840dd012b94463332ec6c567ec7eec5a5e0357316f3379461",
-+      "bytes": 1181,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.operations.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.operations.sql",
-+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
-+      "bytes": 1618,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/manifest.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/manifest.json",
-+      "sha256": "a78942f41acfccca32ca6303526a5361282e78f01436ecd9243cac7dd5b375c1",
-+      "bytes": 17089,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.sql",
-+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
-+      "bytes": 3536,
-+      "kind": "fixture-input"
-+    },
-+    {
-+      "path": "docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.ts",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.ts",
-+      "sha256": "1ddcac91fc2cdc28d9e04f4e919f252b1680c2f68b0644c4f1aa4817007732f3",
-+      "bytes": 13882,
-+      "kind": "fixture-input"
-+    }
-+  ],
-+  "immutableReviewerFiles": 16,
-+  "existingBaselineStage": "/private/tmp/current-company-main-adoption-validated-20261107",
-+  "absentFromBaselineStage": [
-+    "tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts",
-+    "tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts",
-+    "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
-+    "tests/track-b/current-company-review/authorization-payment/fixture.ts",
-+    "tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/fixture.ts",
-+    "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
-+    "tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts",
-+    "tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts",
-+    "tests/track-b/current-company-review/run.mjs"
-+  ],
-+  "differentInBaselineStage": [],
-+  "fixtureCompatibility": {
-+    "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
-+    "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
-+    "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
-+    "afterSha256": "f2c449293b06f41bd38ab4f1f4d389eac6a864703d22a30264558e4a831e4fb2",
-+    "assertionsBefore": 0,
-+    "assertionsAfter": 0,
-+    "change": "canonical-price/additive002 fixture"
-+  },
-+  "reviewReports": [
-+    {
-+      "path": "docs/current-company-review/FINDINGS.json",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/FINDINGS.json",
-+      "sha256": "367aa8d4b1fda5f134fae77c4871bc806a70bc64d516fe3fa975e3d6c53e2627",
-+      "bytes": 2660
-+    },
-+    {
-+      "path": "docs/current-company-review/README.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/README.md",
-+      "sha256": "64b23249552269e135b95c4f5d332fd3c05f90ecda267feff6abd19e7396076c",
-+      "bytes": 14822
-+    },
-+    {
-+      "path": "docs/current-company-review/children/authorization-payment.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/children/authorization-payment.md",
-+      "sha256": "a40c67d6497cf9dd003d210fd740ae97de7f8b0c5a1085a33b70cd5cd9ad6c0d",
-+      "bytes": 11067
-+    },
-+    {
-+      "path": "docs/current-company-review/children/replay-verification.md",
-+      "payload": "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/children/replay-verification.md",
-+      "sha256": "bf4f6c1c299da7428916f7fa39e382ed6ff9751af75fa366afd0a2320b84b69c",
-+      "bytes": 14184
-+    }
-+  ],
-+  "fixtureCompatibilityVariants": {
-+    "baseline": [
-+      {
-+        "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
-+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
-+        "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
-+        "afterSha256": "f2c449293b06f41bd38ab4f1f4d389eac6a864703d22a30264558e4a831e4fb2",
-+        "assertionsBefore": 0,
-+        "assertionsAfter": 0,
-+        "change": "canonical-price/additive002 fixture"
++        "onlyChangedImportNamespace": true,
++        "assertionsBefore": 11,
++        "assertionsAfter": 11
 +      }
-+    ],
-+    "paymentFixes": [
-+      {
-+        "path": "tests/track-b/current-company-review/authorization-payment/fixture.ts",
-+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/fixture.ts",
-+        "beforeSha256": "2c4dbc4d7ba7e7f1e41020d9abbf28de032220df93f6d6621cdf977b31f506cd",
-+        "afterSha256": "6f03cae013c50905bbd7f1d9b4d000731719d3955251dae0c6ff974c57a06875",
-+        "assertionsBefore": 0,
-+        "assertionsAfter": 0,
-+        "change": "canonical-price/additive002 fixture"
-+      },
-+      {
-+        "path": "tests/track-b/current-company-review/replay-verification/payment-fixture.ts",
-+        "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/payment-fixture.ts",
-+        "beforeSha256": "2a2929ce09548c653f2ed3fcb247deb1bb06914ddc38b7ec6bad1e316fa7b39f",
-+        "afterSha256": "250f46a4d2a64f2fed48ffd5e750b2707f9e92d49f7cb64b7fd590e7035b69c2",
-+        "assertionsBefore": 0,
-+        "assertionsAfter": 0,
-+        "change": "additive002 fixture"
-+      },
-+      {
-+        "path": "tests/track-b/current-company-review/authorization-payment/findings.test.ts",
-+        "stagePath": "tests/track-b/current-company-adoption-review/authorization-payment/findings.test.ts",
-+        "beforeSha256": "d7ad0120faaea2172a39a12f261525920810a7d93cd7c4a36e16e70b4289c8df",
-+        "afterSha256": "c7a81a6aa79880870e6b7c8c665acf926d09a105ba2efa9588a9ffae13591d35",
-+        "assertionsBefore": 7,
-+        "assertionsAfter": 7,
-+        "change": "parent-supplied4corrected-queueassertions"
-+      },
-+      {
-+        "path": "tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts",
-+        "stagePath": "tests/track-b/current-company-adoption-review/replay-verification/receipt-drain.characterization.test.ts",
-+        "beforeSha256": "e83e7839741204d2a6c9955debc73b093e16a498c33c182d52d33d5f060d7985",
-+        "afterSha256": "66d58d997ef07071d28f5e9c23d053dfacc5cba9c19ca2861fc47a8d40322f1e",
-+        "assertionsBefore": 7,
-+        "assertionsAfter": 7,
-+        "change": "parent-supplied4corrected-queueassertions"
-+      },
-+      {
-+        "path": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
-+        "stagePath": "tests/track-b/current-autonomy-payment-startup/bridge.test.ts",
-+        "beforeSha256": "886c432841e3039eea9beeb71be028da301589e7cd3e4205d3dec41bc4a6b792",
-+        "afterSha256": "6d23f2c2a33e8b460b0662edc0de84c7f40640b3be63fce891fdb53ff0387855",
-+        "assertionsBefore": 16,
-+        "assertionsAfter": 16,
-+        "change": "actual-application-bridge-import"
-+      }
-+    ]
-+  },
-+  "parentProvidedReviewCommit": "441d018",
-+  "preserveOriginalNamespace": true,
-+  "executionNamespace": "tests/track-b/current-company-adoption-review",
-+  "committedRegressionFixtureInputs": [
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
-+      "stagePath": "owner-migrations/app.workflow001.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql",
-+      "sha256": "a98436a8f4396abf43e6a211983c0d1b301a778aba4543c55cb8ca49bb931123",
-+      "bytes": 1575,
-+      "kind": "committed-regression-fixture",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    },
-+    {
-+      "path": "docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
-+      "stagePath": "owner-migrations/app.workflow-remediation.004.sql",
-+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql",
-+      "sha256": "0666d0520b0ad2326bbfdcc347fbb5053eabaa36d916ba500d14fb86347f6163",
-+      "bytes": 825,
-+      "kind": "committed-regression-fixture",
-+      "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
-+    }
-+  ]
-+}
+     }
+   ],
+   "runtimePostimagesVerified": 4,
 --- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/combined-vitest.config.mjs
-@@ -0,0 +1 @@
-+export default {"resolve":{"alias":{"@ae/core":"/private/tmp/current-company-main-adoption-validated-20261107/packages/core/src","@":"/private/tmp/current-company-main-adoption-validated-20261107/apps/web/src","server-only":"/private/tmp/current-company-main-adoption-validated-20261107/empty-server-only.mjs"}},"test":{"include":["tests/track-b/autonomous-company/**/*.test.ts","tests/track-b/autonomy-release-adoption/**/*.test.ts","tests/track-b/autonomy-paid-app-integration/**/*.test.ts","tests/track-b/current-autonomy-integration/**/*.test.ts","tests/track-b/current-autonomy-calendar/**/*.test.ts","tests/track-b/current-autonomy-payment-startup/**/*.test.ts","packages/core/src/evals/calendar-integration/**/*.test.ts"],"maxWorkers":1,"testTimeout":60000,"hookTimeout":60000}};
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/empty-server-only.mjs
-@@ -0,0 +1 @@
-+export {};
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/offline-fonts.cjs
-@@ -0,0 +1 @@
-+module.exports=new Proxy({}, {get:(_,url)=>String(url).includes('Geist+Mono')?"@font-face{font-family:Geist Mono;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/cf88f70a84ba24f0-s.woff2) format(\"woff2\");unicode-range:u+0460-052f,u+1c80-1c8a,u+20b4,u+2de0-2dff,u+a640-a69f,u+fe2e-fe2f}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/263bd49be1e31f49-s.woff2) format(\"woff2\");unicode-range:u+0301,u+0400-045f,u+0490-0491,u+04b0-04b1,u+2116}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/81c6b0d36721c7d2-s.woff2) format(\"woff2\");unicode-range:u+2000-2001,u+2004-2008,u+200a,u+23b8-23bd,u+2500-259f}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/0f35e6b097a36a26-s.woff2) format(\"woff2\");unicode-range:u+0102-0103,u+0110-0111,u+0128-0129,u+0168-0169,u+01a0-01a1,u+01af-01b0,u+0300-0301,u+0303-0304,u+0308-0309,u+0323,u+0329,u+1ea0-1ef9,u+20ab}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/0ad4fba8e8fccfc4-s.woff2) format(\"woff2\");unicode-range:u+0100-02ba,u+02bd-02c5,u+02c7-02cc,u+02ce-02d7,u+02dd-02ff,u+0304,u+0308,u+0329,u+1d00-1dbf,u+1e00-1e9f,u+1ef2-1eff,u+2020,u+20a0-20ab,u+20ad-20c4,u+2113,u+2c60-2c7f,u+a720-a7ff}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/6fb803f91f44aa45-s.p.woff2) format(\"woff2\");unicode-range:u+00??,u+0131,u+0152-0153,u+02bb-02bc,u+02c6,u+02da,u+02dc,u+0304,u+0308,u+0329,u+2000-206f,u+20ac,u+2122,u+2191,u+2193,u+2212,u+2215,u+feff,u+fffd}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/cf88f70a84ba24f0-s.woff2) format(\"woff2\");unicode-range:u+0460-052f,u+1c80-1c8a,u+20b4,u+2de0-2dff,u+a640-a69f,u+fe2e-fe2f}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/263bd49be1e31f49-s.woff2) format(\"woff2\");unicode-range:u+0301,u+0400-045f,u+0490-0491,u+04b0-04b1,u+2116}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/81c6b0d36721c7d2-s.woff2) format(\"woff2\");unicode-range:u+2000-2001,u+2004-2008,u+200a,u+23b8-23bd,u+2500-259f}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/0f35e6b097a36a26-s.woff2) format(\"woff2\");unicode-range:u+0102-0103,u+0110-0111,u+0128-0129,u+0168-0169,u+01a0-01a1,u+01af-01b0,u+0300-0301,u+0303-0304,u+0308-0309,u+0323,u+0329,u+1ea0-1ef9,u+20ab}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/0ad4fba8e8fccfc4-s.woff2) format(\"woff2\");unicode-range:u+0100-02ba,u+02bd-02c5,u+02c7-02cc,u+02ce-02d7,u+02dd-02ff,u+0304,u+0308,u+0329,u+1d00-1dbf,u+1e00-1e9f,u+1ef2-1eff,u+2020,u+20a0-20ab,u+20ad-20c4,u+2113,u+2c60-2c7f,u+a720-a7ff}\n@font-face{font-family:Geist Mono;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/6fb803f91f44aa45-s.p.woff2) format(\"woff2\");unicode-range:u+00??,u+0131,u+0152-0153,u+02bb-02bc,u+02c6,u+02da,u+02dc,u+0304,u+0308,u+0329,u+2000-206f,u+20ac,u+2122,u+2191,u+2193,u+2212,u+2215,u+feff,u+fffd}":"@font-face{font-family:Geist;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/f639721981034f88-s.woff2) format(\"woff2\");unicode-range:u+0460-052f,u+1c80-1c8a,u+20b4,u+2de0-2dff,u+a640-a69f,u+fe2e-fe2f}\n@font-face{font-family:Geist;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/9766a7e9e2e0ad5a-s.woff2) format(\"woff2\");unicode-range:u+0301,u+0400-045f,u+0490-0491,u+04b0-04b1,u+2116}\n@font-face{font-family:Geist;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/b66cf8e69499582a-s.woff2) format(\"woff2\");unicode-range:u+0102-0103,u+0110-0111,u+0128-0129,u+0168-0169,u+01a0-01a1,u+01af-01b0,u+0300-0301,u+0303-0304,u+0308-0309,u+0323,u+0329,u+1ea0-1ef9,u+20ab}\n@font-face{font-family:Geist;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/aa016aab0e6d1295-s.woff2) format(\"woff2\");unicode-range:u+0100-02ba,u+02bd-02c5,u+02c7-02cc,u+02ce-02d7,u+02dd-02ff,u+0304,u+0308,u+0329,u+1d00-1dbf,u+1e00-1e9f,u+1ef2-1eff,u+2020,u+20a0-20ab,u+20ad-20c4,u+2113,u+2c60-2c7f,u+a720-a7ff}\n@font-face{font-family:Geist;font-style:normal;font-weight:400;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/22a5144ee8d83bca-s.p.woff2) format(\"woff2\");unicode-range:u+00??,u+0131,u+0152-0153,u+02bb-02bc,u+02c6,u+02da,u+02dc,u+0304,u+0308,u+0329,u+2000-206f,u+20ac,u+2122,u+2191,u+2193,u+2212,u+2215,u+feff,u+fffd}\n@font-face{font-family:Geist;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/f639721981034f88-s.woff2) format(\"woff2\");unicode-range:u+0460-052f,u+1c80-1c8a,u+20b4,u+2de0-2dff,u+a640-a69f,u+fe2e-fe2f}\n@font-face{font-family:Geist;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/9766a7e9e2e0ad5a-s.woff2) format(\"woff2\");unicode-range:u+0301,u+0400-045f,u+0490-0491,u+04b0-04b1,u+2116}\n@font-face{font-family:Geist;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/b66cf8e69499582a-s.woff2) format(\"woff2\");unicode-range:u+0102-0103,u+0110-0111,u+0128-0129,u+0168-0169,u+01a0-01a1,u+01af-01b0,u+0300-0301,u+0303-0304,u+0308-0309,u+0323,u+0329,u+1ea0-1ef9,u+20ab}\n@font-face{font-family:Geist;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/aa016aab0e6d1295-s.woff2) format(\"woff2\");unicode-range:u+0100-02ba,u+02bd-02c5,u+02c7-02cc,u+02ce-02d7,u+02dd-02ff,u+0304,u+0308,u+0329,u+1d00-1dbf,u+1e00-1e9f,u+1ef2-1eff,u+2020,u+20a0-20ab,u+20ad-20c4,u+2113,u+2c60-2c7f,u+a720-a7ff}\n@font-face{font-family:Geist;font-style:normal;font-weight:500;font-display:swap;src:url(/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP/apps/web/.next/static/media/22a5144ee8d83bca-s.p.woff2) format(\"woff2\");unicode-range:u+00??,u+0131,u+0152-0153,u+02bb-02bc,u+02c6,u+02da,u+02dc,u+0304,u+0308,u+0329,u+2000-206f,u+20ac,u+2122,u+2191,u+2193,u+2212,u+2215,u+feff,u+fffd}"});
-\ No newline at end of file
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/offline.cjs
-@@ -0,0 +1,16 @@
-+// Verification must not open an outbound socket, even with inherited local credentials.
-+const net = require('node:net');
-+const connect = net.Socket.prototype.connect;
-+net.Socket.prototype.connect = function (...args) {
-+  const first = Array.isArray(args[0]) ? args[0][0] : args[0];
-+  const host = first && typeof first === 'object' ? first.host : typeof args[1] === 'string' ? args[1] : undefined;
-+  if (host && !['localhost', '127.0.0.1', '::1'].includes(host)) throw Error('Offline verification blocked socket to ' + host);
-+  return connect.apply(this, args);
-+};
-+// Fetch is guarded as well: mocked fixtures never need remote HTTP.
-+const fetch = globalThis.fetch;
-+globalThis.fetch = function (input, options) {
-+  const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
-+  if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw Error('Offline verification blocked fetch to ' + url.hostname);
-+  return fetch(input, options);
-+};
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/packages/core/tsconfig.current-main-production.json
-@@ -0,0 +1 @@
-+{"extends":"./tsconfig.json","compilerOptions":{"strict":true,"noEmit":true},"exclude":["node_modules","**/*.test.ts","**/*.test.tsx","**/*.spec.ts"]}
-\ No newline at end of file
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-calendar/calendar.test.ts
-@@ -0,0 +1,144 @@
-+/** Real applied current rich service + durable core + app and simulator SQL. Only transport is scripted. */
-+import {readFileSync} from 'node:fs';
-+import {join} from 'node:path';
-+import {PGlite} from '@electric-sql/pglite';
-+import {afterEach,expect,it,vi} from 'vitest';
-+import {createRichWorkflowServices,workflowSql} from '@/server/rich-services';
-+import {createAutonomousPaidContext} from '@/server/autonomous-paid';
-+import {deliverRemediationCost} from '@/server/rich-remediation';
-+import {PostgresBudgetLedger} from '@ae/core/agents/postgres-ports';
-+import {createAutonomousPolicy} from '@ae/core/agents/autonomy/policy';
-+import type {ServiceContext} from '@ae/core/contracts/services';
-+import {calendarOperationRunId} from '@ae/core/evals/calendar-integration/index';
-+import {calendarAcceptanceScenarios} from '@ae/core/simulator/acceptance-scenarios';
-+import type {ChatTarget} from '@ae/core/targets/chat';
++++ b/tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts
+@@ -0,0 +1,34 @@
++import {expect,it} from 'vitest';
++import {createCurrentPaymentBridge} from '@/server/current-payment';
++import {paymentFixture} from '../current-company-review/replay-verification/payment-fixture';
 +
-+const transport=vi.hoisted(()=>({loaded:null as unknown,pool:null as unknown,complete:vi.fn<ChatTarget['complete']>(),failCalendarComplete:false,pools:[] as Array<{kind:string;closed:boolean}>}));
-+vi.mock('@/server/job-store',()=>({getJobWithDecryptedCredentials:async()=>transport.loaded}));
-+vi.mock('@ae/core/integration/eval-services',async original=>({...await original<typeof import('@ae/core/integration/eval-services')>(),evalServices:{getJobBranchConnection:vi.fn(async()=> 'offline-simulator')}}));
-+vi.mock('@ae/core/targets/adapters',async original=>({...await original<typeof import('@ae/core/targets/adapters')>(),platformTarget:()=>({complete:transport.complete})}));
-+vi.mock('@neondatabase/serverless',()=>({Pool:class {
-+  readonly kind:string; closed=false;
-+  constructor(config:{connectionString:string}){this.kind=config.connectionString==='offline-simulator'?'simulator':'application';transport.pools.push(this);}
-+  query(s:string,p?:unknown[]){return (transport.pool as {query(kind:string,s:string,p?:unknown[]):Promise<unknown>}).query(this.kind,s,p);}
-+  connect(){return (transport.pool as {connect(kind:string):Promise<unknown>}).connect(this.kind);}
-+  async end(){this.closed=true;}
-+}}));
-+const request={suiteId:'reviewed-calendar',operationId:'durable-baseline',versionLabel:'baseline'};
-+const acceptance=calendarAcceptanceScenarios();
-+const engines:PGlite[]=[];
-+afterEach(async()=>{transport.complete.mockReset();transport.pools.length=0;await Promise.all(engines.splice(0).map(db=>db.close()));});
-+async function fixture(mode:'reference'|'broken'|'lost'='reference',cap=10000){
-+ const application=new PGlite(),simulator=new PGlite();engines.push(application,simulator);
-+ const stage=process.env.WORKFLOW_STAGE!;
-+ const migration=(p:string)=>readFileSync(join(stage,'packages/core/src',p),'utf8');
-+ for(const p of ['agents/persistence-migrations/001-agent-persistence.sql','evals/integration/migrations/001-text-integration.sql','simulator/ledger-migrations/001_branch_ownership.sql','simulator/workflow/persistence-migrations/001-workflow-investigation-journals.sql'])await application.exec(migration(p));
-+ await simulator.exec(migration('simulator/migrations/001_calendar.sql'));
-+ await application.exec(readFileSync(join(stage,'apps/web/src/server/autonomous-paid.sql'),'utf8'));
-+ await application.exec(readFileSync(join(stage,'docs/current-autonomy-integration/dependencies/owner-migrations/app.inventory.sql'),'utf8'));
-+ await application.exec(`CREATE TABLE jobs(id text,customer_id text,environment text,package text);INSERT INTO jobs VALUES('calendar-job','tenant','test','workflow_eval');
-+ CREATE TABLE customers(id text,is_internal_fixture boolean);INSERT INTO customers VALUES('tenant',true);
-+ CREATE TABLE job_credentials(job_id text,ciphertext text);INSERT INTO job_credentials VALUES('calendar-job','retained-opaque-ciphertext');
-+ CREATE SCHEMA workflow_integration;CREATE TABLE workflow_integration.bindings(job_id text,target_revision text,reviewed_calendar jsonb,isolation text,remediation_operation_micro_usd bigint,baseline_suite_digest text,baseline_run_id text);
-+ CREATE TABLE workflow_integration.cost_keys(job_id text,key text PRIMARY KEY,payload jsonb);CREATE TABLE workflow_integration.provider_costs(job_id text,key text PRIMARY KEY,source text,operation_id text,receipt_id text,micro_usd bigint);
-+ INSERT INTO app_branch_ownership VALUES('calendar-job','local-project','br-parent','eval-job-11111111-1111-1111-1111-111111111111','br-owned','ready',1);`);
-+ const reviewed={jobId:'calendar-job',origin:'internal_fixture',frozenAt:'2026-11-07T20:00:00.000Z',review:{reviewerId:'trusted-local-fixture',approved:true},scenarios:acceptance.map(({id,prompt,actorId,seed,checks})=>structuredClone({id,prompt,actorId,seed,checks}))};
-+ await application.query("INSERT INTO workflow_integration.bindings VALUES('calendar-job','target-v1',$1::jsonb,NULL,NULL,NULL,NULL)",[JSON.stringify(reviewed)]);
-+ let appLock:Promise<void>=Promise.resolve();
-+ const acquire=async()=>{const previous=appLock;let release!:()=>void;appLock=new Promise<void>(r=>{release=r;});await previous;return release;};
-+ const executeApp=async(s:string,p?:unknown[])=>{if(transport.failCalendarComplete&&s.includes("SET state = 'completed'")&&p?.includes('calendar_run')){transport.failCalendarComplete=false;throw Error('durable completion unavailable');}return application.query(s,p);};
-+ const appQuery=async(s:string,p?:unknown[])=>{const release=await acquire();try{return await executeApp(s,p);}finally{release();}};
-+ let lock:Promise<void>=Promise.resolve();
-+ transport.pool={query:(kind:string,s:string,p?:unknown[])=>kind==='application'?appQuery(s,p):simulator.query(s,p),async connect(kind:string){
-+  if(kind==='application'){let release:(()=>void)|undefined;return {async query(s:string,p?:unknown[]){if(s.includes('pg_advisory_unlock'))return {rows:[{unlocked:true}]};if(s.includes('pg_advisory_lock'))return {rows:[]};if(s==='BEGIN')release=await acquire();if(release){try{return await executeApp(s,p);}finally{if(s==='COMMIT'||s==='ROLLBACK'){release();release=undefined;}}}return appQuery(s,p);},release(){release?.();release=undefined;}};}
-+  const before=lock;let unlock!:()=>void;lock=new Promise<void>(r=>{unlock=r;});await before;
-+  return {query:(s:string,p?:unknown[])=>simulator.query(s,p),release(){unlock();}};
-+ }};
-+ process.env.DATABASE_URL='offline-application';const sql=workflowSql();
-+ const job={jobId:'calendar-job',customerId:'tenant',package:'workflow_eval' as const,environment:'test' as const,isFixture:true,quoteVersion:1,linkedRetestOf:null};
-+ const loaded={job:{id:job.jobId,customerId:job.customerId,environment:job.environment,workflowRunId:'authorized-workflow',isMock:false,state:'running',neonBranchId:'br-owned',retestOfJobId:null},intake:{package:'workflow_eval',authorizedToTest:true,endpoint:{url:'https://controlled.invalid/chat',model:'controlled-fixture',systemPrompt:'Trusted calendar instructions.'}},credentials:{}};
-+ transport.loaded=loaded;
-+ const policy=createAutonomousPolicy({schema:'autonomous-company-policy/v1',version:'v1',tenantId:'tenant',periodId:'calendar_test',enabled:true,rootBudgetMicroUsd:cap*4,singleJobCapMicroUsd:cap,comparisonJobCapMicroUsd:cap,roleCapsMicroUsd:{commercial:cap,evaluation_engineer:cap,quality_investigator:cap,company_operator:cap},agents:{commercial:{id:'c',version:1},evaluation_engineer:{id:'e',version:1},quality_investigator:{id:'q',version:1},company_operator:{id:'o',version:1}},allowedActions:['agent_task'],leaseMs:10,actionDeadlineMs:100,maxRecoveryChecks:2});
-+ let allowed=true;
-+ const runner={run:vi.fn(async()=>{throw Error('No agent sessions needed for reviewed controlled calendar');})};
-+ const paid=createAutonomousPaidContext({sql,policy,job,runner,guard:async()=>{if(!allowed)throw Error('authority revoked');},jobCapMicroUsd:cap,targetReservationMicroUsd:10,judgeReservationMicroUsd:10,deliverCost:deliverRemediationCost,verifyReceipt:async()=>true});
-+ Object.assign(process.env,{DATABASE_URL:'offline-application',WORKFLOW_JUDGE_AUTH:'api_key',WORKFLOW_JUDGE_MODEL:'controlled/model',WORKFLOW_JUDGE_CONFIG_VERSION:'v1',WORKFLOW_JUDGE_RESERVATION_MICRO_USD:'10',NAIVE_BUDGET_PERIOD_ID:policy.periodId});
-+ workflowSql(); // Initialize app pool explicitly; production factory must also support first autonomous invocation.
-+ transport.complete.mockImplementation(async messages=>{
-+  if(mode==='lost')throw Error('accepted target request; response lost');
-+  if(mode==='broken')return {role:'assistant',content:'No action was performed.'};
-+  const prompt=messages.find(m=>m.role==='user')!.content;
-+  const scenario=acceptance.find(s=>s.prompt===prompt)!;
-+  return messages.some(m=>m.role==='tool')?{role:'assistant',content:'Reference sequence complete.'}:{role:'assistant',content:null,tool_calls:structuredClone(scenario.referenceCalls)};
-+ });
-+ const ctx:ServiceContext={jobId:job.jobId,environment:'test',budgetMicroUsd:cap,recordCost:vi.fn(async()=>{}),recordProgress:vi.fn(async()=>{})};
-+ const restart=(workflowRunId='authorized-workflow')=>createRichWorkflowServices(ctx,{workflowRunId,autonomous:paid});
-+ const phase=async<T>(s:Awaited<ReturnType<typeof restart>>,action:()=>Promise<T>)=>s.inventory.phase({runId:calendarOperationRunId(job.jobId,request.operationId),suiteDigest:(await s.calendar.getSuite(ctx,request)).hash,scenarioIds:acceptance.map(s=>s.id),branchId:'br-owned'},action);
-+ return {application,simulator,sql,job,loaded,policy,paid,ctx,restart,phase,revoke:()=>{allowed=false;}};
-+}
-+
-+it('runs all 12 actual SQL scenarios through paid current app services and replays after reconstruction without target calls',async()=>{
-+ const f=await fixture();const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);
-+ const run=await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));
-+ expect(run.results.map(r=>r.outcome)).toEqual(Array(12).fill('passed'));expect(run.runId).toBe(calendarOperationRunId(f.job.jobId,request.operationId));expect(transport.complete).toHaveBeenCalledTimes(24);
-+ const restarted=await f.restart();expect(await f.phase(restarted,()=>restarted.calendar.runSuite(f.ctx,request))).toEqual(run);
-+ const inv=await f.phase(restarted,()=>restarted.calendar.investigate(f.ctx,request));expect(inv.findings).toEqual([]);
-+ expect((await restarted.calendar.reportInput(f.ctx,request)).status).toBe('completed');expect(transport.complete).toHaveBeenCalledTimes(24);
-+ const reservations=(await f.sql.query<{scopes:Array<{key:string;capMicroUsd:number}>;settled_micro_usd:number|null}>('SELECT * FROM agent_persistence.reservations')).rows;
-+ expect(reservations).toHaveLength(24);for(const r of reservations){expect(r.settled_micro_usd).toBeNull();expect(r.scopes).toContainEqual({key:'job:calendar-job',capMicroUsd:10000});expect(r.scopes).toContainEqual({key:'agent:evaluation_engineer:calendar_test',capMicroUsd:10000});expect(r.scopes).toContainEqual({key:'autonomous-root:tenant:calendar_test',capMicroUsd:40000});}
-+ expect((await f.sql.query('SELECT * FROM workflow_integration.provider_costs')).rows).toEqual([]);
-+ await s.dispose();expect(transport.pools.filter(p=>p.kind==='simulator').every(p=>p.closed)).toBe(false);expect(transport.pools.filter(p=>p.kind==='application').every(p=>!p.closed)).toBe(true);await restarted.dispose();expect(transport.pools.filter(p=>p.kind==='simulator').every(p=>p.closed)).toBe(true);
-+ expect((await f.sql.query('SELECT * FROM app_branch_ownership')).rows).toHaveLength(1);expect((await f.sql.query('SELECT * FROM app_workflow_investigation_journals')).rows).toHaveLength(1);
-+},30000);
-+
-+it('preserves product failures and investigation identity separately from baseline; unknown costs remain held',async()=>{
-+ const f=await fixture('broken');const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);const run=await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));expect(run.results.some(r=>r.outcome==='product_failure')).toBe(true);
-+ const inv=await f.phase(s,()=>s.calendar.investigate(f.ctx,request));expect(inv.reproductions).toHaveLength(3);expect(inv.findings.filter(r=>r.status==='confirmed')).toHaveLength(3);
-+ const calls=transport.complete.mock.calls.length;const restarted=await f.restart();expect(await f.phase(restarted,()=>restarted.calendar.investigate(f.ctx,request))).toEqual(inv);expect(transport.complete).toHaveBeenCalledTimes(calls);
-+ expect((await f.sql.query('SELECT * FROM autonomous_paid_app.operations')).rows).toHaveLength(15);expect((await f.sql.query('SELECT * FROM agent_persistence.reservations WHERE settled_micro_usd IS NULL')).rows).toHaveLength(15);
-+ await s.dispose();await restarted.dispose();
-+},30000);
-+
-+it('retains lost target replies as infrastructure with no reproduction or blind redispatch',async()=>{
-+ const f=await fixture('lost');const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);const run=await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));expect(run.results.map(r=>r.outcome)).toEqual(Array(12).fill('infrastructure_error'));
-+ const inv=await f.phase(s,()=>s.calendar.investigate(f.ctx,request));expect(inv.reproductions).toEqual([]);expect(inv.findings.every(r=>r.status==='inconclusive')).toBe(true);
-+ const restarted=await f.restart();expect(await f.phase(restarted,()=>restarted.calendar.runSuite(f.ctx,request))).toEqual(run);expect((await restarted.calendar.reportInput(f.ctx,request)).status).toBe('unresolved');expect(transport.complete).toHaveBeenCalledTimes(12);expect((await f.sql.query('SELECT * FROM agent_persistence.reservations WHERE settled_micro_usd IS NULL')).rows).toHaveLength(12);
-+ await s.dispose();await restarted.dispose();
-+},30000);
-+
-+it('refuses changed canonical and cross-scope identities before another paid call',async()=>{
-+ const f=await fixture();const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));
-+ for(const [field,value] of [['workflowRunId','forged'],['customerId','foreign'],['environment','live'],['neonBranchId','br-other']] as const){const old=f.loaded.job[field];(f.loaded.job as Record<string,unknown>)[field]=value;await expect(s.calendar.runSuite(f.ctx,request)).rejects.toThrow();(f.loaded.job as Record<string,unknown>)[field]=old;}
-+ await expect(s.calendar.runSuite({...f.ctx,jobId:'foreign-job'},request)).rejects.toThrow();
-+ f.loaded.job.workflowRunId='changed-authorized-workflow';const changed=await f.restart('changed-authorized-workflow');await expect(changed.calendar.runSuite(f.ctx,request)).rejects.toThrow();await changed.dispose();f.loaded.job.workflowRunId='authorized-workflow';
-+ await f.sql.query("UPDATE workflow_integration.bindings SET target_revision='target-v2'");await expect(s.calendar.runSuite(f.ctx,request)).rejects.toThrow();await f.sql.query("UPDATE workflow_integration.bindings SET target_revision='target-v1'");
-+ await f.sql.query("UPDATE app_branch_ownership SET state='delete_requested'");await expect(s.calendar.runSuite(f.ctx,request)).rejects.toThrow();expect(transport.complete).toHaveBeenCalledTimes(24);await s.dispose();
-+},30000);
-+
-+it('holds whole-phase ambiguity when durable completion is unavailable and never resumes individual targets',async()=>{
-+ const f=await fixture();const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);
-+ transport.failCalendarComplete=true;await expect(f.phase(s,()=>s.calendar.runSuite(f.ctx,request))).rejects.toThrow();
-+ expect((await f.sql.query<{state:string}>("SELECT state FROM text_integration.checkpoints WHERE kind='calendar_run'")).rows[0].state).toBe('ambiguous');
-+ const restarted=await f.restart();await expect(f.phase(restarted,()=>restarted.calendar.runSuite(f.ctx,request))).rejects.toThrow();expect(transport.complete).toHaveBeenCalledTimes(24);await s.dispose();await restarted.dispose();
-+},30000);
-+
-+it('snapshots mutable constructor authority and context so mutation cannot remove paid accounting',async()=>{
-+ const f=await fixture();const mutableCtx={...f.ctx};const authority:{workflowRunId:string;autonomous?:typeof f.paid}={workflowRunId:'authorized-workflow',autonomous:f.paid};
-+ const s=await createRichWorkflowServices(mutableCtx,authority);delete authority.autonomous;authority.workflowRunId='forged';mutableCtx.jobId='foreign';mutableCtx.environment='live';mutableCtx.budgetMicroUsd=0;
-+ await s.calendar.freezeSuite(f.ctx,request);const run=await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));expect(run.results.map(r=>r.outcome)).toEqual(Array(12).fill('passed'));expect((await f.sql.query('SELECT * FROM autonomous_paid_app.operations')).rows).toHaveLength(24);await s.dispose();
-+},30000);
-+
-+it('keeps unknown target charges held until verified receipt reconciliation and rejects changed accounting facts',async()=>{
-+ const f=await fixture();const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));
-+ const op=(await f.sql.query<{operation_id:string;input_digest:string}>('SELECT operation_id,input_digest FROM autonomous_paid_app.operations ORDER BY operation_id LIMIT 1')).rows[0];
-+ const receipt={operationId:op.operation_id,inputDigest:op.input_digest,receiptId:'controlled-provider-receipt',microUsd:null as number|null,evidence:{providerId:'retained-controlled-evidence'}};
-+ await f.paid.reconcile(receipt);expect((await f.sql.query('SELECT * FROM agent_persistence.reservations WHERE settled_micro_usd IS NULL')).rows).toHaveLength(24);
-+ await f.paid.reconcile({...receipt,microUsd:3});await f.paid.reconcile({...receipt,microUsd:3});expect((await f.sql.query('SELECT * FROM workflow_integration.provider_costs')).rows).toHaveLength(1);expect((await f.sql.query('SELECT * FROM workflow_integration.cost_keys')).rows).toHaveLength(1);
-+ await expect(f.paid.reconcile({...receipt,microUsd:4})).rejects.toThrow();await expect(f.paid.reconcile({...receipt,microUsd:3,receiptId:'changed'})).rejects.toThrow();expect(transport.complete).toHaveBeenCalledTimes(24);await s.dispose();
-+},30000);
-+
-+it('root role and job cap denial prevents target dispatch and a completed phase cannot retry denied calls',async()=>{
-+ const f=await fixture('reference',20);expect((await new PostgresBudgetLedger(f.sql).reserve({reservationId:'existing-paid-hold',jobId:f.job.jobId,amountMicroUsd:20,scopes:[{key:'job:calendar-job',capMicroUsd:20},{key:'agent:evaluation_engineer:calendar_test',capMicroUsd:20},{key:'autonomous-root:tenant:calendar_test',capMicroUsd:80}]})).ok).toBe(true);const s=await f.restart();await s.calendar.freezeSuite(f.ctx,request);const run=await f.phase(s,()=>s.calendar.runSuite(f.ctx,request));
-+ expect(run.results.map(r=>r.outcome)).toEqual(Array(12).fill('infrastructure_error'));expect(transport.complete).not.toHaveBeenCalled();expect((await f.sql.query<{state:string}>('SELECT state FROM autonomous_paid_app.operations')).rows.every(r=>r.state==='denied')).toBe(true);
-+ const restarted=await f.restart();expect(await f.phase(restarted,()=>restarted.calendar.runSuite(f.ctx,request))).toEqual(run);expect(transport.complete).not.toHaveBeenCalled();await s.dispose();await restarted.dispose();
-+},30000);
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-integration/data-dispatch.test.ts
-@@ -0,0 +1,31 @@
-+import {PGlite} from '@electric-sql/pglite';
-+import {expect,it,vi} from 'vitest';
-+import type {AgentTransactionalSql} from '@ae/core/agents/postgres-ports';
-+import type {ProductionDataInput} from '@/server/data-production';
-+import {advanceWorkflowData,registerWorkflowDataPlan} from '@/server/workflow-data';
-+const legacy=vi.hoisted(()=>({dispatch:vi.fn(async()=>{throw Error('legacy dispatch forbidden');})}));
-+vi.mock('@/server/data-production',()=>({advanceProductionData:legacy.dispatch}));
-+it('real Workflow data SQL publishes inventory before trusted refusal, retains cleanup and never falls back',async()=>{
-+ const db=new PGlite();
-+ try{
-+  await db.exec(`CREATE TABLE jobs(id text,customer_id text,environment text,workflow_run_id text,package text,is_mock boolean,state text);
-+   INSERT INTO jobs VALUES('job','tenant','test','durable-run','text_eval',false,'running');
-+   CREATE SCHEMA workflow_integration;
-+   CREATE TABLE workflow_integration.data_plans(job_id text PRIMARY KEY,tenant_id text,environment text,input_digest text,input jsonb);
-+   CREATE TABLE workflow_integration.data_ready(job_id text,input_digest text,result_digest text,result jsonb);
-+   CREATE SCHEMA evaluation_data_persistence;
-+   CREATE TABLE evaluation_data_persistence.tasks(tenant_id text,job_id text,task_id text);`);
-+  const sql:AgentTransactionalSql={query:(s,p)=>db.query(s,p),transaction:fn=>db.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))};
-+  const scope={jobId:'job',tenantId:'tenant',environment:'test' as const,workflowRunId:'durable-run'};
-+  const input:ProductionDataInput={task:{taskId:'task',jobId:'job',targetId:'target',description:'Check permission reasoning',factualAnswersRequired:false,requirements:[{id:'permission',description:'Write authorization',minimumCases:1}]},initial:{sources:[],cases:[]},context:{versionLabel:'v1',systemPrompt:'fixture'}};
-+  await registerWorkflowDataPlan(sql,scope,input,[]);
-+  const events:string[]=[];
-+  const inventory={acquisition:vi.fn(async(ids:string[])=>{expect(ids).toEqual(['task']);events.push('inventory');}),touch:vi.fn(async()=>{events.push('touch');})};
-+  const dispatch=vi.fn(async()=>{events.push('trusted-dispatch');throw Error('autonomous-paid-data-adapter-required');});
-+  await expect(advanceWorkflowData(sql,scope,[],inventory,dispatch)).rejects.toThrow('autonomous-paid-data-adapter-required');
-+  expect(events).toEqual(['inventory','trusted-dispatch','touch']);expect(legacy.dispatch).not.toHaveBeenCalled();
-+  await db.query("UPDATE jobs SET workflow_run_id='revoked'");
-+  await expect(advanceWorkflowData(sql,scope,[],inventory,dispatch)).rejects.toThrow();
-+  expect(dispatch).toHaveBeenCalledOnce();expect(inventory.acquisition).toHaveBeenCalledOnce();
-+ }finally{await db.close();}
-+},30000);
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-integration/release-capability.test.ts
-@@ -0,0 +1,48 @@
-+import {readFileSync} from 'node:fs';
-+import {join} from 'node:path';
-+import {PGlite} from '@electric-sql/pglite';
-+import {it,expect,vi,afterEach} from 'vitest';
-+import {createAutonomyReleaseServer,type ReleaseConfig} from '@/server/autonomy-release';
-+import {assertAutonomousPaidContext} from '@/server/autonomous-paid';
-+import {autonomyDigest,type AutonomousPolicy} from '../../../packages/core/src/agents/autonomy/policy';
-+import type {CompanyPorts,CompanyRequest} from '../../../packages/core/src/agents/autonomy/company';
-+import {memoryDataLedger} from '../autonomous-company/data-fixtures';
-+const dispatch=vi.hoisted(()=>({run:vi.fn()}));
-+vi.mock('@ae/core/agents/autonomy/company',async original=>({...await original<typeof import('../../../packages/core/src/agents/autonomy/company')>(),advanceAutonomousCompany:(request:CompanyRequest,ports:CompanyPorts)=>dispatch.run(request,ports)}));
-+const engines:PGlite[]=[];
-+afterEach(async()=>{dispatch.run.mockReset();await Promise.all(engines.splice(0).map(db=>db.close()));});
-+async function setup(){
-+ const engine=new PGlite();engines.push(engine);
-+ await engine.exec(readFileSync(new URL('../../../docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.sql',import.meta.url),'utf8'));
-+ await engine.exec(readFileSync(join(process.env.WORKFLOW_STAGE!,'apps/web/src/server/autonomous-paid-authority.sql'),'utf8'));
-+ const request:CompanyRequest={tenantId:'tenant_a',round:0,job:{jobId:'job_a',customerId:'tenant_a',package:'text_eval',environment:'test',isFixture:true,quoteVersion:1,linkedRetestOf:null},intake:{requestedPackage:'text_eval',notes:'Untrusted intake',systemPromptExcerpt:null,trace:null,endpointHost:'fixture.invalid',clarifications:[]}};
-+ const policy={schema:'autonomous-company-policy/v1',version:'v1',enabled:true,tenantId:'tenant_a',periodId:'period',rootBudgetMicroUsd:250000000,singleJobCapMicroUsd:3000000,comparisonJobCapMicroUsd:5000000,roleCapsMicroUsd:{commercial:35000000,evaluation_engineer:65000000,quality_investigator:65000000,company_operator:35000000},agents:{commercial:{id:'commercial',version:1},evaluation_engineer:{id:'engineer',version:1},quality_investigator:{id:'investigator',version:1},company_operator:{id:'operator',version:1}},allowedActions:['agent_task'],leaseMs:100,actionDeadlineMs:60000,maxRecoveryChecks:3} satisfies AutonomousPolicy;
-+ const operations=memoryDataLedger();let authorized=true,clock=100;
-+ const config:ReleaseConfig={db:{query:(sql,p)=>engine.query(sql,p),transaction:fn=>engine.transaction(tx=>fn({query:(sql,p)=>tx.query(sql,p)}))},
-+  authenticateScheduler:async token=>token==='scheduler',authenticateCustomer:async token=>token==='customer'?{tenantId:'tenant_a',subject:'owner_a'}:token==='other'?{tenantId:'tenant_b',subject:'owner_b'}:null,
-+  loadRequest:async(p,id)=>p.tenantId==='tenant_a'&&id==='job_a'?structuredClone(request):null,authorizeJob:async()=>authorized,
-+  policyFor:async tenant=>tenant===policy.tenantId?structuredClone(policy):null,currentSecrets:async()=>[],
-+  naive:{createSession:vi.fn(async()=>{throw new Error('no_provider');}),getSession:vi.fn(async()=>{throw new Error('no_provider');}),listAgentSessions:vi.fn(async()=>({data:[],nextCursor:null}))},
-+  workerId:'worker',idempotencyNamespace:'offline',operationsFor:async()=>operations,
-+  sourcePermissions:async()=>[{sourceId:'source_a',permissionDigest:'a'.repeat(64)}],verifyPayment:vi.fn(async()=>true),verifyProviderReceipt:vi.fn(async()=>true),
-+  paidPolicy:vi.fn(async()=>({jobCapMicroUsd:3000000,targetReservationMicroUsd:20,judgeReservationMicroUsd:20})),
-+  data:vi.fn(async()=>({status:'ready' as const,digest:'b'.repeat(64),reasons:[]})),evaluate:vi.fn(async()=>{throw new Error('unused');}),recoverEvaluation:vi.fn(async()=>null),enqueue:vi.fn(async()=>{}),now:()=>clock};
-+ const app=createAutonomyReleaseServer(config);
-+ const permission=()=>engine.query("INSERT INTO company_autonomy_release.source_permissions(tenant_id,job_id,source_id,permission_digest,allowed,expires_at) VALUES('tenant_a','job_a','source_a',$1,true,1000)",['a'.repeat(64)]);
-+ return {engine,request,policy,operations,config,app,permission,revoke:()=>{authorized=false;},advance:()=>{clock=1001;}};
-+}
-+it('current release delivers one minted authority to data, evaluation and consented outbox and guards revocation',async()=>{
-+ const h=await setup();await h.app.bootstrap('customer','job_a');await h.permission();
-+ let capability:Parameters<ReleaseConfig['evaluate']>[4]|undefined;
-+ vi.mocked(h.config.data).mockImplementation(async(_request,_key,paid)=>{assertAutonomousPaidContext(paid);await paid.guard();capability=paid;return {status:'ready',digest:'b'.repeat(64),reasons:[]};});
-+ vi.mocked(h.config.evaluate).mockImplementation(async(_request,_key,_digest,runner,paid)=>{expect(paid).toBe(capability);expect(runner).toBe(paid.runner);expect(paid.sql).toBe(h.config.db);return {status:'pending'} as never;});
-+ vi.mocked(h.config.enqueue).mockImplementation(async(_request,_key,_message,paid)=>{expect(paid).toBe(capability);await paid.guard();});
-+ dispatch.run.mockImplementation(async(_r,p:CompanyPorts)=>{
-+  expect(await p.data('data')).toMatchObject({status:'ready'});
-+  await p.evaluate('eval','b'.repeat(64));await p.enqueue('outbox',{kind:'monitoring_offer'});
-+  h.revoke();await expect(p.enqueue('revoked',{kind:'monitoring_offer'})).rejects.toThrow();
-+  return {state:'payment_wait',reason:'fixture',policyVersion:'v1',founderInterventions:0,costStatus:'known'};
-+ });
-+ const result=await h.app.scheduledTick('scheduler');expect(result.outcomes[0]).toMatchObject({reason:'fixture'});
-+ expect(h.config.data).toHaveBeenCalledOnce();expect(h.config.evaluate).toHaveBeenCalledOnce();expect(h.config.enqueue).toHaveBeenCalledOnce();
-+});
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/bridge.test.ts
-@@ -0,0 +1,68 @@
-+import { PRICE_CENTS } from '../../../packages/core/src/contracts';
-+import { describe, it, expect, vi } from 'vitest';
-+import { createCurrentPaymentBridge } from '../../../docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment';
-+import { buildQuote } from '../../../packages/core/src/agents/commercial';
-+import type { AgentTransactionalSql } from '../../../packages/core/src/agents/postgres-ports';
-+
-+function fixture() {
-+  const job={id:'job',customer_id:'tenant',package:'text_eval',environment:'test',state:'quoted',is_mock:false,
-+    workflow_run_id:'run',retest_of_job_id:null,intake:{package:'text_eval',authorizedToTest:true,notes:'Check response quality',endpoint:{url:'https://target.example/v1',systemPrompt:'Be helpful'}},
-+    scope_summary:'Text evaluation',deliverables:buildQuote({jobId:'job',customerId:'tenant',package:'text_eval',environment:'test',quoteVersion:1,linkedRetestOf:null,isFixture:false},'text_eval',1,'Text evaluation').deliverables,version:1,price_cents:PRICE_CENTS.text_eval,pricing_mode:'fixed',stripe_checkout_session_id:'cs_1'};
-+  const payment={id:'pay',job_id:'job',quote_version:1,environment:'test',amount_cents:PRICE_CENTS.text_eval,currency:'usd',status:'paid',kind:'one_time',stripe_checkout_session_id:'cs_1',stripe_payment_intent_id:'pi_1'};
-+  const event={id:'evt_1',type:'checkout.session.completed',livemode:false,data:{object:{id:'cs_1',mode:'payment',payment_status:'paid',livemode:false,client_reference_id:'job',amount_total:PRICE_CENTS.text_eval,currency:'usd',payment_intent:'pi_1',metadata:{job_id:'job',quote_version:'1',environment:'test',pricing_mode:'fixed'}}}};
-+  let allowed=true;
-+  const query=vi.fn(async (q:string,_p?:unknown[])=>{
-+    if(q.includes('FROM public.jobs'))return {rows:[job]};
-+    if(q.includes('FROM public.messages'))return {rows:[]};
-+    if(q.includes('FROM public.payments'))return {rows:[payment]};
-+    if(q.includes('FROM current_autonomy_payment.bindings'))return {rows:[{tenant_id:'tenant',quote_digest:'a'.repeat(64)}]};
-+    if(q.includes('prepare_binding'))return {rows:[{result:'prepared'}]};
-+    if(q.includes('ingest_event'))return {rows:[{result:'queued'}]};
-+    if(q.includes('receipt_valid'))return {rows:[{valid:true}]};
-+    return {rows:[]};
-+  });
-+  const sql={query,transaction:async (f:(tx:unknown)=>unknown)=>f({query})} as unknown as AgentTransactionalSql;
-+  const verifier=vi.fn(()=>event as never);
-+  const bridge=createCurrentPaymentBridge({sql,now:()=>0,authorize:async()=>allowed,verifyStripe:verifier});
-+  return {bridge,job,payment,event,query,verifier,revoke:()=>{allowed=false;}};
-+}
-+describe('current canonical payment bridge',()=>{
-+  it('uses canonical request and actual owner checkout without accepting or charging',async()=>{
-+    const f=fixture();
-+    expect(await f.bridge.loadRequest({tenantId:'other',subject:'other'},'job')).toBeNull();
-+    const request=(await f.bridge.loadRequest({tenantId:'tenant',subject:'tenant'},'job'))!;
-+    expect(request.intake.endpointHost).toBe('target.example');
-+    expect(request.intake.notes).toContain('response quality');
-+    const quote=buildQuote(request.job,'text_eval',1,'Text evaluation');
-+    expect(await f.bridge.prepareQuote(request,quote)).toMatchObject({path:'/api/jobs/job/accept-quote',body:{quoteVersion:1},requiresOwnerAcceptance:true});
-+    expect(f.query.mock.calls.some(([q])=>q.includes('UPDATE public.'))).toBe(false);
-+    f.revoke();
-+    await expect(f.bridge.prepareQuote(request,quote)).rejects.toThrow('authorization_or_request_changed');
-+  });
-+  it('refuses current per-finding hold instead of calling it fixed/prepaid',async()=>{
-+    const f=fixture();f.job.pricing_mode='per_finding';
-+    await expect(f.bridge.loadRequest({tenantId:'tenant',subject:'tenant'},'job')).rejects.toThrow('per_finding_contract_unsupported');
-+    await expect(f.bridge.ingestX402()).rejects.toThrow('usdc_release_currency_contract_unsupported');
-+  });
-+  it('signature gate precedes reads, then exact event/payment quantities bind',async()=>{
-+    const f=fixture();f.verifier.mockImplementationOnce(()=>{throw Error('bad signature');});
-+    await expect(f.bridge.ingestStripe('{}','bad')).rejects.toThrow('bad signature');
-+    expect(f.query).not.toHaveBeenCalled();
-+    f.event.data.object.amount_total=PRICE_CENTS.text_eval+1;
-+    await expect(f.bridge.ingestStripe('{}','signed')).rejects.toThrow('event_payment_mismatch');
-+    expect(f.query.mock.calls.some(([q])=>q.includes('ingest_event'))).toBe(false);
-+    f.event.data.object.amount_total=PRICE_CENTS.text_eval;
-+    expect(await f.bridge.ingestStripe('{}','signed')).toEqual({status:'queued'});
-+    const ingest=f.query.mock.calls.find(([q])=>q.includes('ingest_event'))!;
-+    expect(ingest[1]?.slice(0,6)).toEqual(['tenant','job',1,'stripe','test','evt_1']);
-+  });
-+  it.each(['environment','currency','quote','customer'] as const)('rejects %s mismatch',async kind=>{
-+    const f=fixture();
-+    if(kind==='environment')f.event.livemode=true;
-+    if(kind==='currency')f.event.data.object.currency='usdc';
-+    if(kind==='quote')f.event.data.object.metadata.quote_version='2';
-+    if(kind==='customer')f.event.data.object.metadata.job_id='other';
-+    await expect(f.bridge.ingestStripe('{}','signed')).rejects.toThrow();
-+    expect(f.query.mock.calls.some(([q])=>q.includes('ingest_event'))).toBe(false);
-+  });
-+});
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/composition.test.ts
-@@ -0,0 +1,16 @@
-+import {it,expect} from 'vitest';
-+import {readFileSync as read} from 'node:fs';
-+import {join} from 'node:path';
-+import {createHash} from 'node:crypto';
-+const stage=process.env.WORKFLOW_STAGE!;
-+const hash=(path:string)=>createHash('sha256').update(read(join(stage,path))).digest('hex');
-+it('extends exact current artifact; preserves every frozen base byte except explicit owner postimages',()=>{
-+ const base=JSON.parse(read(join(stage,'CURRENT-COMPOSITION.json'),'utf8'));
-+ const payment=JSON.parse(read(join(stage,'PAYMENT-COMPOSITION.json'),'utf8'));
-+ expect(payment.artifact).toBe('f88811c8fb7509dc5996bb8cd1d148e4c23f3de3');
-+ expect(base.parent).toBe('b66a3e2973382403e571e4003054cca9a46492d9');
-+ for(const [path,entry] of Object.entries({...base.preserved,...base.changes,...base.additions}) as [string,{sha256:string}][])
-+  expect(hash(path),path).toBe(payment.changes[path]?.sha256??payment.reviewChanges?.[path]?.sha256??entry.sha256);
-+ expect(Object.keys(base.changes)).toContain('apps/web/src/app/api/stripe/webhook/route.ts');
-+ expect(payment.releaseAccepted).toBe(false);expect(payment.liveRunPerformed).toBe(false);
-+});
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/startup-webhook.test.ts
-@@ -0,0 +1,43 @@
-+import {beforeEach,expect,it,vi} from 'vitest';
-+const h=vi.hoisted(()=>({
-+  construct:vi.fn(),record:vi.fn(),resume:vi.fn(),ingest:vi.fn(),mode:'test',app:undefined as any,
-+}));
-+vi.mock('@ae/core/payments/stripe',()=>({stripe:()=>({webhooks:{constructEvent:h.construct}}),webhookSecret:()=> 'fixture-only-secret',getStripeMode:()=>h.mode}));
-+vi.mock('@ae/core/payments/checkout',()=>({recordPaymentFromSession:h.record,isManualCaptureAuthorized:vi.fn()}));
-+vi.mock('@/server/current-autonomy-runtime',()=>({currentAutonomy:async()=>h.app}));
-+vi.mock('@/workflows/resume',()=>({resumeJobForPayment:h.resume}));
-+import {POST} from '@/app/api/stripe/webhook/route';
-+import {currentStripePaymentOptions} from '@/server/current-stripe-payment';
-+const event=()=>({id:'evt_test',type:'checkout.session.completed',livemode:false,data:{object:{id:'cs_test',mode:'payment',payment_status:'paid',metadata:{job_id:'job',pricing_mode:'fixed'}}}});
-+const request=()=>new Request('https://local.invalid/api/stripe/webhook',{method:'POST',headers:{'stripe-signature':'signed'},body:'RAW'});
-+beforeEach(()=>{
-+  h.mode='test';h.app={bridge:{ingestStripeIfBound:h.ingest}};
-+  h.construct.mockReset().mockReturnValue(event());h.record.mockReset().mockResolvedValue({payment:{workflowResumedAt:null},inserted:true});
-+  h.resume.mockReset().mockResolvedValue(undefined);h.ingest.mockReset().mockResolvedValue({status:'ignored_unbound'});
-+});
-+it('signed unbound legacy fixed checkout still records and resumes the existing workflow',async()=>{
-+  expect((await POST(request())).status).toBe(200);
-+  expect(h.construct).toHaveBeenCalledWith('RAW','signed','fixture-only-secret');
-+  expect(h.record).toHaveBeenCalledOnce();expect(h.ingest).toHaveBeenCalledWith('RAW','signed');expect(h.resume).toHaveBeenCalledOnce();
-+});
-+it('fixed bound receipt persistence failure is retryable before the legacy resume',async()=>{
-+  h.ingest.mockRejectedValue(new Error('receipt_conflict'));
-+  expect((await POST(request())).status).toBe(500);expect(h.record).toHaveBeenCalledOnce();expect(h.resume).not.toHaveBeenCalled();
-+});
-+it('refund evidence is ingested before acknowledgement; wrong-mode refunds never ingest',async()=>{
-+  h.construct.mockReturnValue({...event(),type:'charge.refunded'});
-+  expect((await POST(request())).status).toBe(200);expect(h.ingest).toHaveBeenCalledOnce();expect(h.record).not.toHaveBeenCalled();
-+  h.ingest.mockClear();h.construct.mockReturnValue({...event(),type:'charge.refunded',livemode:true});
-+  expect((await POST(request())).status).toBe(200);expect(h.ingest).not.toHaveBeenCalled();
-+});
-+it('missing signature and invalid cryptographic verification precede payment work',async()=>{
-+  expect((await POST(new Request('https://local.invalid',{method:'POST',body:'RAW'}))).status).toBe(400);
-+  h.construct.mockImplementation(()=>{throw Error('signature mismatch');});
-+  expect((await POST(request())).status).toBe(400);expect(h.record).not.toHaveBeenCalled();expect(h.ingest).not.toHaveBeenCalled();
-+});
-+it('production adapter uses actual current SDK verifier and configured-mode gate without network',()=>{
-+  const options=currentStripePaymentOptions({sql:{} as any,now:()=>0,authorize:async()=>true});
-+  expect(options.verifyStripe('RAW','signed')).toEqual(event());
-+  h.construct.mockReturnValue({...event(),livemode:true});
-+  expect(()=>options.verifyStripe('RAW','signed')).toThrow('configured_environment_mismatch');
-+});
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/startup.test.ts
-@@ -0,0 +1,77 @@
-+import { beforeEach, expect, it, vi } from 'vitest';
-+const h = vi.hoisted(() => ({
-+  bridge: {loadRequest:vi.fn(),verifyPayment:vi.fn(),prepareQuote:vi.fn(),drainReceipts:vi.fn(),drainPendingReceipts:vi.fn()},
-+  application: {bootstrap:vi.fn(),publication:vi.fn(),advanceDueJobs:vi.fn()},
-+  config:undefined as any,
-+}));
-+vi.mock('@/server/current-stripe-payment', () => ({currentStripePaymentOptions:(options:unknown)=>options}));
-+vi.mock('@/server/current-payment', () => ({createCurrentPaymentBridge:()=>h.bridge}));
-+vi.mock('@/server/current-autonomy', () => ({createCurrentAutonomyApplication:(config:unknown)=>{h.config=config;return h.application;}}));
-+import {createCurrentPaymentStartup,createCurrentIsolateStartup,type CurrentOwnerAdapters} from '@/server/current-payment-startup';
-+const owner = () => {
-+  const sql = {} as any;
-+  return {config:{db:sql},bridge:{sql},dependencies:{viewer:vi.fn(async()=>({id:'tenant'}))},enqueue:vi.fn(),enqueueQuote:vi.fn()} as unknown as CurrentOwnerAdapters;
-+};
-+beforeEach(()=>{
-+  for(const spy of Object.values(h.bridge)) spy.mockReset();
-+  for(const spy of Object.values(h.application)) spy.mockReset();
-+  h.application.bootstrap.mockImplementation(async()=>Response.json({ok:true}));
-+  h.bridge.loadRequest.mockResolvedValue({tenantId:'tenant',job:{jobId:'job'}});
-+});
-+it('canonical request and receipt verification replace owner callbacks; quote offer uses actual checkout bridge before outbox',async()=>{
-+  const adapters=owner();createCurrentPaymentStartup(adapters);
-+  expect(h.config.loadRequest).toBe(h.bridge.loadRequest);
-+  expect(h.config.verifyPayment).toBe(h.bridge.verifyPayment);
-+  const request={job:{jobId:'job'}},quote={version:1};
-+  await h.config.enqueue(request,'quote-key',{kind:'quote',quote},{});
-+  expect(h.bridge.prepareQuote).toHaveBeenCalledWith(request,quote);
-+  expect(adapters.enqueueQuote).toHaveBeenCalledOnce();
-+});
-+it('unsupported or stale quote refuses before any communication is queued',async()=>{
-+  const adapters=owner();createCurrentPaymentStartup(adapters);
-+  h.bridge.prepareQuote.mockRejectedValue(new Error('current_payment_per_finding_unsupported'));
-+  await expect(h.config.enqueue({},'quote-key',{kind:'quote',quote:{}},{})).rejects.toThrow('per_finding');
-+  expect(adapters.enqueueQuote).not.toHaveBeenCalled();
-+  expect(adapters.enqueue).not.toHaveBeenCalled();
-+});
-+it('bootstrap drains earlier receipts only after fresh owner resolution',async()=>{
-+  const startup=createCurrentPaymentStartup(owner());
-+  expect((await startup.bootstrap(new Request('https://local.invalid'),'job')).status).toBe(200);
-+  expect(h.bridge.loadRequest).toHaveBeenCalledWith({tenantId:'tenant',subject:'tenant'},'job');
-+  expect(h.bridge.drainReceipts).toHaveBeenCalledWith('tenant','job');
-+});
-+it('denied bootstrap never drains and revoked owner cannot publish receipts',async()=>{
-+  let startup=createCurrentPaymentStartup(owner());
-+  h.application.bootstrap.mockImplementation(async()=>new Response(null,{status:404}));
-+  await startup.bootstrap(new Request('https://local.invalid'),'job');
-+  expect(h.bridge.drainReceipts).not.toHaveBeenCalled();
-+  h.application.bootstrap.mockImplementation(async()=>Response.json({ok:true}));
-+  const adapters=owner();vi.mocked(adapters.dependencies.viewer).mockResolvedValue(null);
-+  startup=createCurrentPaymentStartup(adapters);
-+  expect((await startup.bootstrap(new Request('https://local.invalid'),'job')).status).toBe(401);
-+  expect(h.bridge.drainReceipts).not.toHaveBeenCalled();
-+});
-+it('independent server and step isolates construct from same loader without shared install state',async()=>{
-+  const load=vi.fn(async()=>({status:'ready' as const,adapters:owner()}));
-+  const server=createCurrentIsolateStartup(load),step=createCurrentIsolateStartup(load);
-+  const first=await server();expect(await server()).toBe(first);
-+  expect(await step()).not.toBe(first);expect(load).toHaveBeenCalledTimes(2);
-+  h.application.advanceDueJobs.mockResolvedValue({outcomes:[]});
-+  expect(await (await step())!.advanceDueJobs()).toEqual({outcomes:[]});
-+  expect(h.bridge.drainPendingReceipts).toHaveBeenCalledOnce();
-+});
-+it('missing owner adapters fail closed and failed construction can retry',async()=>{
-+  expect(await createCurrentIsolateStartup(async()=>({status:'blocked',missing:['provider_receipts']}))()).toBeNull();
-+  const adapters=owner();adapters.bridge.sql={} as any;
-+  const load=vi.fn().mockResolvedValueOnce({status:'ready',adapters}).mockResolvedValueOnce({status:'ready',adapters:owner()});
-+  const get=createCurrentIsolateStartup(load);
-+  await expect(get()).rejects.toThrow('transaction_adapter_mismatch');expect(await get()).toBeTruthy();
-+});
-+
-+it('refuses autonomous service construction without fresh exclusive canonical dispatch ownership',async()=>{
-+ const adapters=owner();adapters.exclusiveDispatch=vi.fn(async()=>false);
-+ createCurrentPaymentStartup(adapters);
-+ await expect(h.config.contextFor({job:{jobId:'job'}})).rejects.toThrow('exclusive_dispatch_required');
-+ await expect(h.config.evaluateWithServices({},'key','digest',{})).rejects.toThrow('exclusive_dispatch_required');
-+ expect(adapters.exclusiveDispatch).toHaveBeenCalledTimes(2);
-+});
---- /dev/null
-+++ b/tests/track-b/current-company-main-adoption/harness-inputs/tsconfig.combined-tests.json
-@@ -0,0 +1 @@
-+{"compilerOptions": {"target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler", "strict": true, "noEmit": true, "skipLibCheck": true, "esModuleInterop": true, "types": ["node"], "paths": {"@ae/core/*": ["./packages/core/src/*"], "@/*": ["./apps/web/src/*"]}}, "include": ["tests/track-b/autonomous-company/**/*.ts", "tests/track-b/autonomy-release-adoption/**/*.ts", "tests/track-b/autonomy-paid-app-integration/**/*.ts", "tests/track-b/current-autonomy-integration/**/*.ts", "tests/track-b/current-autonomy-calendar/**/*.ts", "tests/track-b/current-autonomy-payment-startup/**/*.ts"]}
---- /dev/null
++it('temporarily unauthorized jobs rotate behind unattempted payments even with a frozen clock, then recover without data loss',async()=>{
++ const f=await paymentFixture();
++ try {
++  let restored=false;
++  const bridge=createCurrentPaymentBridge({sql:f.sql,now:()=>0,
++   authorize:async p=>restored || p.tenantId.startsWith('ffffffff'),
++   verifyStripe:()=>{throw new Error('no provider access');}});
++  for(let n=1;n<=25;n++){
++   const j=await f.job(n,'00000000');
++   expect(await f.ingest(j.tenant,j.id,'evt_wait_'+n,'paid',j.session,j.payment)).toBe('queued');
++  }
++  const healthy=await f.job(1000,'ffffffff');
++  expect(await f.ingest(healthy.tenant,healthy.id,'evt_healthy','paid',healthy.session,healthy.payment)).toBe('queued');
++  const first=await bridge.drainPendingReceipts();
++  expect(first.outcomes).toHaveLength(25);
++  expect(first.outcomes.every(o=>'blocked' in o && o.blocked)).toBe(true);
++  expect(await f.undelivered()).toBe(26);
++  expect(await f.published(healthy.tenant,healthy.id,'evt_healthy')).toBe(false);
++  const second=await bridge.drainPendingReceipts();
++  expect(second.outcomes[0]).toEqual({jobId:healthy.id,checked:1});
++  expect(await f.published(healthy.tenant,healthy.id,'evt_healthy')).toBe(true);
++  expect(await f.undelivered()).toBe(25);
++  // Failed authorization never retires valid payments. Restoring authority drains them normally.
++  restored=true;
++  await bridge.drainPendingReceipts();
++  expect(await f.undelivered()).toBe(0);
++  const receipts=await f.db.query<{count:number}>('SELECT count(*)::int AS count FROM company_autonomy_release.payment_receipts');
++  expect(receipts.rows[0].count).toBe(26);
++ } finally {await f.db.close();}
++},60000);
+--- a/tests/track-b/current-company-main-adoption/run.mjs
 +++ b/tests/track-b/current-company-main-adoption/run.mjs
-@@ -0,0 +1,100 @@
-+import {readFileSync as read, writeFileSync as write, mkdirSync as mkdir, readdirSync as ls, existsSync as exists, symlinkSync as link, realpathSync, statSync} from 'node:fs';
-+import {resolve, join, dirname} from 'node:path';
-+import {fileURLToPath} from 'node:url';
-+import {createHash} from 'node:crypto';
-+import {spawnSync} from 'node:child_process';
-+
-+const owned=dirname(fileURLToPath(import.meta.url));
-+const stage=resolve(process.argv[2]||'/private/tmp/current-company-main-adoption-20261107');
-+const reference='/private/tmp/track-b-company-composed-y74pmmb8';
-+const cache=join(reference,'node_modules');
-+const frozen=join(owned,'harness-inputs');
-+if(!exists(join(stage,'package.json')))throw Error('Stage must already exist');
-+if(exists(join(stage,'.git')))throw Error('Validation requires a disposable stage without Git');
-+const sha=b=>createHash('sha256').update(b).digest('hex');
-+const selected=process.argv.slice(3);
-+const reviewMode=selected.some(x=>x.startsWith('review-'));
-+const evidence=join(owned,reviewMode?(exists(join(stage,'docs/current-company-payment-fixes/sql/002-payment-recovery.sql'))?'review-payment-fixes-evidence':'review-evidence'):'evidence'); mkdir(evidence,{recursive:true});
-+const runtime=join(stage,'node_modules');mkdir(runtime,{recursive:true});
-+for(const name of ls(cache))if(name!=='@ae'&&(!name.startsWith('.')||name==='.bin')&&!exists(join(runtime,name)))link(join(cache,name),join(runtime,name));
-+const appDeps='/tmp/workflow-bootstrap.JpxCTM/apps/web/node_modules';
-+if(exists(appDeps)&&!exists(join(stage,'apps/web/node_modules')))link(appDeps,join(stage,'apps/web/node_modules'));
-+mkdir(join(runtime,'@ae'),{recursive:true});
-+if(!exists(join(runtime,'@ae/core')))link(join(stage,'packages/core'),join(runtime,'@ae/core'));
-+if(JSON.parse(read(join(runtime,'ipaddr.js/package.json'))).version!=='2.5.0')throw Error('ipaddr.js 2.5.0 required');
-+for(const name of ['offline.cjs','offline-fonts.cjs','empty-server-only.mjs'])write(join(stage,name),read(join(frozen,name)));
-+const includes=['tests/track-b/autonomous-company/**/*.test.ts','tests/track-b/autonomy-release-adoption/**/*.test.ts','tests/track-b/autonomy-paid-app-integration/**/*.test.ts','tests/track-b/current-autonomy-integration/**/*.test.ts','tests/track-b/current-autonomy-calendar/**/*.test.ts','tests/track-b/current-autonomy-payment-startup/**/*.test.ts','packages/core/src/evals/calendar-integration/**/*.test.ts'];
-+write(join(stage,'combined-vitest.config.mjs'),'export default '+JSON.stringify({resolve:{alias:{'@ae/core':join(stage,'packages/core/src'),'@':join(stage,'apps/web/src'),'server-only':join(stage,'empty-server-only.mjs')}},test:{include:includes,maxWorkers:1,testTimeout:60000,hookTimeout:60000}})+';\n');
-+write(join(stage,'tsconfig.combined-tests.json'),read(join(frozen,'tsconfig.combined-tests.json')));
-+if(reviewMode){
-+ const reviewed=JSON.parse(read(join(owned,'REVIEW-INPUTS.json')));
-+ const withFixes=exists(join(stage,'docs/current-company-payment-fixes/sql/002-payment-recovery.sql'));
-+ const compatibility=reviewed.fixtureCompatibilityVariants[withFixes?'paymentFixes':'baseline'];
-+ for(const entry of compatibility)if(sha(read(join(stage,entry.stagePath??entry.path)))!==entry.afterSha256)throw Error('Compatibility input drift: '+entry.path);
-+ if(withFixes){
-+  const fixes=JSON.parse(read(join(owned,'PAYMENT-FIX-INPUTS.json')));
-+  for(const entry of fixes.fixtureInputs??[])if(sha(read(join(stage,entry.stagePath)))!==entry.sha256)throw Error('Regression SQL fixture drift: '+entry.stagePath);
-+  for(const entry of fixes.files.filter(x=>x.kind==='payment-regression'))if(sha(read(join(stage,entry.stagePath??entry.path)))!==(entry.stageSha256??entry.sha256))throw Error('Payment regression drift: '+entry.path);
-+ }
-+ for(const entry of reviewed.mapping.filter(x=>x.kind==='immutable-review')){
-+  const expected=compatibility.find(x=>x.path===entry.path)?.afterSha256??entry.sha256;
-+  if(sha(read(join(stage,entry.stagePath??entry.path)))!==expected)throw Error('Reviewer input drift: '+entry.path);
-+ }
-+}
-+const reviewIncludes=[...includes,'tests/track-b/current-company-adoption-review/**/*.test.ts','tests/track-b/current-company-adoption-payment-fixes/**/*.test.ts'];
-+write(join(stage,'review-vitest.config.mjs'),'export default '+JSON.stringify({resolve:{alias:{'@ae/core':join(stage,'packages/core/src'),'@':join(stage,'apps/web/src'),'server-only':join(stage,'empty-server-only.mjs')}},test:{include:reviewIncludes,maxWorkers:1,testTimeout:60000,hookTimeout:60000}})+';\n');
-+write(join(stage,'tsconfig.review.json'),JSON.stringify({compilerOptions:{target:'ES2022',module:'ESNext',moduleResolution:'Bundler',strict:true,noEmit:true,skipLibCheck:true,esModuleInterop:true,types:['node'],paths:{'@ae/core/*':['./packages/core/src/*'],'@/*':['./apps/web/src/*']}},include:['tests/track-b/current-company-adoption-review/**/*.ts','tests/track-b/current-company-adoption-payment-fixes/**/*.ts']}));
-+const acceptanceIncludes=[...includes,'tests/track-b/current-company-adoption-review/**/*.invariants.test.ts','tests/track-b/current-company-adoption-review/**/findings.test.ts','tests/track-b/current-company-adoption-review/**/*.repro.test.ts','tests/track-b/current-company-adoption-payment-fixes/**/*.test.ts'];
-+write(join(stage,'review-acceptance-vitest.config.mjs'),'export default '+JSON.stringify({resolve:{alias:{'@ae/core':join(stage,'packages/core/src'),'@':join(stage,'apps/web/src'),'server-only':join(stage,'empty-server-only.mjs')}},test:{include:acceptanceIncludes,maxWorkers:1,testTimeout:60000,hookTimeout:60000}})+';\n');
-+const fonts=[...read(join(stage,'offline-fonts.cjs'),'utf8').matchAll(/url\(([^)]+\.woff2)\)/g)].map(x=>x[1]);
-+const fontHashes=Object.fromEntries([...new Set(fonts)].map(p=>[p,sha(read(p))]));
-+const env={PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR||'/tmp',CI:'1',WORKFLOW_STAGE:stage,EXTENSION_STAGE:stage,npm_config_offline:'true',NEXT_TELEMETRY_DISABLED:'1',NODE_OPTIONS:'--require '+join(stage,'offline.cjs'),NEXT_FONT_GOOGLE_MOCKED_RESPONSES:join(stage,'offline-fonts.cjs')};
-+write(join(stage,'packages/core/tsconfig.current-main-production.json'),JSON.stringify({extends:'./tsconfig.json',compilerOptions:{strict:true,noEmit:true},exclude:['node_modules','**/*.test.ts','**/*.test.tsx','**/*.spec.ts']}));
-+const pinPath=resolve(owned,'../../../docs/current-company-main-adoption/PIN.json');
-+const pin=exists(pinPath)?JSON.parse(read(pinPath)):null;
-+const results={stage,pin,offline:true,providers:false,installs:false,includes,fontHashes,dependencies:{cache,ipaddr:realpathSync(join(runtime,'ipaddr.js')),analytics:{path:realpathSync(join(stage,'apps/web/node_modules/@vercel/analytics')),version:JSON.parse(read(join(stage,'apps/web/node_modules/@vercel/analytics/package.json'))).version,packageSha256:sha(read(join(stage,'apps/web/node_modules/@vercel/analytics/package.json')))}},commands:[]};
-+const previousPath=join(evidence,'RESULTS.json');
-+if(exists(previousPath)){const previous=JSON.parse(read(previousPath));if(previous.stage===stage)results.commands=previous.commands||[];}
-+// Bind all executed source and every generated harness byte before commands run.
-+const inputInventory=JSON.parse(read(join(stage,'CURRENT-COMPOSITION.json')));
-+const inputFiles={};
-+for(const kind of ['preserved','changes','additions'])for(const [path,record]of Object.entries(inputInventory[kind])){
-+ const bytes=read(join(stage,path)),hash=sha(bytes);
-+ if(hash!==record.sha256)throw Error('Executed source drift: '+path);
-+ inputFiles[path]={sha256:hash,bytes:bytes.length,kind};
-+}
-+for(const path of ['combined-vitest.config.mjs','tsconfig.combined-tests.json','review-vitest.config.mjs','review-acceptance-vitest.config.mjs','tsconfig.review.json','offline.cjs','offline-fonts.cjs','empty-server-only.mjs','packages/core/tsconfig.current-main-production.json']){
-+ const bytes=read(join(stage,path));inputFiles[path]={sha256:sha(bytes),bytes:bytes.length,kind:'generated-harness'};
-+}
-+write(join(evidence,'TEST-INPUTS.json'),JSON.stringify({stage,parent:inputInventory.parent,files:inputFiles,harnessRunnerSha256:sha(read(fileURLToPath(import.meta.url))),fontHashes,allDeclaredSourceVerified:true},null,2)+'\n');
-+results.testInputsSha256=sha(read(join(evidence,'TEST-INPUTS.json')));
-+const commands=[
-+ ['review-acceptance',process.execPath,[join(runtime,'vitest/vitest.mjs'),'run','--config','review-acceptance-vitest.config.mjs','--reporter=default','--reporter=json','--outputFile.json='+join(evidence,'review-acceptance.json')]],
-+ ['review-types',process.execPath,[join(runtime,'typescript/bin/tsc'),'-p','tsconfig.review.json','--noEmit']],
-+ ['review-tests',process.execPath,[join(runtime,'vitest/vitest.mjs'),'run','--config','review-vitest.config.mjs','--reporter=default','--reporter=json','--outputFile.json='+join(evidence,'review-tests.json')]],
-+ ['combined-tests',process.execPath,[join(runtime,'vitest/vitest.mjs'),'run','--config','combined-vitest.config.mjs','--reporter=default','--reporter=json','--outputFile.json='+join(evidence,'combined-tests.json')]],
-+ ['combined-types',process.execPath,[join(runtime,'typescript/bin/tsc'),'-p','tsconfig.combined-tests.json','--noEmit']],
-+ ['core-types',process.execPath,[join(runtime,'typescript/bin/tsc'),'-p','packages/core/tsconfig.current-main-production.json','--noEmit']],
-+ ['next-typegen',process.execPath,[join(runtime,'next/dist/bin/next'),'typegen']],
-+ ['application-types',process.execPath,[join(runtime,'typescript/bin/tsc'),'-p','apps/web','--noEmit']],
-+ ['root-tests','npm',['test','--','--maxWorkers=2','--reporter=default','--reporter=json','--outputFile.json='+join(evidence,'root-tests.json')]],
-+ ['production-build',process.execPath,[join(runtime,'next/dist/bin/next'),'build','--webpack']],
-+];
-+for(const [name,command,args]of commands){
-+ if(selected.length&&!selected.includes(name))continue;
-+ if(!selected.length&&name.startsWith('review-'))continue;
-+ const start=new Date().toISOString();
-+ const cwd=['next-typegen','production-build'].includes(name)?join(stage,'apps/web'):stage;
-+ const run=spawnSync(command,args,{cwd,env,encoding:'utf8',maxBuffer:64*1024*1024,timeout:600000});
-+ const output=(run.stdout||'')+(run.stderr||'');
-+ if(exists(join(evidence,name+'.log')))write(join(evidence,name+'.previous.log'),read(join(evidence,name+'.log')));
-+ write(join(evidence,name+'.log'),output);
-+ let testSummary;
-+ if(['combined-tests','root-tests','review-tests','review-acceptance'].includes(name)&&exists(join(evidence,name+'.json'))){const report=JSON.parse(read(join(evidence,name+'.json')));testSummary={total:report.numTotalTests,passed:report.numPassedTests,failed:report.numFailedTests,pending:report.numPendingTests,todo:report.numTodoTests};}
-+ results.commands.push({name,testSummary,command,args,cwd,started:start,finished:new Date().toISOString(),exitCode:run.status,signal:run.signal,error:run.error?.message,logSha256:sha(output)});
-+ write(join(evidence,'RESULTS.json'),JSON.stringify(results,null,2)+'\n');
-+ console.log(name+': '+run.status);console.log(output.slice(-1500));
-+}
-+results.finalGates=Object.fromEntries(results.commands.map(x=>[x.name,{exitCode:x.exitCode,testSummary:x.testSummary}]));
-+write(join(evidence,'RESULTS.json'),JSON.stringify(results,null,2)+'\n');
-+if(Object.values(results.finalGates).some(x=>x.exitCode!==0))process.exitCode=1;
+@@ -14,7 +14,7 @@
+ const sha=b=>createHash('sha256').update(b).digest('hex');
+ const selected=process.argv.slice(3);
+ const reviewMode=selected.some(x=>x.startsWith('review-'));
+-const evidence=join(owned,reviewMode?(exists(join(stage,'docs/current-company-payment-fixes/sql/002-payment-recovery.sql'))?'review-payment-fixes-evidence':'review-evidence'):'evidence'); mkdir(evidence,{recursive:true});
++const evidence=join(owned,'final-2df-evidence'); mkdir(evidence,{recursive:true});
+ const runtime=join(stage,'node_modules');mkdir(runtime,{recursive:true});
+ for(const name of ls(cache))if(name!=='@ae'&&(!name.startsWith('.')||name==='.bin')&&!exists(join(runtime,name)))link(join(cache,name),join(runtime,name));
+ const appDeps='/tmp/workflow-bootstrap.JpxCTM/apps/web/node_modules';

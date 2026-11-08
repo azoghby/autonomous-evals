@@ -1,0 +1,55 @@
+{
+  "approvedCommit": "28c5f8b18b4b0b5a873937310d64dc820f8293f7",
+  "parentEvidence": "a7851f848ecea7621b227cf71744f888985d9f7b",
+  "targetParent": "2df678268926da50d0219889fd2190b7edb6f6e8",
+  "inputs": {
+    "docs/pixel-scout-chat/component/scout-mark.tsx": {
+      "sha256": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435",
+      "payload": "docs/current-company-main-adoption/scout-extension/scout-mark.tsx"
+    },
+    "assets/brand/scout-pixel.svg": {
+      "sha256": "dbcc61e36930cd25472a308564f26e96219aa4e7bec9805e3c4d441e27f55302",
+      "payload": "docs/current-company-main-adoption/scout-extension/scout-pixel.svg"
+    },
+    "docs/pixel-scout-chat/integration/owner.patch": {
+      "sha256": "00f707abf4378326a4e97aedadd8243aca5799c348d34f0fe3d9e126ceda9722",
+      "payload": "docs/current-company-main-adoption/scout-extension/owner.patch"
+    },
+    "docs/pixel-scout-chat/integration/PREIMAGES.json": {
+      "sha256": "57e48bc4a687a3daecd79735d9c514482b235dcf1a580547ac798714a1604aec",
+      "payload": "docs/current-company-main-adoption/scout-extension/ORIGINAL-PREIMAGES.json"
+    },
+    "tests/track-b/pixel-scout-chat/pixel-scout.test.tsx": {
+      "sha256": "88098ce4f9df9d495ac0295391dcfb0ef0a1a53415400b7885d4d77019002e7a",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/pixel-scout.test.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/interactions.test.tsx": {
+      "sha256": "dfc6531eb5e5b703be962fef2344c16c5f30c2dad41695955bc43ab237263b2a",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/interactions.test.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/job-bindings.test.tsx": {
+      "sha256": "51f9215bf985aef482e8a62ca5730ae8f63234b3bff8c7ca7172f5a9289eed82",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/job-bindings.test.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/mount-fixture.tsx": {
+      "sha256": "3132b0a43fb24725c87ba45196906b84aa3a7e405e86a57206898256466d2da8",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/mount-fixture.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/chat.test.tsx": {
+      "sha256": "c4f23e427f16bfdc2d23f8195d020eac7f128e09600533af8798294aaf2a49bb",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/chat.test.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/reauth.test.tsx": {
+      "sha256": "ff15d2f5a64c56a34b476a11bdcc29406323470d98f6bb1007f46c0c1864c5c4",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/reauth.test.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/privacy.test.tsx": {
+      "sha256": "e0fab0a0343710228498d7d098fb18d4c9c32cea6aa1a48242c4b80f2346ad93",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/privacy.test.tsx"
+    },
+    "tests/track-b/current-chat-mount/ui/hook.test.tsx": {
+      "sha256": "d579f9dfb83b799d10cd570214e280176bb6f0d71a954c9e3cea9b57b9aa65f3",
+      "payload": "tests/track-b/current-company-main-adoption/scout-extension/hook.test.tsx"
+    }
+  }
+}

@@ -1,0 +1,483 @@
+
+> test
+> vitest run --maxWorkers=2 --reporter=default --reporter=json --outputFile.json=/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/current-company-main-adoption/final-2df-evidence/root-tests.json
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/private/tmp/current-company-main-adoption-2df6782-final-20261107[39m
+
+ [32m✓[39m apps/web/src/server/sandbox/pipeline.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/sandbox/engine-service.test.ts [2m([22m[2m44 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/workflow/postgres-journal.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 10957[2mms[22m[39m
+   [32m✓[39m durable workflow journal SQL (PGlite; advisory functions intercepted) [2m(14)[22m
+     [33m[2m✓[22m[39m autocommits intent before returning save and recovers it after callback failure in a fresh adapter[33m 849[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps immutable originals and completed results, append-only attempts and the three-candidate budget[33m 606[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts exactly three sequential pending intents and retains all of them across reloads[33m 596[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects a stale compare-and-swap write instead of overwriting an out-of-band update[33m 467[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects adding completed work without first durably recording its pending intent[33m 465[2mms[22m[39m
+     [33m[2m✓[22m[39m isolates tenants and uses tuple-safe lock identity for delimiter-bearing tenant/key pairs[33m 461[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-PostgreSQL JSON text "\u0000" before a write[33m 506[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-PostgreSQL JSON text "\ud800" before a write[33m 454[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-PostgreSQL JSON text "\udfff" before a write[33m 447[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects invalid JSON object keys and non-JSON values before driver dispatch[33m 441[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts paired supplementary Unicode and returns detached loaded values[33m 471[2mms[22m[39m
+     [33m[2m✓[22m[39m validates imported JSON records, outcome/scope relationships and reproduction eligibility[33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m round-trips complete simulator evidence and persists at most three completed reproductions[33m 568[2mms[22m[39m
+     [33m[2m✓[22m[39m persists intent before actual workflow dispatch and never redispatches recovered ambiguous work[33m 468[2mms[22m[39m
+   [32m✓[39m pinned journal session lifetime and safe SQL failures [2m(9)[22m
+     [33m[2m✓[22m[39m requires the active same-key scope and rejects escaped asynchronous work after release[33m 470[2mms[22m[39m
+     [33m[2m✓[22m[39m waits for an autocommit before resolving save or releasing its session, including unawaited saves[33m 457[2mms[22m[39m
+     [33m[2m✓[22m[39m sanitizes lock failures and discards the session[33m 436[2mms[22m[39m
+     [33m[2m✓[22m[39m sanitizes load failures and discards the session[33m 483[2mms[22m[39m
+     [33m[2m✓[22m[39m sanitizes save failures and discards the session[33m 474[2mms[22m[39m
+     [33m[2m✓[22m[39m sanitizes unlock failures and discards the session[33m 431[2mms[22m[39m
+     [33m[2m✓[22m[39m sanitizes false-unlock failures and discards the session[33m 450[2mms[22m[39m
+     [33m[2m✓[22m[39m does not report success when callback catches a failed write, and never retries its callback[33m 499[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/__tests__/session-service.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/calendar-integration/services.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 1329[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/postgres-store.test.ts [2m([22m[2m39 tests[22m[2m)[22m[33m 18900[2mms[22m[39m
+   [32m✓[39m PostgreSQL evaluation data (actual PGlite SQL, serialized single engine) [2m(39)[22m
+     [33m[2m✓[22m[39m persists definitive discovery rejection and resumes generation/expert through fresh SQL adapters[33m 944[2mms[22m[39m
+     [33m[2m✓[22m[39m replays from independent service instances with detached input and outputs[33m 603[2mms[22m[39m
+     [33m[2m✓[22m[39m has one insert and one CAS winner across concurrent callers (PGlite serializes transactions)[33m 516[2mms[22m[39m
+     [33m[2m✓[22m[39m isolates reads, inserts and CAS by both trusted tenant and job[33m 470[2mms[22m[39m
+     [33m[2m✓[22m[39m captures scope values at construction and rejects record job mismatch[33m 474[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects insert and CAS identity drift: hash[33m 504[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects insert and CAS identity drift: description[33m 472[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects insert and CAS identity drift: target[33m 462[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects insert and CAS identity drift: coverage[33m 450[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects insert and CAS identity drift: uses[33m 448[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects insert and CAS identity drift: factual[33m 481[2mms[22m[39m
+     [33m[2m✓[22m[39m compares full spec canonically after jsonb key reordering[33m 438[2mms[22m[39m
+     [33m[2m✓[22m[39m returns null for missing/stale revisions and rejects invalid revisions and history loss[33m 430[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 0 without changing storage[33m 460[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 1 without changing storage[33m 478[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 2 without changing storage[33m 463[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 3 without changing storage[33m 437[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 4 without changing storage[33m 482[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 5 without changing storage[33m 470[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 6 without changing storage[33m 437[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects non-JSON/unsafe text 7 without changing storage[33m 448[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects accessors, custom serialization, sparse arrays, symbols and cycles[33m 497[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts valid Unicode and SQL-shaped text as bound data[33m 430[2mms[22m[39m
+     [33m[2m✓[22m[39m bounds serialized record bytes[33m 529[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed stored row: nested[33m 489[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed stored row: unknown[33m 497[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed stored row: revision[33m 516[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed stored row: task[33m 447[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed stored row: job[33m 459[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed stored row: enum[33m 459[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects actual database rows with malformed nested JSON on read, insert replay and CAS[33m 462[2mms[22m[39m
+     [33m[2m✓[22m[39m screens current secret policy on reads, conflicting inserts and CAS[33m 531[2mms[22m[39m
+     [33m[2m✓[22m[39m rolls back inserts and CAS when the returned row fails validation[33m 465[2mms[22m[39m
+     [33m[2m✓[22m[39m rolls back when the current secret policy changes before RETURNING is validated[33m 467[2mms[22m[39m
+     [33m[2m✓[22m[39m redacts driver failure text with no transaction retries[33m 441[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves complete bound review evidence and decision history across restart[33m 510[2mms[22m[39m
+     [33m[2m✓[22m[39m resumes acquisition with the same operation key after restart, outside any SQL transaction[33m 450[2mms[22m[39m
+     [33m[2m✓[22m[39m replays only correctly bound ready acquisition data after service restart[33m 441[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects stale ready review bindings and new secret policy before completed replay[33m 440[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/oauth/oauth.test.ts [2m([22m[2m46 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/discovery/persistence/persistence.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 7231[2mms[22m[39m
+   [32m✓[39m durable discovery operations (real PGlite SQL) [2m(12)[22m
+     [33m[2m✓[22m[39m grants exactly one owner across instances and concurrent calls, durably rejects input changes[33m 724[2mms[22m[39m
+     [33m[2m✓[22m[39m survives a late same-instance pending response without losing the winning token[33m 476[2mms[22m[39m
+     [33m[2m✓[22m[39m replays detached results from a new adapter and arbitrates completion races by SQL value[33m 502[2mms[22m[39m
+     [33m[2m✓[22m[39m binds trusted tenant/job with collision-safe framing and snapshots scope[33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m never reclaims pending or ambiguous calls and enforces underlying token ownership[33m 496[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps ownership for replay after a committed completion loses its acknowledgement[33m 547[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects unsafe identities and malformed digests before SQL[33m 499[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects malformed, secret, lossy and forged candidate results before persistence and on replay[33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m races rejection against success, preserving the winning terminal outcome and owner scope[33m 446[2mms[22m[39m
+     [33m[2m✓[22m[39m validates rejection diagnostics strictly on write and replay; ambiguous tokens cannot reject[33m 513[2mms[22m[39m
+     [33m[2m✓[22m[39m retains rejection through lost acknowledgement; an uncommitted write stays pending[33m 445[2mms[22m[39m
+     [33m[2m✓[22m[39m reopens SQL after unsafe discovery and resumes acquisition to generation/expert with no rejected data or repeat GETs[33m 1680[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/admission.test.ts [2m([22m[2m50 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/workflow/workflow.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1474[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/x402-pay.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/chat/postgres-conversations.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 6519[2mms[22m[39m
+   [32m✓[39m PostgreSQL conversations: real PGlite SQL, single session [2m(11)[22m
+     [33m[2m✓[22m[39m partitions every operation by both subject and job, with independent sequences[33m 796[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps the first digest, reply, freshness and sequence across adapter recreation[33m 552[2mms[22m[39m
+     [33m[2m✓[22m[39m integrates with the service and replays without reading current progress[33m 530[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects cross-scope, wrong-ID, unsafe bigint and malformed rows returned by a driver[33m 453[2mms[22m[39m
+     [33m[2m✓[22m[39m paginates an exclusive ascending cursor with bounded pages[33m 458[2mms[22m[39m
+     [33m[2m✓[22m[39m serializes concurrent PGlite transaction callbacks and preserves first-write replay[33m 603[2mms[22m[39m
+     [33m[2m✓[22m[39m uses bound parameters for SQL-looking subjects and never queries outside both scope keys[33m 503[2mms[22m[39m
+     [33m[2m✓[22m[39m rolls back allocator and exchange together after an insert failure[33m 462[2mms[22m[39m
+     [33m[2m✓[22m[39m fails closed with fixed errors for malformed inputs and database failures[33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m validates persisted replies on lookup, replay and history[33m 495[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects unsafe persisted allocator integers without consuming another sequence[33m 450[2mms[22m[39m
+   [33m[2m✓[22m[39m replays after closing and reopening a persistent PGlite database[33m 765[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/discovery/index.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/integration/services.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1031[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/trace/__tests__/trace-audit.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/chat/projection/projection.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+ [32m✓[39m packages/core/src/lite/run.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/sql-text.test.ts [2m([22m[2m70 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/postgres-ports.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 6330[2mms[22m[39m
+   [32m✓[39m agent PostgreSQL adapters: PGlite SQL execution (single session, not real concurrency) [2m(12)[22m
+     [33m[2m✓[22m[39m runs the session service on SQL ports and replays from fresh adapters without provider calls[33m 795[2mms[22m[39m
+     [33m[2m✓[22m[39m persists exact JSON, returns detached records, and resumes through a fresh adapter[33m 532[2mms[22m[39m
+     [33m[2m✓[22m[39m insert replay preserves first timestamp and current state; changed identity fails[33m 468[2mms[22m[39m
+     [33m[2m✓[22m[39m CAS advances once, rejects stale/missing writes, and forbids identity patches[33m 476[2mms[22m[39m
+     [33m[2m✓[22m[39m parameterizes SQL-looking identifiers and rejects PostgreSQL-unsafe strings without echoing values[33m 496[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects unsafe money, counters, states, timestamps and unsupported JSON before writes[33m 531[2mms[22m[39m
+     [33m[2m✓[22m[39m normalizes scope order, replays accepted reservations, and rejects identity or cap changes atomically[33m 503[2mms[22m[39m
+     [33m[2m✓[22m[39m locks scopes in sorted order, enforces job and role budgets, and records a stable refusal[33m 475[2mms[22m[39m
+     [33m[2m✓[22m[39m settles measured overage without capping, releases unused funds, and keeps the first settlement[33m 536[2mms[22m[39m
+     [33m[2m✓[22m[39m uses exact SQL numeric aggregation even when combined overages exceed safe JavaScript integer range[33m 498[2mms[22m[39m
+     [33m[2m✓[22m[39m rolls back reservations and settlements when the transaction callback fails after SQL writes[33m 473[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects duplicate or missing job/role scopes rather than bypassing aggregate caps[33m 546[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/mcp-sandbox-tools.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/remediation/remediation.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1085[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/follow-ups.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m packages/core/src/targets/remediation.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 1135[2mms[22m[39m
+   [32m✓[39m secured request-scoped remediation target [2m(31)[22m
+     [33m[2m✓[22m[39m composes actual text/chat serialization with the remediation factory for all twelve frozen scenarios and SQL replay[33m 1019[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/connection.test.ts [2m([22m[2m79 tests[22m[2m)[22m[32m 62[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/tau2-retail.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 1587[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/sandbox/sandbox-routes.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/graders.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/branch-ledger.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 2841[2mms[22m[39m
+   [32m✓[39m application branch ledger SQL (PGlite; locks intercepted) [2m(5)[22m
+     [33m[2m✓[22m[39m integrates service retries with durable creation and deletion transitions[33m 696[2mms[22m[39m
+     [33m[2m✓[22m[39m commits intent before cloud POST and preserves it after ambiguous failure and fresh ledger instance[33m 485[2mms[22m[39m
+     [33m[2m✓[22m[39m persists each put across callback failure; supports lookup, updates and tombstones[33m 521[2mms[22m[39m
+     [33m[2m✓[22m[39m enforces unique branch ownership, immutable identity and non-regressing states in SQL[33m 618[2mms[22m[39m
+     [33m[2m✓[22m[39m allows bounded explicit retries but cannot reset attempts or restart ambiguous creating[33m 515[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/bindings.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/acquisition.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/neon-branches.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/media/media.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 272[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/design-investigate.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/provision-verification.test.ts [2m([22m[2m45 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/cs-agents-airline.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 5448[2mms[22m[39m
+   [32m✓[39m cs-agents-airline tool semantics [2m(8)[22m
+     [33m[2m✓[22m[39m faq_lookup_tool and display_seat_map return the demo's strings[33m 678[2mms[22m[39m
+     [33m[2m✓[22m[39m get_trip_details hydrates the disrupted or on-time itinerary like the demo[33m 983[2mms[22m[39m
+     [33m[2m✓[22m[39m update_seat changes only the named booking and rejects unknown confirmations / bad seats[33m 502[2mms[22m[39m
+     [33m[2m✓[22m[39m flight_status_tool reports delay + missed connection, replacements, and unknown flights[33m 490[2mms[22m[39m
+     [33m[2m✓[22m[39m disruption flow: matching flights, rebook onto NY950 (replaces NY802), one compensation case[33m 542[2mms[22m[39m
+     [33m[2m✓[22m[39m cancel_flight acts on the context: default context is the disrupted booking (the demo's behaviour)[33m 488[2mms[22m[39m
+     [33m[2m✓[22m[39m cancel_flight after get_trip_details for the on-time trip cancels LL0EZ6 and the booking[33m 479[2mms[22m[39m
+     [33m[2m✓[22m[39m assign_special_service_seat assigns 1A for front-row requests and records the note[33m 473[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/behavioral-gateway.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/__tests__/service-adapter.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/owner-submit.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/mcp-tools.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m packages/core/src/payments/plans-checkout.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/postgres-operations.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 10019[2mms[22m[39m
+   [32m✓[39m PostgreSQL operation ledger (actual SQL, PGlite serializes transactions) [2m(19)[22m
+     [33m[2m✓[22m[39m has exactly one claim winner, replay never owns or redispatches, identity immutable[33m 893[2mms[22m[39m
+     [33m[2m✓[22m[39m pins tenant/job/owner and rejects unauthenticated mutations[33m 581[2mms[22m[39m
+     [33m[2m✓[22m[39m never steals a pending claim; only authenticated bound reconciliation can complete for another owner[33m 477[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves lost claim and completion acknowledgements through fresh service instances[33m 442[2mms[22m[39m
+     [33m[2m✓[22m[39m supports durable idempotent cost and authenticated independent review after service restart[33m 471[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 0[33m 569[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 1[33m 682[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 2[33m 518[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 3[33m 492[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 4[33m 492[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 5[33m 479[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 6[33m 518[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects lossy/non-JSON result 7[33m 511[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects getters, custom serialization, sparse arrays, cycles and symbols without executing them[33m 485[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts Unicode/SQL text, snapshots results, bounds bytes and screens current secrets on all replay paths[33m 479[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts JSON null, rejects missing completion and verifies receipts even for the original owner[33m 447[2mms[22m[39m
+     [33m[2m✓[22m[39m rolls back completion when current secrets change before returned row validation[33m 440[2mms[22m[39m
+     [33m[2m✓[22m[39m database enforces immutable identity/result/receipt and no deletion[33m 438[2mms[22m[39m
+     [33m[2m✓[22m[39m validates returned rows and rolls back failed completion; errors never expose parameters[33m 605[2mms[22m[39m
+ [32m✓[39m packages/core/src/lite/investigate.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/monitoring.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/adk-customer-service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 1356[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/objective-execution.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/adapters/generation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/github-pr.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m packages/core/src/redteam/redteam.test.ts [2m([22m[2m45 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/whatsapp.test.ts [2m([22m[2m51 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/simulator.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/calendar.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 765[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/__tests__/resume-identity.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/owner-responder.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m packages/core/src/payments/late-payment.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/inbound-email.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/stripe/webhook/route.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/driver.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 162[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/rubric-admission.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/regression-api.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/quality.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/chat/projection/negative.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/telegram.test.ts [2m([22m[2m35 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m packages/core/src/lite/design.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/chat/service.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m packages/core/src/targets/public-source.test.ts [2m([22m[2m50 tests[22m[2m)[22m[32m 51[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/remediation/accounting/accounting.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 908[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/sandbox/views.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/workflows/resume-plan.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/generate.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m apps/web/src/workflows/decisions.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/experts.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/runner.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/run.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 5814[2mms[22m[39m
+   [32m✓[39m createSandboxRun [2m(9)[22m
+     [33m[2m✓[22m[39m executes sql bindings with named params and result shapes[33m 721[2mms[22m[39m
+     [33m[2m✓[22m[39m never interpolates args (injection attempts are inert)[33m 548[2mms[22m[39m
+     [33m[2m✓[22m[39m validates args against inputSchema and reports unknown tools without throwing[33m 500[2mms[22m[39m
+     [33m[2m✓[22m[39m rolls back a multi-statement tool atomically on error[33m 442[2mms[22m[39m
+     [33m[2m✓[22m[39m applies scheduled faults per tool call counter[33m 461[2mms[22m[39m
+     [33m[2m✓[22m[39m diffs inserted/updated rows including collateral writes[33m 489[2mms[22m[39m
+     [33m[2m✓[22m[39m query() is read-only and SELECT-only[33m 483[2mms[22m[39m
+     [33m[2m✓[22m[39m simulated tools validate output and record outbox side effects[33m 1610[2mms[22m[39m
+     [33m[2m✓[22m[39m dispose is idempotent and blocks further use[33m 557[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/sandbox/target.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m packages/core/src/ai/gateway.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/json-schema.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/targets/transport.test.ts [2m([22m[2m51 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/gates.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/adapters/mapping.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/notify/telegram/route.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/__tests__/commercial-operator.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/stale-jobs.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/payments/per-finding.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/sandbox/env-build.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/owner-lifecycle.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/expert.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/expert-calls.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/notify/whatsapp/route.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m packages/core/src/payments/x402.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/__tests__/render.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/neon.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/trace/__tests__/detect-regression.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m packages/core/src/email/email.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/runtime.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 749[2mms[22m[39m
+   [32m✓[39m createNeonSandboxRuntime (fakes) [2m(3)[22m
+     [33m[2m✓[22m[39m template tier: one branch per job, CREATE DATABASE TEMPLATE per trial, drop on dispose, delete on teardown[33m 746[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/world-sql.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 4583[2mms[22m[39m
+   [32m✓[39m world-sql [2m(9)[22m
+     [33m[2m✓[22m[39m reports no changes right after the baseline[33m 794[2mms[22m[39m
+     [33m[2m✓[22m[39m diffs inserts, updates, deletes across tables with exact counts and samples[33m 464[2mms[22m[39m
+     [33m[2m✓[22m[39m never includes sandbox_* tables and exposes outbox rows[33m 453[2mms[22m[39m
+     [33m[2m✓[22m[39m limits samples to sampleSize but counts everything[33m 515[2mms[22m[39m
+     [33m[2m✓[22m[39m sandbox_now() returns the frozen time and works as a column default[33m 459[2mms[22m[39m
+     [33m[2m✓[22m[39m clockSql upserts the single clock row[33m 448[2mms[22m[39m
+     [33m[2m✓[22m[39m refresh is idempotent and the summary view matches[33m 460[2mms[22m[39m
+     [33m[2m✓[22m[39m marks all rows of a dropped table as deleted[33m 477[2mms[22m[39m
+     [33m[2m✓[22m[39m preamble is re-runnable[33m 512[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/share-core.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/github-routes.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/adapters/sources.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/public-agent-cron.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/notify/decide/route.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m packages/core/src/pricing/plans.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [2m[90m↓[39m[22m packages/core/src/sandbox/runtime/runtime.live.test.ts [2m([22m[2m1 test[22m[2m | [22m[33m1 skipped[39m[2m)[22m
+ [32m✓[39m packages/core/src/targets/tls.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 354[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/sandbox-service.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/integration/checkpoint.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2568[2mms[22m[39m
+   [32m✓[39m text checkpoint PostgreSQL adapter (real PGlite SQL; single connection) [2m(5)[22m
+     [33m[2m✓[22m[39m atomically gives one claimant ownership and rejects changed inputs under the same identity[33m 726[2mms[22m[39m
+     [33m[2m✓[22m[39m persists full detached output, resumes from a fresh adapter and rejects overwrite[33m 468[2mms[22m[39m
+     [33m[2m✓[22m[39m never takes over a lost response, and ambiguity cannot be released or completed[33m 455[2mms[22m[39m
+     [33m[2m✓[22m[39m allows explicit safe agent polling release while rejecting stale owners[33m 434[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses lossy/non-PostgreSQL JSON before completion, preserving pending state[33m 483[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/engine/agents.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m packages/core/src/judges/gateway.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/integration/approved-suite.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/outreach-approve.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/__tests__/operator-labels.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/trace/__tests__/normalize-regression.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/__tests__/naive-adapter.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m scripts/tau2/tasks-to-scenarios.test.ts [2m([22m[2m5 tests[22m[2m | [22m[33m1 skipped[39m[2m)[22m[33m 766[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/chat/file-conversations.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 194[2mms[22m[39m
+ [32m✓[39m apps/web/src/components/demo/replay.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/target-url.test.ts [2m([22m[2m54 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/operator-digest.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/safety.test.ts [2m([22m[2m48 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/billing/checkout/route.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/integration/approved-suite-replay.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 745[2mms[22m[39m
+   [33m[2m✓[22m[39m service executes retained approved suite through SQL and reports without design/refreeze/checkpoint fabrication[33m 744[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/owner-policy.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/openapi.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/faults.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m scripts/stripe-setup-lib.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/agents/redact-regression.test.ts [2m([22m[2m36 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/validate.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 747[2mms[22m[39m
+   [32m✓[39m validateWorld (PGlite) [2m(1)[22m
+     [33m[2m✓[22m[39m validates tools and leaves the seed untouched[33m 743[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/leaderboard.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/founder-email-logic.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/leaderboard-agents.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/approvals-logic.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/neon/api.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m packages/core/src/adapters/sessions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/hostile-text.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 924[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/jobs/[jobId]/messages/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m packages/core/src/integration/compose.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/adapters/budget.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/contracts/contracts.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/approve-all-route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/persistence.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32m✓[39m packages/core/src/monitoring/index.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/sales-leads.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/owner-emails.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/storage/blob.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/policies.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/live-v3.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/operator-alerts.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 392[2mms[22m[39m
+   [32m✓[39m alertOperators [2m(4)[22m
+     [33m[2m✓[22m[39m emails every operator with text and html[33m 390[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/channels.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/runtime/simulate.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/founder-email-reply.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/pool.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/agent-invites.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 242[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/functions.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/text/__tests__/safety-monitoring.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/trace/__tests__/audit-redaction.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/notify/daily-report-logic.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/experts-mode.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/access.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/build.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1271[2mms[22m[39m
+   [32m✓[39m buildEnvironmentSpec [2m(3)[22m
+     [33m[2m✓[22m[39m builds a valid spec from inline inputs[33m 736[2mms[22m[39m
+   [32m✓[39m buildAcmeSupport [2m(1)[22m
+     [33m[2m✓[22m[39m builds 9 tools with no downgrades[33m 533[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/regression-check.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/targets/text.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/auth/verify/route.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/media/render.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 175[2mms[22m[39m
+ [32m✓[39m packages/core/src/reporting/chat/answers.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/media/perturb.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 323[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/ics.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/leaderboard/unsubscribe/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/revenue.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/public-agent-runner.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/jobs/[jobId]/artifacts/[kind]/route.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/adapters/artifacts.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/mcp.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m scripts/real-agents-lite.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/sample/sample-report.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/core/src/storage/neon-storage.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/services.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/contracts/per-finding.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/diff-apply.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/expert-routes-ratelimit.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m packages/core/src/auth/tokens.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/targets/connectivity.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/services-lite.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/contracts/conformance.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/jobs/[jobId]/retest/route.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m packages/core/src/evals/data/adapters/expert.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/leaderboard-suite.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m packages/core/src/sandbox/ingest/prebuilt.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m packages/core/src/payments/stripe.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m packages/core/src/auth/magic-link.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/rate-limit.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/acceptance-scenarios.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 789[2mms[22m[39m
+   [33m[2m✓[22m[39m runs all twelve independent calendar acceptance cases against PostgreSQL[33m 788[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/cron/cron-auth.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/api-key-format.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/queries.operator.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/rerun-slots.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m packages/core/src/simulator/neon-retry.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m packages/core/src/storage/crypto.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/workflows/steps/evaluate.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m scripts/public-agents.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/lite-target.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m packages/core/src/neon/ttl.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/operator/infra/route.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/redteam-mock.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/src/app/api/cron/public-agents/route.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m apps/web/src/components/demo/recording.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m packages/core/src/email/auth-parse.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/infra.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/public-error.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m apps/web/src/server/report-summary.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m208 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (209)[39m
+[2m      Tests [22m [1m[32m2829 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (2831)[39m
+[2m   Start at [22m 22:07:50
+[2m   Duration [22m 67.83s[2m (tests 83%, import 14%, transform 2%)[22m
+
+[2m    Isolate [22m [33m209 workers spawned[39m[2m · ~56ms startup each (spawn + environment, per file)[22m
+[2m            [22m [2mat least ~5.78s faster with [22m[33misolate: false[39m[2m — reuses workers across files instead of one per file[22m
+
+JSON report written to /Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/tests/track-b/current-company-main-adoption/final-2df-evidence/root-tests.json
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+[90mstderr[2m | apps/web/src/server/x402-pay.test.ts[2m > [22m[2mpaying[2m > [22m[2mmaps a facilitator SettleError to 402 and an outage to a retryable 502
+[22m[39mx402 settle indeterminate {
+  jobId: [32m'11111111-1111-4111-8111-111111111111'[39m,
+  payer: [32m'0x9999999999999999999999999999999999999999'[39m,
+  nonce: [32m'0xa2'[39m,
+  amountAtomic: [32m'99000000'[39m,
+  error: [32m'ECONNRESET'[39m
+}
+
+[90mstderr[2m | apps/web/src/server/owner-submit.test.ts[2m > [22m[2mcreatePendingSubmission[2m > [22m[2mstill persists when the email transport fails
+[22m[39mowner verify email failed my-agent-8cm0wx boom
+
+[90mstderr[2m | apps/web/src/server/owner-responder.test.ts[2m > [22m[2mrespondToOwner[2m > [22m[2mescalates an unknown tool with no DB change
+[22m[39mowner reply escalated a1 model error or invalid output (ZodError)
+
+[90mstderr[2m | apps/web/src/server/owner-responder.test.ts[2m > [22m[2mrespondToOwner[2m > [22m[2mescalates on low confidence, applying no state changes
+[22m[39mowner reply escalated a1 low confidence 0.4
+
+[90mstderr[2m | apps/web/src/server/owner-responder.test.ts[2m > [22m[2mrespondToOwner[2m > [22m[2mescalates on an explicit escalate action and on LLM errors
+[22m[39mowner reply escalated a1 model chose to escalate
+
+[90mstderr[2m | apps/web/src/server/owner-responder.test.ts[2m > [22m[2mrespondToOwner[2m > [22m[2mescalates on an explicit escalate action and on LLM errors
+[22m[39mowner reply escalated a1 model error or invalid output (Error)
+
+[90mstderr[2m | apps/web/src/server/owner-responder.test.ts[2m > [22m[2mrespondToOwner[2m > [22m[2mescalates without calling the LLM when rate limited
+[22m[39mowner reply escalated a1 owner reply rate limit exceeded
+
+[90mstderr[2m | apps/web/src/server/owner-responder.test.ts[2m > [22m[2mrespondToOwner[2m > [22m[2mhonors opt_out even when escalating, ignoring other actions
+[22m[39mowner reply escalated a1 model chose to escalate
+
+[90mstderr[2m | packages/core/src/payments/late-payment.test.ts[2m > [22m[2mexpireOpenCheckout[2m > [22m[2mtolerates an already expired/complete session
+[22m[39mexpireOpenCheckout: could not expire cs_1: Only open sessions can be expired
+
+[90mstderr[2m | apps/web/src/app/api/stripe/webhook/route.test.ts[2m > [22m[2mstripe webhook[2m > [22m[2mreturns 500 when resume throws so Stripe retries, leaving the row resumable
+[22m[39mstripe webhook processing failed evt_1 workflow down
+
+[90mstderr[2m | apps/web/src/app/api/stripe/webhook/route.test.ts[2m > [22m[2mstripe webhook[2m > [22m[2mreturns 500 when the server is misconfigured
+[22m[39mstripe webhook misconfigured: STRIPE_WEBHOOK_SECRET is not set
+
+[90mstderr[2m | apps/web/src/app/api/stripe/webhook/route.test.ts[2m > [22m[2mstripe webhook[2m > [22m[2mactivates a plan purchase without touching the job workflow
+[22m[39mrequestFounderApproval failed plan_purchase [vitest] No "redactAlertText" export is defined on the "@/server/operator-alerts" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+
+[90mstderr[2m | apps/web/src/app/api/stripe/webhook/route.test.ts[2m > [22m[2mstripe webhook[2m > [22m[2mrecords an audit and alerts operators once; alert failure does not 500
+[22m[39mrequestFounderApproval failed agent_audit_purchase [vitest] No "redactAlertText" export is defined on the "@/server/operator-alerts" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+
+[90mstderr[2m | apps/web/src/app/api/stripe/webhook/route.test.ts[2m > [22m[2mstripe webhook[2m > [22m[2mrecords an audit and alerts operators once; alert failure does not 500
+[22m[39magent audit alert failed smtp down
+
+[90mstderr[2m | apps/web/src/app/api/stripe/webhook/route.test.ts[2m > [22m[2mstripe webhook[2m > [22m[2mreturns 500 when subscription sync throws
+[22m[39mstripe webhook subscription sync failed evt_s2 db
+
+[90mstderr[2m | packages/core/src/lite/design.test.ts[2m > [22m[2mqualify[2m > [22m[2mfalls back to a template quote when the model throws
+[22m[39m[lite] qualify fell back: unknown: boom
+
+[90mstderr[2m | apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts[2m > [22m[2mPOST /api/jobs/[jobId]/cancel[2m > [22m[2mstill cancels when session expiry throws
+[22m[39mcancel expireOpenCheckout failed 11111111-1111-4111-8111-111111111111 stripe down
+
+[90mstderr[2m | apps/web/src/server/outreach-approve.test.ts[2m > [22m[2mapproveAndSendDraft[2m > [22m[2mapproves without sending when email is not configured; sends when configured
+[22m[39mcloseApprovalFromSource failed outreach_draft Cannot read properties of undefined (reading 'kind')
+
+[90mstderr[2m | apps/web/src/server/outreach-approve.test.ts[2m > [22m[2mapproveAndSendDraft[2m > [22m[2mapproves without sending when email is not configured; sends when configured
+[22m[39mcloseApprovalFromSource failed outreach_draft Cannot read properties of undefined (reading 'kind')
+
+[90mstderr[2m | apps/web/src/server/operator-digest.test.ts[2m > [22m[2mrunOperatorDigest[2m > [22m[2mreleases the claim when every send fails
+[22m[39moperator digest send failed boom
+
+[90mstderr[2m | apps/web/src/server/operator-digest.test.ts[2m > [22m[2mrunOperatorDigest[2m > [22m[2mreleases the claim when every send fails
+[22m[39moperator digest send failed boom
+
+[90mstderr[2m | apps/web/src/server/agent-invites.test.ts[2m > [22m[2mdraftAgentInvite[2m > [22m[2minserts a pending agent_invite draft with a lowercased address and never sends
+[22m[39mrequestFounderApproval failed outreach_draft Cannot read properties of undefined (reading 'id')
+

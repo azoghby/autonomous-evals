@@ -1,0 +1,16 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/pixel-scout-ui-4DsZni[39m
+
+ [32m✓[39m chat.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 156[2mms[22m[39m
+ [32m✓[39m job-bindings.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32m✓[39m interactions.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 96[2mms[22m[39m
+ [32m✓[39m reauth.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+ [32m✓[39m pixel-scout.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m privacy.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+ [32m✓[39m hook.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m      Tests [22m [1m[32m46 passed[39m[22m[90m (46)[39m
+[2m   Start at [22m 22:05:55
+[2m   Duration [22m 2.74s[2m (transform 75ms, setup 0ms, collect 423ms, tests 567ms, environment 1.05s, prepare 178ms)[22m
+

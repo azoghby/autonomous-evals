@@ -113,6 +113,23 @@
       "bytes": 14818,
       "kind": "parent-extension-evidence",
       "authenticatedSourceTree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc"
+    },
+    {
+      "path": "tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts",
+      "payload": "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts",
+      "sha256": "f35bd174947df518b6e4849c6fb58cd928bea8e6ed3c21a40f2742a2eb2b2e8f",
+      "bytes": 1876,
+      "kind": "payment-regression",
+      "stagePath": "tests/track-b/current-company-adoption-payment-fixes/receipt-fairness.test.ts",
+      "stageSha256": "57c33da9f9c193c66c1f6c8ea1f8ff21868602354d897ff0ec15dc0d3378ea2f",
+      "stageBytes": 1885,
+      "authenticatedSourceCommit": "2df678268926da50d0219889fd2190b7edb6f6e8",
+      "authenticatedSourceTree": "4be9ea6e53cbe19d043d6f2464f14df6fc7f83d4",
+      "stageCompatibility": {
+        "onlyChangedImportNamespace": true,
+        "assertionsBefore": 11,
+        "assertionsAfter": 11
+      }
     }
   ],
   "runtimePostimagesVerified": 4,

@@ -1,0 +1,19 @@
+{
+  "parent": "039851736eabb94e85c2c111bbccc78374716275",
+  "candidate": "track-b-company-composed (CURRENT-COMPOSITION.json parent, baseline false)",
+  "paths": {
+    "apps/web/src/components/app/job-private-chat.tsx": {
+      "preimage": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+      "sha256": "fd4d2fcc8a1fadebc52089ca72c3f58fa1dc81d8ecc7ea4e91861f83d3cee9b4"
+    },
+    "apps/web/src/components/app/scout-mark.tsx": {
+      "preimage": null,
+      "sha256": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435"
+    }
+  },
+  "artifacts": {
+    "assets/brand/scout-pixel.svg": "dbcc61e36930cd25472a308564f26e96219aa4e7bec9805e3c4d441e27f55302",
+    "docs/pixel-scout-chat/component/scout-mark.tsx": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435",
+    "docs/pixel-scout-chat/integration/owner.patch": "00f707abf4378326a4e97aedadd8243aca5799c348d34f0fe3d9e126ceda9722"
+  }
+}

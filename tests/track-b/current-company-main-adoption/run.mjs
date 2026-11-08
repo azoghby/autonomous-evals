@@ -14,7 +14,7 @@ if(exists(join(stage,'.git')))throw Error('Validation requires a disposable stag
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const selected=process.argv.slice(3);
 const reviewMode=selected.some(x=>x.startsWith('review-'));
-const evidence=join(owned,reviewMode?(exists(join(stage,'docs/current-company-payment-fixes/sql/002-payment-recovery.sql'))?'review-payment-fixes-evidence':'review-evidence'):'evidence'); mkdir(evidence,{recursive:true});
+const evidence=join(owned,'final-2df-evidence'); mkdir(evidence,{recursive:true});
 const runtime=join(stage,'node_modules');mkdir(runtime,{recursive:true});
 for(const name of ls(cache))if(name!=='@ae'&&(!name.startsWith('.')||name==='.bin')&&!exists(join(runtime,name)))link(join(cache,name),join(runtime,name));
 const appDeps='/tmp/workflow-bootstrap.JpxCTM/apps/web/node_modules';

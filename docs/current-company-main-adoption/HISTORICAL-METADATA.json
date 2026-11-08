@@ -1,0 +1,17 @@
+{
+  "priorEvidenceCommit": "79a85e790459dd0b15049f20cea0a29ff4addb31",
+  "historicalOnly": [
+    "PAYMENT-EXTENSION.json",
+    "INPUT-SOURCES.json",
+    "INPUT-ARTIFACTS.json",
+    "PARENT-PAYMENT-VERIFICATION.json",
+    "PARENT-REVIEW.json",
+    "ORIGINAL-REVIEW-PRESERVATION.json",
+    "REVIEW-SOURCE-PIN.json",
+    "PAYMENT-COMPOSITION.json",
+    "EXCLUDED-UPSTREAM-d6203b6.json",
+    "SUPPLEMENTAL-INPUTS.json"
+  ],
+  "historicalExclusionNowIncluded": "d6203b61e157df3558e7d6a7df2d8637d82f821d",
+  "policy": "Legacy reports retain their original declared scope; current measured claims are RESULTS and final-2df-evidence."
+}

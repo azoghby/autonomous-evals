@@ -1,12 +1,18 @@
 {
-  "applied": false,
-  "parentScoutCheckpoint": "a7851f848ecea7621b227cf71744f888985d9f7b",
-  "separateParentEvidence": {
-    "files": 2042,
-    "checks": 46,
-    "productionBuild": true
+  "applied": true,
+  "parent": "2df678268926da50d0219889fd2190b7edb6f6e8",
+  "approvedCommit": "28c5f8b",
+  "chatPreimageUnchanged": true,
+  "paths": {
+    "apps/web/src/components/app/job-private-chat.tsx": {
+      "preimage": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+      "sha256": "fd4d2fcc8a1fadebc52089ca72c3f58fa1dc81d8ecc7ea4e91861f83d3cee9b4"
+    },
+    "apps/web/src/components/app/scout-mark.tsx": {
+      "preimage": null,
+      "sha256": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435"
+    }
   },
-  "appendOnto": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
-  "requiredCandidateInventorySha256": "2ce331afeb2162b4bc12f0d1fee75f44475d7b85bb47d6615d9d20a8a40e769d",
-  "rule": "Review additive differential against final current-main/payment-fixed candidate; never overlay historical Scout snapshot"
+  "evidence": "tests/track-b/current-company-main-adoption/scout-extension/final-2df-evidence/result.json",
+  "browserVerified": false
 }

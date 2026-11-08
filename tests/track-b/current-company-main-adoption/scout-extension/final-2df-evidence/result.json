@@ -1,0 +1,28 @@
+{
+  "candidate": "/private/tmp/current-company-main-adoption-2df6782-final-20261107",
+  "stage": "/private/tmp/current-company-main-adoption-2df6782-final-20261107",
+  "suite": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/pixel-scout-ui-4DsZni",
+  "applied": {
+    "apps/web/src/components/app/job-private-chat.tsx": {
+      "preimage": "5edecb09d3d9c6b4f920d570af78c4f5b9b2ce99f55ced563a1764a2260c456b",
+      "sha256": "fd4d2fcc8a1fadebc52089ca72c3f58fa1dc81d8ecc7ea4e91861f83d3cee9b4"
+    },
+    "apps/web/src/components/app/scout-mark.tsx": {
+      "preimage": null,
+      "sha256": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435"
+    }
+  },
+  "chatSha256": "fd4d2fcc8a1fadebc52089ca72c3f58fa1dc81d8ecc7ea4e91861f83d3cee9b4",
+  "scoutMarkSha256": "9ca44107662d2e1b4e5f644b023207f3cb531d7e34a6f7f778627b348fc8f435",
+  "svgSha256": "dbcc61e36930cd25472a308564f26e96219aa4e7bec9805e3c4d441e27f55302",
+  "react": "19.2.0",
+  "boundary": "Offline React/jsdom with the patched chat component rendered; JobView dependencies stubbed as in current-chat-mount. No browser, screenshot, pixel layout, hosted auth, provider or deployment verification.",
+  "checks": {
+    "types": {
+      "exit": 0
+    },
+    "suites": {
+      "exit": 0
+    }
+  }
+}

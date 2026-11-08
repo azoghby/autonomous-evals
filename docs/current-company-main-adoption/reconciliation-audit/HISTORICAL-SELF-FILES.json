@@ -1,0 +1,1253 @@
+{
+  "pin": "2df678268926da50d0219889fd2190b7edb6f6e8",
+  "files": {
+    "docs/current-company-main-adoption/384d09a-snapshot.log": {
+      "mode": "100644",
+      "gitBlob": "078d2dda4e70b5867f5f7303d5e62d8ca65df524"
+    },
+    "docs/current-company-main-adoption/3f0bd8a-snapshot.log": {
+      "mode": "100644",
+      "gitBlob": "b849ba4a63b38919d234e231f47f20bc5fb32fa9"
+    },
+    "docs/current-company-main-adoption/APPLICATION.json": {
+      "mode": "100644",
+      "gitBlob": "a00286d013876fbc63c3b7a689e8c52f8abdecc0"
+    },
+    "docs/current-company-main-adoption/BASE-INVENTORY-0159ca4dcf94c2de05bc3fd5714f4585385f1bbc.json": {
+      "mode": "100644",
+      "gitBlob": "2eec47d668f4117b4dd8d4ee0607ecdd1fef07aa"
+    },
+    "docs/current-company-main-adoption/BASE-INVENTORY-66ca5358420364fce15a38db660d6d24c67cb2de.json": {
+      "mode": "100644",
+      "gitBlob": "3ba8ebc5620f9dceb4d300c534dcb2144a4769fb"
+    },
+    "docs/current-company-main-adoption/BASE-INVENTORY-9f5787e50205ad97893592ac71e354ef75e740f1.json": {
+      "mode": "100644",
+      "gitBlob": "168e71ea36f97c58a3ef86f2b35866f1f59d38cd"
+    },
+    "docs/current-company-main-adoption/BASE-INVENTORY-d75da3fde972559ed359fe7d7ce99da1489806e2.json": {
+      "mode": "100644",
+      "gitBlob": "dfb1810dd5bf8a83163ce4b3bd621af9ff35e97d"
+    },
+    "docs/current-company-main-adoption/BASE-INVENTORY.json": {
+      "mode": "100644",
+      "gitBlob": "2eec47d668f4117b4dd8d4ee0607ecdd1fef07aa"
+    },
+    "docs/current-company-main-adoption/DIFFERENTIAL.json": {
+      "mode": "100644",
+      "gitBlob": "8a7aba4e7ad77088d160c7c14d3778c156e0b0d2"
+    },
+    "docs/current-company-main-adoption/EXCLUDED-UPSTREAM-d6203b6.json": {
+      "mode": "100644",
+      "gitBlob": "3a5727ebe757000bb268094d5081fb77f8d23aaa"
+    },
+    "docs/current-company-main-adoption/EXCLUDED-UPSTREAM-d6203b6.md": {
+      "mode": "100644",
+      "gitBlob": "6518398b942bf527bd0ea2d1059bf3f0b48771a1"
+    },
+    "docs/current-company-main-adoption/FINAL-SOURCE-VERIFICATION.json": {
+      "mode": "100644",
+      "gitBlob": "49bb4a9e0a72883c3771a31eb2d79f6d8f641009"
+    },
+    "docs/current-company-main-adoption/INPUT-ARTIFACTS.json": {
+      "mode": "100644",
+      "gitBlob": "e86d2f16773a3ef98b9ef1ce71404c79648b6928"
+    },
+    "docs/current-company-main-adoption/INPUT-SOURCES.json": {
+      "mode": "100644",
+      "gitBlob": "ca34eaacc5d3f018e0aa95f4cd3b6a6946b8b2de"
+    },
+    "docs/current-company-main-adoption/ORIGINAL-REVIEW-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "2234ca9a95905a96228afb3d736acb1c916a2f52"
+    },
+    "docs/current-company-main-adoption/OWNED-FILES.txt": {
+      "mode": "100644",
+      "gitBlob": "5769097f881425b609d28fdb060aefa5ad091c25"
+    },
+    "docs/current-company-main-adoption/PARENT-PAYMENT-VERIFICATION.json": {
+      "mode": "100644",
+      "gitBlob": "bdedd24b0284ee3a86249480ff6bc657e06a0e97"
+    },
+    "docs/current-company-main-adoption/PARENT-REVIEW.json": {
+      "mode": "100644",
+      "gitBlob": "5593661ae42f34235549b19df34a12955fd6e5d0"
+    },
+    "docs/current-company-main-adoption/PARENT-TRANSPORT-SEAM.md": {
+      "mode": "100644",
+      "gitBlob": "92dec27c4a8c1634b4d4af6b805896dbc31da751"
+    },
+    "docs/current-company-main-adoption/PAYMENT-COMPOSITION.json": {
+      "mode": "100644",
+      "gitBlob": "b3ae0ec9f42f2905b2415e8726e47868f32b98c5"
+    },
+    "docs/current-company-main-adoption/PAYMENT-EXTENSION.json": {
+      "mode": "100644",
+      "gitBlob": "1c1b4273ee0d27b8a7b19dc2506d4f64ce9ff527"
+    },
+    "docs/current-company-main-adoption/PIN.json": {
+      "mode": "100644",
+      "gitBlob": "f68f640cf0f8be09360b8a5fa18796dac8775169"
+    },
+    "docs/current-company-main-adoption/PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "e74cefd29cb55358b55954bc521dfeb417755606"
+    },
+    "docs/current-company-main-adoption/README.md": {
+      "mode": "100644",
+      "gitBlob": "e87ae48d6b0b31705c4dc82bbf78eaaf7a3b7cb0"
+    },
+    "docs/current-company-main-adoption/REPRODUCTION.json": {
+      "mode": "100644",
+      "gitBlob": "390d822c5cd1370b98fb085ffaaa3482ef9a75ee"
+    },
+    "docs/current-company-main-adoption/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "648745b4d9baff5c9e517ca013dcdca1fb0deae8"
+    },
+    "docs/current-company-main-adoption/REVIEW-SOURCE-PIN.json": {
+      "mode": "100644",
+      "gitBlob": "07388a3319ac19915fd7d1a4d42b9904b47650c1"
+    },
+    "docs/current-company-main-adoption/SCOUT-APPEND-SEAM.json": {
+      "mode": "100644",
+      "gitBlob": "6a3c7624f1d790b0862b9923deb4fe43fa31e829"
+    },
+    "docs/current-company-main-adoption/SHA256SUMS.json": {
+      "mode": "100644",
+      "gitBlob": "f815d7f07f9eee561e6e33f47649942c8c65206b"
+    },
+    "docs/current-company-main-adoption/SUPPLEMENTAL-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "60b4012d888b9f4bfe434357387231cb1dc1851f"
+    },
+    "docs/current-company-main-adoption/UPSTREAM-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "0738f3896e1dc6ff586ff1cc713669852e405faf"
+    },
+    "docs/current-company-main-adoption/b331cc9-snapshot.log": {
+      "mode": "100644",
+      "gitBlob": "34aad16393057a9669ff8de20dbf7d38a43f81ad"
+    },
+    "docs/current-company-main-adoption/build.py": {
+      "mode": "100644",
+      "gitBlob": "417d839c9fad208e7877b4b3aa4babaa7c71954f"
+    },
+    "docs/current-company-main-adoption/extend.py": {
+      "mode": "100644",
+      "gitBlob": "7b2ef2a1d9a262317a8b114701beac66a6e03694"
+    },
+    "docs/current-company-main-adoption/owner.patch": {
+      "mode": "100644",
+      "gitBlob": "a384fdc886ba23058749855c783f0658e3634ddb"
+    },
+    "docs/current-company-main-adoption/parallel-snapshot.log": {
+      "mode": "100644",
+      "gitBlob": "7ee03d2daac8b7534b45e1818c13151cbed95e81"
+    },
+    "docs/current-company-main-adoption/payment-extension/PIN.json": {
+      "mode": "100644",
+      "gitBlob": "13a2dec035ea3ee180f195d3db506c95eeb94902"
+    },
+    "docs/current-company-main-adoption/payment-extension/README.md": {
+      "mode": "100644",
+      "gitBlob": "a68c36ea9ced8822274ab9963120b23f6c814842"
+    },
+    "docs/current-company-main-adoption/payment-extension/owner.patch": {
+      "mode": "100644",
+      "gitBlob": "fde85176ad0ef1ccd289c9d62c96bd56b1226f0a"
+    },
+    "docs/current-company-main-adoption/payment-extension/source/autonomous-paid.ts": {
+      "mode": "100644",
+      "gitBlob": "ea56bd3824201f8f038493d8d9c48d29756113b3"
+    },
+    "docs/current-company-main-adoption/payment-extension/source/autonomy-release.ts": {
+      "mode": "100644",
+      "gitBlob": "ee517df6ee98d479184c1c3d4f495b18b26356d8"
+    },
+    "docs/current-company-main-adoption/payment-extension/source/current-payment-startup.ts": {
+      "mode": "100644",
+      "gitBlob": "0b9030896916280da590d9b528f26ae46720761b"
+    },
+    "docs/current-company-main-adoption/payment-extension/source/current-payment.ts": {
+      "mode": "100644",
+      "gitBlob": "9279007219d3e8ff2279d70b13b52acf3cd5d63c"
+    },
+    "docs/current-company-main-adoption/payment-extension/sql/002-payment-recovery.sql": {
+      "mode": "100644",
+      "gitBlob": "08389387dd2b2851f11484d8ade450494e3d622e"
+    },
+    "docs/current-company-main-adoption/payment-extension/verification.log": {
+      "mode": "100644",
+      "gitBlob": "445e43894b7b12ebbc27178760bc78d995a6cf76"
+    },
+    "docs/current-company-main-adoption/price-snapshot.log": {
+      "mode": "100644",
+      "gitBlob": "fec2ec43a146d86bba57ff3d16d28b371752dfd1"
+    },
+    "docs/current-company-main-adoption/repin.py": {
+      "mode": "100644",
+      "gitBlob": "e98f0c3a605f68016b00cb39f8b34689ed580a1c"
+    },
+    "docs/current-company-main-adoption/review/BUILDER-REVIEW-PIN.json": {
+      "mode": "100644",
+      "gitBlob": "313f0cf05ad7b71c0f1fac0478996773cff2ee99"
+    },
+    "docs/current-company-main-adoption/review/BUILDER-REVIEW.md": {
+      "mode": "100644",
+      "gitBlob": "6b7388d770acd1551c6f5fa18b3193ccb7e390eb"
+    },
+    "docs/current-company-main-adoption/review/RESOLUTION.md": {
+      "mode": "100644",
+      "gitBlob": "11ef53194eafacdf4da570dcded2e74232b32139"
+    },
+    "docs/current-company-main-adoption/review/REVIEW.md": {
+      "mode": "100644",
+      "gitBlob": "b1a10a623e8df3df0c2e5bb3db588fcfce0fb405"
+    },
+    "docs/current-company-main-adoption/review/SOURCE-REVIEW.json": {
+      "mode": "100644",
+      "gitBlob": "a79b5f588e815a8eb89a47d56c42f70ef841bd5e"
+    },
+    "docs/current-company-main-adoption/snapshot.log": {
+      "mode": "100644",
+      "gitBlob": "fec2ec43a146d86bba57ff3d16d28b371752dfd1"
+    },
+    "docs/current-company-main-adoption/snapshot.py": {
+      "mode": "100644",
+      "gitBlob": "93ed972f925c9f88bb534977f2033bb8a125d068"
+    },
+    "docs/current-company-main-adoption/stage.mjs": {
+      "mode": "100644",
+      "gitBlob": "8e4bb76d2849a7931371347593eebdf785b7f6bb"
+    },
+    "tests/track-b/current-company-main-adoption/HARNESS-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "692d422b4fa803fe3fd10af78c60ff83c759c3ca"
+    },
+    "tests/track-b/current-company-main-adoption/PAYMENT-FIX-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "a5e5762412a99b79f542a9e28a1897bab1b87b8a"
+    },
+    "tests/track-b/current-company-main-adoption/PRICING-COMPATIBILITY.json": {
+      "mode": "100644",
+      "gitBlob": "e27fb2c7a46375d9e81d2cd681072209ec084416"
+    },
+    "tests/track-b/current-company-main-adoption/README.md": {
+      "mode": "100644",
+      "gitBlob": "dce75c7ee35744628d1e65b7a41bad45b14001cd"
+    },
+    "tests/track-b/current-company-main-adoption/REVIEW-FIXTURE-COMPATIBILITY.json": {
+      "mode": "100644",
+      "gitBlob": "202babf51ba4a0ce5251d1152a66742aba794e3d"
+    },
+    "tests/track-b/current-company-main-adoption/REVIEW-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "e29fa17403186650141805169fa028e1479b2941"
+    },
+    "tests/track-b/current-company-main-adoption/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "39ff42046ec5dc2fe6185212581a92edd71cbd3c"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/POSTRUN-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "80b23b0c32b5c5235173a521d2b2610019c091dc"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "f1358875c5b319127ba8ffe1a7dbdb70cd6f4566"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "d0df8a01296ed77727b11fac651d32cc0c1c058f"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "80338c39a31d3a26590e3197c3693dfccf30c51c"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/review-tests.json": {
+      "mode": "100644",
+      "gitBlob": "5bd2413ef819225c190f49396f629d4f59379c07"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/review-tests.log": {
+      "mode": "100644",
+      "gitBlob": "4c870e6695704cdd93c36bc1b71278ed2c98157f"
+    },
+    "tests/track-b/current-company-main-adoption/baseline-review-evidence/review-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/diagnostics/diagnostic-ddl-control.log": {
+      "mode": "100644",
+      "gitBlob": "fc6f019257b573e0031bfe498994ec8d0fb87bf8"
+    },
+    "tests/track-b/current-company-main-adoption/diagnostics/diagnostic-error.log": {
+      "mode": "100644",
+      "gitBlob": "8271e26b60fa57b26bab87db4a925f1de197284b"
+    },
+    "tests/track-b/current-company-main-adoption/diagnostics/diagnostic-vitest.config.mjs": {
+      "mode": "100644",
+      "gitBlob": "09e7047bea2c65f805e1773e8bd412fe26ab174a"
+    },
+    "tests/track-b/current-company-main-adoption/diagnostics/refund-reconciliation.instrumented.test.ts": {
+      "mode": "100644",
+      "gitBlob": "b777ce32151092826d716d730dc5a8e53fc8124f"
+    },
+    "tests/track-b/current-company-main-adoption/diagnostics/refund-reconciliation.with-ddl.instrumented.test.ts": {
+      "mode": "100644",
+      "gitBlob": "87edb8e60c10f91196453d87a92709b5e4738c0b"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/POSTBUILD-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "c8cfff84b9287270afdb48c36bff06c49706a856"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "f61c514d495e5ff2e3c9c3a30fc7b9441d5e8561"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "56a6afe25c06b7935208bf74914eacbbb579bbfb"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/application-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/application-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "668cd5eccf8e33bf23dd16a53dd62e83337a4cfa"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/combined-tests.json": {
+      "mode": "100644",
+      "gitBlob": "b703abfbf2e213faa28039ba0787c7ff13bc545e"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/combined-tests.log": {
+      "mode": "100644",
+      "gitBlob": "75c2d06813afa3797fa7bfff4521d2e80f6bd78e"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/combined-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/core-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/next-typegen.log": {
+      "mode": "100644",
+      "gitBlob": "697379e755a1d18da0fc9dd6ce3dfa565794a76c"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/production-build.log": {
+      "mode": "100644",
+      "gitBlob": "75a1fca78d1dd2ef935a82453dbdceb60d418a3d"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/production-build.previous.log": {
+      "mode": "100644",
+      "gitBlob": "cc6c965c135f14d7da48bb6a433c8d362cd975ff"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/root-tests.json": {
+      "mode": "100644",
+      "gitBlob": "90c79fa8204a75fbd092fe50521e253e27bf2a77"
+    },
+    "tests/track-b/current-company-main-adoption/evidence/root-tests.log": {
+      "mode": "100644",
+      "gitBlob": "4806c545f1c0bd9db91630ebec5f25e935ab24cb"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/POSTBUILD-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "42ebe92f2f914a30bda1deaa6f18d7b5befddcbe"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/POSTBUILD-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "879e90d6c8c251c80bfdbb19e0186ee56881e332"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/PRODUCTION-SOURCE-HASHES.json": {
+      "mode": "100644",
+      "gitBlob": "f8c15e603e0b018415ddc716090188b9ff26804d"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "e18bb0a6d438d5296fe96ec62873f52d02113ef2"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "914a21d33a2ba274e0b707a46a0907e922ca01a8"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "4237f162c5ad9f2df78f899cb30221ef5435126a"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/application-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/application-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/combined-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/combined-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/core-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/core-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/next-typegen.log": {
+      "mode": "100644",
+      "gitBlob": "b2a6ac260c23b50170dd52ecd93f985a3e16e7f0"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/next-typegen.previous.log": {
+      "mode": "100644",
+      "gitBlob": "252ec28d7fea2351cf277245a1a31115af122990"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/production-build.log": {
+      "mode": "100644",
+      "gitBlob": "d0ea085171927bcc43dcc9ec9941c94c7337f7ab"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/production-build.previous.log": {
+      "mode": "100644",
+      "gitBlob": "4edc65dba30ce4b952397dd54f4699a2eccbb6ae"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/review-tests.json": {
+      "mode": "100644",
+      "gitBlob": "4e7bf6cb1a0817fcdf02988b33f6d5670414c2ca"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/review-tests.log": {
+      "mode": "100644",
+      "gitBlob": "564be9b41232f9bd64e872616233403295bf55a6"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/review-tests.previous.log": {
+      "mode": "100644",
+      "gitBlob": "b3c52dc7115112f9f134d401298c5fdfe59678ff"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/review-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/review-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/root-tests.json": {
+      "mode": "100644",
+      "gitBlob": "a2b68ebb117bc8ffa99480c89316e168cd3e2a08"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/root-tests.log": {
+      "mode": "100644",
+      "gitBlob": "9c368920f2001edf23ca7779944992207cb45b39"
+    },
+    "tests/track-b/current-company-main-adoption/final-384d-evidence/root-tests.previous.log": {
+      "mode": "100644",
+      "gitBlob": "057b559529452bba45035871ba9c3c645a8ac789"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/POSTBUILD-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "6bbc79a8da0448342eb02ae454c6a5bdfa52ef2c"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/POSTBUILD-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "c20b3d5a1d2e02e5c0aa2d43dfd1401dc96f86db"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/PRODUCTION-SOURCE-HASHES.json": {
+      "mode": "100644",
+      "gitBlob": "1441db21ff3b4455e882e242bc3ba2435b12fd4c"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "1021610900c164d2f5d56438afa4e5985f645c41"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "341d27f24ddfb477268a89e9b920ee2cc0825b96"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "97f1c76e8392093fdf2a903879b87c4984596b69"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/UPSTREAM-PRESERVATION-CHECK.json": {
+      "mode": "100644",
+      "gitBlob": "ed0b50485ed44dde4f2e13880436d4c6f1944b89"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/application-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/application-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/combined-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/combined-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/core-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/core-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/next-typegen.log": {
+      "mode": "100644",
+      "gitBlob": "532a5a4103c3f7e3d498aaa84d28ebeca5810cd7"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/next-typegen.previous.log": {
+      "mode": "100644",
+      "gitBlob": "b2a6ac260c23b50170dd52ecd93f985a3e16e7f0"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/production-build.log": {
+      "mode": "100644",
+      "gitBlob": "bd80cfcb6080148e5bb93323f71672fcc6e4a916"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/production-build.previous.log": {
+      "mode": "100644",
+      "gitBlob": "d0ea085171927bcc43dcc9ec9941c94c7337f7ab"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/review-tests.json": {
+      "mode": "100644",
+      "gitBlob": "1e9ad4daabe2e630f29b87a8478d4c9073829acf"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/review-tests.log": {
+      "mode": "100644",
+      "gitBlob": "fdda3791c5ef4f02f8baea79a9d87f1a4b23ced7"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/review-tests.previous.log": {
+      "mode": "100644",
+      "gitBlob": "564be9b41232f9bd64e872616233403295bf55a6"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/review-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/review-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/root-tests.json": {
+      "mode": "100644",
+      "gitBlob": "73be61f64a84da3a5ded652952a076ea1cec47ad"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/root-tests.log": {
+      "mode": "100644",
+      "gitBlob": "da9612ad5e4bcd3489d53a374e7477bbc25cc9ef"
+    },
+    "tests/track-b/current-company-main-adoption/final-b331-evidence/root-tests.previous.log": {
+      "mode": "100644",
+      "gitBlob": "9c368920f2001edf23ca7779944992207cb45b39"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/combined-vitest.config.mjs": {
+      "mode": "100644",
+      "gitBlob": "cfb7f0a0d33f7b7c651ce5db575973ed544a748a"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/empty-server-only.mjs": {
+      "mode": "100644",
+      "gitBlob": "cb0ff5c3b541f646105198ee23ac0fc3d805023e"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/offline-fonts.cjs": {
+      "mode": "100644",
+      "gitBlob": "a04947a7f32b9a9732437ec107f0f01462203249"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/offline.cjs": {
+      "mode": "100644",
+      "gitBlob": "81a4e55634c33150d9816809838d4bc0b5394306"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/packages/core/tsconfig.current-main-production.json": {
+      "mode": "100644",
+      "gitBlob": "35d9de119451e7ac9e60c1ec3c069d9b10f6cc9e"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-calendar/calendar.test.ts": {
+      "mode": "100644",
+      "gitBlob": "bae28a7f017ddf907101d551516244b14ba31972"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-integration/data-dispatch.test.ts": {
+      "mode": "100644",
+      "gitBlob": "aa80a551ce4c2fef013fe4049933b4e43061b355"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-integration/release-capability.test.ts": {
+      "mode": "100644",
+      "gitBlob": "9a7f636b95de416cdf6c76e1a8e3f934423da519"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/bridge.test.ts": {
+      "mode": "100644",
+      "gitBlob": "9369a92a09866db0e690de9665aa54187f3052a2"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/composition.test.ts": {
+      "mode": "100644",
+      "gitBlob": "925c6e4590aae1342f609f55969a9d45a18a6828"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/startup-webhook.test.ts": {
+      "mode": "100644",
+      "gitBlob": "497fd9bc2bba9006a61a81e67af4af837cf38551"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tests/track-b/current-autonomy-payment-startup/startup.test.ts": {
+      "mode": "100644",
+      "gitBlob": "1cc8c63d9ef0b5635a90a02b1fc7bf777acc03be"
+    },
+    "tests/track-b/current-company-main-adoption/harness-inputs/tsconfig.combined-tests.json": {
+      "mode": "100644",
+      "gitBlob": "c1496a354ab9d401601427a32e9ce2040084f891"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/PAYMENT-FIX-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "03369c351209d4def058fd3a6d70366feb9ea094"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/PIN.json": {
+      "mode": "100644",
+      "gitBlob": "13a2dec035ea3ee180f195d3db506c95eeb94902"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/README.md": {
+      "mode": "100644",
+      "gitBlob": "0b3411669441e8f3abc5c4490a649a988afc02a1"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/owner.patch": {
+      "mode": "100644",
+      "gitBlob": "fde85176ad0ef1ccd289c9d62c96bd56b1226f0a"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/source/autonomous-paid.ts": {
+      "mode": "100644",
+      "gitBlob": "ea56bd3824201f8f038493d8d9c48d29756113b3"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/source/autonomy-release.ts": {
+      "mode": "100644",
+      "gitBlob": "ee517df6ee98d479184c1c3d4f495b18b26356d8"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/source/current-payment-startup.ts": {
+      "mode": "100644",
+      "gitBlob": "0b9030896916280da590d9b528f26ae46720761b"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/source/current-payment.ts": {
+      "mode": "100644",
+      "gitBlob": "9279007219d3e8ff2279d70b13b52acf3cd5d63c"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/docs/current-company-payment-fixes/sql/002-payment-recovery.sql": {
+      "mode": "100644",
+      "gitBlob": "08389387dd2b2851f11484d8ade450494e3d622e"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts": {
+      "mode": "100644",
+      "gitBlob": "c4b68e79bf0b32d0908ed093778d00513c89810a"
+    },
+    "tests/track-b/current-company-main-adoption/historical-payment-pending-inputs/tests/track-b/current-company-payment-fixes/run.mjs": {
+      "mode": "100644",
+      "gitBlob": "9ede77e057c05af422ec3e97ca27a1569ecdc29f"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql": {
+      "mode": "100644",
+      "gitBlob": "894459667608368ebe9cb7547ee981f828ab6a10"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql": {
+      "mode": "100644",
+      "gitBlob": "8450d2d8efd785c08d20277b9e63d59c4d9aba85"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/PIN.json": {
+      "mode": "100644",
+      "gitBlob": "13a2dec035ea3ee180f195d3db506c95eeb94902"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/README.md": {
+      "mode": "100644",
+      "gitBlob": "a68c36ea9ced8822274ab9963120b23f6c814842"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/owner.patch": {
+      "mode": "100644",
+      "gitBlob": "fde85176ad0ef1ccd289c9d62c96bd56b1226f0a"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/autonomous-paid.ts": {
+      "mode": "100644",
+      "gitBlob": "ea56bd3824201f8f038493d8d9c48d29756113b3"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/autonomy-release.ts": {
+      "mode": "100644",
+      "gitBlob": "ee517df6ee98d479184c1c3d4f495b18b26356d8"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/current-payment-startup.ts": {
+      "mode": "100644",
+      "gitBlob": "0b9030896916280da590d9b528f26ae46720761b"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/source/current-payment.ts": {
+      "mode": "100644",
+      "gitBlob": "9279007219d3e8ff2279d70b13b52acf3cd5d63c"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/docs/current-company-payment-fixes/sql/002-payment-recovery.sql": {
+      "mode": "100644",
+      "gitBlob": "08389387dd2b2851f11484d8ade450494e3d622e"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/refund-reconciliation.test.ts": {
+      "mode": "100644",
+      "gitBlob": "bb4e4c05891b45723a0bdcb5a73dc8b5ffe32b09"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fix-inputs/tests/track-b/current-company-payment-fixes/run.mjs": {
+      "mode": "100644",
+      "gitBlob": "eac320c2f41cb3cd641b7e686b3c959a24ede4c7"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/POSTBUILD-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "7fea0e3ddc8efedd99402d4907ac6219423eaf80"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "457dd9f68d81eca0cc557711fe0ee6abc9100f79"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "c378b6ee692464c8a1bb1b99be486bddc5df0fdc"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "d9ec20f25e0c9dea76ad0696aea37b281bef367e"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/application-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/combined-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/core-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/next-typegen.log": {
+      "mode": "100644",
+      "gitBlob": "252ec28d7fea2351cf277245a1a31115af122990"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/production-build.log": {
+      "mode": "100644",
+      "gitBlob": "4edc65dba30ce4b952397dd54f4699a2eccbb6ae"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/review-tests.json": {
+      "mode": "100644",
+      "gitBlob": "449a64cda5a67fd8e5d70a153fc14e04fdbf0694"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/review-tests.log": {
+      "mode": "100644",
+      "gitBlob": "b3c52dc7115112f9f134d401298c5fdfe59678ff"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/review-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/root-tests.json": {
+      "mode": "100644",
+      "gitBlob": "0f94b0f8d5984eedc3b6652bfb73563b0ae0e6cf"
+    },
+    "tests/track-b/current-company-main-adoption/payment-fixes-before-fixture-evidence/root-tests.log": {
+      "mode": "100644",
+      "gitBlob": "057b559529452bba45035871ba9c3c645a8ac789"
+    },
+    "tests/track-b/current-company-main-adoption/pin-test-inputs.py": {
+      "mode": "100644",
+      "gitBlob": "06681e6ac117e67bd1ccff3ff288acbe33749787"
+    },
+    "tests/track-b/current-company-main-adoption/pricing-compatibility.patch": {
+      "mode": "100644",
+      "gitBlob": "91393018a253ef49dfa8eed684ea5f6f77e70406"
+    },
+    "tests/track-b/current-company-main-adoption/pricing-compatibility.py": {
+      "mode": "100644",
+      "gitBlob": "b3ead0918c31289c31797484d535c74821dd5b78"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/POSTRUN-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "80b23b0c32b5c5235173a521d2b2610019c091dc"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "f1358875c5b319127ba8ffe1a7dbdb70cd6f4566"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "d0df8a01296ed77727b11fac651d32cc0c1c058f"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "80338c39a31d3a26590e3197c3693dfccf30c51c"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/review-tests.json": {
+      "mode": "100644",
+      "gitBlob": "5bd2413ef819225c190f49396f629d4f59379c07"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/review-tests.log": {
+      "mode": "100644",
+      "gitBlob": "4c870e6695704cdd93c36bc1b71278ed2c98157f"
+    },
+    "tests/track-b/current-company-main-adoption/review-evidence/review-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.sql": {
+      "mode": "100644",
+      "gitBlob": "1be460e36bfd7db2a10a6986d94965a4b4c56cb5"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/autonomy-release-adoption/source/apps/web/src/server/autonomy-release.ts": {
+      "mode": "100644",
+      "gitBlob": "dcf9fbe8f3607f72b2bad6bb71f978996074bf4b"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.agent.sql": {
+      "mode": "100644",
+      "gitBlob": "8ec76353209eb984ce3950d435fee139462cafcc"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0000_init.sql": {
+      "mode": "100644",
+      "gitBlob": "a0e9d8eff37deaafe5e86f3f6b57624701d62594"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0001_expert_network.sql": {
+      "mode": "100644",
+      "gitBlob": "58fb513fb24f76264b7c5c66191c4fc156a18c61"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0002_delivery_snapshot.sql": {
+      "mode": "100644",
+      "gitBlob": "ed6b169f49e24a4221610af5bff918ab6aa09e1d"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0003_rate_limits.sql": {
+      "mode": "100644",
+      "gitBlob": "0fe2f8fbd9bea32129a68f8083ce3f00e8d4ff58"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0004_email_threads.sql": {
+      "mode": "100644",
+      "gitBlob": "76deda87a8dac0e1704505fc16eb4b6d31cc5657"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0005_remediations.sql": {
+      "mode": "100644",
+      "gitBlob": "d037cdc847c2e03ed02519926e4a5d6c9c6a7305"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0006_per_finding_pricing.sql": {
+      "mode": "100644",
+      "gitBlob": "c9763b023b4019cf1b9e94db951906657955a858"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0007_api_keys.sql": {
+      "mode": "100644",
+      "gitBlob": "32bdb2b442a885d17e1f53c6447336f34c33ef08"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0008_monitoring_runs.sql": {
+      "mode": "100644",
+      "gitBlob": "81f7166bbd70e006c052178e17ebe2d4d2edbb4f"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0009_call_slots.sql": {
+      "mode": "100644",
+      "gitBlob": "05328e33390376d2398a41cecccb05f94cb232e2"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0010_engagement_prev_tokens.sql": {
+      "mode": "100644",
+      "gitBlob": "1eb39022e1615e3f9f8acd14b6afa23bd41a4b6b"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0011_job_shares.sql": {
+      "mode": "100644",
+      "gitBlob": "2844592e2efbb3a849341459421265394073f026"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0012_github_prs.sql": {
+      "mode": "100644",
+      "gitBlob": "ed8249149b02232a725b750be82e6d186137427b"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0013_regression_runs.sql": {
+      "mode": "100644",
+      "gitBlob": "410c083b2ca0d32d9f6cdca0b0c68c1ad11e94f5"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.baseline.0014_public_agents.sql": {
+      "mode": "100644",
+      "gitBlob": "d2d37316f15213802c332c28eee0a2500c216ad0"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.chat.sql": {
+      "mode": "100644",
+      "gitBlob": "8eb33991cf63809204bbac1d8b4aab8f0d01c7bd"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.checkpoint.sql": {
+      "mode": "100644",
+      "gitBlob": "d3a07a7626a9598815e40d209f76c95d2c796fbb"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.data001.sql": {
+      "mode": "100644",
+      "gitBlob": "74f6d544aecd662f27f84ae5308f137ace203527"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.data002.sql": {
+      "mode": "100644",
+      "gitBlob": "23656e8b8b1847075feddfd722062a5fd064734c"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.inventory.sql": {
+      "mode": "100644",
+      "gitBlob": "deb0a3740db01ef9e56007c1718aff379b6ba824"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.journal.sql": {
+      "mode": "100644",
+      "gitBlob": "1acb14fd14f3cd5421953698cc66245579ef9581"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.ledger.sql": {
+      "mode": "100644",
+      "gitBlob": "f9f210ed1886df61bd7d4ee3fc054cc8c849a9d4"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.rich-comparison.006.sql": {
+      "mode": "100644",
+      "gitBlob": "3f4ba995e45da511cc77a1ef7aeee18e6b4cd929"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-data.003.sql": {
+      "mode": "100644",
+      "gitBlob": "c2e697ea93755972770b691dffc5bb92bfc1f089"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-finding-reruns.008.sql": {
+      "mode": "100644",
+      "gitBlob": "86b56c700574b5f5e33108f485f52802b0caa17e"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-packs.005.sql": {
+      "mode": "100644",
+      "gitBlob": "432d307947bfd1512c15b33657fcc2987a7ed26f"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-remediation.004.sql": {
+      "mode": "100644",
+      "gitBlob": "894459667608368ebe9cb7547ee981f828ab6a10"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow-resumption.007.sql": {
+      "mode": "100644",
+      "gitBlob": "0dbd1e0d7fe9115b5de7ff966e7ae6e2023db733"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow001.sql": {
+      "mode": "100644",
+      "gitBlob": "8450d2d8efd785c08d20277b9e63d59c4d9aba85"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/app.workflow002.sql": {
+      "mode": "100644",
+      "gitBlob": "660623c095c328dbba04e6250cc3f00874a24d0e"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.access.sql": {
+      "mode": "100644",
+      "gitBlob": "1be460e36bfd7db2a10a6986d94965a4b4c56cb5"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.communications.sql": {
+      "mode": "100644",
+      "gitBlob": "f758a0f1b499a452061af837895575fb840b5106"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.json": {
+      "mode": "100644",
+      "gitBlob": "c4fd45243a67190c2a1c1cd2d3ec96bee351053e"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/autonomy-release.operations.sql": {
+      "mode": "100644",
+      "gitBlob": "11e2178190a8f397b85c2419b5084679674ee323"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-integration/dependencies/owner-migrations/manifest.json": {
+      "mode": "100644",
+      "gitBlob": "e77b23a030c1026384cf18b6ac5d5a4a6128abaa"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/APPLICATION.json": {
+      "mode": "100644",
+      "gitBlob": "e223ed71ee68371b45b1bb2310e84ce98586d7c7"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/CANDIDATE.json": {
+      "mode": "100644",
+      "gitBlob": "d1643c0a78ec3a4dbdd1903081e820780455cf00"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/COMMIT-BLOCKED.md": {
+      "mode": "100644",
+      "gitBlob": "9c93a06408d05947f4ea62ef673e1f808a5d1139"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/FILES.json": {
+      "mode": "100644",
+      "gitBlob": "2081db4d344679d267a54ebedcf3fedfaa81e319"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/HANDOFF.json": {
+      "mode": "100644",
+      "gitBlob": "62892962affecbdddad2617973e4e77ebaa89f4f"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/LEDGER.md": {
+      "mode": "100644",
+      "gitBlob": "715b32f428f2b5430c4a62309d53d30096619711"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/README.md": {
+      "mode": "100644",
+      "gitBlob": "799272d6350665ed0267c53744d312d9e1540341"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/VERIFICATION.md": {
+      "mode": "100644",
+      "gitBlob": "ae2617eea42c6ca485505a7bb71fc67de3ad59eb"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/application.patch": {
+      "mode": "100644",
+      "gitBlob": "10231f2d61f08b5082b2e6f03162f3fc7e4ea710"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/bridge/README.md": {
+      "mode": "100644",
+      "gitBlob": "9ee419400e5f23e9eb4574a0b9bddf30dc72e2d5"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/bridge/source/apps/web/src/server/current-payment.ts": {
+      "mode": "100644",
+      "gitBlob": "889ba93b88ac7528a10c578c7273130d6af143a2"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/build-artifact.mjs": {
+      "mode": "100644",
+      "gitBlob": "e66dea803ed4f23e32f6f5416d128b18dc7b63b2"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/sql/001-current-payment.sql": {
+      "mode": "100644",
+      "gitBlob": "39464a4ee847fafeba80d333e741db4e6a233c9f"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/sql/README.md": {
+      "mode": "100644",
+      "gitBlob": "8bf5593d92017534fb8edefd0ed3aee413392913"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/stage.mjs": {
+      "mode": "100644",
+      "gitBlob": "5601bcce36207a5cde1ec9857dfc9ed98bbaf0e0"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/HANDOFF.md": {
+      "mode": "100644",
+      "gitBlob": "c5b1d09fb6711077e7e484a7f75e563b3c7dd608"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/cron/autonomy/route.ts": {
+      "mode": "100644",
+      "gitBlob": "cfd1a69a6c7b14268184a2a27b0ec53923b19985"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/report/route.ts": {
+      "mode": "100644",
+      "gitBlob": "0f6ae4aa7685005a1d071db00924ad478aa7b0f9"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/jobs/[jobId]/autonomy/route.ts": {
+      "mode": "100644",
+      "gitBlob": "1dfc243cd3141d5d52129420e3efca4283f55a5d"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/app/api/stripe/webhook/route.ts": {
+      "mode": "100644",
+      "gitBlob": "89c87112bbb82a98c500e5003ff735a4f0386174"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-owner.ts": {
+      "mode": "100644",
+      "gitBlob": "f2a2f4d50f78243f1426a8a16fdc402f9f671c33"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-autonomy-runtime.ts": {
+      "mode": "100644",
+      "gitBlob": "06d199f75821fbe0548147cad49c00c15f63d9f4"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-payment-startup.ts": {
+      "mode": "100644",
+      "gitBlob": "3c9b81403064d599441c8f1a22c3ecb4b3162ee5"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/server/current-stripe-payment.ts": {
+      "mode": "100644",
+      "gitBlob": "785320d5a32b7f33571d5538a4c7c68194448c3e"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-autonomy-payment-startup/startup/source/apps/web/src/workflows/current-autonomy.ts": {
+      "mode": "100644",
+      "gitBlob": "2be541792598c7ee7216dc2d56d832c2d3f2f771"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/FINDINGS.json": {
+      "mode": "100644",
+      "gitBlob": "980dd4c6d74eee4ea67bc6f4d375a3cfccaef384"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/README.md": {
+      "mode": "100644",
+      "gitBlob": "ea6de841801d02ef04bb41feec7edece58d38980"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/children/authorization-payment.md": {
+      "mode": "100644",
+      "gitBlob": "851c1a47ef772c40eff3b870fbdc30b84e90cebb"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/docs/current-company-review/children/replay-verification.md": {
+      "mode": "100644",
+      "gitBlob": "4186c08248e7c3b935f259df93304642777dda85"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/calendar.invariants.test.ts": {
+      "mode": "100644",
+      "gitBlob": "930e4a109202a47caf662e2f42a621097a92fbdd"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/composed.invariants.test.ts": {
+      "mode": "100644",
+      "gitBlob": "6e9342de32e90d47e2fba9a5b5c7d0c997d46c43"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/findings.test.ts": {
+      "mode": "100644",
+      "gitBlob": "329888439e64efa2b2609ab4a714a387d0de78b4"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/fixture.ts": {
+      "mode": "100644",
+      "gitBlob": "565a214226b093b535283cf2d37e04b4f8bc238b"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/authorization-payment/payment.characterization.test.ts": {
+      "mode": "100644",
+      "gitBlob": "e409c1a3cb4bd0bd1d47936d7def74d107821e4c"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-identity.characterization.test.ts": {
+      "mode": "100644",
+      "gitBlob": "94bab00399250d00aa7d4bba862746f85f7c2ea3"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-identity.invariants.test.ts": {
+      "mode": "100644",
+      "gitBlob": "396222a9cec9bb5d0f40c4a42f23b1d28a7498ee"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/calendar-replay.invariants.test.ts": {
+      "mode": "100644",
+      "gitBlob": "de6a934bd41bbc301ce8f6842b07a1fe1d1d15b8"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/current-app-calendar.invariants.test.ts": {
+      "mode": "100644",
+      "gitBlob": "6e4581b18bb18134321c3f66810cf9ddb57a06e9"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/fixture.ts": {
+      "mode": "100644",
+      "gitBlob": "cbcd7750a0d3c1372dfefe0bd476feda724e0624"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/payment-fixture.ts": {
+      "mode": "100644",
+      "gitBlob": "8c587e6ae569c68d4545b70a759707da65868484"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/receipt-drain-starvation.repro.test.ts": {
+      "mode": "100644",
+      "gitBlob": "1fd6dddc036fa85b222fe58fe506057c5a338788"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/receipt-drain.characterization.test.ts": {
+      "mode": "100644",
+      "gitBlob": "8b9c5e06cb7bf3f1c66873662ca4507a14b31763"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/startup.characterization.test.ts": {
+      "mode": "100644",
+      "gitBlob": "84cdf46744fa18409d57e9b61003af3d3fd85ede"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/replay-verification/startup.invariants.test.ts": {
+      "mode": "100644",
+      "gitBlob": "bc2d5a867ba366e34b1f67bd1213fba86faa6766"
+    },
+    "tests/track-b/current-company-main-adoption/review-inputs/tests/track-b/current-company-review/run.mjs": {
+      "mode": "100644",
+      "gitBlob": "d3928613a6696c0a4ed3cbf263a097115965b0c3"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/ORIGINAL-TEST-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "6b32d2bc516fc30bacc86eec1fead66c5e713633"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/POSTBUILD-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "8259cf3f36b3681dd76e9fc0ce104cdc00fe5917"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/POSTBUILD-PRESERVATION.json": {
+      "mode": "100644",
+      "gitBlob": "6e8541e41d23114318dd71bd475ae8de605cd256"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/PRODUCTION-SOURCE-HASHES.json": {
+      "mode": "100644",
+      "gitBlob": "e0bac8250316ad6a95d646fc4b32965384c1111c"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/RESULTS.json": {
+      "mode": "100644",
+      "gitBlob": "6d66b925295fe51d3e1f9965b7351878b8349ada"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/SUMMARY.json": {
+      "mode": "100644",
+      "gitBlob": "5bddd1377969a81bbe7ee693deeca545adc8a88a"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/TEST-INPUTS.json": {
+      "mode": "100644",
+      "gitBlob": "69c0170f1f3fd1d881e191d5f02530ea8cc238ca"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/TRANSPORT-REGRESSIONS.json": {
+      "mode": "100644",
+      "gitBlob": "983462d6ee49603f9f33f12d68ec64e7fb3c56ba"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/UPSTREAM-PRESERVATION-CHECK.json": {
+      "mode": "100644",
+      "gitBlob": "2d7e1275319209e49e5a049a41159459e3fcbe61"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/application-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/application-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/combined-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/combined-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/core-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/core-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/next-typegen.log": {
+      "mode": "100644",
+      "gitBlob": "58171862cc98cb196853a6f3d3fad895637806fc"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/next-typegen.previous.log": {
+      "mode": "100644",
+      "gitBlob": "532a5a4103c3f7e3d498aaa84d28ebeca5810cd7"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/production-build.log": {
+      "mode": "100644",
+      "gitBlob": "5af08f7ce5276179044d0da16465378b48abf502"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/production-build.previous.log": {
+      "mode": "100644",
+      "gitBlob": "bd80cfcb6080148e5bb93323f71672fcc6e4a916"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-tests.json": {
+      "mode": "100644",
+      "gitBlob": "56d339fce9c91f0433b44eb4e3d3b29587cc185f"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-tests.log": {
+      "mode": "100644",
+      "gitBlob": "45716f33e596e8ec08847bde7547698189bcace0"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-tests.previous.log": {
+      "mode": "100644",
+      "gitBlob": "fdda3791c5ef4f02f8baea79a9d87f1a4b23ced7"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-types.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/review-types.previous.log": {
+      "mode": "100644",
+      "gitBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/root-tests.json": {
+      "mode": "100644",
+      "gitBlob": "9a4ed474dd71cba9055ac0b292bcd18d4736bbd8"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/root-tests.log": {
+      "mode": "100644",
+      "gitBlob": "dc16feb769724bf76a5636171cccec9e156874d6"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/root-tests.previous.log": {
+      "mode": "100644",
+      "gitBlob": "da9612ad5e4bcd3489d53a374e7477bbc25cc9ef"
+    },
+    "tests/track-b/current-company-main-adoption/review-payment-fixes-evidence/transport-regressions.log": {
+      "mode": "100644",
+      "gitBlob": "ca409db50b202391cd48f87ce4bdb7c8786e0235"
+    },
+    "tests/track-b/current-company-main-adoption/reviewer-fixture-compatibility.patch": {
+      "mode": "100644",
+      "gitBlob": "010c4121c612e9acaf72d536cb04cd17f35b28fc"
+    },
+    "tests/track-b/current-company-main-adoption/reviewer-fixture-compatibility.payment-fixes.patch": {
+      "mode": "100644",
+      "gitBlob": "e322e29d1b956da8a7e392472c2fead58d7617a0"
+    },
+    "tests/track-b/current-company-main-adoption/reviewer-fixture-compatibility.py": {
+      "mode": "100644",
+      "gitBlob": "13e83caf1b74c41a591b0b150a6d13815b00a7a3"
+    },
+    "tests/track-b/current-company-main-adoption/run.mjs": {
+      "mode": "100644",
+      "gitBlob": "f8302a0a9aeb82920f1742ed82483b851e6455ab"
+    }
+  }
+}

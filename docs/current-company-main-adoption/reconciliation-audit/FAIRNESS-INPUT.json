@@ -1,0 +1,11 @@
+{
+  "sourcePath": "tests/track-b/current-company-payment-fixes/receipt-fairness.test.ts",
+  "sourceGitBlobAt2df": "c83e7c2b3a9c1be8bcdd0ea62fcb0b3f496a0681",
+  "sha256": "f35bd174947df518b6e4849c6fb58cd928bea8e6ed3c21a40f2742a2eb2b2e8f",
+  "stagePath": "tests/track-b/current-company-adoption-payment-fixes/receipt-fairness.test.ts",
+  "stageSha256": "57c33da9f9c193c66c1f6c8ea1f8ff21868602354d897ff0ec15dc0d3378ea2f",
+  "adaptation": "Only fixture import namespace current-company-review -> current-company-adoption-review",
+  "assertionsUnchanged": true,
+  "existingRunnerIncludesStagePath": true,
+  "expectedReviewTestCount": 223
+}

@@ -1,75 +1,24 @@
 {
-  "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
-  "tree": "0159ca4dcf94c2de05bc3fd5714f4585385f1bbc",
-  "initialMain": "a7851f848ecea7621b227cf71744f888985d9f7b",
-  "historicalParent": "039851736eabb94e85c2c111bbccc78374716275",
-  "stableParents": {
-    "companyReview": "441d018",
-    "payment": "d55699f7e831a2192441ecab97ffdbefe55ebe60",
-    "transport": "3f0bd8a589101c9902ad50d402b7948b6dee4c68"
-  },
-  "preservedFiles": 2523,
-  "preservedBytes": 26119288,
-  "explicitChanges": 21,
-  "additions": 125,
-  "finalSourceFiles": 2669,
-  "applicationSha256": "2ce331afeb2162b4bc12f0d1fee75f44475d7b85bb47d6615d9d20a8a40e769d",
-  "ownerPatchSha256": "763c1e3ea688ab2a7e9fd61aa12f2e28a2f79899527fe016882e269e45c816e0",
-  "tests": {
-    "total": 222,
-    "passed": 222,
-    "failed": 0,
-    "skipped": 0,
-    "files": 36,
-    "slices": {
-      "baseline": {
-        "files": 23,
-        "tests": 164,
-        "passed": 164,
-        "failed": 0,
-        "skipped": 0
-      },
-      "regression": {
-        "files": 1,
-        "tests": 1,
-        "passed": 1,
-        "failed": 0,
-        "skipped": 0
-      },
-      "review": {
-        "files": 12,
-        "tests": 57,
-        "passed": 57,
-        "failed": 0,
-        "skipped": 0
-      }
-    }
-  },
-  "rootTests": {
-    "total": 2653,
-    "passed": 2651,
-    "failed": 0,
-    "existingOptInSkipped": 2,
-    "skips": [
-      {
-        "file": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107/scripts/tau2/tasks-to-scenarios.test.ts",
-        "test": "tau2 retail scenarios (regeneration) regenerates the committed suite"
-      },
-      {
-        "file": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107/packages/core/src/sandbox/runtime/runtime.live.test.ts",
-        "test": "neon sandbox runtime (live) isolates two trials, diffs collateral writes, and cleans up"
-      }
-    ]
-  },
-  "finalGates": {
+  "parent": "2df678268926da50d0219889fd2190b7edb6f6e8",
+  "tree": "4be9ea6e53cbe19d043d6f2464f14df6fc7f83d4",
+  "parentFiles": 2906,
+  "preservedFiles": 2883,
+  "preservedBytes": 45616598,
+  "explicitChanges": 23,
+  "additions": 112,
+  "finalSourceFiles": 3018,
+  "selfReferencePolicy": "Historical owner artifact metadata/evidence remain pinned2df bytes inside the candidate. Canonical reconciliation control-plane lives outside the staged source; only explicit runner/test inputs change.",
+  "applicationSha256": "a5ee329e1f6e1bf4b249df41cd8ca4f3f77fdba3a22a6a763d06e3c5ca085ead",
+  "ownerPatchSha256": "ed958bfc6ed14d865a85e6159b2d77fcbc9ea5bc76fe8fbc8a007d16f9d9c238",
+  "gates": {
     "review-types": {
       "exitCode": 0
     },
     "review-tests": {
       "exitCode": 0,
       "testSummary": {
-        "total": 222,
-        "passed": 222,
+        "total": 223,
+        "passed": 223,
         "failed": 0,
         "pending": 0,
         "todo": 0
@@ -90,8 +39,8 @@
     "root-tests": {
       "exitCode": 0,
       "testSummary": {
-        "total": 2653,
-        "passed": 2651,
+        "total": 2831,
+        "passed": 2829,
         "failed": 0,
         "pending": 2,
         "todo": 0
@@ -101,34 +50,37 @@
       "exitCode": 0
     }
   },
-  "summarySha256": "4bf27ebd58ea42874b817fbd31d21df7e87b3c869eed732baf310d9e18bf893f",
-  "sourceReproduction": [
+  "scout": {
+    "tests": 46,
+    "originalTests": 38,
+    "scoutChecks": 8,
+    "checks": {
+      "types": {
+        "exit": 0
+      },
+      "suites": {
+        "exit": 0
+      }
+    },
+    "sourceSha256": "dbcc61e36930cd25472a308564f26e96219aa4e7bec9805e3c4d441e27f55302",
+    "browserVerified": false
+  },
+  "sourceVerification": [
     {
-      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
-      "files": 2669,
+      "stage": "/private/tmp/current-company-main-adoption-2df6782-final-20261107",
+      "verifiedFiles": 3018,
       "drift": []
     },
     {
-      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-reproduced-20261107",
-      "files": 2669,
+      "stage": "/private/tmp/current-company-main-adoption-2df6782-reproduced-20261107",
+      "verifiedFiles": 3018,
       "drift": []
     }
   ],
-  "originalReviewArtifactsPreserved": true,
-  "transportIncludedAsCommittedBase": true,
-  "excludedUpstream": "d6203b61e157df3558e7d6a7df2d8637d82f821d",
-  "excludedDeltaReport": "EXCLUDED-UPSTREAM-d6203b6.json",
-  "gitMetadataMutated": false,
-  "sharedApplicationEdited": false,
-  "releaseAccepted": false,
-  "liveRunPerformed": false,
-  "scoutAdopted": false,
-  "gates": [
-    "Apply only to exact stable3f pin; newer founder/Stripe/approval platform requires recomposition preserving explicit delta",
-    "Genuine owner adapters remain unconfigured",
-    "Owner migration identity/grant adoption including SQL002",
-    "Hosted auth/Workflow recovery and independent SQL contention",
-    "Genuine provider billing/receipt and cross-writer reconciliation",
-    "Independent review and owner activation"
-  ]
+  "evidence": "tests/track-b/current-company-main-adoption/final-2df-evidence/RESULTS.json",
+  "evidenceSha256": "37665392571e6e9cb10ecf38b692ff07d61b4cec73bb5b02173c07ca98c5dcf0",
+  "testInputsSha256": "f48d9d57970214794944ed1f26f60f1f86e7d72fe2188e6dd11211c1ebb19b10",
+  "wholeApplicationAccepted": false,
+  "hostedAcceptance": false,
+  "activationBlock": "Concrete CurrentOwnerLoader code integration required: current export always returns blocked; environment keys alone do not activate."
 }

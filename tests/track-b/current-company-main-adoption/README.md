@@ -1,3 +1,10 @@
+# Final frozen 2df verification
+
+Current evidence: `final-2df-evidence/` plus `scout-extension/final-2df-evidence/`.
+Run the canonical external runner against a staged candidate; see
+`docs/current-company-main-adoption/README.md`. Other evidence directories below
+retain their declared historical scope and are not final2df claims.
+
 # Current-main validation
 
 Run only against an independently staged, disposable application directory:

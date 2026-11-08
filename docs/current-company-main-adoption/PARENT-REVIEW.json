@@ -1,24 +1,22 @@
 {
-  "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
+  "parent": "2df678268926da50d0219889fd2190b7edb6f6e8",
   "artifactHashesVerified": true,
+  "artifactFilesVerified": 360,
   "checks": [
     {
-      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
-      "files": 2669,
+      "stage": "/private/tmp/current-company-main-adoption-2df6782-final-20261107",
+      "files": 3018,
       "drift": []
     },
     {
-      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-reproduced-20261107",
-      "files": 2669,
+      "stage": "/private/tmp/current-company-main-adoption-2df6782-reproduced-20261107",
+      "files": 3018,
       "drift": []
     }
   ],
   "laterUpstreamAdopted": false,
-  "laterUpstream": "d6203b61e157df3558e7d6a7df2d8637d82f821d",
-  "rootCommandsInCheckout": {
-    "typecheck": "unavailable compiler (cached tsc shim)",
-    "test": "vitest missing"
-  },
-  "buildAndTests": "Child retained exact-source results inspected; not redundantly rerun by parent",
+  "laterUpstream": "b6984a1",
+  "buildAndTests": "Retained exact-source results inspected: 223 integration, 2829 root tests with two existing opt-in skips, 46 Scout/chat checks, strict types and production build. Parent independently verified both candidates and artifact hashes.",
+  "activationBlock": "CurrentOwnerLoader always returns blocked; concrete reviewed code integration required. Environment keys alone cannot activate.",
   "releaseAccepted": false
 }

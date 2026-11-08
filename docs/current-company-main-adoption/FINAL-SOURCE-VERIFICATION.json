@@ -1,19 +1,20 @@
 {
-  "parent": "3f0bd8a589101c9902ad50d402b7948b6dee4c68",
-  "applicationSha256": "2ce331afeb2162b4bc12f0d1fee75f44475d7b85bb47d6615d9d20a8a40e769d",
-  "patchSha256": "763c1e3ea688ab2a7e9fd61aa12f2e28a2f79899527fe016882e269e45c816e0",
+  "parent": "2df678268926da50d0219889fd2190b7edb6f6e8",
+  "tree": "4be9ea6e53cbe19d043d6f2464f14df6fc7f83d4",
+  "applicationSha256": "a5ee329e1f6e1bf4b249df41cd8ca4f3f77fdba3a22a6a763d06e3c5ca085ead",
+  "ownerPatchSha256": "ed958bfc6ed14d865a85e6159b2d77fcbc9ea5bc76fe8fbc8a007d16f9d9c238",
   "checks": [
     {
-      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-final-20261107",
-      "files": 2669,
+      "stage": "/private/tmp/current-company-main-adoption-2df6782-final-20261107",
+      "verifiedFiles": 3018,
       "drift": []
     },
     {
-      "stage": "/private/tmp/current-company-main-adoption-3f0bd8a-reproduced-20261107",
-      "files": 2669,
+      "stage": "/private/tmp/current-company-main-adoption-2df6782-reproduced-20261107",
+      "verifiedFiles": 3018,
       "drift": []
     }
   ],
-  "originalReviewAndCommittedRegressionPreserved": true,
+  "gitMetadataMutated": false,
   "releaseAccepted": false
 }
