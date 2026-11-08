@@ -12,6 +12,7 @@ export const DEFAULT_NAV: NavItem[] = [
   { label: "Services", href: "/#services" },
   { label: "How it works", href: "/#how" },
   { label: "Sample report", href: "/sample" },
+  { label: "Leaderboard", href: "/leaderboard" },
   { label: "Pricing", href: "/#pricing" },
 ];
 

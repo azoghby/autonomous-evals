@@ -5,6 +5,7 @@ import { TopBar, type NavItem } from "./TopBar";
 const APP_NAV: NavItem[] = [
   { label: "How it works", href: "/#how" },
   { label: "Sample report", href: "/sample" },
+  { label: "Leaderboard", href: "/leaderboard" },
   { label: "Pricing", href: "/#pricing" },
   { label: "Experts", href: "/experts" },
 ];
