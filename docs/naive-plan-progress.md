@@ -26,6 +26,14 @@ Actual scripts now include `naive-roster.ts`, `naive-roster-config.ts` and `naiv
 
 Disjoint Sol implementation and independent review plus parent CLI tests pass 45 focused tests and strict standalone script types. Required root web TypeScript passes; npm passes **3,932 tests, zero failures and two documented skips**. Review found a FIFO-open hang, fixed with nonblocking open before regular-file checks. Stage receipts bind stage-relevant configuration; future-only settings can change until their affected stage is attested. The final handoff validates all five stages and remains `applyReady:false`. Internal MCP/idle routes, scoped authenticated task issuance, exact hosted tool authorization and full Phase0 acceptance remain unfinished. Required root verification is recorded in LEDGER.
 
+## Internal MCP task/read candidate (2026-11-08)
+
+`docs/naive-internal-mcp-integration` is a new independent, **unapplied** 13-file source/test candidate plus additive SQL on actual source `9c23982`. It connects fresh owner issuance/revocation, immutable job/customer/environment/credential task bindings, five-minute HMAC capabilities, role-bearer authentication, the real MCP HTTP read-tool transport and a bounded safe SQL progress projection. A composed test traverses issuer→signed task→MCP read→revoke using production adapters and PGlite with the app's real environment enum type. Read authority is held through repeatable-read projection and audit; limiter/audit failure fails closed.
+
+Parent verified 13 postimages, independent patch application, 2,234 baseline pins/zero unowned differences and reproducible assembly. Full staged suite **3,964 passed / zero failed / two documented skips**, including 32 focused tests; web types and offline-font production build pass (57 steps/four workflows). No actual app/core change, credential registration, provider call, migration or deployment occurred. This source does not depend on the factual/sourcing candidates and does not replace the current Gateway copilot.
+
+SDK 0.12.3 has no per-session MCP header injection. A first-call provider session ID cannot be asserted as authorization. Next: deliberate model-visible task capability transport with encrypted exact replay, atomic budget reservation, measured cost settlement, ambiguous-create fencing, actual conversation/streaming integration and numeric/finding validation. The existing durable session runner rejects credential-bearing messages and cannot be reused unchanged. Internal idle reconciliation, native PostgreSQL contention, live vault injection and full roster/Phase 0 acceptance also remain open.
+
 ## Phase 0
 
 Implemented and checked locally:

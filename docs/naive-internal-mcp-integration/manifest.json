@@ -1,0 +1,91 @@
+{
+  "baseCommit": "9c23982b9d9970086d047ea07f21e1f13e9cf670",
+  "status": "unapplied_candidate",
+  "files": [
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/naive-copilot-task/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/jobs/[jobId]/naive-copilot-task/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "1e21c8674132402a3acd9a93d2c664febdae1cf58eb124f602b4b730c59e4c3a"
+    },
+    {
+      "path": "apps/web/src/app/api/mcp/internal/[transport]/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/mcp/internal/[transport]/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "9f1efc7d688896288b387f473d7238dbf337cd50d058564ab80cf8e0dbf538a5"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-mcp.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-mcp.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "ea966c2b3d458ea656cc29b0ca61005ab12495bc5c561b6084b0123c6ba8e03d"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-mcp.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-mcp.ts",
+      "beforeSha256": null,
+      "afterSha256": "15ee06e1907098fdf6e6b000997ee790a20a44366db980050194728be99a9ed7"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-progress.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-progress.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "1596d79635ab2226d7f90f832ca484e74637981d6568e464b1138529c6bf9abb"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-progress.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-progress.ts",
+      "beforeSha256": null,
+      "afterSha256": "fd765107a8a36bcaca504305f25a1cc11a647c8c2996cf33bc998c9b00d3a017"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-runtime.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-runtime.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "f23ce5d7ca2d8643d6a5a655d161882ed44253ac37abf2050083275867573eee"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-runtime.ts",
+      "beforeSha256": null,
+      "afterSha256": "2f60c63d10fb5aea93b0dcba9d59d87c658d020466a2db2e7b72cecb6bcb9f6b"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-store.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-store.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "d08ad779ae23ff304eb37ad345a601dd0c33f0bd99c2c828fc3301de90e493ba"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-store.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-store.ts",
+      "beforeSha256": null,
+      "afterSha256": "c71ee624fd052377396982e1819fdbe7fe727f4a376d6f45b376fba31bb4d8bb"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-task-api.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-task-api.ts",
+      "beforeSha256": null,
+      "afterSha256": "b8694af87a9bec4966eb4214358c060846dfb52ae766cf4cdaa11288d0e92179"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-token.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-token.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "9916c6cc252c61e9c072125f8d8ffe1079a55e11f46275168ed54f452a3eeac2"
+    },
+    {
+      "path": "apps/web/src/server/naive-internal-token.ts",
+      "postimage": "postimages/apps/web/src/server/naive-internal-token.ts",
+      "beforeSha256": null,
+      "afterSha256": "ef3548c1916177c97f3629f7ecc4ed6e694001b7fb46925794fd0f107396ecf5"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-internal-mcp.sql",
+      "sha256": "3dd8aa997bb604dba4c7f0219b3cc2791907b1feecf45063b36a004d8ce78624"
+    }
+  ],
+  "fontMockSha256": "98abcddd54fde777816283b754cdbd95a140234418a18c6a258c3e545cd77107"
+}

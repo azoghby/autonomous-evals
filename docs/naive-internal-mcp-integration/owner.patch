@@ -1,0 +1,703 @@
+--- /dev/null
++++ b/apps/web/src/app/api/jobs/[jobId]/naive-copilot-task/route.ts
+@@ -0,0 +1,7 @@
++import { createInternalTaskDependencies } from '@/server/naive-internal-runtime';
++import { createInternalTaskApi, internalTaskUnavailable } from '@/server/naive-internal-task-api';
++export const dynamic = 'force-dynamic';
++export async function POST(request: Request, context: { params: Promise<{ jobId: string }> }) {
++  try { return await createInternalTaskApi(createInternalTaskDependencies())(request, (await context.params).jobId); }
++  catch { return internalTaskUnavailable(); }
++}
+--- /dev/null
++++ b/apps/web/src/app/api/mcp/internal/[transport]/route.ts
+@@ -0,0 +1,16 @@
++import { createInternalMcpHandler } from "@/server/naive-internal-mcp";
++import { createInternalMcpDependencies } from "@/server/naive-internal-runtime";
++
++export const dynamic = "force-dynamic";
++export const runtime = "nodejs";
++export const maxDuration = 30;
++async function handle(req: Request, ctx: { params: Promise<{ transport: string }> }) {
++  const { transport } = await ctx.params;
++  if (transport !== "mcp") return Response.json({ error: "not_found" }, { status: 404 });
++  try {
++    const deps = await createInternalMcpDependencies();
++    if (!deps) return Response.json({ error: "unavailable" }, { status: 503 });
++    return await createInternalMcpHandler(deps)(req);
++  } catch { return Response.json({ error: "unavailable" }, { status: 503 }); }
++}
++export { handle as POST, handle as GET, handle as DELETE };
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-mcp.test.ts
+@@ -0,0 +1,59 @@
++import { describe, expect, it, vi } from "vitest";
++import { createInternalMcpHandler, type InternalMcpDependencies } from "./naive-internal-mcp";
++const credential = { id: "credential", role: "copilot" as const, agentId: "agent", agentVersion: 1 };
++const snapshot = {jobId:"job",observedAt:"2026-11-08T00:00:00Z",status:"running" as const,statusEvidenceRef:"job:status",milestones:[],findings:[],blockers:[],costs:[],unknownCosts:true};
++function ports(): InternalMcpDependencies {
++ return {authenticate:vi.fn(async()=>credential),read:vi.fn(async()=>snapshot),auditDenied:vi.fn(async()=>{}),rateLimit:vi.fn(async()=>true)};
++}
++function request(method:string,params?:unknown, bearer="private-key") {
++ return new Request("https://example.test/api/mcp/internal/mcp",{method:"POST",headers:{authorization:`Bearer ${bearer}`,"content-type":"application/json",accept:"application/json, text/event-stream"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,...(params===undefined?{}:{params})})});
++}
++async function rpc(response:Response) {
++ const body=await response.text();
++ if(response.headers.get("content-type")?.includes("text/event-stream")) {
++  const data=body.split("\n").filter(l=>l.startsWith("data: ")).map(l=>JSON.parse(l.slice(6)));
++  return data.find(d=>d.id===1);
++ }
++ return JSON.parse(body);
++}
++describe("internal streamable MCP transport",()=>{
++ it("exposes only get_progress_snapshot and calls real SDK with task token",async()=>{
++  const deps=ports(),handle=createInternalMcpHandler(deps);
++  const list=await rpc(await handle(request("tools/list")));
++  expect(list.result.tools.map((t:{name:string})=>t.name)).toEqual(["get_progress_snapshot"]);
++  expect(list.result.tools[0].inputSchema.additionalProperties).toBe(false);
++  const call=await rpc(await handle(request("tools/call",{name:"get_progress_snapshot",arguments:{task_token:"signed-task"}})));
++  expect(JSON.parse(call.result.content[0].text)).toEqual(snapshot);
++  expect(deps.read).toHaveBeenCalledWith(credential,{taskToken:"signed-task"});
++ });
++ it("rejects selectors, unknown tools, oversized bodies and non-POST transports",async()=>{
++  const deps=ports(),handle=createInternalMcpHandler(deps);
++  for(const argumentsValue of [{task_token:"ok",jobId:"other"},{jobId:"other"}]) expect((await handle(request("tools/call",{name:"get_progress_snapshot",arguments:argumentsValue}))).status).toBe(400);
++  expect((await handle(request("tools/call",{name:"other",arguments:{task_token:"ok"}}))).status).toBe(400);
++  expect((await handle(request("tools/call",{name:"get_progress_snapshot",arguments:{task_token:"x".repeat(17000)}}))).status).toBe(413);
++  for(const method of ["GET","DELETE"]) expect((await handle(new Request("https://example.test/api/mcp/internal/mcp",{method}))).status).toBe(405);
++  expect(deps.read).not.toHaveBeenCalled();
++ });
++ it("fails closed for authentication, throttling and audit outages",async()=>{
++  const deps=ports(),handle=createInternalMcpHandler(deps);
++  vi.mocked(deps.authenticate).mockResolvedValue(null);
++  expect((await handle(request("tools/list"))).status).toBe(401);
++  vi.mocked(deps.authenticate).mockResolvedValue(credential);
++  vi.mocked(deps.rateLimit).mockResolvedValue(false);
++  expect((await handle(request("tools/list"))).status).toBe(429);
++  vi.mocked(deps.auditDenied).mockRejectedValue(new Error("private payload"));
++  const result=await handle(request("tools/list"));
++  expect(result.status).toBe(503); expect(await result.text()).not.toContain("private payload");
++ });
++ it("keeps concurrent credential contexts isolated and bounds returned snapshots",async()=>{
++  const deps=ports();
++  deps.authenticate=async bearer=>({...credential,id:bearer});
++  deps.read=vi.fn(async(c)=>({...snapshot,jobId:c.id}));
++  const handle=createInternalMcpHandler(deps);
++  const results=await Promise.all(["one","two"].map(async key=>rpc(await handle(request("tools/call",{name:"get_progress_snapshot",arguments:{task_token:key}},key)))));
++  expect(results.map(result=>JSON.parse(result.result.content[0].text).jobId)).toEqual(["one","two"]);
++  vi.mocked(deps.read).mockResolvedValue({...snapshot,private:"secret"} as never);
++  const denied=await rpc(await handle(request("tools/call",{name:"get_progress_snapshot",arguments:{task_token:"ok"}})));
++  expect(denied.result.isError).toBe(true); expect(JSON.stringify(denied)).not.toContain("secret");
++ });
++});
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-mcp.ts
+@@ -0,0 +1,93 @@
++import { createMcpHandler } from "mcp-handler";
++import { z } from "zod";
++import type { InternalCredential } from "./naive-internal-store";
++import { ProgressSnapshotSchema, type ProgressSnapshot } from "@ae/core/reporting/chat/types";
++
++export type InternalDeniedReason = "auth_denied" | "rate_limited" | "request_denied" | "read_denied" | "internal_error";
++export interface InternalMcpDependencies {
++  authenticate(bearer: string): Promise<InternalCredential | null>;
++  read(credential: InternalCredential, input: { taskToken: string }): Promise<ProgressSnapshot>;
++  auditDenied(reason: InternalDeniedReason, credentialId?: string): Promise<void>;
++  rateLimit(credential: InternalCredential): Promise<boolean>;
++}
++const MAX_BODY = 16 * 1024;
++function error(status: number, code: string): Response {
++  return Response.json({ error: code }, { status, headers: { "Cache-Control": "no-store" } });
++}
++/** Every request owns its credential closure; no cross-request authentication state. */
++export function createInternalMcpHandler(deps: InternalMcpDependencies) {
++  return async (req: Request): Promise<Response> => {
++    let credential: InternalCredential | null = null;
++    const deny = async (reason: InternalDeniedReason, status: number) => {
++      await deps.auditDenied(reason, credential?.id);
++      return error(status, reason);
++    };
++    try {
++      if (new URL(req.url).pathname !== "/api/mcp/internal/mcp") return await deny("request_denied", 404);
++      if (req.method !== "POST") return await deny("request_denied", 405);
++      const authorization = req.headers.get("authorization") ?? "";
++      const match = /^Bearer ([\x21-\x7e]{1,2048})$/i.exec(authorization);
++      if (!match) return await deny("auth_denied", 401);
++      credential = await deps.authenticate(match[1]);
++      if (!credential) return await deny("auth_denied", 401);
++      if (!await deps.rateLimit(credential)) return await deny("rate_limited", 429);
++      if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return await deny("request_denied", 415);
++      const reader = req.body?.getReader();
++      if (!reader) return await deny("request_denied", 400);
++      const chunks: Uint8Array[] = [];
++      let size = 0;
++      try {
++        while (true) {
++          const next = await reader.read();
++          if (next.done) break;
++          size += next.value.byteLength;
++          if (size > MAX_BODY) { await reader.cancel(); return await deny("request_denied", 413); }
++          chunks.push(next.value);
++        }
++      } finally { reader.releaseLock(); }
++      const body = Buffer.concat(chunks);
++      let parsed: unknown;
++      try { parsed = JSON.parse(body.toString("utf8")); } catch { return await deny("request_denied", 400); }
++      // Reject batches and selectors before the SDK can include invalid input in an error.
++      const envelope = z.object({ jsonrpc: z.literal("2.0"), id: z.union([z.string().max(128), z.number(), z.null()]).optional(), method: z.string().max(128), params: z.unknown().optional() }).strict().safeParse(parsed);
++      if (!envelope.success) return await deny("request_denied", 400);
++      const method = envelope.data.method;
++      if (!["initialize", "notifications/initialized", "ping", "tools/list", "tools/call"].includes(method)) return await deny("request_denied", 400);
++      if (["tools/list", "ping", "notifications/initialized"].includes(method) && envelope.data.params !== undefined && !z.object({}).strict().safeParse(envelope.data.params).success) return await deny("request_denied", 400);
++      if (method === "initialize" && !z.object({
++        protocolVersion: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/),
++        capabilities: z.object({}).passthrough(),
++        clientInfo: z.object({ name: z.string().min(1).max(128), version: z.string().max(128), title: z.string().max(128).optional() }).strict(),
++      }).strict().safeParse(envelope.data.params).success) return await deny("request_denied", 400);
++      if (envelope.data.method === "tools/call") {
++        const call = z.object({ name: z.literal("get_progress_snapshot"), arguments: z.object({ task_token: z.string().min(1).max(4096) }).strict() }).strict().safeParse(envelope.data.params);
++        if (!call.success) return await deny("request_denied", 400);
++      }
++      const ownedCredential = credential;
++      const handler = createMcpHandler((server) => {
++        server.registerTool("get_progress_snapshot", {
++          title: "Get assigned task progress", description: "Read bounded progress for the task token supplied as task_token. This does not authenticate a provider session.",
++          inputSchema: z.object({ task_token: z.string().min(1).max(4096) }).strict(),
++          annotations: { readOnlyHint: true, openWorldHint: false },
++        }, async ({ task_token }) => {
++          try {
++            const snapshot = ProgressSnapshotSchema.parse(await deps.read(ownedCredential, { taskToken: task_token }));
++            return { content: [{ type: "text" as const, text: JSON.stringify(snapshot) }] };
++          } catch {
++            // Audit failures remain private and cannot yield progress.
++            try { await deps.auditDenied("read_denied", ownedCredential.id); } catch {
++              return { content: [{ type: "text" as const, text: '{"error":"internal_error"}' }], isError: true };
++            }
++            return { content: [{ type: "text" as const, text: '{"error":"read_denied"}' }], isError: true };
++          }
++        });
++      }, { serverInfo: { name: "standard-evals-internal", version: "1.0.0" }, maxSubscriptions: 0, verboseLogs: false });
++      const response = await handler(new Request(req.url, { method: "POST", headers: req.headers, body }));
++      response.headers.set("Cache-Control", "no-store");
++      return response;
++    } catch {
++      try { await deps.auditDenied("internal_error", credential?.id); } catch { /* Fail closed without payload logging. */ }
++      return error(503, "internal_error");
++    }
++  };
++}
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-progress.test.ts
+@@ -0,0 +1,66 @@
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach, beforeEach, describe, expect, it } from 'vitest';
++import { readInternalProgress } from './naive-internal-progress';
++
++const jobId = '11111111-1111-4111-8111-111111111111';
++const customerId = '22222222-2222-4222-8222-222222222222';
++const rowId = '33333333-3333-4333-8333-333333333333';
++const at = '2026-01-01T00:00:00.000Z';
++let db: PGlite;
++const read = () => readInternalProgress(db, { jobId, customerId });
++beforeEach(async () => {
++  db = new PGlite();
++  await db.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid,state text,updated_at timestamptz);
++    CREATE TABLE progress_events(id text,job_id uuid,milestone text,created_at timestamptz);
++    CREATE TABLE findings(id text,job_id uuid,data jsonb,created_at timestamptz);
++    CREATE TABLE costs(id text,job_id uuid,source text,micro_usd bigint,created_at timestamptz);`);
++  await db.query('INSERT INTO jobs VALUES($1,$2,$3,$4)', [jobId, customerId, 'running', at]);
++});
++afterEach(async () => { await db.close(); });
++describe('persisted internal progress projection', () => {
++  it('rechecks exact ownership and rejects missing jobs and invalid input', async () => {
++    await expect(readInternalProgress(db, { jobId, customerId: rowId })).rejects.toThrow('internal_progress_unavailable');
++    await expect(readInternalProgress(db, { jobId: rowId, customerId })).rejects.toThrow('internal_progress_unavailable');
++    await expect(readInternalProgress(db, { jobId: 'https://private', customerId })).rejects.toThrow('internal_progress_unavailable');
++  });
++  it('projects only persisted safe facts and row evidence references', async () => {
++    await db.query('INSERT INTO findings VALUES($1,$2,$3,$4)', [rowId, jobId, JSON.stringify({status:'confirmed', severity:'high', evidence:[{excerpt:'SECRET',location:'https://private'}], title:'SECRET'}), at]);
++    await db.query('INSERT INTO progress_events VALUES($1,$2,$3,$4)', [rowId, jobId, 'custom secret milestone', '2026-01-02T00:00:00Z']);
++    await db.query('INSERT INTO costs VALUES($1,$2,$3,$4,$5)', [rowId, jobId, 'ai_gateway', '42', at]);
++    const result = await read();
++    expect(result.observedAt).toBe('2026-01-02T00:00:00.000Z');
++    expect(result.findings).toEqual([{id:rowId,status:'confirmed',severity:'high',evidenceRefs:[`finding:${rowId}`]}]);
++    expect(result.costs).toHaveLength(1); expect(result.costs[0]?.microUsd).toBe(42);
++    expect(result.milestones[0]?.milestone).toBe('other');
++    expect(result.unknownCosts).toBe(true);
++    expect(JSON.stringify(result)).not.toMatch(/SECRET|https:|custom secret/);
++  });
++  it('does not relabel proxy costs or include other job costs', async () => {
++    await db.query('INSERT INTO costs VALUES($1,$2,$3,$4,$5)', [rowId,jobId,'naive_proxy',9,at]);
++    await db.query('INSERT INTO costs VALUES($1,$2,$3,$4,$5)', [rowId,rowId,'naive',99,at]);
++    expect((await read()).costs).toEqual([]);
++  });
++  it.each(['progress_events','findings','costs'])('rejects overflowing %s inventories', async table => {
++    const limit = table === 'costs' ? 1000 : 200;
++    const fields = table === 'costs' ? "'naive', 1" : table === 'findings' ? `' {"status":"confirmed","severity":"low","evidence":[{}]}'::jsonb` : "'running'";
++    await db.query(`INSERT INTO ${table} SELECT $1,$2,${fields},$3::timestamptz FROM generate_series(1,${limit + 1})`, [rowId,jobId,at]);
++    await expect(read()).rejects.toThrow('internal_progress_unavailable');
++  });
++  it('rejects unsafe row IDs, unsupported status, and invalid findings', async () => {
++    await db.query('INSERT INTO progress_events VALUES($1,$2,$3,$4)', ['https://private',jobId,'running',at]);
++    await expect(read()).rejects.toThrow('internal_progress_unavailable');
++    await db.exec('DELETE FROM progress_events');
++    await db.query('UPDATE jobs SET state=$1', ['completed']);
++    await expect(read()).rejects.toThrow('internal_progress_unavailable');
++    await db.query('UPDATE jobs SET state=$1', ['running']);
++    await db.query('INSERT INTO findings VALUES($1,$2,$3,$4)', [rowId,jobId,'{"status":"confirmed","severity":"high","evidence":[]}',at]);
++    await expect(read()).rejects.toThrow('internal_progress_unavailable');
++  });
++  it('rejects unsafe individual and summed cost integers', async () => {
++    await db.query('INSERT INTO costs VALUES($1,$2,$3,$4,$5)', [rowId,jobId,'naive','9007199254740992',at]);
++    await expect(read()).rejects.toThrow('internal_progress_unavailable');
++    await db.query('UPDATE costs SET micro_usd=$1', ['9007199254740991']);
++    await db.query('INSERT INTO costs VALUES($1,$2,$3,$4,$5)', [rowId,jobId,'ai_gateway',1,at]);
++    await expect(read()).rejects.toThrow('internal_progress_unavailable');
++  });
++});
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-progress.ts
+@@ -0,0 +1,64 @@
++import type { AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++import { CHAT_LIMITS, ProgressSnapshotSchema, type ProgressSnapshot } from '@ae/core/reporting/chat/types';
++
++const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
++function invalid(): never { throw new Error('internal_progress_unavailable'); }
++function id(value: unknown): string {
++  if (typeof value !== 'string' || !UUID.test(value)) invalid();
++  return value;
++}
++function time(value: unknown): string {
++  const iso = value instanceof Date ? value.toISOString() : value;
++  if (typeof iso !== 'string' || !ProgressSnapshotSchema.shape.observedAt.safeParse(iso).success || !Number.isFinite(Date.parse(iso))) invalid();
++  return new Date(iso).toISOString();
++}
++function amount(value: unknown): number {
++  if (typeof value !== 'number' && !(typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value))) invalid();
++  const n = Number(value);
++  if (!Number.isSafeInteger(n) || n < 0) invalid();
++  return n;
++}
++function bounded<T>(rows: T[], limit: number): T[] { if (rows.length > limit) invalid(); return rows; }
++
++/** Caller must provide a pinned, consistent transaction and authorize the task first.
++ * This is a projection, not authentication. Recheck exact persisted ownership while
++ * locking the job against owner changes; there is deliberately no operator bypass.
++ * LIMIT + 1 fails closed rather than presenting truncated counts as complete.
++ * Evidence references identify persisted rows, never text/locations from evidence.
++ */
++export async function readInternalProgress(tx: AgentSqlExecutor, scope: { customerId: string; jobId: string }): Promise<ProgressSnapshot> {
++  try {
++    const customerId = id(scope.customerId), jobId = id(scope.jobId);
++    const jobs = await tx.query<{ id: string; state: unknown; updated_at: unknown }>(
++      'SELECT id, state, updated_at FROM jobs WHERE id = $1 AND customer_id = $2 FOR SHARE', [jobId, customerId]);
++    if (jobs.rows.length !== 1 || jobs.rows[0]!.id !== jobId) invalid();
++    const job = jobs.rows[0]!;
++    let observedAt = time(job.updated_at);
++    const observe = (value: unknown) => { const at = time(value); if (at > observedAt) observedAt = at; return at; };
++    const milestones = bounded((await tx.query<{ id: unknown; milestone: unknown; created_at: unknown }>(
++      'SELECT id, milestone, created_at FROM progress_events WHERE job_id = $1 ORDER BY created_at, id LIMIT $2', [jobId, CHAT_LIMITS.milestones + 1])).rows, CHAT_LIMITS.milestones).map(row => {
++      const ref = id(row.id);
++      if (typeof row.milestone !== 'string' || row.milestone.length > 100) invalid();
++      return { id: ref, milestone: ['planning', 'running', 'investigating', 'delivered'].includes(row.milestone) ? row.milestone : 'other', at: observe(row.created_at), evidenceRef: `progress:${ref}` };
++    });
++    const findings = bounded((await tx.query<{ id: unknown; status: unknown; severity: unknown; evidence_count: unknown; created_at: unknown }>(
++      "SELECT id, data->>'status' AS status, data->>'severity' AS severity, CASE WHEN jsonb_typeof(data->'evidence') = 'array' THEN jsonb_array_length(data->'evidence') END AS evidence_count, created_at FROM findings WHERE job_id = $1 ORDER BY created_at, id LIMIT $2", [jobId, CHAT_LIMITS.findings + 1])).rows, CHAT_LIMITS.findings).map(row => {
++      const ref = id(row.id); observe(row.created_at);
++      if (amount(row.evidence_count) < 1) invalid();
++      // The schema has no evidence IDs: cite the owning persisted finding row.
++      return { id: ref, status: row.status, severity: row.severity, evidenceRefs: [`finding:${ref}`] };
++    });
++    let total = 0;
++    const costs = bounded((await tx.query<{ id: unknown; source: unknown; micro_usd: unknown; created_at: unknown }>(
++      'SELECT id, source, micro_usd, created_at FROM costs WHERE job_id = $1 ORDER BY created_at, id LIMIT $2', [jobId, CHAT_LIMITS.costs + 1])).rows, CHAT_LIMITS.costs).flatMap(row => {
++      const ref = id(row.id), microUsd = amount(row.micro_usd); observe(row.created_at);
++      total += microUsd; if (!Number.isSafeInteger(total)) invalid();
++      if (typeof row.source !== 'string' || !['naive', 'naive_proxy', 'ai_gateway'].includes(row.source)) invalid();
++      // Proxy costs are a distinct ledger source; never relabel them as Naive.
++      return row.source === 'naive_proxy' ? [] : [{ id: ref, source: row.source, microUsd, evidenceRef: `cost:${ref}` }];
++    });
++    return ProgressSnapshotSchema.parse({ jobId, status: job.state, statusEvidenceRef: `job:${jobId}`, observedAt, milestones, findings, blockers: [], costs,
++      // This ledger cannot prove pending/unreported external usage is settled.
++      unknownCosts: true });
++  } catch { invalid(); }
++}
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-runtime.test.ts
+@@ -0,0 +1,57 @@
++import { PGlite } from '@electric-sql/pglite';
++import { createHash } from 'node:crypto';
++import { readFileSync } from 'node:fs';
++import { afterEach, expect, it, vi } from 'vitest';
++import { internalMcpDependencies, internalTaskDependencies, internalRuntimeConfig, failClosedInternalLimiter } from './naive-internal-runtime';
++import { createInternalTaskApi } from './naive-internal-task-api';
++import { createInternalMcpHandler } from './naive-internal-mcp';
++import type { AgentSqlExecutor, AgentTransactionalSql } from './naive-internal-store';
++const customer='10000000-0000-4000-8000-000000000001', other='10000000-0000-4000-8000-000000000002',job='2a000000-0000-4000-8000-000000000001',credentialId='30000000-0000-4000-8000-000000000001',requestId='4b000000-0000-4000-8000-000000000001';
++const bearer='test-only-bearer-value-not-a-real-secret', secret='test-only-task-signing-secret-32-bytes-long';
++const config={pin:{agentId:`agt_${'0'.repeat(26)}`,agentVersion:1},secret,audience:'https://example.test/api/mcp/internal/mcp'};
++const dbs:PGlite[]=[];afterEach(async()=>{for(const db of dbs.splice(0))await db.close();});
++async function fixture(){
++ const pg=new PGlite();dbs.push(pg);
++ await pg.exec(`CREATE TYPE environment AS ENUM ('test','live'); CREATE TABLE customers(id uuid PRIMARY KEY); CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid,environment environment,state text,updated_at timestamptz);
++ CREATE TABLE progress_events(id uuid,job_id uuid,milestone text,created_at timestamptz); CREATE TABLE findings(id uuid,job_id uuid,data jsonb,created_at timestamptz);
++ CREATE TABLE costs(id uuid,job_id uuid,source text,micro_usd bigint,created_at timestamptz); CREATE TABLE rate_limits(key text PRIMARY KEY,window_start timestamptz,count int);`);
++ await pg.exec(readFileSync('docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql','utf8'));
++ await pg.query('INSERT INTO customers VALUES($1),($2)',[customer,other]);await pg.query("INSERT INTO jobs VALUES($1,$2,'test','running',now())",[job,customer]);
++ await pg.query("INSERT INTO naive_internal.credentials(id,role,agent_id,agent_version,bearer_sha256) VALUES($1,'copilot',$2,1,$3)",[credentialId,config.pin.agentId,createHash('sha256').update(bearer).digest('hex')]);
++ const db:AgentTransactionalSql={query:(q,p)=>pg.query(q,p),transaction:fn=>pg.transaction(t=>fn({query:(q,p)=>t.query(q,p)} as AgentSqlExecutor))};
++ const api=createInternalTaskApi(internalTaskDependencies(db,config,async()=>customer));const handle=createInternalMcpHandler(internalMcpDependencies(db,config));
++ return {pg,db,api,handle};
++}
++function issueRequest(body:unknown,headers:Record<string,string>={}){return new Request(`https://example.test/api/jobs/${job}/naive-copilot-task`,{method:'POST',headers:{origin:'https://example.test','content-type':'application/json',...headers},body:JSON.stringify(body)});}
++function toolRequest(token:string,key=bearer){return new Request(config.audience,{method:'POST',headers:{authorization:`Bearer ${key}`,'content-type':'application/json',accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'get_progress_snapshot',arguments:{task_token:token}}})});}
++async function rpc(response:Response){const text=await response.text();return response.headers.get('content-type')?.includes('text/event-stream')?text.split('\n').filter(l=>l.startsWith('data: ')).map(l=>JSON.parse(l.slice(6))).find(r=>r.id===1):JSON.parse(text);}
++it('issues through owner API, reads through real MCP transport, replays exactly and revokes future reads',async()=>{
++ const f=await fixture();expect((await f.api(issueRequest({action:'revoke',taskId:requestId}),job)).status).toBe(503);const first=await f.api(issueRequest({action:'issue',requestId:requestId.toUpperCase()}),job.toUpperCase());expect(first.status).toBe(200);expect(first.headers.get('cache-control')).toBe('private, no-store');const issued=await first.json();
++ expect(await (await f.api(issueRequest({action:'issue',requestId}),job)).json()).toEqual(issued);
++ const result=await rpc(await f.handle(toolRequest(issued.taskToken)));expect(JSON.parse(result.result.content[0].text)).toMatchObject({jobId:job,status:'running',unknownCosts:true});
++ const stored=JSON.stringify((await f.pg.query('SELECT * FROM naive_internal.tasks')).rows);expect(stored).not.toContain(issued.taskToken);expect(stored).not.toContain(bearer);
++ expect((await f.api(issueRequest({action:'revoke',taskId:issued.taskId}),job)).status).toBe(200);
++ const denied=await rpc(await f.handle(toolRequest(issued.taskToken)));expect(denied.result.isError).toBe(true);expect(JSON.stringify(denied)).not.toContain(job);
++ expect((await f.api(issueRequest({action:'issue',requestId}),job)).status).toBe(503);
++ const outcomes=(await f.pg.query<{outcome:string}>('SELECT outcome FROM naive_internal.audit')).rows.map(r=>r.outcome);expect(outcomes).toEqual(['task_issued','task_replayed','read_allowed','task_revoked','read_denied']);
++});
++it('rejects foreign ownership, credential revocation and forged/customer bearer at production composition',async()=>{
++ const f=await fixture();const issued=await (await f.api(issueRequest({action:'issue',requestId}),job)).json();
++ expect((await f.handle(toolRequest(issued.taskToken,'ae_customer_api_key_from_other_surface'))).status).toBe(401);
++ await f.pg.query('UPDATE jobs SET customer_id=$1 WHERE id=$2',[other,job]);expect((await rpc(await f.handle(toolRequest(issued.taskToken)))).result.isError).toBe(true);
++ await f.pg.query('UPDATE jobs SET customer_id=$1 WHERE id=$2',[customer,job]);await f.pg.query('UPDATE naive_internal.credentials SET revoked_at=now() WHERE id=$1',[credentialId]);expect((await f.handle(toolRequest(issued.taskToken))).status).toBe(401);
++});
++it('fails closed on real limiter SQL outage and on missing audit persistence',async()=>{
++ const f=await fixture();const issued=await (await f.api(issueRequest({action:'issue',requestId}),job)).json();
++ await f.pg.exec('DROP TABLE rate_limits');expect((await f.handle(toolRequest(issued.taskToken))).status).toBe(503);expect((await f.api(issueRequest({action:'issue',requestId}),job)).status).toBe(503);
++ await f.pg.exec('CREATE TABLE rate_limits(key text PRIMARY KEY,window_start timestamptz,count int)');await f.pg.exec("CREATE FUNCTION reject_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private DB detail'; END $$; CREATE TRIGGER reject_audit BEFORE INSERT ON naive_internal.audit FOR EACH ROW EXECUTE FUNCTION reject_audit();");
++ const failed=await rpc(await f.handle(toolRequest(issued.taskToken)));expect(failed.result.isError).toBe(true);expect(JSON.stringify(failed)).not.toMatch(/private DB detail|jobId|task_token/);
++});
++it('limiter enforces and isolates the stored window rather than returning success on invalid rows',async()=>{const f=await fixture(),limit=failClosedInternalLimiter(f.db);expect((await limit('scope1',1,600)).ok).toBe(true);expect((await limit('scope1',1,600)).ok).toBe(false);expect((await limit('scope2',1,600)).ok).toBe(true);await f.pg.query("UPDATE rate_limits SET window_start=now()-interval '601 seconds' WHERE key='scope1'");expect((await limit('scope1',1,600)).ok).toBe(true);});
++it('requires fresh owner, same-origin, exact bounded body and explicit runtime configuration',async()=>{
++ const f=await fixture();expect((await f.api(issueRequest({action:'issue',requestId},{origin:'https://other.test'}),job)).status).toBe(403);
++ expect((await f.api(issueRequest({action:'issue',requestId,customerId:other}),job)).status).toBe(400);
++ expect((await f.api(issueRequest({action:'issue',requestId,large:'x'.repeat(3000)}),job)).status).toBe(413);
++ const viewer=vi.fn().mockResolvedValueOnce(customer).mockResolvedValue(null);const api=createInternalTaskApi(internalTaskDependencies(f.db,config,viewer));expect((await api(issueRequest({action:'issue',requestId}),job)).status).toBe(503);expect((await f.pg.query('SELECT * FROM naive_internal.tasks')).rows).toHaveLength(0);
++ expect(()=>internalRuntimeConfig({})).toThrow();expect(internalRuntimeConfig({NAIVE_INTERNAL_MCP_ENABLED:'1',NAIVE_AGENT_COPILOT:`${config.pin.agentId}@1`,NAIVE_TASK_TOKEN_SECRET:secret,APP_URL:'https://example.test'})).toEqual(config);
++});
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-runtime.ts
+@@ -0,0 +1,102 @@
++import 'server-only';
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import { customerForSessionToken } from '@ae/core/auth/magic-link';
++import { pooledCalendarDatabase } from '@ae/core/simulator/pool';
++import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { getSessionToken } from './session';
++import { authenticateCredential, authorizeTask, issueTask, revokeTask, audit, type ConfiguredPin, type InternalCredential } from './naive-internal-store';
++import { mintTaskToken, verifyTaskToken } from './naive-internal-token';
++import { readInternalProgress } from './naive-internal-progress';
++
++const unavailable = (): never => { throw Error('internal_mcp_unavailable'); };
++export interface InternalRuntimeConfig { pin: ConfiguredPin; secret: string; audience: string }
++/** No defaults for activation, agent identity, origin or task signing key. */
++export function internalRuntimeConfig(env: NodeJS.ProcessEnv = process.env): InternalRuntimeConfig {
++  if (env.NAIVE_INTERNAL_MCP_ENABLED !== '1') return unavailable();
++  const match = /^(agt_[0-9a-hjkmnp-tv-z]{26})@([1-9][0-9]*)$/.exec(env.NAIVE_AGENT_COPILOT ?? '');
++  const version = Number(match?.[2]);
++  if (!match || !Number.isSafeInteger(version)) return unavailable();
++  const secret = env.NAIVE_TASK_TOKEN_SECRET;
++  if (!secret || Buffer.byteLength(secret) < 32) return unavailable();
++  let origin: URL; try { origin = new URL(env.APP_URL ?? ''); } catch { return unavailable(); }
++  if (origin.protocol !== 'https:' || origin.username || origin.password || origin.search || origin.hash || !['', '/'].includes(origin.pathname)) return unavailable();
++  return { pin: { agentId: match[1]!, agentVersion: version }, secret, audience: `${origin.origin}/api/mcp/internal/mcp` };
++}
++async function freshOwner() {
++  const token = await getSessionToken();
++  const customer = token ? await customerForSessionToken(token) : null;
++  return customer?.id ?? null;
++}
++let database: AgentTransactionalSql | undefined;
++function sql() {
++  const connectionString = process.env.DATABASE_URL_UNPOOLED?.trim() || process.env.DATABASE_URL?.trim();
++  if (!connectionString) return unavailable();
++  return database ??= pooledCalendarDatabase(new Pool({ connectionString, max: 5 }));
++}
++/** Internal capabilities do not inherit the public limiter's fail-open behavior. */
++export function failClosedInternalLimiter(db: AgentTransactionalSql) {
++  return async (key: string, limit: number, windowSec: number) => {
++    if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(windowSec) || windowSec < 1) return unavailable();
++    const row = (await db.query<{count:number|string;retry_after:number|string}>(`
++      INSERT INTO rate_limits AS r(key,window_start,count) VALUES($1,now(),1)
++      ON CONFLICT(key) DO UPDATE SET
++        count=CASE WHEN r.window_start<=now()-make_interval(secs=>$2::int) THEN 1 ELSE LEAST(r.count,$3::int)+1 END,
++        window_start=CASE WHEN r.window_start<=now()-make_interval(secs=>$2::int) THEN now() ELSE r.window_start END
++      RETURNING count,GREATEST(0,CEIL(EXTRACT(EPOCH FROM(window_start+make_interval(secs=>$2::int)-now()))))::int AS retry_after`, [key,windowSec,limit])).rows[0];
++    const count=Number(row?.count), retry=Number(row?.retry_after);
++    if (!Number.isSafeInteger(count)||count<1||!Number.isSafeInteger(retry)||retry<0) return unavailable();
++    return {ok:count<=limit,retryAfter:count<=limit?0:Math.max(1,retry)};
++  };
++}
++type DeniedReason = 'auth_denied' | 'rate_limited' | 'request_denied' | 'read_denied' | 'internal_error';
++export function internalMcpDependencies(db: AgentTransactionalSql, config: InternalRuntimeConfig, limit = failClosedInternalLimiter(db)) {
++  return {
++    async authenticate(bearer: string): Promise<InternalCredential | null> {
++      if (bearer.length < 32 || bearer.length > 1024 || /\s/.test(bearer)) return null;
++      const digest = createHash('sha256').update(bearer).digest('hex');
++      try { return await db.transaction(tx => authenticateCredential(tx, digest, config.pin)); }
++      catch (error) { if (error instanceof Error && error.message === 'naive_internal_unauthorized') return null; throw error; }
++    },
++    async rateLimit(credential: InternalCredential) {
++      return (await limit(`naive-internal:${credential.role}:${credential.agentId}`, 60, 600)).ok;
++    },
++    async read(credential: InternalCredential, input: { taskToken: string }) {
++      const claims = verifyTaskToken(input.taskToken, config.secret, config.audience);
++      return db.transaction(async tx => {
++        await tx.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
++        await authorizeTask(tx, claims, credential, config.pin);
++        const snapshot = await readInternalProgress(tx, { customerId: claims.customerId, jobId: claims.jobId });
++        return snapshot;
++      });
++    },
++    async auditDenied(reason: DeniedReason, credentialId?: string) {
++      await db.transaction(tx => audit(tx, reason, { credentialId }));
++    },
++  };
++}
++/** Trusted application composition: no provider/session call is made by issuing a read capability. */
++export function internalTaskDependencies(db: AgentTransactionalSql, config: InternalRuntimeConfig, currentOwner = freshOwner, limit = failClosedInternalLimiter(db)) {
++  const auth = (expected: string) => async () => {
++    if (await currentOwner() !== expected) return unavailable();
++    return { customerId: expected };
++  };
++  return {
++    currentOwner,
++    async allowIssue(customerId: string) { return (await limit(`naive-internal-issue:${customerId}`, 20, 3600)).ok; },
++    async issue(customerId: string, jobId: string, requestId: string) {
++      return db.transaction(async tx => {
++        const task = await issueTask(tx, { jobId, requestId }, auth(customerId), config.pin);
++        const taskToken = mintTaskToken(task, config.secret, config.audience);
++        return { taskId: task.id, taskToken, expiresAt: task.expiresAt };
++      });
++    },
++    async revoke(customerId: string, jobId: string, taskId: string) {
++      return db.transaction(async tx => {
++        await revokeTask(tx, jobId, taskId, auth(customerId));
++      });
++    },
++  };
++}
++export function createInternalMcpDependencies() { const config = internalRuntimeConfig(); return internalMcpDependencies(sql(), config); }
++export function createInternalTaskDependencies() { const config = internalRuntimeConfig(); return internalTaskDependencies(sql(), config); }
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-store.test.ts
+@@ -0,0 +1,23 @@
++import { PGlite } from '@electric-sql/pglite';
++import { readFileSync } from 'node:fs';
++import { afterEach, expect, it } from 'vitest';
++import { authenticateCredential, issueTask, authorizeTask, revokeTask, type AgentSqlExecutor } from './naive-internal-store';
++const databases:PGlite[]=[];
++afterEach(async()=>{await Promise.all(databases.splice(0).map(db=>db.close()));});
++const customer='10000000-0000-4000-8000-000000000001', other='10000000-0000-4000-8000-000000000002',job='20000000-0000-4000-8000-000000000001',credentialId='30000000-0000-4000-8000-000000000001',requestId='40000000-0000-4000-8000-000000000001';
++const pin={agentId:'copilot',agentVersion:1}, hash='a'.repeat(64), fresh=async()=>({customerId:customer});
++async function fixture(){
++ const pg=new PGlite();databases.push(pg);
++ await pg.exec("CREATE TYPE environment AS ENUM ('test','live'); CREATE TABLE customers(id uuid PRIMARY KEY); CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid REFERENCES customers(id),environment environment,status text);");
++ await pg.exec(readFileSync('docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql','utf8'));
++ await pg.query('INSERT INTO customers VALUES($1),($2)',[customer,other]);
++ await pg.query("INSERT INTO jobs VALUES($1,$2,'test','complete')",[job,customer]);
++ await pg.query("INSERT INTO naive_internal.credentials(id,role,agent_id,agent_version,bearer_sha256) VALUES($1,'copilot','copilot',1,$2)",[credentialId,hash]);
++ const transaction=<T>(fn:(tx:AgentSqlExecutor)=>Promise<T>)=>pg.transaction(async t=>fn({query:async<T>(sql:string,args?:unknown[])=>({rows:(await t.query<T>(sql,args)).rows})}));
++ return {pg,transaction};
++}
++it('issues exact claims, authenticates only active exact pins and replays without extension',async()=>{const f=await fixture();await f.transaction(async tx=>{const bearer=await authenticateCredential(tx,hash,pin);const task=await issueTask(tx,{jobId:job,requestId},fresh,pin);expect(task.expiresAt-task.issuedAt).toBe(300);expect(task.environment).toBe('test');expect(await issueTask(tx,{jobId:job,requestId},fresh,pin)).toEqual(task);expect(await authorizeTask(tx,task,bearer,pin)).toEqual(task);await expect(authenticateCredential(tx,hash,{...pin,agentVersion:2})).rejects.toThrow();await expect(authorizeTask(tx,{...task,nonce:'forged'},bearer,pin)).rejects.toThrow();});});
++it('revokes for current owner even on completed jobs and never resurrects replay',async()=>{const f=await fixture();const task=await f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin));await f.transaction(tx=>revokeTask(tx,job,task.id,fresh));await expect(f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin))).rejects.toThrow();await expect(f.pg.query('UPDATE naive_internal.tasks SET revoked_at=NULL WHERE id=$1',[task.id])).rejects.toThrow();});
++it('rejects owner change, environment change and credential rotation',async()=>{const f=await fixture();const bearer=await f.transaction(tx=>authenticateCredential(tx,hash,pin));const task=await f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin));await f.pg.query('UPDATE jobs SET customer_id=$1 WHERE id=$2',[other,job]);await expect(f.transaction(tx=>authorizeTask(tx,task,bearer,pin))).rejects.toThrow();await expect(f.transaction(tx=>revokeTask(tx,job,task.id,fresh))).rejects.toThrow();await f.pg.query("UPDATE jobs SET customer_id=$1,environment='live' WHERE id=$2",[customer,job]);await expect(f.transaction(tx=>authorizeTask(tx,task,bearer,pin))).rejects.toThrow();await f.pg.query("UPDATE jobs SET environment='test' WHERE id=$1",[job]);await f.pg.query('UPDATE naive_internal.credentials SET revoked_at=clock_timestamp() WHERE id=$1',[credentialId]);await expect(f.transaction(tx=>authorizeTask(tx,task,bearer,pin))).rejects.toThrow();await expect(f.transaction(tx=>authenticateCredential(tx,hash,pin))).rejects.toThrow();});
++it('rejects expired canonical tasks with no extension',async()=>{const f=await fixture();const bearer=await f.transaction(tx=>authenticateCredential(tx,hash,pin));const task=await f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin));await f.pg.exec('ALTER TABLE naive_internal.tasks DISABLE TRIGGER immutable_tasks');await f.pg.query('UPDATE naive_internal.tasks SET issued_at=issued_at-301,expires_at=expires_at-301 WHERE id=$1',[task.id]);await f.pg.exec('ALTER TABLE naive_internal.tasks ENABLE TRIGGER immutable_tasks');const expired={...task,issuedAt:task.issuedAt-301,expiresAt:task.expiresAt-301};await expect(f.transaction(tx=>authorizeTask(tx,expired,bearer,pin))).rejects.toThrow();await expect(f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin))).rejects.toThrow();});
++it('rolls back issuance and revocation on audit failure',async()=>{const f=await fixture();await f.pg.exec("CREATE FUNCTION reject_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit unavailable'; END $$; CREATE TRIGGER reject_audit BEFORE INSERT ON naive_internal.audit FOR EACH ROW EXECUTE FUNCTION reject_audit();");await expect(f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin))).rejects.toThrow('audit unavailable');expect((await f.pg.query('SELECT * FROM naive_internal.tasks')).rows).toHaveLength(0);await f.pg.exec('DROP TRIGGER reject_audit ON naive_internal.audit');const task=await f.transaction(tx=>issueTask(tx,{jobId:job,requestId},fresh,pin));await f.pg.exec('CREATE TRIGGER reject_audit BEFORE INSERT ON naive_internal.audit FOR EACH ROW EXECUTE FUNCTION reject_audit()');await expect(f.transaction(tx=>revokeTask(tx,job,task.id,fresh))).rejects.toThrow('audit unavailable');expect((await f.pg.query<{revoked_at:unknown}>('SELECT revoked_at FROM naive_internal.tasks')).rows[0]?.revoked_at).toBeNull();});
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-store.ts
+@@ -0,0 +1,71 @@
++import { randomBytes, randomUUID } from 'node:crypto';
++import type { AgentSqlExecutor } from '@ae/core/agents/postgres-ports';
++export type { AgentSqlExecutor, AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++export interface ConfiguredPin { agentId: string; agentVersion: number }
++export interface InternalCredential extends ConfiguredPin { id: string; role: 'copilot' }
++export interface InternalTask extends ConfiguredPin {
++  id: string; requestId: string; customerId: string; jobId: string; credentialId: string;
++  role: 'copilot'; environment: 'test' | 'live'; nonce: string; issuedAt: number; expiresAt: number;
++}
++export type FreshOwner = (tx: AgentSqlExecutor) => Promise<{ customerId: string }>;
++export type AuditOutcome = 'task_issued' | 'task_replayed' | 'task_revoked' | 'read_allowed' | 'auth_denied' | 'rate_limited' | 'request_denied' | 'read_denied' | 'internal_error';
++const fail = (): never => { throw new Error('naive_internal_unauthorized'); };
++function pinValid(pin: ConfiguredPin) {
++  if (!pin || typeof pin.agentId !== 'string' || !pin.agentId || pin.agentId.length > 200 || !Number.isSafeInteger(pin.agentVersion) || pin.agentVersion < 1) fail();
++}
++const uuid = (value: string) => { if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) fail(); };
++const credentialColumns = `id,role,agent_id AS "agentId",agent_version AS "agentVersion"`;
++const taskColumns = `id,request_id AS "requestId",customer_id AS "customerId",job_id AS "jobId",environment,credential_id AS "credentialId",role,agent_id AS "agentId",agent_version AS "agentVersion",nonce,issued_at::float8 AS "issuedAt",expires_at::float8 AS "expiresAt"`;
++async function now(tx: AgentSqlExecutor) { return Number((await tx.query<{n:number}>('SELECT floor(extract(epoch FROM clock_timestamp()))::float8 AS n')).rows[0]?.n); }
++export async function audit(tx: AgentSqlExecutor, outcome: AuditOutcome, ids: {credentialId?:string;taskId?:string} = {}) {
++  if (!['task_issued','task_replayed','task_revoked','read_allowed','auth_denied','rate_limited','request_denied','read_denied','internal_error'].includes(outcome)) fail();
++  await tx.query('INSERT INTO naive_internal.audit(id,credential_id,task_id,outcome) VALUES($1,$2,$3,$4)', [randomUUID(),ids.credentialId ?? null,ids.taskId ?? null,outcome]);
++}
++/** All entry points require a pinned READ COMMITTED transaction with rollback on any error.
++ * Authentication callbacks are trusted server code and execute freshly inside that transaction.
++ * Lock order is canonical job, credential, task; authorization locks remain held through projection. */
++export async function authenticateCredential(tx: AgentSqlExecutor, bearerHash: string, pin: ConfiguredPin): Promise<InternalCredential> {
++  pinValid(pin); if (!/^[a-f0-9]{64}$/.test(bearerHash)) fail();
++  const rows = (await tx.query<InternalCredential>(`SELECT ${credentialColumns} FROM naive_internal.credentials WHERE bearer_sha256=$1 AND role='copilot' AND agent_id=$2 AND agent_version=$3 AND revoked_at IS NULL FOR SHARE`,[bearerHash,pin.agentId,pin.agentVersion])).rows;
++  if (rows.length !== 1) fail(); return rows[0]!;
++}
++async function owner(tx: AgentSqlExecutor, jobId: string, fresh: FreshOwner) {
++  uuid(jobId); const actor = await fresh(tx); if (!actor?.customerId) fail(); uuid(actor.customerId);
++  const job = (await tx.query<{customer_id:string;environment:'test'|'live'}>('SELECT customer_id,environment FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++  if (!job || job.customer_id !== actor.customerId) fail(); return {customerId:actor.customerId,environment:job.environment};
++}
++export async function issueTask(tx: AgentSqlExecutor, input:{jobId:string;requestId:string}, fresh:FreshOwner, pin:ConfiguredPin):Promise<InternalTask> {
++  pinValid(pin); uuid(input.requestId); uuid(input.jobId);
++  input = {jobId:input.jobId.toLowerCase(),requestId:input.requestId.toLowerCase()};
++  const {customerId:customer,environment} = await owner(tx,input.jobId,fresh);
++  const credentials = (await tx.query<InternalCredential>(`SELECT ${credentialColumns} FROM naive_internal.credentials WHERE role='copilot' AND agent_id=$1 AND agent_version=$2 AND revoked_at IS NULL FOR SHARE`,[pin.agentId,pin.agentVersion])).rows;
++  if (credentials.length !== 1) fail(); const credential = credentials[0]!;
++  const existing = (await tx.query<InternalTask & {revoked_at:unknown}>(`SELECT ${taskColumns},revoked_at FROM naive_internal.tasks WHERE customer_id=$1 AND job_id=$2 AND request_id=$3 FOR UPDATE`,[customer,input.jobId,input.requestId])).rows[0];
++  const issuedAt = await now(tx); if (!Number.isSafeInteger(issuedAt)) fail();
++  if (existing) {
++    if (existing.environment !== environment || existing.revoked_at || existing.expiresAt <= issuedAt || existing.credentialId !== credential.id || existing.agentId !== pin.agentId || existing.agentVersion !== pin.agentVersion) fail();
++    const {revoked_at:_,...task} = existing; await audit(tx,'task_replayed',{credentialId:credential.id,taskId:task.id}); return task;
++  }
++  const task:InternalTask = {id:randomUUID(),requestId:input.requestId,customerId:customer,jobId:input.jobId,credentialId:credential.id,role:'copilot',environment,agentId:pin.agentId,agentVersion:pin.agentVersion,nonce:randomBytes(32).toString('base64url'),issuedAt,expiresAt:issuedAt+300};
++  await tx.query('INSERT INTO naive_internal.tasks(id,request_id,customer_id,job_id,credential_id,role,agent_id,agent_version,nonce,issued_at,expires_at,environment) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[task.id,task.requestId,task.customerId,task.jobId,task.credentialId,task.role,task.agentId,task.agentVersion,task.nonce,task.issuedAt,task.expiresAt,task.environment]);
++  await audit(tx,'task_issued',{credentialId:credential.id,taskId:task.id}); return task;
++}
++export async function revokeTask(tx:AgentSqlExecutor,jobId:string,taskId:string,fresh:FreshOwner) {
++  uuid(taskId); const {customerId:customer} = await owner(tx,jobId,fresh);
++  const owned = (await tx.query('SELECT id FROM naive_internal.tasks WHERE id=$1 AND job_id=$2 AND customer_id=$3 FOR UPDATE',[taskId,jobId,customer])).rows;
++  if (owned.length !== 1) fail();
++  const rows = (await tx.query<{id:string}>('UPDATE naive_internal.tasks SET revoked_at=clock_timestamp() WHERE id=$1 AND job_id=$2 AND customer_id=$3 AND revoked_at IS NULL RETURNING id',[taskId,jobId,customer])).rows;
++  if (rows.length) await audit(tx,'task_revoked',{taskId}); return {revoked:rows.length===1};
++}
++export async function authorizeTask(tx:AgentSqlExecutor, claims:InternalTask, bearer:InternalCredential, pin:ConfiguredPin):Promise<InternalTask> {
++  pinValid(pin); uuid(claims.id); uuid(claims.jobId);
++  const job = (await tx.query<{customer_id:string;environment:'test'|'live'}>('SELECT customer_id,environment FROM jobs WHERE id=$1 FOR SHARE',[claims.jobId])).rows[0];
++  if (!job || job.customer_id !== claims.customerId || job.environment !== claims.environment || bearer.role !== 'copilot' || bearer.id !== claims.credentialId || bearer.agentId !== pin.agentId || bearer.agentVersion !== pin.agentVersion) fail();
++  const cred = (await tx.query<InternalCredential>(`SELECT ${credentialColumns} FROM naive_internal.credentials WHERE id=$1 AND revoked_at IS NULL FOR SHARE`,[bearer.id])).rows[0];
++  if (!cred || cred.role !== bearer.role || cred.agentId !== bearer.agentId || cred.agentVersion !== bearer.agentVersion) fail();
++  const row = (await tx.query<InternalTask & {revoked_at:unknown}>(`SELECT ${taskColumns},revoked_at FROM naive_internal.tasks WHERE id=$1 FOR SHARE`,[claims.id])).rows[0];
++  if (!row || row.revoked_at) fail(); const {revoked_at:_,...task} = row;
++  for (const key of Object.keys(task) as (keyof InternalTask)[]) if (task[key] !== claims[key]) fail();
++  const time = await now(tx); if (!Number.isSafeInteger(time) || task.issuedAt > time || task.expiresAt <= time) fail();
++  await audit(tx,'read_allowed',{credentialId:bearer.id,taskId:task.id}); return task;
++}
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-task-api.ts
+@@ -0,0 +1,33 @@
++import 'server-only';
++import { z } from 'zod';
++import { readBoundedJson } from './body-limit';
++import type { internalTaskDependencies } from './naive-internal-runtime';
++const Body = z.discriminatedUnion('action', [
++  z.object({ action: z.literal('issue'), requestId: z.uuid() }).strict(),
++  z.object({ action: z.literal('revoke'), taskId: z.uuid() }).strict(),
++]);
++const headers = { 'Cache-Control': 'private, no-store', Vary: 'Cookie', 'X-Content-Type-Options': 'nosniff' };
++export const internalTaskUnavailable = () => Response.json({ error: 'Internal task authorization unavailable' }, { status: 503, headers });
++export function createInternalTaskApi(deps: ReturnType<typeof internalTaskDependencies>) {
++  return async (request: Request, jobId: string): Promise<Response> => {
++    const json = (body: unknown, status = 200) => Response.json(body, { status, headers });
++    try {
++      const customerId = await deps.currentOwner();
++      if (!customerId) return json({ error: 'Authentication required' }, 401);
++      if (!z.uuid().safeParse(jobId).success) return json({ error: 'Job not found' }, 404);
++      const origin = request.headers.get('origin'), site = request.headers.get('sec-fetch-site');
++      if (!origin || origin !== new URL(request.url).origin || site && site !== 'same-origin') return json({ error: 'Same-origin request required' }, 403);
++      if (request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'application/json') return json({ error: 'JSON required' }, 415);
++      const raw = await readBoundedJson(request, 2048);
++      if (!raw.ok) return json({ error: 'Invalid bounded request' }, raw.res.status);
++      const body = Body.safeParse(raw.value);
++      if (!body.success) return json({ error: 'Invalid task request' }, 400);
++      if (body.data.action === 'issue') {
++        if (!await deps.allowIssue(customerId)) return json({ error: 'Too many task requests' }, 429);
++        return json(await deps.issue(customerId, jobId, body.data.requestId));
++      }
++      await deps.revoke(customerId, jobId, body.data.taskId);
++      return json({ revoked: true, boundary: 'Future reads are blocked. Previously returned data cannot be recalled.' });
++    } catch { return internalTaskUnavailable(); }
++  };
++}
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-token.test.ts
+@@ -0,0 +1,28 @@
++import { describe, expect, it } from "vitest";
++import { createHmac } from "node:crypto";
++import { mintTaskToken, verifyTaskToken } from "./naive-internal-token";
++import type { InternalTask } from "./naive-internal-store";
++const secret = "s".repeat(32), audience = "https://example.test/api/mcp/internal/mcp";
++const now = Math.floor(Date.now() / 1000);
++const task: InternalTask = { id: "00000000-0000-4000-8000-000000000001", requestId: "00000000-0000-4000-8000-000000000002", customerId: "00000000-0000-4000-8000-000000000003", jobId: "00000000-0000-4000-8000-000000000004", credentialId: "00000000-0000-4000-8000-000000000005", agentId: "copilot-v1", agentVersion: 1, role: "copilot", environment: "test", nonce: Buffer.alloc(32, 7).toString("base64url"), issuedAt: now, expiresAt: now + 300 };
++function sign(value: unknown) {
++ const payload = Buffer.from(JSON.stringify({v:1,aud:audience,task:value})).toString("base64url");
++ const body = `naive-internal-task.v1.${payload}`;
++ return `${body}.${createHmac("sha256",secret).update(body).digest("base64url")}`;
++}
++describe("internal task tokens", () => {
++ it("round trips the exact task and binds audience and secret", () => {
++  const token = mintTaskToken(task, secret, audience);
++  expect(verifyTaskToken(token, secret, audience, now)).toEqual(task);
++  expect(() => verifyTaskToken(token, secret, audience.replace("example", "other"), now)).toThrow("Invalid task token");
++  expect(() => verifyTaskToken(token, "x".repeat(32), audience, now)).toThrow();
++ });
++ it.each([{...task,expiresAt:now+301},{...task,issuedAt:now+1},{...task,expiresAt:now},{...task,extra:"no"},{...task,nonce:"a".repeat(43)},{...task,jobId:"bad"},{...task,role:"operator"},{...task,environment:"prod"}])("rejects malformed signed claims", value => expect(() => verifyTaskToken(sign(value),secret,audience,now)).toThrow());
++ it("rejects expiry, tampering, padding, short keys, and wrong route audiences", () => {
++  const token=mintTaskToken(task,secret,audience);
++  for(const value of [token+"=", token.replace("v1", "v2"), token.slice(0,-2)]) expect(() => verifyTaskToken(value,secret,audience,now)).toThrow();
++  expect(() => verifyTaskToken(token,secret,audience,now+300)).toThrow();
++  expect(() => mintTaskToken(task,"short",audience)).toThrow();
++  expect(() => mintTaskToken(task,secret,"https://example.test/api/mcp/mcp")).toThrow();
++ });
++});
+--- /dev/null
++++ b/apps/web/src/server/naive-internal-token.ts
+@@ -0,0 +1,45 @@
++import { createHmac, timingSafeEqual } from "node:crypto";
++import { z } from "zod";
++import type { InternalTask } from "./naive-internal-store";
++
++const uuid = z.string().uuid();
++const TaskSchema = z.object({
++  id: uuid, requestId: uuid, customerId: uuid, jobId: uuid, credentialId: uuid,
++  agentId: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/),
++  agentVersion: z.number().int().positive().max(2147483647), environment: z.enum(["test", "live"]), role: z.literal("copilot"),
++  nonce: z.string().regex(/^[A-Za-z0-9_-]{43}$/).refine((s) => Buffer.from(s, "base64url").toString("base64url") === s),
++  issuedAt: z.number().int().nonnegative(), expiresAt: z.number().int().positive(),
++}).strict();
++function configuration(secret: string, audience: string) {
++  if (Buffer.byteLength(secret, "utf8") < 32) throw new Error("Invalid task-token configuration");
++  const url = new URL(audience);
++  if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== "/api/mcp/internal/mcp") throw new Error("Invalid task-token configuration");
++}
++function validate(task: unknown, now: number): InternalTask {
++  const t = TaskSchema.parse(task);
++  if (!Number.isSafeInteger(now) || t.expiresAt <= t.issuedAt || t.expiresAt - t.issuedAt > 300 || t.issuedAt > now || t.expiresAt <= now) throw new Error("Invalid task token");
++  return t;
++}
++/** Task authorization only. This token makes no claim about a provider session. */
++export function mintTaskToken(task: InternalTask, secret: string, audience: string): string {
++  configuration(secret, audience);
++  const value = validate(task, Math.floor(Date.now() / 1000));
++  const payload = Buffer.from(JSON.stringify({ v: 1, aud: audience, task: value })).toString("base64url");
++  const signed = `naive-internal-task.v1.${payload}`;
++  return `${signed}.${createHmac("sha256", secret).update(signed).digest("base64url")}`;
++}
++export function verifyTaskToken(raw: string, secret: string, audience: string, nowEpoch = Math.floor(Date.now() / 1000)): InternalTask {
++  try {
++    configuration(secret, audience);
++    if (typeof raw !== "string" || raw.length > 4096) throw new Error();
++    const parts = raw.split(".");
++    if (parts.length !== 4 || parts[0] !== "naive-internal-task" || parts[1] !== "v1") throw new Error();
++    const [, , payload, signature] = parts;
++    if (![payload, signature].every((s) => /^[A-Za-z0-9_-]+$/.test(s) && Buffer.from(s, "base64url").toString("base64url") === s)) throw new Error();
++    const expected = createHmac("sha256", secret).update(parts.slice(0, 3).join(".")).digest();
++    const actual = Buffer.from(signature, "base64url");
++    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw new Error();
++    const envelope = z.object({ v: z.literal(1), aud: z.literal(audience), task: TaskSchema }).strict().parse(JSON.parse(Buffer.from(payload, "base64url").toString("utf8")));
++    return validate(envelope.task, nowEpoch);
++  } catch { throw new Error("Invalid task token"); }
++}

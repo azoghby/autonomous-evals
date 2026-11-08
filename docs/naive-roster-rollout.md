@@ -66,7 +66,7 @@ Focused tests cover five-stage compilation, unchanged planner output, ordered an
 
 ## Remaining owner and acceptance work
 
-Internal MCP, role bearer-hash registration/rotation, short-lived scoped task tokens, current authority checks and audited exact tool handlers are absent from actual app source. The first complete read-tool slice should connect the copilot's `get_progress_snapshot` to an authenticated task/session issuer and the current owner-only safe projection; a signing helper alone is insufficient. Customer MCP credentials must not authenticate this internal surface.
+Internal MCP, role bearer-hash registration/rotation, short-lived scoped task tokens, current authority checks and audited exact tool handlers are absent from actual app source. The new [internal MCP candidate](naive-internal-mcp-integration/README.md) implements owner task issuance and the audited progress-read path in staged source only; it does not activate the roster or copilot. The first complete read-tool slice should connect the copilot's `get_progress_snapshot` to an authenticated task/session issuer and the current owner-only safe projection; a signing helper alone is insufficient. Customer MCP credentials must not authenticate this internal surface.
 
 The idle endpoint must authenticate wakeups, fetch authoritative session state, validate output, persist idempotently and account costs; callback bodies are not cost or tool-approval authority. Pause/resume, founder approval and budget controls need current hosted acceptance before deployment activation. Five paused deployment receipts do not prove any of these handlers work.
 

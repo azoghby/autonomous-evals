@@ -1,0 +1,60 @@
+{
+  "status": "verified_unapplied_candidate",
+  "baseCommit": "9c23982b9d9970086d047ea07f21e1f13e9cf670",
+  "mainPreserved": "5da0635",
+  "sourceFiles": 13,
+  "sqlArtifacts": 1,
+  "baselinePins": 2234,
+  "postimagesVerified": true,
+  "independentPatchApplicationVerified": true,
+  "reproducibleAssemblyVerified": true,
+  "unownedStageDifferences": [],
+  "focusedTests": 32,
+  "candidateTests": {
+    "numPassedTests": 3964,
+    "numFailedTests": 0,
+    "numPendingTests": 2
+  },
+  "webTypes": "passed",
+  "build": {
+    "status": "passed",
+    "command": "next build --webpack",
+    "steps": 57,
+    "workflows": 4,
+    "fontFixture": "offline CSS; installed dependency graph retained"
+  },
+  "reviewFixes": [
+    "dedicated fail-closed internal rate limiter; SQL outage test",
+    "success audits kept in canonical store transaction, no duplicates",
+    "unknown/foreign task cannot claim successful revocation",
+    "environment enum/text comparison corrected and fixtures use real enum type",
+    "repeatable-read projection with authorization locks and audit rollback",
+    "canonical lowercase job/request UUIDs before signing; reproduced failing replay then passed regression"
+  ],
+  "evidenceScope": "Owner issuer -> signed task -> role bearer -> actual MCP HTTP tools/call -> safe SQL projection -> revocation, offline only",
+  "notVerified": [
+    "native PostgreSQL multi-connection contention",
+    "live vault injection/credential registration",
+    "encrypted provider request replay and budget/dispatch/accounting integration",
+    "Naive copilot conversation/streaming replacement",
+    "idle callbacks",
+    "migration application or deployment",
+    "full Naive Phase0/full roster acceptance"
+  ],
+  "providerSessionAuthenticationClaimed": false,
+  "liveProviderCalls": 0,
+  "migrationsApplied": 0,
+  "deployments": 0,
+  "outreachSent": 0,
+  "actualSourceTests": {
+    "passed": 3932,
+    "failed": 0,
+    "skipped": 2
+  },
+  "actualSourceWebTypes": "passed",
+  "uuidCaseRegression": {
+    "redFailedTests": 1,
+    "greenFocusedPassed": 32
+  },
+  "finalCandidateRetestAfterUuidFix": true
+}
