@@ -309,3 +309,4 @@ Times are PT, as recorded.
   - Each email is at most 120 words, with reply-to the founder, a one-click opt-out and no localhost links.
   - feedback_invites: 17 rows with status 'sent', each with an AgentMail message_id.
   - The 6 old SDR drafts were not touched.
+- ~07:20 PT: deployed main d23cb38 (autonomous-evals-5mmssygig ● Ready). The proof strip now uses the latest run per agent, the same basis as the leaderboard, so scenarios graded reads 1,088 instead of 1,440. Found by the review-3 pass. Review 3 (diff d1ceaf0..main) had no CRITICAL or HIGH findings.
