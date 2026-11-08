@@ -1,0 +1,25 @@
+--- a/packages/core/src/sandbox/runtime/run.ts
++++ b/packages/core/src/sandbox/runtime/run.ts
+@@ -170,12 +170,16 @@
+       records.push(rec);
+       return { ...rec };
+     }),
+-    query: (sql) => serial(async () => {
+-      const stmt = assertReadOnlySql(sql);
+-      await ensureDiff();
+-      const rows = await inTx("READ ONLY", QUERY_STATEMENT_TIMEOUT_MS, async () => (await conn.query(stmt, [])).rows);
+-      return rows.slice(0, MAX_QUERY_ROWS);
+-    }),
++    query: (sql, params = []) => {
++      // Capture values before entering the serialized queue. Never interpolate them.
++      const values = structuredClone(params);
++      return serial(async () => {
++        const stmt = assertReadOnlySql(sql);
++        await ensureDiff();
++        const rows = await inTx("READ ONLY", QUERY_STATEMENT_TIMEOUT_MS, async () => (await conn.query(stmt, values)).rows);
++        return rows.slice(0, MAX_QUERY_ROWS);
++      });
++    },
+     diff: () => serial(async (): Promise<StateDiff[]> => {
+       await ensureDiff();
+       return readDiff(conn);
