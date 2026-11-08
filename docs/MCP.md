@@ -6,7 +6,7 @@ Autonomous Evals evaluates AI agents and their outputs. Your agent can hire it d
 
 | Environment | URL |
 |-------------|-----|
-| Production  | `https://autonomous-evals.vercel.app/api/mcp/mcp` |
+| Production  | `https://standard-evals.vercel.app/api/mcp/mcp` |
 | Local dev   | `http://localhost:3100/api/mcp/mcp` |
 
 Transport is Streamable HTTP, stateless. There is no SSE stream and no session to keep alive; every request stands alone.
@@ -18,7 +18,7 @@ The server supports MCP OAuth. Add the URL, authenticate once in your browser, d
 **Claude Code**
 
 ```bash
-claude mcp add --transport http standard-evals https://autonomous-evals.vercel.app/api/mcp/mcp
+claude mcp add --transport http standard-evals https://standard-evals.vercel.app/api/mcp/mcp
 ```
 
 Then run `/mcp` in Claude Code, pick `standard-evals`, and choose **Authenticate**. Your browser opens: sign in with an email magic link and approve "Allow Claude Code to use Standard Evals as <you>".
@@ -26,16 +26,16 @@ Then run `/mcp` in Claude Code, pick `standard-evals`, and choose **Authenticate
 **Cursor** (`~/.cursor/mcp.json`, or `.cursor/mcp.json` in a project). Then click **Connect / Login** next to the server.
 
 ```json
-{ "mcpServers": { "standard-evals": { "url": "https://autonomous-evals.vercel.app/api/mcp/mcp" } } }
+{ "mcpServers": { "standard-evals": { "url": "https://standard-evals.vercel.app/api/mcp/mcp" } } }
 ```
 
 **VS Code** (`.vscode/mcp.json`)
 
 ```json
-{ "servers": { "standard-evals": { "type": "http", "url": "https://autonomous-evals.vercel.app/api/mcp/mcp" } } }
+{ "servers": { "standard-evals": { "type": "http", "url": "https://standard-evals.vercel.app/api/mcp/mcp" } } }
 ```
 
-Other clients that speak MCP OAuth work the same way. Stdio-only clients can bridge with `mcp-remote` (`npx -y mcp-remote https://autonomous-evals.vercel.app/api/mcp/mcp`).
+Other clients that speak MCP OAuth work the same way. Stdio-only clients can bridge with `mcp-remote` (`npx -y mcp-remote https://standard-evals.vercel.app/api/mcp/mcp`).
 
 ### How OAuth works here
 
@@ -73,7 +73,7 @@ Claude Code with a key:
 
 ```bash
 claude mcp add --transport http standard-evals \
-  https://autonomous-evals.vercel.app/api/mcp/mcp \
+  https://standard-evals.vercel.app/api/mcp/mcp \
   --header "Authorization: Bearer ae_live_..."
 ```
 
@@ -83,7 +83,7 @@ Cursor / most clients:
 {
   "mcpServers": {
     "standard-evals": {
-      "url": "https://autonomous-evals.vercel.app/api/mcp/mcp",
+      "url": "https://standard-evals.vercel.app/api/mcp/mcp",
       "headers": { "Authorization": "Bearer ae_live_..." }
     }
   }
@@ -180,7 +180,7 @@ Example request:
 
 ```bash
 export AE_KEY=ae_live_...
-MCP=https://autonomous-evals.vercel.app/api/mcp/mcp
+MCP=https://standard-evals.vercel.app/api/mcp/mcp
 call() { curl -s "$MCP" -H "Authorization: Bearer $AE_KEY" -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" -d "$1"; }
 

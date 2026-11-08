@@ -2,7 +2,7 @@
   "mcpServers": {
     "standard-evals": {
       "type": "http",
-      "url": "https://autonomous-evals.vercel.app/api/mcp/mcp"
+      "url": "https://standard-evals.vercel.app/api/mcp/mcp"
     }
   }
 }

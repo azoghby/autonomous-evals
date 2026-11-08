@@ -6,7 +6,7 @@ Type `/audit-my-agent` and Claude hires Standard Evals to audit your agent: it f
 
 After installing, run `/mcp` in Claude Code, select `standard-evals`, and choose **Authenticate**. Your browser opens: sign in with an email magic link and approve access. That is the whole setup.
 
-Headless/CI fallback: create a key at `/settings/keys` and use `claude mcp add --transport http standard-evals https://autonomous-evals.vercel.app/api/mcp/mcp --header "Authorization: Bearer ae_live_..."` instead of the plugin's bundled server entry.
+Headless/CI fallback: create a key at `/settings/keys` and use `claude mcp add --transport http standard-evals https://standard-evals.vercel.app/api/mcp/mcp --header "Authorization: Bearer ae_live_..."` instead of the plugin's bundled server entry.
 
 ## 2. Install
 

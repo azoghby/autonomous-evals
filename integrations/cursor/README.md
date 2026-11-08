@@ -4,6 +4,6 @@
 2. Copy `audit-my-agent.mdc` to `.cursor/rules/audit-my-agent.mdc`.
 3. In chat, ask: "Audit my agent with Standard Evals." (or `@audit-my-agent`).
 
-Headless/CI fallback: create a key at https://autonomous-evals.vercel.app/settings/keys and add `"headers": { "Authorization": "Bearer ${env:STANDARD_EVALS_API_KEY}" }` to the server entry (Cursor expands `${env:NAME}`).
+Headless/CI fallback: create a key at https://standard-evals.vercel.app/settings/keys and add `"headers": { "Authorization": "Bearer ${env:STANDARD_EVALS_API_KEY}" }` to the server entry (Cursor expands `${env:NAME}`).
 
 Same guardrails as the Claude Code plugin: redact and confirm before upload, the human pays at the Stripe link, patches applied only with approval.

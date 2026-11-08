@@ -2,7 +2,7 @@
 import { appendFileSync } from "node:fs";
 
 const env = process.env;
-const base = (env.SE_API_BASE || "https://autonomous-evals.vercel.app").replace(/\/$/, "");
+const base = (env.SE_API_BASE || "https://standard-evals.vercel.app").replace(/\/$/, "");
 const failOn = env.SE_FAIL_ON || "any";
 const targetAuth = env.SE_TARGET_AUTH || "";
 const POLL_MS = 5000;

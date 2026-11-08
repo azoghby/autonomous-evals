@@ -29,7 +29,7 @@ inputs:
   api-base-url:
     description: "Override for self-hosted or preview deployments."
     required: false
-    default: "https://autonomous-evals.vercel.app"
+    default: "https://standard-evals.vercel.app"
   timeout-seconds:
     description: "How long to poll for a long-running run."
     required: false

@@ -3,7 +3,7 @@ import { McpTerminal } from "./extras/McpTerminal";
 import { OauthSteps } from "./mcp/OauthSteps";
 import { NudgeArrow, Reveal, Section, SectionHeader } from "../ui";
 
-const CMD = "claude mcp add --transport http standard-evals https://autonomous-evals.vercel.app/api/mcp/mcp";
+const CMD = "claude mcp add --transport http standard-evals https://standard-evals.vercel.app/api/mcp/mcp";
 const CAN = [
   "No API key: sign in once in your browser",
   "Hire an audit, get a quote, pay",

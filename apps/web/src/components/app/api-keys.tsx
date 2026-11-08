@@ -5,7 +5,7 @@ import { useFetch } from "@/lib/client/use-fetch";
 import { Button, Chip, CodeBlock, Eyebrow, EmptyState, ErrorState, Field, Frame, Spinner } from "@/components/ui";
 import { MarkLabel, TableWrap, Th, tableCls, tdCls, trCls } from "./ui";
 
-const FALLBACK_ORIGIN = "https://autonomous-evals.vercel.app";
+const FALLBACK_ORIGIN = "https://standard-evals.vercel.app";
 const PLACEHOLDER_KEY = "<your-key>";
 
 interface ApiKeyRow {

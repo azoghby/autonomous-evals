@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 384" width="1200" height="384" role="img" aria-labelledby="t d">
+  <title id="t">How Standard Evals works</title>
+  <desc id="d">Customer files become an environment spec. Each trial gets its own Neon branch. A simulated user talks to the agent. Graders and oracle gates score it and a pass^k report is produced.</desc>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7dd3fc"/><stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .bg { fill: #0b1020; }
+    .node { fill: #111830; stroke: #334155; stroke-width: 1.5; animation: lit 12s ease-in-out infinite; }
+    .n1 { animation-delay: 0s; } .n2 { animation-delay: 2s; } .n3 { animation-delay: 4s; }
+    .n4 { animation-delay: 6s; } .n5 { animation-delay: 8s; } .n6 { animation-delay: 10s; }
+    .num { font: 700 13px ui-monospace, Menlo, Consolas, monospace; fill: #7dd3fc; }
+    .h { font: 700 17px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #f1f5f9; }
+    .s { font: 400 12.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #94a3b8; }
+    .pipe { fill: none; stroke: #334155; stroke-width: 2; }
+    .flow { fill: none; stroke: url(#g); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 10 90; animation: run 2.4s linear infinite; }
+    @keyframes run { to { stroke-dashoffset: -100; } }
+    @keyframes lit { 0%,18%,100% { stroke: #334155; } 6%,12% { stroke: #a78bfa; } }
+  </style>
+  <rect class="bg" width="1200" height="384" rx="18"/>
+  <!-- connectors -->
+  <g>
+    <path class="pipe" d="M190 150 H230"/><path class="flow" d="M190 150 H230" pathLength="100"/>
+    <path class="pipe" d="M410 150 H450"/><path class="flow" d="M410 150 H450" pathLength="100"/>
+    <path class="pipe" d="M630 150 H670"/><path class="flow" d="M630 150 H670" pathLength="100"/>
+    <path class="pipe" d="M850 150 H890"/><path class="flow" d="M850 150 H890" pathLength="100"/>
+  </g>
+  <!-- row 1 nodes -->
+  <g transform="translate(20 80)"><rect class="node n1" width="170" height="140" rx="14"/>
+    <text class="num" x="16" y="28">01</text><text class="h" x="16" y="58">Customer files</text>
+    <text class="s" x="16" y="82">OpenAPI, DB schema,</text><text class="s" x="16" y="100">tools, policy docs</text></g>
+  <g transform="translate(230 80)"><rect class="node n2" width="180" height="140" rx="14"/>
+    <text class="num" x="16" y="28">02</text><text class="h" x="16" y="58">Environment spec</text>
+    <text class="s" x="16" y="82">Tools bound to SQL or</text><text class="s" x="16" y="100">simulated, seeded world</text></g>
+  <g transform="translate(450 80)"><rect class="node n3" width="180" height="140" rx="14"/>
+    <text class="num" x="16" y="28">03</text><text class="h" x="16" y="58">Neon branch</text>
+    <text class="s" x="16" y="82">Isolated database copy</text><text class="s" x="16" y="100">for every trial</text></g>
+  <g transform="translate(670 80)"><rect class="node n4" width="180" height="140" rx="14"/>
+    <text class="num" x="16" y="28">04</text><text class="h" x="16" y="58">User + agent</text>
+    <text class="s" x="16" y="82">Simulated user (text,</text><text class="s" x="16" y="100">voice, vision) drives it</text></g>
+  <g transform="translate(890 80)"><rect class="node n5" width="290" height="140" rx="14"/>
+    <text class="num" x="16" y="28">05</text><text class="h" x="16" y="58">Graders + oracle gates</text>
+    <text class="s" x="16" y="82">DB diff, tool trajectory, policy,</text><text class="s" x="16" y="100">collateral damage, injection checks</text></g>
+  <!-- down + back -->
+  <path class="pipe" d="M1035 220 V270 H600"/><path class="flow" d="M1035 220 V270 H600" pathLength="100"/>
+  <g transform="translate(330 250)"><rect class="node n6" width="270" height="92" rx="14"/>
+    <text class="num" x="16" y="26">06</text><text class="h" x="16" y="52">pass^k report</text>
+    <text class="s" x="16" y="72">Reliability, replays, verified fixes</text></g>
+  <text class="s" x="40" y="366">Each scenario runs k times. Only a scenario that passes every trial counts toward pass^k.</text>
+</svg>
