@@ -1,0 +1,21 @@
+▲ Next.js 16.4.5 (webpack)
+- Local:         http://localhost:3217
+- Network:       http://10.45.155.66:3217
+✓ Ready in 1833ms
+✓ Compiled workflows in 18.2s (44 steps, 1 workflow)
+✓ Running next.config.ts took 24.1s
+- Experiments (use with caution):
+  · extensionAlias
+
+○ Compiling /chat-release-fixture/page ...
+ GET /chat-release-fixture 200 in 3.5s (next.js: 923ms, application-code: 2.5s)
+
+BROWSER info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER log: [HMR] connected
+BROWSER error: Failed to load resource: net::ERR_FAILED
+BROWSER error: Failed to load resource: net::ERR_FAILED
+BROWSER log: [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+BROWSER log: [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+BROWSER error: Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+BROWSER warning: The resource http://localhost:3217/_next/static/media/22a5144ee8d83bca-s.p.woff2?v=1794099820155 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+BROWSER warning: The resource http://localhost:3217/_next/static/media/7d4881bb7e1bf84d-s.p.woff2?v=1794099820155 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.

@@ -1,0 +1,57 @@
+--- a/apps/web/src/components/app/job-private-chat.tsx
++++ b/apps/web/src/components/app/job-private-chat.tsx
+@@ -67,12 +67,17 @@
+   const busy = useRef(false);
+   const historyRequest = useRef(0);
+   const accessBlocked = useRef(false);
++  const accessEpoch = useRef(0);
+   const sendBusy = useRef(false);
+   const mounted = useRef(true);
+   const abort = useRef<AbortController | null>(null);
+ 
+   const revoke = useCallback((error: Error) => {
+     accessBlocked.current = true;
++    ++accessEpoch.current;
++    historyCursor.current = 0;
++    progressCursor.current = null;
++    setHasMore(false);
+     ++historyRequest.current;
+     busy.current = false;
+     setLoading(false);
+@@ -118,13 +123,20 @@
+     let stopped = false;
+     let timer: ReturnType<typeof setTimeout>;
+     async function poll() {
++      if (accessBlocked.current) {
++        if (!stopped) timer = setTimeout(poll, 10_000);
++        return;
++      }
++      const epoch = accessEpoch.current;
+       try {
+         const result = await request(`${url}?mode=poll${progressCursor.current ? `&cursor=${encodeURIComponent(progressCursor.current)}` : ""}`, { signal: controller.signal }) as { cursor?: unknown; changed?: unknown; reply?: unknown };
+         if (typeof result.cursor !== "string" || !/^[a-f0-9]{64}$/.test(result.cursor) || typeof result.changed !== "boolean" || (result.reply !== undefined && !isReply(result.reply))) throw new Error("Invalid response");
+         if (stopped) return;
+-        progressCursor.current = result.cursor;
+-        if (isReply(result.reply)) setSnapshot(result.reply);
+-        setPollError(false);
++        if (!accessBlocked.current && epoch === accessEpoch.current) {
++          progressCursor.current = result.cursor;
++          if (isReply(result.reply)) setSnapshot(result.reply);
++          setPollError(false);
++        }
+       } catch (error) {
+         if (!stopped) {
+           if (accessDenied(error)) revoke(error as Error);
+@@ -153,10 +165,11 @@
+     sendBusy.current = true;
+     setSending(true);
+     setSendError(null);
++    const epoch = accessEpoch.current;
+     try {
+       const response = await request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(attempt), signal: abort.current?.signal }) as { exchange?: unknown };
+       if (!isExchange(response.exchange) || response.exchange.messageId !== attempt.messageId) throw new Error(safeError());
+-      if (!mounted.current || accessBlocked.current) return;
++      if (!mounted.current || accessBlocked.current || epoch !== accessEpoch.current) return;
+       setExchanges(old => merge(old, [response.exchange as Exchange]));
+       setDraft("");
+       setPending(null);

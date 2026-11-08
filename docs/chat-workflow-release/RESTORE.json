@@ -1,0 +1,245 @@
+{
+  "commit": "d7cd083fe9c8ea3e810277ef2fc8fa5887693fa5",
+  "files": [
+    {
+      "source": "docs/chat-release-verification/README.md",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/README.md",
+      "sha256": "33bdf49299d498f2c530ba978a23bf0ba480a0e588163c1e5202e1000741a5dd"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/RESULTS.md",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/RESULTS.md",
+      "sha256": "2a34f7e1526e37da8587fb855ba46b156a00949ce416bea7073489e30efce792"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-build.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-build.log",
+      "sha256": "3e1ab5aa7668f9c898fd2d33fdfaacfe1ba8bb4828af326829804215581e8c72"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-corrected-build.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-corrected-build.log",
+      "sha256": "24aaed274c00e1fed6d996fbcc47d1bc120fcd4fbf2b28aeb9a6179b0d6b9cc1"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-corrected-typecheck.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-corrected-typecheck.log",
+      "sha256": "de02d57b104220f1668a8d2406816731dac9f5aecfab4f95a86b9d154e65d4e2"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-install.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-install.log",
+      "sha256": "7087359502ade21de6a3b7db9d6a04006693846b8b37679be3ede98ea68a1a3b"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-typecheck.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-typecheck.log",
+      "sha256": "de02d57b104220f1668a8d2406816731dac9f5aecfab4f95a86b9d154e65d4e2"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-typegen.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-typegen.log",
+      "sha256": "3aea6933f2190e2e49a3e71dd1f2a5f0882af133358516440ef85715d6e880c1"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/current-webpack-build.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/current-webpack-build.log",
+      "sha256": "760c423dcb2f9ba5085aa00f2c28c952279d7ad517de7926c07d18ed1e301d8f"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-build.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-build.log",
+      "sha256": "76b39a92b712ebc8ed66f18591c636de7b1850a310861d4d9f3d05956d627823"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-corrected-build.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-corrected-build.log",
+      "sha256": "d97957382d04be8c69f358416756fabad24b0854ddf15f08fb216dfd68dee7fe"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-corrected-typecheck.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-corrected-typecheck.log",
+      "sha256": "de02d57b104220f1668a8d2406816731dac9f5aecfab4f95a86b9d154e65d4e2"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-install.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-install.log",
+      "sha256": "c52ba9e74c429438805fff815ed59248c3d3010b081773543216bf7ce9acf5fd"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-typecheck.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-typecheck.log",
+      "sha256": "de02d57b104220f1668a8d2406816731dac9f5aecfab4f95a86b9d154e65d4e2"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-typegen.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-typegen.log",
+      "sha256": "b28510b82895f306611057bb9ba007fb4f9c427994a0c8f2c482e01a4472ca62"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/pinned-webpack-build.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/pinned-webpack-build.log",
+      "sha256": "f7dadf7d982c22b5733775af40e599baaf6c5855daed9cb0bcb8526fa3306ca0"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/actual-app/summary.json",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/actual-app/summary.json",
+      "sha256": "3f7db93131ff634daacfc4538e39efccc0e198ae26d04e73d45e94fe1f4bc684"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/corrected-tests.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/corrected-tests.log",
+      "sha256": "9759eae026de9b906b3eeb895168d2e3075c0b781fc08e50e97149baadc16cb2"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/next-esm-compatibility.patch",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch",
+      "sha256": "111c7cda082a4682a8d9a9e008f02604d9520b037dbb36a28092768f00488072"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/rendered-before-css/desktop-running.png",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/rendered-before-css/desktop-running.png",
+      "sha256": "d218698b94d994bc3040b8614f908cebba5dfc82015c5c7bf1d7a37060d065a6"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/rendered-before-css/mobile-delivered.png",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/rendered-before-css/mobile-delivered.png",
+      "sha256": "a1f4f16b61704b356eccf9057877db5ef3d481b5525456492b8ed5821aee58ae"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/rendered/desktop-running.png",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/rendered/desktop-running.png",
+      "sha256": "0bfc508f517b3fd02323357d2a128fd48efcffe3311275bb8d104fdf2b48a205"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/rendered/mobile-delivered.png",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/rendered/mobile-delivered.png",
+      "sha256": "7a56dd5eff21e38d7998d055a0d940733343e0ccffdae1c8756fba0dcd6b37ce"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/rendered/next-dev.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/rendered/next-dev.log",
+      "sha256": "737f3100a69e25b8918f01fa16dece3d9e36d4563d6daf1158d6db6df61affd6"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/rendered/result.json",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/rendered/result.json",
+      "sha256": "4b376690f3ed09d51edb8090622ade490964672f62119c6aca55a2563f1c30a1"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/restore-history.patch",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch",
+      "sha256": "6d3833101637a232d90049767135a6469e950eaa043805e576e0709b96143455"
+    },
+    {
+      "source": "docs/chat-release-verification/app-ui/uncorrected-regression.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/app-ui/uncorrected-regression.log",
+      "sha256": "815c42eeeff41d635744c129b7a7a5a019788de098bcf9374c2f78e87f3f82de"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/baseline-current-policy-sql.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/baseline-current-policy-sql.log",
+      "sha256": "17966d54604b5d96d3b37abfb72ec85a8f8bc5140d97a740b0af98a8c39bed16"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/client-interactions-types.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/client-interactions-types.log",
+      "sha256": "3c408447f66729d556f875a9f2581be8867915ca93ee9f795d12f5b7f28d1022"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/independent-security.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/independent-security.log",
+      "sha256": "2c63718ee906ed5bf1553aeac9ad2bc96d76afc306d263922d05280f13382da5"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/independent-ui-regressions.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/independent-ui-regressions.log",
+      "sha256": "3d7e42da81a597247f9ccb385ca7d8b047e2ad888a7f00b7097f6f2c9bd8eab8"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/result.json",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/result.json",
+      "sha256": "cd2a12363e57c5c6dd81ff9e4244572849e3a775fd04f2f8ff61097ff02ef8ee"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/server-regression.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/server-regression.log",
+      "sha256": "d1209e965219e24c4af0458bfdcf74d3bad33f693a1e367e6a0287c62e263806"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/structured-targeted-types.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/structured-targeted-types.log",
+      "sha256": "147a6e25bc31fae079a7680a761c01cdad7197f18e8c302618f00094d9d72c5e"
+    },
+    {
+      "source": "docs/chat-release-verification/evidence/structured.log",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/evidence/structured.log",
+      "sha256": "95fb424ce16e1ad1b4ece43f33d256548efb66b3ab0162b90ef2054b183e8fb0"
+    },
+    {
+      "source": "docs/chat-release-verification/security/RESULTS.md",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/security/RESULTS.md",
+      "sha256": "9e3562ab6e2e53eee97e618268c141c2997bbc42ff507fc7527b096e465834cf"
+    },
+    {
+      "source": "docs/chat-release-verification/security/results.txt",
+      "restored": "docs/chat-workflow-release/restored/chat-release-verification/security/results.txt",
+      "sha256": "1d127b957377ca2aa6b46972104c0d6fef62795b0d48422e2ff302e4c1d18692"
+    },
+    {
+      "source": "tests/track-b/chat-release/app-ui/compatibility.mjs",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/app-ui/compatibility.mjs",
+      "sha256": "0a232bb6fbac64f761e1cbf367cf133f33be0bdba11d0dd933582c006fa823b1"
+    },
+    {
+      "source": "tests/track-b/chat-release/app-ui/correct-existing.mjs",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/app-ui/correct-existing.mjs",
+      "sha256": "6bb990e82bff402baec2593cc8f0a76cb60e5c5f52c40e05b76db77887ed8358"
+    },
+    {
+      "source": "tests/track-b/chat-release/app-ui/reauth.test.tsx",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/app-ui/reauth.test.tsx",
+      "sha256": "ff15d2f5a64c56a34b476a11bdcc29406323470d98f6bb1007f46c0c1864c5c4"
+    },
+    {
+      "source": "tests/track-b/chat-release/app-ui/render.mjs",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/app-ui/render.mjs",
+      "sha256": "7a42e107ecaf75f66fe5bc5fe2670a26eee291e5b68f561a55c4be299004056f"
+    },
+    {
+      "source": "tests/track-b/chat-release/app-ui/run.mjs",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/app-ui/run.mjs",
+      "sha256": "839e10e27e1c101ce0b338655fc07f6c94921bcd4ec02bf70fdfec50b819249d"
+    },
+    {
+      "source": "tests/track-b/chat-release/run.mjs",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/run.mjs",
+      "sha256": "08acb4cbd8ac8a808d7ae9f7b11d0471a89a07d24f0b7507e86a2a20344e5593"
+    },
+    {
+      "source": "tests/track-b/chat-release/security/empty.ts",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/security/empty.ts",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+    },
+    {
+      "source": "tests/track-b/chat-release/security/fixture-pool.ts",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/security/fixture-pool.ts",
+      "sha256": "9533166a55bb0559e22af0b9c31b2ec18a92f44b1ff7053cea39957ddd21bc58"
+    },
+    {
+      "source": "tests/track-b/chat-release/security/fixture-session.ts",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/security/fixture-session.ts",
+      "sha256": "248908246444f7c919b04ada292b91689475e06b487433712bd6be21fa6cad9c"
+    },
+    {
+      "source": "tests/track-b/chat-release/security/route-security.test.ts",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/security/route-security.test.ts",
+      "sha256": "989b677738e58a54d8703e915e03071cdeac4d2d07bb6dbf1c982c61945a1c54"
+    },
+    {
+      "source": "tests/track-b/chat-release/security/run.mjs",
+      "restored": "tests/track-b/chat-workflow-release/restored/chat-release/security/run.mjs",
+      "sha256": "12507b8125d782c043fa6fd1728114d53b24dd83eaea165ded73ab4952ae3219"
+    }
+  ]
+}

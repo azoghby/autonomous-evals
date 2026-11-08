@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-server-Lu3FER
+
+ ✓ composition.test.ts (4 tests) 31ms
+ ✓ routes.test.ts (7 tests) 24ms
+ ✓ server.test.ts (6 tests) 14ms
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  17:04:52
+   Duration  1.31s (transform 245ms, setup 0ms, collect 609ms, tests 69ms, environment 0ms, prepare 161ms)
+

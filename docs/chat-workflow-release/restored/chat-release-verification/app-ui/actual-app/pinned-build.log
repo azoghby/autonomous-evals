@@ -1,0 +1,460 @@
+
+> web@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Compiled workflows in 1.1s (44 steps, 1 workflow)
+✓ Running next.config.ts took 1417ms
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 21 errors:
+./packages/core/src/reporting/chat/projection/index.ts:3:1
+Error: Module not found: Can't resolve '../../../agents/redact.js'
+  [90m1 |[0m [36mimport[0m { createHmac } [36mfrom[0m [32m'node:crypto'[0m;
+  [90m2 |[0m [36mimport[0m { z } [36mfrom[0m [32m'zod'[0m;
+[31m[1m>[0m [90m3 |[0m [36mimport[0m { containsSecret } [36mfrom[0m [32m'../../../agents/redact.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m [36mimport[0m { assessDataQuality } [36mfrom[0m [32m'../../../evals/data/quality.js'[0m;
+  [90m5 |[0m [36mimport[0m { reviewDigest } [36mfrom[0m [32m'../../../evals/data/binding.js'[0m;
+  [90m6 |[0m [36mimport[0m { verifyFrozenSuite } [36mfrom[0m [32m'../../../evals/text/freeze.js'[0m;
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:5:1
+Error: Module not found: Can't resolve '../../../evals/data/binding.js'
+  [90m3 |[0m [36mimport[0m { containsSecret } [36mfrom[0m [32m'../../../agents/redact.js'[0m;
+  [90m4 |[0m [36mimport[0m { assessDataQuality } [36mfrom[0m [32m'../../../evals/data/quality.js'[0m;
+[31m[1m>[0m [90m5 |[0m [36mimport[0m { reviewDigest } [36mfrom[0m [32m'../../../evals/data/binding.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m6 |[0m [36mimport[0m { verifyFrozenSuite } [36mfrom[0m [32m'../../../evals/text/freeze.js'[0m;
+  [90m7 |[0m [36mimport[0m { [33mCostEntrySchema[0m, [33mFindingSchema[0m } [36mfrom[0m [32m'../../../evals/types.js'[0m;
+  [90m8 |[0m [36mimport[0m { [33mSuiteRunSchema[0m, [33mScenarioExecutionSchema[0m } [36mfrom[0m [32m'../../../evals/text/schema.js'[0m;
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:4:1
+Error: Module not found: Can't resolve '../../../evals/data/quality.js'
+  [90m2 |[0m [36mimport[0m { z } [36mfrom[0m [32m'zod'[0m;
+  [90m3 |[0m [36mimport[0m { containsSecret } [36mfrom[0m [32m'../../../agents/redact.js'[0m;
+[31m[1m>[0m [90m4 |[0m [36mimport[0m { assessDataQuality } [36mfrom[0m [32m'../../../evals/data/quality.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m5 |[0m [36mimport[0m { reviewDigest } [36mfrom[0m [32m'../../../evals/data/binding.js'[0m;
+  [90m6 |[0m [36mimport[0m { verifyFrozenSuite } [36mfrom[0m [32m'../../../evals/text/freeze.js'[0m;
+  [90m7 |[0m [36mimport[0m { [33mCostEntrySchema[0m, [33mFindingSchema[0m } [36mfrom[0m [32m'../../../evals/types.js'[0m;
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:6:1
+Error: Module not found: Can't resolve '../../../evals/text/freeze.js'
+  [90m4 |[0m [36mimport[0m { assessDataQuality } [36mfrom[0m [32m'../../../evals/data/quality.js'[0m;
+  [90m5 |[0m [36mimport[0m { reviewDigest } [36mfrom[0m [32m'../../../evals/data/binding.js'[0m;
+[31m[1m>[0m [90m6 |[0m [36mimport[0m { verifyFrozenSuite } [36mfrom[0m [32m'../../../evals/text/freeze.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m7 |[0m [36mimport[0m { [33mCostEntrySchema[0m, [33mFindingSchema[0m } [36mfrom[0m [32m'../../../evals/types.js'[0m;
+  [90m8 |[0m [36mimport[0m { [33mSuiteRunSchema[0m, [33mScenarioExecutionSchema[0m } [36mfrom[0m [32m'../../../evals/text/schema.js'[0m;
+  [90m9 |[0m [36mimport[0m { [33mChatError[0m, [33mChatScopeSchema[0m, [33mProgressSnapshotSchema[0m, [36mtype[0m [33mChatScope[0m, [36mtype[0m [33mProgressP...[0m
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:8:1
+Error: Module not found: Can't resolve '../../../evals/text/schema.js'
+  [90m 6 |[0m ...[36mmport[0m { verifyFrozenSuite } [36mfrom[0m [32m'../../../evals/text/freeze.js'[0m;
+  [90m 7 |[0m ...[36mmport[0m { [33mCostEntrySchema[0m, [33mFindingSchema[0m } [36mfrom[0m [32m'../../../evals/types.js'[0m;
+[31m[1m>[0m [90m 8 |[0m ...[36mmport[0m { [33mSuiteRunSchema[0m, [33mScenarioExecutionSchema[0m } [36mfrom[0m [32m'../../../evals/text/schema.js'[0m;
+  [90m   |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m 9 |[0m ...[36mmport[0m { [33mChatError[0m, [33mChatScopeSchema[0m, [33mProgressSnapshotSchema[0m, [36mtype[0m [33mChatScope[0m, [36mtype[0m [33mProgre...[0m
+  [90m10 |[0m ...[36mmport[0m [36mtype[0m { [33mDurableProgressRead[0m, [33mGroundedProgressProjection[0m, [33mProgressProjectionPorts[0m, [33m...[0m
+  [90m11 |[0m ...[36mxport[0m [36mtype[0m * [36mfrom[0m [32m'./types.js'[0m;
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:7:1
+Error: Module not found: Can't resolve '../../../evals/types.js'
+  [90m 5 |[0m [36mimport[0m { reviewDigest } [36mfrom[0m [32m'../../../evals/data/binding.js'[0m;
+  [90m 6 |[0m [36mimport[0m { verifyFrozenSuite } [36mfrom[0m [32m'../../../evals/text/freeze.js'[0m;
+[31m[1m>[0m [90m 7 |[0m [36mimport[0m { [33mCostEntrySchema[0m, [33mFindingSchema[0m } [36mfrom[0m [32m'../../../evals/types.js'[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m 8 |[0m [36mimport[0m { [33mSuiteRunSchema[0m, [33mScenarioExecutionSchema[0m } [36mfrom[0m [32m'../../../evals/text/schema.js'[0m;
+  [90m 9 |[0m [36mimport[0m { [33mChatError[0m, [33mChatScopeSchema[0m, [33mProgressSnapshotSchema[0m, [36mtype[0m [33mChatScope[0m, [36mtype[0m [33mProgress...[0m
+  [90m10 |[0m [36mimport[0m [36mtype[0m { [33mDurableProgressRead[0m, [33mGroundedProgressProjection[0m, [33mProgressProjectionPorts[0m, [33mPr...[0m
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/simulator/branch-ledger.ts:4:1
+Error: Module not found: Can't resolve '../targets/chat.js'
+  [90m2 |[0m [36mimport[0m [36mtype[0m { [33mBranchLedger[0m, [33mBranchOwnership[0m } [36mfrom[0m [32m'./neon.js'[0m;
+  [90m3 |[0m [36mimport[0m [36mtype[0m { [33mSqlPool[0m } [36mfrom[0m [32m'./pool.js'[0m;
+[31m[1m>[0m [90m4 |[0m [36mimport[0m { isPersistableText } [36mfrom[0m [32m'../targets/chat.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m5 |[0m
+  [90m6 |[0m [36mconst[0m jobSchema = z.string().min([35m1[0m).max([35m128[0m).refine(isPersistableText);
+  [90m7 |[0m [36mconst[0m branchIdSchema = z.string().regex([35m/^br-[a-z0-9-]+$/[0m).max([35m128[0m);
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/simulator/branch-ledger.ts
+    ./packages/core/src/integration/eval-services.ts
+    ./apps/web/src/server/services.ts
+    ./apps/web/src/app/api/cron/cleanup/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:9:1
+Error: Module not found: Can't resolve '../types.js'
+  [90m 7 |[0m ...[33mtrySchema[0m, [33mFindingSchema[0m } [36mfrom[0m [32m'../../../evals/types.js'[0m;
+  [90m 8 |[0m ...[33munSchema[0m, [33mScenarioExecutionSchema[0m } [36mfrom[0m [32m'../../../evals/text/schema.js'[0m;
+[31m[1m>[0m [90m 9 |[0m ...[33mror[0m, [33mChatScopeSchema[0m, [33mProgressSnapshotSchema[0m, [36mtype[0m [33mChatScope[0m, [36mtype[0m [33mProgressPort[0m } [36mfrom[0m [32m...[0m
+  [90m   |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m10 |[0m ...[33murableProgressRead[0m, [33mGroundedProgressProjection[0m, [33mProgressProjectionPorts[0m, [33mProjectedOutco..[0m.
+  [90m11 |[0m ...[36mrom[0m [32m'./types.js'[0m;
+  [90m12 |[0m ...
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/index.ts:4:1
+Error: Module not found: Can't resolve './answers.js'
+  [90m2 |[0m [36mexport[0m * [36mfrom[0m [32m'./types.js'[0m;
+  [90m3 |[0m [36mexport[0m { createProgressChatService } [36mfrom[0m [32m'./service.js'[0m;
+[31m[1m>[0m [90m4 |[0m [36mexport[0m { answerProgressQuestion } [36mfrom[0m [32m'./answers.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m5 |[0m [36mexport[0m { createFileConversationPort } [36mfrom[0m [32m'./file-conversations.js'[0m;
+  [90m6 |[0m [36mexport[0m * [36mfrom[0m [32m'./postgres-conversations.js'[0m;
+  [90m7 |[0m
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/index.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/targets/adapters.ts:1:1
+Error: Module not found: Can't resolve './chat.js'
+[31m[1m>[0m [90m1 |[0m [36mimport[0m { [33mChatCompletionsClient[0m, [36mtype[0m [33mTargetConfig[0m } [36mfrom[0m [32m'./chat.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m2 |[0m [36mimport[0m { [33mHttpsJsonTransport[0m, [33mTargetError[0m, [36mtype[0m [33mJsonTransport[0m } [36mfrom[0m [32m'./transport.js'[0m;
+  [90m3 |[0m [90m/** Structurally compatible with Track A endpoint contracts; no contract import required. */[0m
+  [90m4 |[0m [36mexport[0m [36minterface[0m [33mPlatformTarget[0m { url: string; model: string; apiKey?: string; systemPrompt...
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/targets/adapters.ts
+    ./packages/core/src/integration/compose.ts
+    ./apps/web/src/server/services.ts
+    ./apps/web/src/app/api/cron/cleanup/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/index.ts:5:1
+Error: Module not found: Can't resolve './file-conversations.js'
+  [90m3 |[0m [36mexport[0m { createProgressChatService } [36mfrom[0m [32m'./service.js'[0m;
+  [90m4 |[0m [36mexport[0m { answerProgressQuestion } [36mfrom[0m [32m'./answers.js'[0m;
+[31m[1m>[0m [90m5 |[0m [36mexport[0m { createFileConversationPort } [36mfrom[0m [32m'./file-conversations.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m6 |[0m [36mexport[0m * [36mfrom[0m [32m'./postgres-conversations.js'[0m;
+  [90m7 |[0m
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/index.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/index.ts:6:1
+Error: Module not found: Can't resolve './postgres-conversations.js'
+  [90m4 |[0m [36mexport[0m { answerProgressQuestion } [36mfrom[0m [32m'./answers.js'[0m;
+  [90m5 |[0m [36mexport[0m { createFileConversationPort } [36mfrom[0m [32m'./file-conversations.js'[0m;
+[31m[1m>[0m [90m6 |[0m [36mexport[0m * [36mfrom[0m [32m'./postgres-conversations.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m7 |[0m
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/index.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/projection/index.ts:260:1
+Error: Module not found: Can't resolve './reader.js'
+  [90m258 |[0m ...[32mcovery'[0m, [32m'generation'[0m, [32m'expert'[0m, [32m'complete'[0m].includes(task.phase)) invalid();
+  [90m259 |[0m ...
+[31m[1m>[0m [90m260 |[0m ...teDurableProgressReader, [36mtype[0m [33mConsistentProgressReadPort[0m, [36mtype[0m [33mDurableReadView[0m } [36mfrom[0m [32m...[0m
+  [90m    |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m261 |[0m ...
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/projection/index.ts
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/index.ts:3:1
+Error: Module not found: Can't resolve './service.js'
+  [90m1 |[0m [90m/** Server-side private progress chat; no orchestration, target calls, or model spend. */[0m
+  [90m2 |[0m [36mexport[0m * [36mfrom[0m [32m'./types.js'[0m;
+[31m[1m>[0m [90m3 |[0m [36mexport[0m { createProgressChatService } [36mfrom[0m [32m'./service.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m [36mexport[0m { answerProgressQuestion } [36mfrom[0m [32m'./answers.js'[0m;
+  [90m5 |[0m [36mexport[0m { createFileConversationPort } [36mfrom[0m [32m'./file-conversations.js'[0m;
+  [90m6 |[0m [36mexport[0m * [36mfrom[0m [32m'./postgres-conversations.js'[0m;
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/index.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/targets/adapters.ts:2:1
+Error: Module not found: Can't resolve './transport.js'
+  [90m1 |[0m [36mimport[0m { [33mChatCompletionsClient[0m, [36mtype[0m [33mTargetConfig[0m } [36mfrom[0m [32m'./chat.js'[0m;
+[31m[1m>[0m [90m2 |[0m [36mimport[0m { [33mHttpsJsonTransport[0m, [33mTargetError[0m, [36mtype[0m [33mJsonTransport[0m } [36mfrom[0m [32m'./transport.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [90m/** Structurally compatible with Track A endpoint contracts; no contract import required. */[0m
+  [90m4 |[0m [36mexport[0m [36minterface[0m [33mPlatformTarget[0m { url: string; model: string; apiKey?: string; systemPrompt...
+  [90m5 |[0m [36mexport[0m [36mfunction[0m targetConfig(input: [33mPlatformTarget[0m): [33mTargetConfig[0m {
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/targets/adapters.ts
+    ./packages/core/src/integration/compose.ts
+    ./apps/web/src/server/services.ts
+    ./apps/web/src/app/api/cron/cleanup/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./packages/core/src/reporting/chat/index.ts:2:1
+Error: Module not found: Can't resolve './types.js'
+  [90m1 |[0m [90m/** Server-side private progress chat; no orchestration, target calls, or model spend. */[0m
+[31m[1m>[0m [90m2 |[0m [36mexport[0m * [36mfrom[0m [32m'./types.js'[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m3 |[0m [36mexport[0m { createProgressChatService } [36mfrom[0m [32m'./service.js'[0m;
+  [90m4 |[0m [36mexport[0m { answerProgressQuestion } [36mfrom[0m [32m'./answers.js'[0m;
+  [90m5 |[0m [36mexport[0m { createFileConversationPort } [36mfrom[0m [32m'./file-conversations.js'[0m;
+
+
+
+Import trace:
+  App Route:
+    ./packages/core/src/reporting/chat/index.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./apps/web/src/app/api/jobs/[jobId]/chat/route.ts:1:1
+Error: Export ChatError doesn't exist in target module
+[31m[1m>[0m [90m1 |[0m [36mimport[0m { [33mChatError[0m } [36mfrom[0m [32m"@ae/core/reporting/chat/index"[0m;
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m2 |[0m [36mimport[0m { progressChatForRequest } [36mfrom[0m [32m"@/server/progress-chat"[0m;
+  [90m3 |[0m
+  [90m4 |[0m [36mexport[0m [36mconst[0m runtime = [32m"nodejs"[0m;
+
+The export ChatError was not found in module [project]/packages/core/src/reporting/chat/index.ts [app-route] (ecmascript).
+Did you mean to import answerProgressQuestion?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+./apps/web/src/server/progress-chat.ts:7:1
+Error: Export ChatError doesn't exist in target module
+  [90m 5 |[0m [36mimport[0m { decrypt, decryptJson } [36mfrom[0m [32m"@ae/core/storage/crypto"[0m;
+  [90m 6 |[0m [36mimport[0m { containsSecret } [36mfrom[0m [32m"@ae/core/agents/redact"[0m;
+[31m[1m>[0m [90m 7 |[0m [36mimport[0m { createProgressChatService, createPostgresConversationPort, [33mChatError[0m,
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[31m[1m>[0m [90m 8 |[0m   [33mProgressSnapshotSchema[0m, [36mtype[0m [33mProgressSnapshot[0m, [36mtype[0m [33mConversationSqlExecutor[0m,
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[31m[1m>[0m [90m 9 |[0m   [36mtype[0m [33mConversationTransactionalSql[0m } [36mfrom[0m [32m"@ae/core/reporting/chat/index"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m10 |[0m [36mimport[0m { getCurrentCustomer } [36mfrom[0m [32m"./session"[0m;
+  [90m11 |[0m
+  [90m12 |[0m [90m// Same DATABASE_URL/schema and Neon WS driver as core integration/eval-services.[0m
+
+The export ChatError was not found in module [project]/packages/core/src/reporting/chat/index.ts [app-route] (ecmascript).
+Did you mean to import answerProgressQuestion?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  App Route:
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+
+./apps/web/src/server/structured-progress.ts:4:1
+Error: Export ChatError doesn't exist in target module
+  [90m2 |[0m ...[32mzod"[0m;
+  [90m3 |[0m ...bleProgressProjection, createDurableProgressReader, [36mtype[0m [33mProjectionPlan[0m } [36mfrom[0m [32m"@ae/core...[0m
+[31m[1m>[0m [90m4 |[0m ... [36mtype[0m [33mChatScope[0m, [36mtype[0m [33mProgressSnapshot[0m, [36mtype[0m [33mConversationSqlExecutor[0m } [36mfrom[0m [32m"@ae/core/re...[0m
+  [90m  |[0m    [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m5 |[0m ...[33mxtCheckpointStore[0m } [36mfrom[0m [32m"@ae/core/evals/integration/checkpoints"[0m;
+  [90m6 |[0m ...gresEvaluationDataStore } [36mfrom[0m [32m"@ae/core/evals/data/postgres-store"[0m;
+  [90m7 |[0m ...
+
+The export ChatError was not found in module [project]/packages/core/src/reporting/chat/index.ts [app-route] (ecmascript).
+Did you mean to import answerProgressQuestion?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  App Route:
+    ./apps/web/src/server/structured-progress.ts
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+
+./apps/web/src/server/progress-chat.ts:7:1
+Error: Export ProgressSnapshotSchema doesn't exist in target module
+  [90m 5 |[0m [36mimport[0m { decrypt, decryptJson } [36mfrom[0m [32m"@ae/core/storage/crypto"[0m;
+  [90m 6 |[0m [36mimport[0m { containsSecret } [36mfrom[0m [32m"@ae/core/agents/redact"[0m;
+[31m[1m>[0m [90m 7 |[0m [36mimport[0m { createProgressChatService, createPostgresConversationPort, [33mChatError[0m,
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[31m[1m>[0m [90m 8 |[0m   [33mProgressSnapshotSchema[0m, [36mtype[0m [33mProgressSnapshot[0m, [36mtype[0m [33mConversationSqlExecutor[0m,
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[31m[1m>[0m [90m 9 |[0m   [36mtype[0m [33mConversationTransactionalSql[0m } [36mfrom[0m [32m"@ae/core/reporting/chat/index"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m10 |[0m [36mimport[0m { getCurrentCustomer } [36mfrom[0m [32m"./session"[0m;
+  [90m11 |[0m
+  [90m12 |[0m [90m// Same DATABASE_URL/schema and Neon WS driver as core integration/eval-services.[0m
+
+The export ProgressSnapshotSchema was not found in module [project]/packages/core/src/reporting/chat/index.ts [app-route] (ecmascript).
+Did you mean to import answerProgressQuestion?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  App Route:
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+
+./apps/web/src/server/progress-chat.ts:7:1
+Error: Export createPostgresConversationPort doesn't exist in target module
+  [90m 5 |[0m [36mimport[0m { decrypt, decryptJson } [36mfrom[0m [32m"@ae/core/storage/crypto"[0m;
+  [90m 6 |[0m [36mimport[0m { containsSecret } [36mfrom[0m [32m"@ae/core/agents/redact"[0m;
+[31m[1m>[0m [90m 7 |[0m [36mimport[0m { createProgressChatService, createPostgresConversationPort, [33mChatError[0m,
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[31m[1m>[0m [90m 8 |[0m   [33mProgressSnapshotSchema[0m, [36mtype[0m [33mProgressSnapshot[0m, [36mtype[0m [33mConversationSqlExecutor[0m,
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[31m[1m>[0m [90m 9 |[0m   [36mtype[0m [33mConversationTransactionalSql[0m } [36mfrom[0m [32m"@ae/core/reporting/chat/index"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m10 |[0m [36mimport[0m { getCurrentCustomer } [36mfrom[0m [32m"./session"[0m;
+  [90m11 |[0m
+  [90m12 |[0m [90m// Same DATABASE_URL/schema and Neon WS driver as core integration/eval-services.[0m
+
+The export createPostgresConversationPort was not found in module [project]/packages/core/src/reporting/chat/index.ts [app-route] (ecmascript).
+Did you mean to import createFileConversationPort?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import trace:
+  App Route:
+    ./apps/web/src/server/progress-chat.ts
+    ./apps/web/src/app/api/jobs/[jobId]/chat/route.ts
+
+
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    ... collapsed 15 duplicate lines matching above 1 lines 15 times...
+npm error Lifecycle script `build` failed with error:
+npm error code 1
+npm error path /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-pinned-0gZT2P/apps/web
+npm error workspace web@0.1.0
+npm error location /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-pinned-0gZT2P/apps/web
+npm error command failed
+npm error command sh -c next build

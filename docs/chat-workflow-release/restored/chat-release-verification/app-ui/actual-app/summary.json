@@ -1,0 +1,197 @@
+{
+  "node": "v24.21.0",
+  "core": "de6a7985e72b57fce79ef7f69f533b0b2da126a7",
+  "results": [
+    {
+      "name": "pinned",
+      "ref": "2dff9d8af8cccdd171d78760a0d74136d138fcb4",
+      "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-pinned-0gZT2P",
+      "commands": [
+        {
+          "label": "install",
+          "args": [
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--fetch-retries=0",
+            "--fetch-timeout=20000"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "typegen",
+          "args": [
+            "exec",
+            "-w",
+            "web",
+            "--",
+            "next",
+            "typegen"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "typecheck",
+          "args": [
+            "run",
+            "typecheck",
+            "-w",
+            "web"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "build",
+          "args": [
+            "run",
+            "build",
+            "-w",
+            "web"
+          ],
+          "exit": 1
+        },
+        {
+          "label": "webpack-build",
+          "args": [
+            "exec",
+            "-w",
+            "web",
+            "--",
+            "next",
+            "build",
+            "--webpack"
+          ],
+          "exit": 1
+        },
+        {
+          "label": "corrected-typecheck",
+          "args": [
+            "run",
+            "typecheck",
+            "-w",
+            "web"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "corrected-build",
+          "args": [
+            "run",
+            "build",
+            "-w",
+            "web"
+          ],
+          "exit": 0
+        }
+      ],
+      "versions": {
+        "next": "16.4.5",
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "typescript": "6.0.3",
+        "@neondatabase/serverless": "1.2.0"
+      },
+      "inputHashes": {
+        "package-lock.json": "ba4727ddbc1432f67d29057306f9fec030b92cdcb60cf4cd851882200d70cf8b",
+        "apps/web/package.json": "f65626fb5f00559ef6073651ab254f288b8607b84df79a8f3fe98470593be6d7"
+      }
+    },
+    {
+      "name": "current",
+      "ref": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+      "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-real-current-uS8sgP",
+      "commands": [
+        {
+          "label": "install",
+          "args": [
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--fetch-retries=0",
+            "--fetch-timeout=20000"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "typegen",
+          "args": [
+            "exec",
+            "-w",
+            "web",
+            "--",
+            "next",
+            "typegen"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "typecheck",
+          "args": [
+            "run",
+            "typecheck",
+            "-w",
+            "web"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "build",
+          "args": [
+            "run",
+            "build",
+            "-w",
+            "web"
+          ],
+          "exit": 1
+        },
+        {
+          "label": "webpack-build",
+          "args": [
+            "exec",
+            "-w",
+            "web",
+            "--",
+            "next",
+            "build",
+            "--webpack"
+          ],
+          "exit": 1
+        },
+        {
+          "label": "corrected-typecheck",
+          "args": [
+            "run",
+            "typecheck",
+            "-w",
+            "web"
+          ],
+          "exit": 0
+        },
+        {
+          "label": "corrected-build",
+          "args": [
+            "run",
+            "build",
+            "-w",
+            "web"
+          ],
+          "exit": 0
+        }
+      ],
+      "versions": {
+        "next": "16.4.5",
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "typescript": "6.0.3",
+        "@neondatabase/serverless": "1.2.0"
+      },
+      "inputHashes": {
+        "package-lock.json": "ba4727ddbc1432f67d29057306f9fec030b92cdcb60cf4cd851882200d70cf8b",
+        "apps/web/package.json": "f65626fb5f00559ef6073651ab254f288b8607b84df79a8f3fe98470593be6d7"
+      }
+    }
+  ],
+  "releaseAccepted": false
+}

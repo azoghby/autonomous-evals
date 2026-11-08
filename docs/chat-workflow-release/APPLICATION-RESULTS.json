@@ -1,0 +1,23 @@
+{
+  "stage": "/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-workflow-release-q05LUb",
+  "core": "48519bf16e04bce3397ceaeb8abea060d2636263",
+  "trackA": "f0068733ca49c37f40fd7de279325f21a4b5fbbb",
+  "applied": [
+    "docs/progress-chat-integration/combined.patch",
+    "docs/structured-progress-integration/backend/structured-progress.patch",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch",
+    "docs/chat-workflow-release/servercompat/0001-current-core-server.patch",
+    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/restore-history.patch",
+    "docs/chat-workflow-release/restored/chat-release-verification/app-ui/next-esm-compatibility.patch"
+  ],
+  "releaseAccepted": false,
+  "restoredFilesVerified": 48,
+  "preservedManifestAndLockSha256": {
+    "package.json": "bac5a78d8ac51df05825587291e09fbe2598c7763e46f91314d484ea6d5ce169",
+    "package-lock.json": "ba4727ddbc1432f67d29057306f9fec030b92cdcb60cf4cd851882200d70cf8b",
+    "packages/core/package.json": "398ca8891be179643c4f8c164467083b8532c78b1b0005c1bc1494f58dcae466"
+  },
+  "checks": "Byte-for-byte restoration, digest-guarded git apply --check/apply, preserved pinned manifests/locks",
+  "boundary": "Source application only; UI/build and mocked server checks have separate evidence. No SQL, service, auth or provider acceptance."
+}

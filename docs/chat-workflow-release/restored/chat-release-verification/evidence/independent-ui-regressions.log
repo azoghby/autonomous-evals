@@ -1,0 +1,16 @@
+uncorrected-regression: exit 1
+corrected-typecheck: exit 0
+corrected-tests: exit 0
+
+ RUN  v3.2.4 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-qmlqUf
+
+ ✓ reauth.test.tsx (4 tests) 155ms
+ ✓ chat.test.tsx (9 tests) 206ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  17:05:02
+   Duration  860ms (transform 75ms, setup 0ms, collect 249ms, tests 360ms, environment 498ms, prepare 128ms)
+
+
+React 19.2.0 jsdom fixture only. Evidence /var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/chat-release-ui-qmlqUf
