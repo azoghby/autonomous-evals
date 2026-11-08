@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { GatewayError } from "@ae/core/ai/gateway";
-import type { OnboardingModelOutput } from "@ae/core/company/onboarding";
+import { ONBOARDING_MAX_SCENARIOS, planRunSize, SECRET_REPLY, type OnboardingModelOutput } from "@ae/core/company/onboarding";
 import { SandboxInputError } from "../sandbox/target";
-import { handleOnboardingMessage, runOnboardingFollowThrough, type OnboardingDeps, type OnboardingSandbox } from "./onboarding";
+import { advanceOnboardingConversation, estimateOnboardingRun, handleOnboardingMessage, runOnboardingFollowThrough, type OnboardingDeps, type OnboardingSandbox } from "./onboarding";
 import type { ConversationPatch, ConversationRow, OnboardingStore } from "./onboarding-store";
 import { memoryRuntime } from "./runtime.testing";
 
@@ -226,5 +226,152 @@ describe("runOnboardingFollowThrough", () => {
     const s = setup({ rows: [row({ status: "running", runId: "run-1" })], sandbox: { getRunReport: vi.fn(async () => ({ runId: "run-1", status: "running", k: 1, scenarios: [], results: [] })) as never } });
     await runOnboardingFollowThrough({ trigger: "cron", now: NOW, dryRun: true }, s.deps);
     expect(s.rows.get("conv-x")!.status).toBe("running");
+  });
+});
+
+/* ---------------- chat surface: fields, attachments, confirm gate ---------------- */
+
+const emptyOut: OnboardingModelOutput = { reply: "Got it.", missing: [], readyToRun: false, extracted: {} };
+const allFields = { model: "openai/gpt-5-mini", systemPrompt: "You are a support bot.", prebuiltWorld: "acme-support" as const };
+const chatOpts = { trigger: "chat" as const, now: NOW, dryRun: true, env: { NODE_ENV: "test" } };
+
+describe("handleOnboardingMessage (chat inputs)", () => {
+  it("merges fields without relying on the model's extracted output", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, fields: allFields }, chatOpts, s.deps);
+    expect(r.status).toBe("building");
+    expect(s.sandbox.createDraft).toHaveBeenCalledWith(CUSTOMER.id, expect.objectContaining({ prebuilt: "acme-support" }));
+    expect(s.rows.get(r.conversationId)!.collected).toMatchObject({ agent: { model: "openai/gpt-5-mini", systemPrompt: "You are a support bot." }, tools: { prebuiltWorld: "acme-support" } });
+  });
+
+  it("waits for confirmation when requireConfirm is set and everything is collected", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, fields: allFields, requireConfirm: true }, chatOpts, s.deps);
+    expect(r).toMatchObject({ status: "collecting", awaitingConfirm: true });
+    expect(s.sandbox.createDraft).not.toHaveBeenCalled();
+  });
+
+  it("does not flag awaitingConfirm while requirements are still missing", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, requireConfirm: true }, chatOpts, s.deps);
+    expect(r.status).toBe("collecting");
+    expect(r.awaitingConfirm).toBeUndefined();
+  });
+
+  it("builds on action confirm without calling the model", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const first = await handleOnboardingMessage({ ...chat, fields: allFields, requireConfirm: true }, chatOpts, s.deps);
+    expect(s.generate).toHaveBeenCalledTimes(1);
+    const r = await handleOnboardingMessage({ ...chat, text: "", conversationId: first.conversationId, action: "confirm", requireConfirm: true }, chatOpts, s.deps);
+    expect(r.status).toBe("building");
+    expect(s.sandbox.createDraft).toHaveBeenCalledTimes(1);
+    expect(s.generate).toHaveBeenCalledTimes(1);
+    expect(s.rows.get(r.conversationId)).toMatchObject({ status: "building", suiteId: "drf-1" });
+  });
+
+  it("returns to collecting on action cancel with no model call and no draft", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const first = await handleOnboardingMessage({ ...chat, fields: allFields, requireConfirm: true }, chatOpts, s.deps);
+    const r = await handleOnboardingMessage({ ...chat, text: "", conversationId: first.conversationId, action: "cancel", requireConfirm: true }, chatOpts, s.deps);
+    expect(r.status).toBe("collecting");
+    expect(r.reply).toMatch(/nothing was started/);
+    expect(s.generate).toHaveBeenCalledTimes(1);
+    expect(s.sandbox.createDraft).not.toHaveBeenCalled();
+  });
+
+  it("answers confirm with what is still needed when requirements are missing", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, text: "", action: "confirm" }, chatOpts, s.deps);
+    expect(r.status).toBe("collecting");
+    expect(r.reply.startsWith("I still need")).toBe(true);
+    expect(s.generate).not.toHaveBeenCalled();
+    expect(s.sandbox.createDraft).not.toHaveBeenCalled();
+  });
+
+  it.each(["http://bot.example.com/v1", "https://localhost/v1", "https://10.0.0.5/v1"])("rejects the endpoint %s with a note", async (endpointUrl) => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, fields: { endpointUrl, prebuiltWorld: "acme-support" } }, chatOpts, s.deps);
+    expect(r.status).toBe("collecting");
+    expect(r.reply).toMatch(/can't use the agent endpoint/);
+    expect(s.sandbox.createDraft).not.toHaveBeenCalled();
+    expect(JSON.stringify(s.rows.get(r.conversationId)!.collected)).not.toContain(endpointUrl);
+  });
+
+  it("refuses attachments that contain a credential and stores nothing from them", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const policies = "Be polite.\napi_key = sk-proj-abcdefghijklmnopqrstuv\n";
+    const r = await handleOnboardingMessage({ ...chat, attachments: { policies } }, chatOpts, s.deps);
+    expect(r.reply).toBe(SECRET_REPLY);
+    expect(s.generate).not.toHaveBeenCalled();
+    const conv = s.rows.get(r.conversationId)!;
+    expect(JSON.stringify(conv)).not.toContain("sk-proj-abcdef");
+    expect(conv.collected).toEqual({});
+  });
+
+  it("refuses a system prompt field that contains a credential", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, fields: { systemPrompt: "use api_key = sk-proj-abcdefghijklmnopqrstuv" } }, chatOpts, s.deps);
+    expect(r.reply).toBe(SECRET_REPLY);
+    expect(s.rows.get(r.conversationId)!.collected).toEqual({});
+  });
+
+  it("stores attachments.openapiText under collected.tools.openapiText", async () => {
+    const s = setup({ generate: async () => emptyOut });
+    const r = await handleOnboardingMessage({ ...chat, attachments: { openapiText: "openapi: 3.0.0\ninfo: {}\npaths: {}\n" } }, chatOpts, s.deps);
+    expect(s.rows.get(r.conversationId)!.collected).toMatchObject({ tools: { openapiText: expect.stringContaining("openapi: 3.0.0") } });
+  });
+});
+
+describe("advanceOnboardingConversation", () => {
+  it("skips a conversation owned by another customer without touching the sandbox", async () => {
+    const s = setup({ rows: [row({ customerId: "someone-else" })] });
+    const r = await advanceOnboardingConversation(CUSTOMER.id, "conv-x", { trigger: "chat", now: NOW, dryRun: true }, s.deps);
+    expect(r.status).toBe("skipped");
+    expect(s.sandbox.getDraft).not.toHaveBeenCalled();
+    expect(s.sandbox.startRun).not.toHaveBeenCalled();
+  });
+
+  it("skips a conversation that is still collecting", async () => {
+    const s = setup({ rows: [row({ status: "collecting" })] });
+    const r = await advanceOnboardingConversation(CUSTOMER.id, "conv-x", { trigger: "chat", now: NOW, dryRun: true }, s.deps);
+    expect(r.status).toBe("skipped");
+    expect(s.sandbox.getDraft).not.toHaveBeenCalled();
+    expect(s.sandbox.startRun).not.toHaveBeenCalled();
+  });
+
+  it("skips an unknown conversation id", async () => {
+    const s = setup();
+    const r = await advanceOnboardingConversation(CUSTOMER.id, "nope", { trigger: "chat", now: NOW, dryRun: true }, s.deps);
+    expect(r.status).toBe("skipped");
+  });
+
+  it("starts the run for a building conversation whose draft is ready", async () => {
+    const s = setup({
+      rows: [row()],
+      sandbox: { getDraft: vi.fn(async () => readyDraft()) as never, startRun: vi.fn(async () => ({ ok: true as const, runId: "run-1" })) },
+    });
+    await advanceOnboardingConversation(CUSTOMER.id, "conv-x", { trigger: "chat", now: NOW, dryRun: true }, s.deps);
+    expect(s.sandbox.startRun).toHaveBeenCalledWith(CUSTOMER.id, "drf-1", { k: 3, scenarioIds: ["s1"] });
+    expect(s.rows.get("conv-x")).toMatchObject({ status: "running", runId: "run-1" });
+  });
+});
+
+describe("estimateOnboardingRun", () => {
+  it("sizes the run from the injected allowance and echoes the allowance", async () => {
+    const allowance = async () => ({ headroomMicroUsd: null, runCapMicroUsd: 3_000_000 });
+    const plan = await estimateOnboardingRun(CUSTOMER.id, { allowance }, NOW);
+    expect(plan).toMatchObject({ ...planRunSize({ available: ONBOARDING_MAX_SCENARIOS, headroomMicroUsd: null, runCapMicroUsd: 3_000_000 }), headroomMicroUsd: null, runCapMicroUsd: 3_000_000 });
+    expect(plan.blocked).toBe(false);
+  });
+
+  it("is blocked when headroom cannot cover a minimal run", async () => {
+    const plan = await estimateOnboardingRun(CUSTOMER.id, { allowance: async () => ({ headroomMicroUsd: 1_000, runCapMicroUsd: 3_000_000 }) }, NOW);
+    expect(plan).toMatchObject({ blocked: true, headroomMicroUsd: 1_000 });
+  });
+
+  it("passes the customer id and time to the allowance", async () => {
+    const allowance = vi.fn(async () => ({ headroomMicroUsd: null, runCapMicroUsd: 3_000_000 }));
+    await estimateOnboardingRun(CUSTOMER.id, { allowance }, NOW);
+    expect(allowance).toHaveBeenCalledWith(CUSTOMER.id, NOW);
   });
 });

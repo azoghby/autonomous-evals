@@ -12,7 +12,8 @@ import { PLANS, usageWindowStart } from "@ae/core/pricing/plans";
 import { getCustomerPlan } from "@ae/core/payments/plans-checkout";
 import {
   appendTranscript, artifactsToRequirements, buildOnboardingPrompt, computeMissing, detectSecrets, EMPTY_REQUIREMENTS,
-  MAX_CUSTOMER_TEXT_CHARS, mergeRequirements, OnboardingModelOutput, OnboardingRequirements, planRunSize, SECRET_REPLY, sniffArtifacts,
+  MAX_CUSTOMER_TEXT_CHARS, mergeRequirements, ONBOARDING_MAX_SCENARIOS, OnboardingModelOutput, OnboardingRequirements, planRunSize, SECRET_REPLY, sniffArtifacts,
+  type RunPlan,
 } from "@ae/core/company/onboarding";
 import { formatReportMessage, summarizeRun } from "@ae/core/company/onboarding-report";
 import { FOUNDER_OVERRIDE_KEY } from "@ae/core/company/onboarding";
@@ -35,8 +36,22 @@ export interface OnboardingInput {
   customerId: string; channel: Channel; text: string; threadId?: string; conversationId?: string;
   /** Email only: lets the reply stay on the customer's thread. */
   subject?: string; inboxId?: string; messageId?: string;
+  /** Chat only: files the customer attached (the route has size/type-checked them). */
+  attachments?: OnboardingAttachments;
+  /** Chat only: structured values from inline UI actions (model picker, endpoint field, sample world). Vetted like extracted ones. */
+  fields?: OnboardingFields;
+  /** Chat only: the customer's answer to the cost estimate. Skips the model call. */
+  action?: "confirm" | "cancel";
+  /** Chat UI: when everything is collected, wait for an explicit "confirm" before building (shows a cost estimate). */
+  requireConfirm?: boolean;
 }
-export interface OnboardingResult { reply: string; conversationId: string; status: string; result: RunResult }
+export interface OnboardingAttachments { openapiText?: string; mcpToolsJson?: string; dataSample?: string; policies?: string }
+export interface OnboardingFields { endpointUrl?: string; model?: string; systemPrompt?: string; prebuiltWorld?: "acme-support" }
+export interface OnboardingResult {
+  reply: string; conversationId: string; status: string; result: RunResult;
+  /** Chat: everything is collected and the build waits for the customer's confirmation. */
+  awaitingConfirm?: boolean;
+}
 
 export interface Allowance { headroomMicroUsd: number | null; runCapMicroUsd: number }
 
@@ -99,6 +114,7 @@ const BUSY = "I'm busy with another request for a moment. Please send that again
 const SNAG = "I hit a snag on my side. A teammate has been notified; please try again shortly.";
 const SIGN_OFF = "\n\n-- Standard Evals onboarding agent (an AI)";
 const STUCK_MS = 3 * 60 * 60 * 1000;
+const CANCELLED = "Okay, nothing was started. Change anything above, or tell me what's different.";
 
 /* ---------------- delivery ---------------- */
 
@@ -182,12 +198,13 @@ async function turn(d: OnboardingDeps, ctx: AgentRunContext, input: OnboardingIn
   const target: Target = { conv, customer, subject: input.subject, inboxId: input.inboxId, messageId: input.messageId };
   const text = input.text.slice(0, MAX_CUSTOMER_TEXT_CHARS);
   const now = ctx.now.toISOString();
+  let awaitingConfirm = false;
 
   const finish = async (reply: string, status: string, patch: Partial<ConversationRow> = {}, customerText = "[message]"): Promise<AgentRunOutcome> => {
     const transcript = appendTranscript(appendTranscript(conv.transcript, { role: "customer", text: customerText, at: now }), { role: "agent", text: reply, at: now });
     await d.store.update(conv.id, { ...patch, status: status as ConversationRow["status"], transcript, costMicroUsd: conv.costMicroUsd + ctx.spentMicroUsd() });
     const delivery = await deliver(d, ctx, target, reply);
-    out.value = { reply, conversationId: conv.id, status };
+    out.value = { reply, conversationId: conv.id, status, ...(awaitingConfirm ? { awaitingConfirm } : {}) };
     return {
       summary: `Onboarding turn (${conv.channel}) -> ${status}; reply ${delivery}.`, publicSummary: `Answered a customer onboarding message (${status}).`,
       counts: { turns: 1 }, detail: { conversationId: conv.id, status, delivery },
@@ -195,18 +212,45 @@ async function turn(d: OnboardingDeps, ctx: AgentRunContext, input: OnboardingIn
   };
 
   const secrets = detectSecrets(text);
-  if (secrets.hasSecret) return finish(SECRET_REPLY, conv.status, {}, sniffArtifacts(secrets.redacted).cleaned);
+  const extraText = [input.fields?.systemPrompt, ...Object.values(input.attachments ?? {})].filter(Boolean).join("\n");
+  if (secrets.hasSecret || (extraText && detectSecrets(extraText).hasSecret)) return finish(SECRET_REPLY, conv.status, {}, sniffArtifacts(secrets.redacted).cleaned);
   const { cleaned, found } = sniffArtifacts(text);
 
   if (conv.status === "building" || conv.status === "running" || conv.status === "blocked") return finish(STATUS_REPLY[conv.status]!, conv.status, {}, cleaned);
   const fresh = conv.status === "reported" || conv.status === "closed";
   const base = fresh ? EMPTY_REQUIREMENTS : OnboardingRequirements.parse(conv.collected);
+  const resetIds = fresh ? { environmentId: null, suiteId: null, runId: null, reportedAt: null } : {};
 
   let collected = mergeRequirements(base, artifactsToRequirements(found));
+  if (input.attachments) collected = mergeRequirements(collected, attachmentsToRequirements(input.attachments));
+  const notes: string[] = [];
+  if (input.fields) {
+    const vettedFields = vetUrls(fieldsToRequirements(input.fields));
+    collected = mergeRequirements(collected, vettedFields.next);
+    notes.push(...vettedFields.notes);
+  }
+  const missingOf = (r: OnboardingRequirements) => computeMissing(r, { allowedModels: HOSTED_MODELS });
+
+  const build = async (lead: string[]): Promise<AgentRunOutcome> => {
+    const override = hasOverride(conv.collected);
+    const built = await startBuild(d, ctx, conv.id, customer.id, collected, override);
+    const patch: Partial<ConversationRow> = { collected: { ...collected, ...(override ? { [FOUNDER_OVERRIDE_KEY]: true } : {}) } };
+    if (built.status === "building") Object.assign(patch, { environmentId: built.environmentId, suiteId: built.suiteId, runId: null, reportedAt: null });
+    return finish([...lead, built.reply].filter(Boolean).join("\n\n"), built.status, patch, cleaned);
+  };
+
+  if (input.action) {
+    const pending = missingOf(collected);
+    if (input.action === "cancel") return finish(CANCELLED, "collecting", { collected: collected as Record<string, unknown>, ...resetIds }, cleaned);
+    if (pending.length > 0) return finish(`I still need ${pending.join("; ")}.`, "collecting", { collected: collected as Record<string, unknown>, ...resetIds }, cleaned);
+    return build(notes);
+  }
+
   let modelOut: OnboardingModelOutput;
   try {
     modelOut = await d.generate(buildOnboardingPrompt({
-      collected, transcript: fresh ? [] : conv.transcript, message: cleaned, missing: computeMissing(collected, { allowedModels: HOSTED_MODELS }), allowedModels: HOSTED_MODELS,
+      collected, transcript: fresh ? [] : conv.transcript, message: cleaned, missing: missingOf(collected), allowedModels: HOSTED_MODELS,
+      ...(input.requireConfirm ? { surface: "chat" as const } : {}),
     }), ctx);
   } catch (err) {
     if (err instanceof GatewayError && err.code === "credential_leak") return finish(SECRET_REPLY, conv.status, {}, "[message withheld: possible credential]");
@@ -214,19 +258,26 @@ async function turn(d: OnboardingDeps, ctx: AgentRunContext, input: OnboardingIn
   }
   const vetted = vetUrls(modelOut.extracted);
   collected = mergeRequirements(collected, vetted.next);
-  ctx.log("turn", { missing: computeMissing(collected, { allowedModels: HOSTED_MODELS }).length, modelReady: modelOut.readyToRun });
+  notes.push(...vetted.notes);
+  ctx.log("turn", { missing: missingOf(collected).length, modelReady: modelOut.readyToRun });
 
-  const missing = computeMissing(collected, { allowedModels: HOSTED_MODELS });
-  const notes = vetted.notes.join(" ");
-  if (missing.length > 0) {
-    return finish([modelOut.reply, notes].filter(Boolean).join("\n\n"), "collecting", { collected: collected as Record<string, unknown>, ...(fresh ? { environmentId: null, suiteId: null, runId: null, reportedAt: null } : {}) }, cleaned);
+  const missing = missingOf(collected);
+  if (missing.length > 0 || input.requireConfirm) {
+    if (missing.length === 0) awaitingConfirm = true;
+    return finish([modelOut.reply, notes.join(" ")].filter(Boolean).join("\n\n"), "collecting", { collected: collected as Record<string, unknown>, ...resetIds }, cleaned);
   }
-  const override = hasOverride(conv.collected);
-  const built = await startBuild(d, ctx, conv.id, customer.id, collected, override);
-  const patch: Partial<ConversationRow> = { collected: { ...collected, ...(override ? { [FOUNDER_OVERRIDE_KEY]: true } : {}) } };
-  if (built.status === "building") Object.assign(patch, { environmentId: built.environmentId, suiteId: built.suiteId, runId: null, reportedAt: null });
-  return finish([notes, built.reply].filter(Boolean).join("\n\n"), built.status, patch, cleaned);
+  return build([notes.join(" ")]);
 }
+
+const fieldsToRequirements = (f: OnboardingFields): Partial<OnboardingRequirements> => ({
+  agent: { endpointUrl: f.endpointUrl, model: f.model, systemPrompt: f.systemPrompt },
+  tools: f.prebuiltWorld ? { prebuiltWorld: f.prebuiltWorld } : {},
+});
+
+const attachmentsToRequirements = (a: OnboardingAttachments): Partial<OnboardingRequirements> => ({
+  ...artifactsToRequirements({ openapiText: a.openapiText, mcpToolsJson: a.mcpToolsJson, dataSample: a.dataSample }),
+  ...(a.policies ? { policies: a.policies } : {}),
+});
 
 async function resolveConversation(d: OnboardingDeps, input: OnboardingInput): Promise<ConversationRow | null> {
   if (input.conversationId) {
@@ -337,4 +388,28 @@ export async function runOnboardingFollowThrough(opts: CompanyRunOptions = { tri
       publicSummary: `Checked ${counts.checked} onboarding runs; ${counts.reported} reported.`, counts,
     };
   });
+}
+
+/**
+ * Chat poll: advances ONE of the customer's open conversations (build -> run -> report) right away instead of waiting
+ * for the cron tick. Same logic and lock as the follow-through; foreign or idle conversations are left alone.
+ */
+export async function advanceOnboardingConversation(
+  customerId: string, conversationId: string, opts: CompanyRunOptions = { trigger: "chat" }, deps: Partial<OnboardingDeps> = {},
+): Promise<RunResult> {
+  const d = { ...defaultOnboardingDeps(), ...deps };
+  return runCompanyAgent("onboarding", { ...opts, deps: opts.deps ?? d.runtime }, async (ctx) => {
+    const conv = await d.store.getConversation(conversationId);
+    if (!conv || conv.customerId !== customerId || (conv.status !== "building" && conv.status !== "running")) {
+      return { status: "skipped", summary: "Nothing to advance for this conversation.", publicSummary: "Checked an onboarding run." };
+    }
+    const r = await advance(d, ctx, conv);
+    return { summary: `Chat follow-through: ${conv.status} -> ${r}.`, publicSummary: "Checked an onboarding run.", counts: { advanced: r === "unchanged" ? 0 : 1 } };
+  });
+}
+
+/** What a run would cost right now for this customer (the chat's cost estimate), sized like the real run. */
+export async function estimateOnboardingRun(customerId: string, deps: Partial<Pick<OnboardingDeps, "allowance">> = {}, now = new Date()): Promise<RunPlan & Allowance> {
+  const allowance = await (deps.allowance ?? defaultOnboardingDeps().allowance)(customerId, now);
+  return { ...planRunSize({ available: ONBOARDING_MAX_SCENARIOS, headroomMicroUsd: allowance.headroomMicroUsd, runCapMicroUsd: allowance.runCapMicroUsd }), ...allowance };
 }
