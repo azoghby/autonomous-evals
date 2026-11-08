@@ -1,0 +1,47 @@
+{
+  "base": "ec123e9ebf1e83c27f8109102658d1554cb20fb5",
+  "core": "e61ad9719a1f7cfc844523cffbd72253dcdcb30b",
+  "sha256": {
+    "docs/complete-workflow-integration/combined.patch": "ee38ca0399659ddfd59a92d32dbd485783b5912d799c614ff73653b649ab1f2b",
+    "docs/complete-workflow-integration/source/apps/web/src/server/rich-services.ts": "50c132e216b379e506b8a86a70ca3d30bf0055bfb1658790bdd03017bc0ded60",
+    "docs/complete-workflow-integration/source/apps/web/src/workflows/steps/rich-evaluation.ts": "1f512e0518aa0cda5cf40e729392e01769c0df76e7ea27afac5c70a1a183448c",
+    "docs/data-production-integration/intake/source/data-production.test.ts": "6140966b762c1bbc6fc7f7cf07039930e56c60bbefcb96dd83c2fcc328b1c616",
+    "docs/data-production-integration/intake/source/data-production.ts": "a07a925c5a03a40b3afb9e3f0bf771da9e4104dab43cb90e9711a8a1b84547e0",
+    "docs/data-production-integration/intake/source/route.test.ts": "9dc416ad50b9d9322c71412517eec5d527c3a75978a049a1a68cde883956a506",
+    "docs/data-production-integration/intake/source/route.ts": "d5c2d36d078ec3747442b88b53b4b73c88c2f66b73106882de59badbccf48309",
+    "docs/data-production-integration/intake/track-a.patch": "c2150e8e2fcecff69d19d323d120d8efeaab2e06b71d69ebce16d5614551f96b",
+    "docs/progress-chat-integration/combined.patch": "df804eac5b27f299f4b742dd5ada18f72ed6d3fba79c7790b9c25ae97d067773",
+    "docs/structured-progress-integration/backend/structured-progress.patch": "f789fdda53766b7f08fded92b28452f9472a7a09abd03fcd82f87150eee42995",
+    "docs/workflow-data-bridge/bridge.patch": "6dd40178aa554b32fa22557d290a77b89c053a1170566436261b343b9698edbf",
+    "docs/workflow-data-bridge/source/apps/web/migrations/003-workflow-data.sql": "5cddde733d791c79ae31038a3b7a52e315bcdad74af7de05e5e1b08716c509d3",
+    "docs/workflow-data-bridge/source/apps/web/src/server/data-production.ts": "fd5ec3acdc1b164757336032b6554548c7f6f99a320548af5887cdff01ff6b5d",
+    "docs/workflow-data-bridge/source/apps/web/src/server/rich-services.ts": "4ff581fd864393d8f9600dfa7168952edc8e03b18b7ddb0cb55063fce1e43247",
+    "docs/workflow-data-bridge/source/apps/web/src/server/workflow-data.ts": "ac817cee95d8e736d123513cb827273b06c9febafc342e08b701ecb231272cde",
+    "docs/workflow-data-bridge/source/apps/web/src/workflows/steps/rich-evaluation.ts": "f713f341680077ab212d948c53443e38de2d47b3e59983e7f2615f7b691b2106",
+    "docs/workflow-data-bridge/source/packages/core/src/evals/integration/services.ts": "de3add63cee1159a5039b9b8461caebe33ea73c86ca4da47d33b8996675ebb35",
+    "docs/workflow-data-bridge/stage.mjs": "534503832ddc65d3fbc65b984e4cd9ba66eaeb6b9394ff9bb6514e6fba86c10d",
+    "docs/workflow-data-bridge/verification/rich-driver.test.ts": "6841aa93b1961f089ab4c9649b42c431e05e8bc93d7cd1ee1160a6039a477d38",
+    "docs/workflow-data-bridge/verification/service-hook.test.ts": "a253936a59dd0c41227a51daeb294213c759066cd3fd4944d51b542d17163035",
+    "docs/workflow-data-bridge/verification/workflow-data.test.ts": "c3ec213787c1193b44ddd4df20dddac25d230b9c41efc08395f4b9a7964de612",
+    "docs/workflow-integration/SERIES.json": "c7f948e95dba4a9697e2b33daacbc52ed879d115d716fcb8245513b75646c450",
+    "docs/workflow-integration/SHA256SUMS": "702082c93af7e8a9f5a3766a4aee2c23412f16da223b25139aa657e113870722",
+    "docs/workflow-integration/service-bootstrap/0001-rich-service-bindings.patch": "41ceb9cc8de444d04884d429011e531818563432b0951249fc647f52fcfb88bd",
+    "docs/workflow-integration/stage.mjs": "28e7b622a3843dac06a6c816e7f7e65cc8751f22d4fede108c77448f288be573",
+    "docs/workflow-integration/verification/costs.test.ts": "8c3e55b8f3b7d88d9b6288219fbce3c79e10f548b49886847125f5bb3e2c9a49",
+    "docs/workflow-integration/workflow-producers/002-workflow-producers.patch": "fc6697118ea2e567ef7241132d72efcd1db6504af21d9eb0b1d419e3e0bc0c16",
+    "docs/workflow-remediation-integration/app/003-remediation.patch": "eb81b20f03ed05a973a8e628054011501bf1a0fc94e0fb795c902921405c8869",
+    "docs/workflow-remediation-integration/app/tests/app-remediation.test.ts": "62fe0a978f81da9defb1ed8ab22f7fb4e66631965c27144d13029b05c4aa2e53",
+    "packages/core/src/evals/integration/approved-suite.ts": "e4fb51d0fe208e2bc1b4c43aa935514b0b23cd94e80c34e9583920ee187e58d3",
+    "tests/track-b/complete-workflow-integration/cross-flow.test.ts": "80a184ee4fd4560fb24e7c3275986e767161f3a8904452610a85dc0e24c23eee"
+  },
+  "order": [
+    "stageBridge() unchanged",
+    "replace seven core directories from core pin; no old core hunks",
+    "003-remediation.patch excluding overlaps",
+    "combined.patch"
+  ],
+  "overlaps": [
+    "apps/web/src/server/rich-services.ts",
+    "apps/web/src/workflows/steps/rich-evaluation.ts"
+  ]
+}

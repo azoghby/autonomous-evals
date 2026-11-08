@@ -1,0 +1,72 @@
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -17,6 +17,7 @@
+ import type { JobRef } from '@ae/core/evals/types';
+ import type { CalendarSuiteInput } from '@ae/core/simulator/workflow/index';
+ import { getJobWithDecryptedCredentials, recordCost } from './job-store';
++import { createRichRemediation } from './rich-remediation';
+ import { createWorkflowInventory } from './workflow-inventory';
+ import { createApprovedSuiteAdmission } from '@ae/core/evals/integration/approved-suite';
+ import { advanceWorkflowData, readWorkflowDataPlan, readWorkflowDataReady } from './workflow-data';
+@@ -41,8 +42,8 @@
+       || !['planning', 'running', 'investigating'].includes(loaded.job.state)) return refused();
+     const intake = IntakeInput.parse(loaded.intake);
+     if (intake.package !== 'text_eval' && intake.package !== 'workflow_eval') return refused();
+-    const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null }>(
+-      'SELECT target_revision, reviewed_calendar, isolation FROM workflow_integration.bindings WHERE job_id=$1', [ctx.jobId]);
++    const binding = await sql.query<{ target_revision: string; reviewed_calendar: CalendarSuiteInput | null; isolation: string | null; remediation_operation_micro_usd: number | string | null; baseline_suite_digest: string | null; baseline_run_id: string | null }>(
++      'SELECT target_revision, reviewed_calendar, isolation, remediation_operation_micro_usd, baseline_suite_digest, baseline_run_id FROM workflow_integration.bindings WHERE job_id=$1', [ctx.jobId]);
+     const b = binding.rows[0];
+     if (!b || !/^[A-Za-z0-9_.:-]{1,128}$/.test(b.target_revision)) return refused();
+     const fixture = await sql.query<{ fixture: boolean }>('SELECT is_internal_fixture AS fixture FROM customers WHERE id=$1', [loaded.job.customerId]);
+@@ -54,7 +55,13 @@
+     const credentials = await sql.query<{ ciphertext: string }>('SELECT ciphertext FROM job_credentials WHERE job_id=$1', [ctx.jobId]);
+     const targetVersion = createHash('sha256').update(JSON.stringify({ endpoint: { ...intake.endpoint, apiKey: undefined },
+       revision: b.target_revision, credentialCiphertext: credentials.rows[0]?.ciphertext ?? null })).digest('hex');
+-    return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: b };
++    return { ...loaded, row: loaded.job, intake, job, knownSecrets, targetVersion, binding: { ...b,
++      // PostgreSQL bigint is a string in the actual driver; validate before narrowing.
++      remediation_operation_micro_usd: b.remediation_operation_micro_usd === null ? null : (() => {
++        const amount = Number(b.remediation_operation_micro_usd);
++        if (!Number.isSafeInteger(amount) || amount <= 0) return refused();
++        return amount;
++      })() } };
+   }
+   const initial = await canonical();
+   const inventory = createWorkflowInventory(sql, { tenantId: initial.job.customerId, jobId: ctx.jobId, environment: ctx.environment });
+@@ -85,6 +92,7 @@
+     return { job: a.job, target: createTextTarget(a.intake.endpoint), targetVersion: a.targetVersion,
+       judge: null, knownSecrets: a.knownSecrets }; // Explicit unassessed rubric; no unreserved Gateway call.
+   } });
++  const remediation = createRichRemediation({ sql, runner, checkpoints, canonical, text });
+   let branchBinding: { connection: string; pool: Pool } | undefined;
+   const calendar = createCalendarEvaluationServices({ checkpoints, journalPool: applicationPool!, resolve: async current => {
+     if (current.jobId !== ctx.jobId || current.environment !== ctx.environment) return refused();
+@@ -118,6 +126,6 @@
+       WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
+       RETURNING job_id`, [ctx.jobId,suiteDigest,runId]).then(r => { if (r.rows.length !== 1) return refused(); });
+   }
+-  return { text, calendar, inventory, advanceData, approvedData: approved.get, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
++  return { text, calendar, remediation, inventory, advanceData, approvedData: approved.get, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
+     targetVersion: initial.targetVersion, knownSecrets: initial.knownSecrets };
+ }
+--- a/apps/web/src/workflows/steps/rich-evaluation.ts
++++ b/apps/web/src/workflows/steps/rich-evaluation.ts
+@@ -81,9 +81,15 @@
+         if (!['completed', 'skipped'].includes(investigation.investigatorStatus)) throw new TrackBBlockedError('needs_operator', 'Investigation requires reconciliation.');
+         const input = await api.text.reportInput(ctx, { suiteDigest: suite.digest, runId });
+         await api.bindTextBaseline(suite.digest, runId);
+-        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations: [...input.limitations, 'Remediation not run; no fix verified.'] });
++        // One deterministic confirmed objective finding per frozen12 job; saved evidence is resolved again by the service.
++        const candidate = input.richFindings.find(f => f.label === 'confirmed' && f.evidence.some(e => e.kind === 'check' && run.executions.some(s => s.checks.some(c => c.checkId === e.checkId && c.kind === 'objective' && c.status === 'fail'))));
++        const remediation = candidate ? await api.remediation.proposeAndVerifyFixDetailed(ctx, { findingId: candidate.id }) : null;
++        const limitations = [...input.limitations, 'Remediation covers only the original frozen12. Appended packs remain separately gated.',
++          'HTTP provider monetary amounts remain unknown until authoritative reconciliation; pending accounting holds remain reserved.',
++          remediation ? `${remediation.remediation.verification.status}: ${remediation.reason} ${remediation.scope}` : 'No confirmed objective failure selected; no fix verified.'];
++        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations });
+         suiteDigest = suite.digest;
+-        evidence = { format: 'rich_text.v1', suite, run, investigation, dataProvenance: dataProvenance ?? null, limitations: input.limitations };
++        evidence = { format: 'rich_text_remediation.v1', suite, run, investigation, remediation, dataProvenance: dataProvenance ?? null, limitations };
+       } else {
+         const suite = await api.calendar.freezeSuite(ctx, { suiteId });
+         if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
