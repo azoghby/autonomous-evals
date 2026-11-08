@@ -12,6 +12,7 @@ import { Btn, MetricStrip, Metric, Section, Empty, ErrorBox, Field, Input, LiveC
 import { EASE, SPRING, Stagger, StaggerItem } from "./motion";
 import { OperatorExperts } from "./operator-experts";
 import { OperatorInfra } from "./operator-infra";
+import { OperatorLeads } from "./operator-leads";
 
 const UNKNOWN_COSTS = ["Customer provider usage (their own API credits)", "Hosting (Vercel, Neon)"];
 const KINDS = ["refund", "override", "fix", "approve_outreach", "other"] as const;
@@ -60,7 +61,7 @@ export function OperatorConsole() {
       <Tabs tab={tab} onChange={setTab} />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.24, ease: EASE }}>
-          {tab === "Overview" && <Overview data={data} reload={reload} />}
+          {tab === "Overview" && <><Overview data={data} reload={reload} /><div className="mt-12"><OperatorLeads /></div></>}
           {tab === "Experts" && <OperatorExperts />}
           {tab === "Infra" && <OperatorInfra />}
         </motion.div>

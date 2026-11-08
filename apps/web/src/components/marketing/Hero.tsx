@@ -24,10 +24,10 @@ export function Hero() {
               <Eyebrow>Sandbox evals for AI agents</Eyebrow>
             </div>
             <h1 id="hero-heading" style={enter(120, 1100)} className="pre pre-lift t-display text-white text-balance">
-              See what your agent <span className="grad-text">really</span> does.
+              Staging for <span className="grad-text">AI agents</span>.
             </h1>
             <p style={enter(380)} className="pre pre-lift t-lead max-w-[34rem]">
-              We rebuild your agent&apos;s world in a sandbox, run simulated users through it, and grade the database, not the chat.
+              A copy of your world, thousands of simulated users, graded on what actually changed. Built for long, tool-heavy, multi-turn agents.
             </p>
             <div style={enter(580, 800)} className="pre pre-lift pre-lift-sm flex flex-wrap items-center gap-x-8 gap-y-4">
               <span className="btn-spectrum"><Button href="/demo" size="lg">Watch a real run <NudgeArrow size={18} /></Button></span>

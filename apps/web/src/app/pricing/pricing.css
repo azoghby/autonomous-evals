@@ -1,0 +1,69 @@
+/* /pricing page. Tokens come from globals.css; nothing here is global (all classes prefixed pr-). */
+
+.pr-toggle { display: inline-flex; border: 1px solid var(--line-3); border-radius: 4px; padding: 3px; gap: 2px; background: var(--bg-raised); }
+.pr-toggle button {
+  height: 34px; padding-inline: 14px; border-radius: 2px; font-size: 14px; color: var(--fg-2);
+  transition: background-color 150ms var(--ease-hover), color 150ms var(--ease-hover);
+}
+.pr-toggle button:hover { color: var(--fg); }
+.pr-toggle button[aria-pressed="true"] { background: var(--fg); color: #000; }
+.pr-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.pr-card {
+  position: relative; display: flex; flex-direction: column; gap: 24px; padding: 28px 24px;
+  border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg);
+  scroll-margin-top: 96px;
+  transition: border-color 150ms var(--ease-hover), background-color 150ms var(--ease-hover);
+}
+.pr-card:hover { border-color: var(--line-3); }
+.pr-card[data-highlight="true"] {
+  border-color: var(--accent); background: linear-gradient(180deg, var(--accent-soft), var(--bg-raised) 38%);
+  box-shadow: 0 0 0 1px var(--accent), 0 24px 60px -28px var(--accent-glow);
+}
+@media (min-width: 1280px) { .pr-card[data-highlight="true"] { transform: translateY(-12px); padding-block: 36px; } }
+.pr-card[data-focused="true"] { outline: 2px solid var(--accent-text); outline-offset: 4px; }
+.pr-badge {
+  position: absolute; top: 0; left: 24px; transform: translateY(-50%); padding: 5px 10px; border-radius: 2px;
+  background: var(--accent); color: #fff; font-family: var(--font-mono); font-size: 11px; line-height: 1; text-transform: uppercase;
+}
+.pr-price { font-family: var(--font-sans); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; font-size: 44px; line-height: 1; color: var(--fg); }
+.pr-feat { display: flex; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--fg-2); }
+.pr-feat::before { content: ""; flex: none; width: 5px; height: 5px; margin-top: 8px; background: var(--accent-text); border-radius: 1px; }
+.pr-soon { font-size: 0.8em; color: var(--warn); margin-left: 2px; vertical-align: super; line-height: 0; }
+
+.pr-table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--line-2); border-radius: 4px; -webkit-overflow-scrolling: touch; }
+.pr-table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.pr-table th, .pr-table td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.pr-table thead th { font-family: var(--font-mono); font-size: 12px; font-weight: 400; text-transform: uppercase; color: var(--fg-2); background: var(--bg-band); }
+.pr-table tbody tr:last-child > * { border-bottom: 0; }
+.pr-table tbody th { font-weight: 400; color: var(--fg); min-width: 180px; }
+@media (max-width: 639px) {
+  .pr-table th, .pr-table td { padding: 12px 10px; font-size: 13px; }
+  .pr-table tbody th { min-width: 132px; max-width: 132px; }
+}
+.pr-table th:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg); border-right: 1px solid var(--line-2); }
+.pr-table thead th:first-child { background: var(--bg-band); z-index: 2; }
+.pr-table td { color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.pr-table .pr-col-hl { background: var(--accent-soft); }
+.pr-table thead .pr-col-hl { color: var(--accent-text); }
+.pr-table tbody tr:hover > td:not(.pr-col-hl), .pr-table tbody tr:hover > th { background-color: var(--bg-hover); }
+
+.pr-faq { border-top: 1px solid var(--line-2); }
+.pr-faq details { border-bottom: 1px solid var(--line-2); }
+.pr-faq summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; list-style: none;
+  padding: 20px 0; font-size: 17px; color: var(--fg); min-height: 44px;
+}
+.pr-faq summary::-webkit-details-marker { display: none; }
+.pr-faq summary::after { content: "+"; font-family: var(--font-mono); color: var(--muted); font-size: 20px; flex: none; transition: transform 150ms var(--ease-hover); }
+.pr-faq details[open] summary::after { transform: rotate(45deg); color: var(--accent-text); }
+.pr-faq summary:hover { color: var(--fg-2); }
+.pr-faq summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.pr-faq .pr-answer { padding: 0 0 22px; max-width: 68ch; color: var(--muted); font-size: 15px; line-height: 1.6; }
+
+.pr-banner { border: 1px solid var(--line-3); border-radius: 4px; padding: 14px 16px; font-size: 14px; }
+.pr-banner[data-tone="ok"] { border-color: var(--ok); background: rgb(61 214 140 / 0.08); color: var(--fg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-card, .pr-toggle button, .pr-faq summary::after { transition: none; }
+}

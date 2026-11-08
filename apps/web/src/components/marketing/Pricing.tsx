@@ -1,35 +1,50 @@
-import { PER_FINDING_CENTS, PRICE_CENTS } from "@ae/core/contracts/index";
-import { Button, NudgeArrow, Reveal, Section } from "../ui";
+import { PLANS, formatUsd, type PlanId } from "@ae/core/pricing/plans";
+import { Button, NudgeArrow, Reveal, Section, cn } from "../ui";
 
-const usd = (c: number) => `$${c % 100 ? (c / 100).toFixed(2) : c / 100}`;
+const TEASER: readonly PlanId[] = ["developer", "pro", "scale"];
 
-const PACKAGES = [
-  ["Trace Audit", PRICE_CENTS.trace_audit],
-  ["Text Eval", PRICE_CENTS.text_eval],
-  ["Workflow Eval", PRICE_CENTS.workflow_eval],
-  ["Version Comparison", PRICE_CENTS.version_comparison],
-] as const;
+const nf = (n: number | null) => (n == null ? "Custom" : n.toLocaleString("en-US"));
 
 export function Pricing() {
   return (
     <Section id="pricing" labelledBy="pricing-h" band className="scroll-mt-16">
-      <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
-        <Reveal className="flex flex-col gap-6 lg:col-span-5">
-          <h2 id="pricing-h" className="t-h2 text-balance text-fg">Simple pricing. <span className="text-muted">Pilot rates, no contract.</span></h2>
-          <p className="t-lead max-w-[30rem]">
-            Pay a fixed price per eval, or {usd(PER_FINDING_CENTS)} per confirmed finding. Nothing confirmed, nothing owed.
-          </p>
-          <div><Button href="/start" variant="outline" className="group">Start an eval <NudgeArrow /></Button></div>
+      <div className="flex flex-col gap-12">
+        <Reveal className="flex flex-col gap-4">
+          <h2 id="pricing-h" className="t-h2 max-w-[22ch] text-balance text-fg">Priced per trial. <span className="text-muted">Not per token.</span></h2>
+          <p className="t-lead max-w-[52ch]">Start free. Upgrade when your agent ships. Model tokens are passed through at cost.</p>
         </Reveal>
-        <Reveal className="lg:col-span-7">
-          <ul className="border-t border-line-2">
-            {PACKAGES.map(([name, cents]) => (
-              <li key={name} className="flex items-baseline justify-between gap-4 border-b border-line-2 py-5">
-                <span className="text-[17px] text-fg">{name}</span>
-                <span className="font-mono text-[17px] text-fg-2">{usd(cents)}</span>
-              </li>
-            ))}
+        <Reveal>
+          <ul className="grid list-none gap-4 p-0 md:grid-cols-3">
+            {TEASER.map((id) => {
+              const p = PLANS[id];
+              return (
+                <li
+                  key={id}
+                  className={cn(
+                    "flex flex-col gap-5 rounded-[4px] border p-6",
+                    p.highlighted ? "border-accent bg-accent-soft" : "border-line-2 bg-bg",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="t-h4 text-fg">{p.name}</h3>
+                    {p.highlighted && <span className="font-mono text-[11px] uppercase text-accent-text">Most teams start here</span>}
+                  </div>
+                  <p className="font-mono text-[36px] leading-none tracking-[-0.04em] text-fg">
+                    {formatUsd(p.monthlyCents ?? 0)}<span className="ml-1 text-[14px] tracking-normal text-muted">/ mo</span>
+                  </p>
+                  <ul className="flex list-none flex-col gap-2 border-t border-line-2 p-0 pt-4 text-[14px] text-fg-2">
+                    <li>{nf(p.limits.trialsPerMonth)} trials / month</li>
+                    <li>{nf(p.limits.environments)} environment{p.limits.environments === 1 ? "" : "s"}</li>
+                    <li>{p.limits.overageAllowed ? "Overage billed per trial" : "Hard cap, never a surprise bill"}</li>
+                  </ul>
+                </li>
+              );
+            })}
           </ul>
+        </Reveal>
+        <Reveal className="flex flex-wrap items-center gap-x-8 gap-y-4">
+          <Button href="/pricing" variant="outline" className="group">See full pricing <NudgeArrow /></Button>
+          <p className="text-[14px] text-muted">Enterprise and one-off Agent Audit available.</p>
         </Reveal>
       </div>
     </Section>

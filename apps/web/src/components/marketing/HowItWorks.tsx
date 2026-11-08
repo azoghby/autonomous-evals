@@ -1,10 +1,10 @@
 import { Eyebrow, Reveal, Section } from "../ui";
 
 const STEPS = [
-  { n: "01", title: "Connect your agent", body: "An endpoint, an MCP server, or your repo." },
-  { n: "02", title: "We build its world", body: "Tools, policies and a real Postgres database, modelled on yours." },
-  { n: "03", title: "Simulated users run it", body: "Your real workflows, each in an isolated Neon database branch." },
-  { n: "04", title: "Graded on what changed", body: "We check the database, not what the agent said." },
+  { n: "01", title: "Connect your agent", body: "An endpoint, an MCP server, or your repo. Dozens of tools are fine." },
+  { n: "02", title: "We build its world", body: "Your tools, policies and data in a real Postgres database, modelled on yours." },
+  { n: "03", title: "Simulated users run it", body: "Long, multi-turn workflows at scale, each run in its own Neon database branch." },
+  { n: "04", title: "Graded on what changed", body: "We diff the database, not the transcript. pass^k with confidence intervals." },
 ] as const;
 
 export function HowItWorks() {

@@ -24,7 +24,7 @@ const SITE_URL = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/,
 const SITE_NAME = "Standard Evals";
 const TITLE = "Standard Evals — Agents build your evals";
 const DESCRIPTION =
-  "Hand us your agent. Our agents scope it, quote it, test it, and hand back reproducible findings.";
+  "Staging for AI agents: a copy of your world, thousands of simulated users, graded on what actually changed.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
