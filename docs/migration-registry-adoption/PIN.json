@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "repositoryHead": "7f492e2cba2004eca4aeff13752a9380f602f2dc",
+  "judgedManifestSha256": "a78942f41acfccca32ca6303526a5361282e78f01436ecd9243cac7dd5b375c1",
+  "manifestSha256": "14e87a8b4ea7fc1b4d60f19089aca26a4efde1c097b4c4d1250f5890a4530bb3",
+  "historicalApplicationEntries": 31,
+  "applicationEntries": 36,
+  "applied": false,
+  "deploymentAccepted": false,
+  "additionalMigrations": [
+    {
+      "id": "autonomy-release.operations",
+      "file": "operations.sql",
+      "sha256": "e3b60610aaa4162e1cbe7e9de949ea92d229b461c39dda1982fcf8d3b3cd79e9",
+      "after": [
+        "app.agent",
+        "app.data002"
+      ]
+    },
+    {
+      "id": "autonomy-release.communications",
+      "file": "communications.sql",
+      "sha256": "b920c5dec9da5e073ff6b0d0d2f136425cce443607f805a078876094a3d3b8f6",
+      "after": [
+        "autonomy-release.operations"
+      ]
+    },
+    {
+      "id": "autonomy-release.access",
+      "file": "access.sql",
+      "sha256": "3151628151593a1fd86ccd6b6cbbc1129fdce381b7fbca7e57265246e33aa65b",
+      "after": [
+        "autonomy-release.communications"
+      ]
+    },
+    {
+      "id": "app.autonomy-paid.001",
+      "file": "paid.sql",
+      "sha256": "4184a090bc12cad229d6b410671e1aac32e7cab21c7fd64d122c5836d2f2faa3",
+      "after": [
+        "autonomy-release.access",
+        "app.agent"
+      ]
+    },
+    {
+      "id": "app.autonomy-paid-authority.001",
+      "file": "authority.sql",
+      "sha256": "0b508bde681c43c965f8e04dfad26c3dbeb62581c9b1f428a4603219a9c11755",
+      "after": [
+        "autonomy-release.access",
+        "app.autonomy-paid.001"
+      ]
+    }
+  ],
+  "prerequisiteMappings": {
+    "agent.persistence.001": "app.agent",
+    "data.operations.002": "app.data002"
+  },
+  "identityNotes": "Preserve autonomy-release.operations/communications/access from prior owner-migrations/autonomy-release.json. app.autonomy-paid.001 is explicitly assigned here; authority retains its declared app.autonomy-paid-authority.001. SQL comments do not establish aliases."
+}

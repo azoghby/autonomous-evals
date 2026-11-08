@@ -1,0 +1,13 @@
+PASS 1: read-only plan is default; explicit owner authorization required before transactional execution
+PASS 2: alias adoption skips already applied SQL only when exact hash and state match; no duplicate DDL
+PASS 3: canonical plus alias, unknown identities, incomplete rows, and missing historical dependencies refuse
+PASS 4: changed SQL bytes, reviewed manifest digest, current registry digest, DB identity and approved action list refuse
+PASS 5: SQL error rolls back DDL and registry atomically
+PASS 6: unregistered existing IF NOT EXISTS schema refuses inferred applied evidence
+PASS 7: transaction-control SQL cannot escape registry atomicity
+PASS 8: comments between SQL keywords cannot hide duplicate DDL or transaction controls
+PASS 9: exact five additive autonomy SQL files execute in order and preserve NULL authority without backfill
+PASS 10: artifact-owned BEGIN/COMMIT remains atomic with registry; SQL failure rolls back wrapper
+PASS 11: independent owner attempts serialize on native advisory lock and stale approval cannot duplicate DDL
+PASS 12: backend crash rolls back uncommitted DDL/registry and fresh owner safely retries after server restart
+RESULT 12/12 native PostgreSQL checks passed; zero skipped; independent connections and server crash recovery; no external DB/provider calls.

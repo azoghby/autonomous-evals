@@ -1,0 +1,7 @@
+Additive implementation ledger (root LEDGER.md deliberately unchanged to honor exclusive directory ownership).
+
+Done: reviewed root ledger/tracks, read-only registry planner and strict JSON, immutable judged migration manifest, autonomy-release and paid SQL. Added composed manifest/pin and five exact SQL copies, offline packaging helper, pinned owner API, connected-client executor and independent native PostgreSQL verification. Historical application/platform/migration/manifests/reconciler untouched.
+
+Next: owner reviews artifact and configures trusted direct connection/identity, authoritative existing registry, coordinated lock, catalog preflight and server-only grants; obtains read-only plan; separately authorizes exact apply actions. No actual adoption, deployment or hosted acceptance performed.
+
+Log: implementation at repository pin recorded in PIN.json. Narrow executor and independent native SQL verification children used disjoint ownership. Independent verification identified SQL comment-token separation bypass; corrected and regression-tested. Full root typecheck/test/build commands attempted but this worktree has no installed workspace dependencies (tsc, vitest, next missing); no install/network or configuration read attempted. Local Node/pinned SQL checks and native PostgreSQL tests are recorded in VERIFICATION.md. Scoped commit remains on the task branch; no branch switch/push or unrelated files.

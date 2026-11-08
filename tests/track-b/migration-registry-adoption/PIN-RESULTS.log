@@ -1,0 +1,10 @@
+✔ current judged identities, exact historical entries, aliases and separate database preserved; extension hashes/order explicit (4.827542ms)
+✔ composed SQL reproduces every pinned byte; changed reviewed input refuses before output creation (136.18775ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 244.664334
