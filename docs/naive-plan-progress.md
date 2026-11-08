@@ -2,6 +2,14 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Strict conformance gate (2026-11-08)
+
+Actual scripts source now supports `scripts/conformance.ts --strict`. It rejects partial options before service loading, preserves a shared fixture job for the suite pipeline, and requires every expected check plus observed method execution. Empty/incomplete/duplicate target results, changed versions/jobs, synthetic investigation input and a rerun never called cannot establish conformance. New pure gate/options tests exercise these failure modes offline. See [the gate evidence](naive-strict-conformance.md).
+
+This strengthens the Phase 0 conformance check only. The CLI still uses the direct core seam; hosted application routing, no-lite evidence, current resource pins, migrations, aggregate spend authorization and live diagnostic/persistence gates remain open. No live conformance, credentials, provider calls, deployment or later candidate adoption occurred.
+
+Final strict-gate verification: **4,152 actual-source tests, zero failures, two documented skips**, 36 final focused tests, web and standalone script types pass. The invalid strict/lite CLI exits 2 before external work. See `naive-strict-conformance-verification.json`.
+
 ## Durable judge attempt composition candidate (2026-11-08)
 
 `naive-judge-attempt-integration` adds 14 postimages and an exact review copy of the existing proxy-dispatch sidecar over the budget envelope candidate at `0832de5`. Core prepare/recover can use a host-supplied same-transaction shared ledger, and authority hooks lock the canonical job before operation transitions. Generic/expert composition validates current stage and execution authority before selecting a new immutable mode or dispatching. `NAIVE_JUDGE_ATTEMPTS=1` selects fresh v2 operations; retained v1/v2 identities never convert merely because flags change.

@@ -2,6 +2,12 @@
 
 Prepared for Alex at his explicit request. Read this instead of importing the multi-million-token chat. Repository state and the selected plan are authoritative; this file records boundaries and where to resume.
 
+## Strict conformance continuation (2026-11-08)
+
+The actual `scripts/conformance.ts --strict` gate now rejects known false-green cases and validates complete observed execution. Read `docs/naive-strict-conformance.md` and the latest LEDGER verification receipt. Full Phase 0 remains open; neither strict offline tests nor a passing mock implementation proves real provider/app execution. Historical non-strict diagnostics remain partial. Approved39 source stays adopted; all later runtime candidates remain separate and unapplied.
+
+Next implementation candidates identified from source: bounded generic `runSuite` recovery with retained target/judge child plans (pending target dispatch must remain held), then delivered-job rerun authority. The former should extend the exact judge-attempt candidate with stage authority/SQL, checkpoint associations and real process-reconstruction tests. Do not enable mixed takeover merely because judge attempts exist. Continue native PostgreSQL/hosted acceptance and other full-plan gates in parallel when separately authorized and configured.
+
 ## Latest judge attempt composition continuation (2026-11-08)
 
 Read `docs/naive-judge-attempt-integration/README.md`, manifest and validation receipt. This 14-file increment layers over the exact envelope candidate; the sidecar is an exact review copy of existing core SQL, not another live migration. Generic/expert judges now have current-authority v1/v2 selection, shared atomic attempt admission, dispatch fencing and independent accounting before paid factories. Operator recovery remains separate from internal accounting. Abandoned unused intents require exact audit/reservation proof and no contradictory provider evidence before ceasing to block future factories.

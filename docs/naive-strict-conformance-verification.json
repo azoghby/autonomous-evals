@@ -1,0 +1,38 @@
+{
+  "status": "actual_scripts_implemented_not_live_acceptance",
+  "baselineCommit": "432d62c",
+  "latestObservedMain": "8dc6c7d",
+  "tests": {
+    "numPassedTests": 4152,
+    "numFailedTests": 0,
+    "numPendingTests": 2,
+    "numPassedTestSuites": 1012,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "finalFocusedTests": {
+    "passed": 36,
+    "failed": 0,
+    "note": "Rerun after final CLI static error-message refinement"
+  },
+  "webTypes": "pass",
+  "standaloneScriptsTypes": "pass; includes final CLI refinement",
+  "cliInvalidStrictLite": {
+    "exitCode": 2,
+    "externalWork": false
+  },
+  "sourceHashes": {
+    "scripts/conformance.ts": "812c1cbd94bac08c78aad6683b5a4f4d6a21b36cc928b213767a9c368ae3e282",
+    "scripts/conformance-options.ts": "95652bdf49c685a1a6c36327900988cc7c107a30a86d607150bdcb2b30fde86f",
+    "scripts/conformance-options.test.ts": "ec822495374c32655d4d570a00e67fdc2d66b39f224830ac143cbe7239a16312",
+    "scripts/naive-conformance-gate.ts": "6b3641312b737851e35e90249d2c501e803f342e47b03a849db129ca39ed11cc",
+    "scripts/naive-conformance-gate.test.ts": "1422a99e8176dfc2334fd91beb11c251912529231e6eec2fe1e5f0afd2b12fca"
+  },
+  "limits": [
+    "Offline fixtures prove gate behavior only",
+    "Direct core service seam; no provider provenance or no-lite app claim",
+    "No complete Phase0 acceptance or aggregate spending cap",
+    "No deployment, credentials, live migration, provider call, outreach or spending",
+    "No new app/core adoption; later candidates remain unapplied"
+  ]
+}

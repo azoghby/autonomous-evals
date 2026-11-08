@@ -102,7 +102,15 @@ npx --no-install tsx scripts/conformance.ts --services real
 npx --no-install tsx scripts/conformance.ts --services real --target-url "$PHASE0_TEST_TARGET_URL" --target-model "$PHASE0_TEST_TARGET_MODEL" --target-key-env PHASE0_TEST_TARGET_KEY
 ```
 
-Execute only after a reviewed staging/spend plan. The conformance recording contexts default to $3 each; its spend meter reports costs, it is not a shared aggregate spend cap. `--skip-suite` and `--skip-branching` are partial diagnostics, not full acceptance. Without `--target-url`, `runSuite` is skipped. Exit zero alone can coexist with skips; retain each PASS/FAIL/SKIP and require the intended checks actually ran.
+Execute only after a reviewed staging/spend plan. The conformance recording contexts default to $3 each; its spend meter reports costs, it is not a shared aggregate spend cap. `--skip-suite` and `--skip-branching` are partial diagnostics, not full acceptance. Without `--target-url`, `runSuite` is skipped. Non-strict exit zero can coexist with skips; retain each PASS/FAIL/SKIP. The new `--strict` conformance gate requires all harness identities to pass, observes real method invocation within the runner, and rejects empty/incomplete/duplicate target results, synthetic investigation input and unexercised reruns. Use the strict command below for the conformance portion of acceptance; it does not certify the other Phase 0 gates.
+
+```sh
+npx --no-install tsx scripts/conformance.ts --strict --services real \
+  --target-url "$PHASE0_TEST_TARGET_URL" --target-model "$PHASE0_TEST_TARGET_MODEL" \
+  --target-key-env PHASE0_TEST_TARGET_KEY
+```
+
+Strict preflight requires a target URL/model and rejects partial-skip options before loading services or creating fixture jobs. Suite design, target run, investigation and rerun share one fixture job identity. Other checks retain separate fixture jobs. A no-finding result cannot prove rerun coverage; supply an authorized failing fixture for that acceptance run. The strict CLI still uses the direct core service seam, not the application Workflow. It does not establish no-lite routing, database settlement, four-role diagnostic acceptance, aggregate spend enforcement or production readiness. See [strict conformance evidence](naive-strict-conformance.md).
 
 Current `scripts/conformance.ts` imports `integration/eval-services` directly for `real`. Five `integration/compose.ts` methods remain unavailable: `designSuite`, `runSuite`, `investigate`, `proposeAndVerifyFix`, `rerunFinding`. Provisioning alone cannot make full conformance pass. The current app `server/services.ts` still wraps real services with `withLiteFallback`; a successful app flow under `EVAL_SERVICES=real` does **not** certify all-Naïve execution. Track A must provide routing/no-fallback evidence at the Phase 1 acceptance boundary.
 
