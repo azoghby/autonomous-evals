@@ -56,8 +56,10 @@ const mcp = createMcpHandler((server) => {
 
 const authed = withMcpAuth(
   async (req) => {
-    const keyId = req.auth?.clientId ?? "unknown";
-    const rl = await rateLimit(`mcp:${keyId}`, RATE_LIMIT, RATE_WINDOW_SEC);
+    // Per customer, not per key/grant: minting more API keys or OAuth grants must not multiply the limit.
+    const customerId = (req.auth?.extra as { customerId?: unknown } | undefined)?.customerId;
+    const subject = typeof customerId === "string" && customerId ? `customer:${customerId}` : (req.auth?.clientId ?? "unknown");
+    const rl = await rateLimit(`mcp:${subject}`, RATE_LIMIT, RATE_WINDOW_SEC);
     if (!rl.ok) return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } });
     return mcp(req);
   },
