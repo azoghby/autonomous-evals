@@ -3,33 +3,35 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {createHash,randomBytes} from 'node:crypto';
-import {cp,mkdir,mkdtemp,readFile,rm,symlink,writeFile} from 'node:fs/promises';
+import {cp,mkdir,mkdtemp,readFile,readdir,rm,symlink,writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {createServer} from 'node:net';
 import {tmpdir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const here=dirname(fileURLToPath(import.meta.url)),repo=resolve(here,'../../..');
-const deps=resolve(process.env.TRACK_B_NODE_MODULES??'/tmp/sandbox-generation-deps.cBCEai/node_modules');
+const deps=resolve(process.env.TRACK_B_NODE_MODULES??'/tmp/workflow-bootstrap.JpxCTM/node_modules');
 const runtime=resolve(process.env.SANDBOX_PERSISTENCE_RUNTIME??'/tmp/agent-persistence-runtime');
 const requireRuntime=createRequire(join(runtime,'package.json'));
 const {default:EmbeddedPostgres}=await import(pathToFileURL(requireRuntime.resolve('embedded-postgres')));
 const {Pool}=requireRuntime('pg');
-const ref=process.env.TRACK_A_REF??'aa94505';
+const ref=process.env.TRACK_A_REF??'414eff5';
 function git(args){const r=spawnSync('git',args,{cwd:repo,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout;}
 assert.ok(!ref.startsWith('-')&&!/[\0\r\n]/.test(ref));
 const sha=git(['rev-parse','--verify','--end-of-options',`${ref}^{commit}`]).trim();
 const spec=git(['show',`${sha}:packages/core/src/sandbox/spec.ts`]);
+const sandboxFiles=git(['ls-tree','-r','--name-only',sha,'--','packages/core/src/sandbox']).trim().split('\n').filter(Boolean);
 const work=await mkdtemp(join(tmpdir(),'sandbox-persistence-native-'));
 let server;
 try{
  const stage=join(work,'stage');await mkdir(stage);
  await cp(join(repo,'packages/core/src'),join(stage,'packages/core/src'),{recursive:true,filter:p=>! /\.(test|spec)\.ts$/.test(p)&&!p.includes('/src/sandbox')});
- await mkdir(join(stage,'packages/core/src/sandbox'),{recursive:true});await writeFile(join(stage,'packages/core/src/sandbox/spec.ts'),spec);
+ for(const path of sandboxFiles){await mkdir(dirname(join(stage,path)),{recursive:true});await writeFile(join(stage,path),git(['show',`${sha}:${path}`]));}
  const contracts=git(['ls-tree','-r','--name-only',sha,'--','packages/core/src/contracts']).trim().split('\n').filter(p=>p.endsWith('.ts')&&! /\.(test|spec)\.ts$/.test(p));
  for(const path of contracts){await mkdir(dirname(join(stage,path)),{recursive:true});await writeFile(join(stage,path),git(['show',`${sha}:${path}`]));}
  await cp(here,join(stage,'tests/track-b/sandbox-persistence'),{recursive:true,filter:p=>!p.endsWith('run.mjs')});
- await symlink(deps,join(stage,'node_modules'),'dir');await writeFile(join(stage,'package.json'),JSON.stringify({type:'module',private:true}));
+ await mkdir(join(stage,'node_modules'),{recursive:true});
+ for(const name of await readdir(deps)){const source=name==='ipaddr.js'?(process.env.TRACK_B_IPADDR_MODULE??'/tmp/sandbox-generation-deps.cBCEai/node_modules/ipaddr.js'):join(deps,name);await symlink(source,join(stage,'node_modules',name));}await writeFile(join(stage,'package.json'),JSON.stringify({type:'module',private:true}));
  await writeFile(join(stage,'tsconfig.json'),JSON.stringify({compilerOptions:{target:'ES2022',module:'ESNext',moduleResolution:'Bundler',strict:true,noEmit:true,skipLibCheck:true,esModuleInterop:true,types:['node']},include:['tests/track-b/sandbox-persistence/**/*.ts','packages/core/src/evals/sandbox/persistence/**/*.ts']}));
  const typecheck=spawnSync(process.execPath,[join(deps,'typescript/bin/tsc'),'-p',join(stage,'tsconfig.json')],{cwd:stage,stdio:'inherit'});assert.equal(typecheck.status,0,'Strict typecheck failed');
  const reservation=createServer();await new Promise((ok,fail)=>{reservation.once('error',fail);reservation.listen(0,'127.0.0.1',ok);});const port=reservation.address().port;await new Promise(ok=>reservation.close(ok));

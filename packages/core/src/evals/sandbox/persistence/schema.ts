@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { mediaEvidenceSchema, validateMediaBindings } from './media-schema';
 import { EnvironmentSpec, SandboxScenario } from '../../../sandbox/spec';
 import { executionDigest } from '../execution/runner';
 import type { PrivateSandboxReport } from '../integration';
@@ -39,7 +40,10 @@ const grade = z.object({
   toolCalls: tools, diff, utility: verdict, security: z.enum(['pass', 'fail', 'unknown', 'not_applicable']),
 }).strict().nullable();
 const reportSchema = z.object({
-  schema: z.literal('sandbox-private-report-v1'), suiteDigest: digest, approvalId: text, execution, grade,
+  outcomeRule: z.literal('sandbox-quality-outcome-v2').optional(),
+  qualityCostPolicy: z.object({ version: z.literal('sandbox-quality-cost-policy-v1'), maxCostMicroUsd: count }).strict().nullable().optional(),
+  policyDigest: digest.optional(),
+  schema: z.literal('sandbox-private-report-v1'), media: mediaEvidenceSchema(tools, transcript), suiteDigest: digest, approvalId: text, execution, grade,
   outcome: z.object({ scenarioId: text, trial: count, seed: text, fixtureHash: text, variant: text, agentVersion: text, versions,
     status: verdict, failureAttribution: z.enum(['agent', 'simulator', 'environment', 'grader', 'unknown']).optional() }).strict(),
   unresolved: z.array(z.string()), money,
@@ -51,6 +55,10 @@ export function validatePrivateReport(value: unknown, jobId: string): PrivateSan
   if (!parsed.success || executionDigest(parsed.data) !== executionDigest(value)) throw new Error('sandbox_persistence_invalid_report');
   const r = parsed.data;
   const i = r.execution.input;
+  const policyKeys = ['outcomeRule', 'qualityCostPolicy', 'policyDigest'] as const;
+  const policyCount = policyKeys.filter(key => Object.hasOwn(r, key)).length;
+  if (policyCount !== 0 && (policyCount !== 3 || r.policyDigest !== executionDigest({ outcomeRule: r.outcomeRule, qualityCostPolicy: r.qualityCostPolicy })))
+    throw new Error('sandbox_persistence_policy_identity_conflict');
   if (i.jobId !== jobId || r.execution.identityDigest !== executionDigest(i)
     || i.versions.envHash !== executionDigest(i.environment)
     || r.outcome.scenarioId !== i.scenario.id || r.outcome.trial !== i.trial || r.outcome.seed !== String(i.seed)
@@ -58,6 +66,10 @@ export function validatePrivateReport(value: unknown, jobId: string): PrivateSan
     || executionDigest(r.money) !== executionDigest(r.execution.money)
     || (r.outcome.status === 'pass' && r.outcome.failureAttribution !== undefined)
     || (r.grade !== null && (r.grade.runId !== r.execution.runId || r.grade.scenarioId !== i.scenario.id
-      || executionDigest(r.grade.versions) !== executionDigest(i.versions)))) throw new Error('sandbox_persistence_report_identity_conflict');
-  return r as PrivateSandboxReport;
+      || executionDigest(r.grade.versions) !== executionDigest(i.versions)
+      || executionDigest(r.grade.transcript) !== executionDigest(r.execution.transcript)
+      || executionDigest(r.grade.toolCalls) !== executionDigest(r.execution.toolCalls)
+      || executionDigest(r.grade.diff) !== executionDigest(r.execution.diff)))) throw new Error('sandbox_persistence_report_identity_conflict');
+  validateMediaBindings(r as PrivateSandboxReport);
+  return value as PrivateSandboxReport;
 }

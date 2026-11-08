@@ -187,3 +187,7 @@ export function createPostgresSandboxPersistence(config: PostgresSandboxPersiste
     },
   };
 }
+
+/** Engine composition is deliberately separate from the raw, exact-JSON store. */
+export { createDurableSandboxEngine } from './engine';
+export type { DurableSandboxEngineConfig } from './engine';
