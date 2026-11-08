@@ -1,0 +1,52 @@
+{
+  "status": "verified_unapplied_incremental_candidate",
+  "reviewedRepositoryCommit": "09997e4",
+  "originMain": "5da0635",
+  "incrementalPaths": 20,
+  "composedUniquePaths": 36,
+  "baselinePins": 2234,
+  "focused": {
+    "passed": 66,
+    "failed": 0,
+    "derivedFromFullRun": true
+  },
+  "fullSuite": {
+    "passed": 4025,
+    "failed": 0,
+    "skipped": 2
+  },
+  "webTypes": {
+    "exitCode": 0
+  },
+  "productionBuild": {
+    "exitCode": 0,
+    "steps": 57,
+    "workflows": 4,
+    "offlineFontFixture": true
+  },
+  "allPrePostimagesVerified": true,
+  "independentIncrementalPatch": true,
+  "reproducibleAssembly": true,
+  "retainedDependencies": true,
+  "nativePostgresConcurrencyVerified": false,
+  "sourceAdopted": false,
+  "liveMigrationApplied": false,
+  "providerCalls": 0,
+  "deployed": false,
+  "manifestSha256": "c54cc5af31877916bfb3232454ea68f21f10f7583cd1f256d2d5e260be341faa",
+  "rootVerification": {
+    "passed": 3932,
+    "failed": 0,
+    "skipped": 2,
+    "webTypesExitCode": 0
+  },
+  "remainingGates": [
+    "Workflow stage/attempt dispatch fence and proven parent-child envelopes",
+    "Exact naive_proxy receipt binding; conservative legacy debits",
+    "Combined Naive/Gateway/sandbox daily authority",
+    "Unknown Gateway turn reconciliation and pending/history UX",
+    "Factual39/sourcing26 rebase and full composed verification",
+    "Native PostgreSQL multi-connection and hosted acceptance",
+    "Full Naive plan subsequent phases"
+  ]
+}

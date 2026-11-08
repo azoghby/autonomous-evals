@@ -1,0 +1,141 @@
+{
+  "reviewedRepositoryCommit": "09997e4",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-copilot-dispatch-integration",
+  "dependencyHashes": {
+    "manifest.json": "79a9022b34217a1c8ea41bdf0af9a80c82330097007b6d7a8af86040665bdc92",
+    "assemble.py": "9e46ce8f44f1a342edd42239837323520016526f32141eb425b3f390702ad5de"
+  },
+  "files": [
+    {
+      "path": "apps/web/src/server/eval-chat/chat-job-budget.test.ts",
+      "postimage": "postimages/apps/web/src/server/eval-chat/chat-job-budget.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "b221a358dc12f65acc691719a92706463385871e7874e3ee25baf2e682970b54"
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/chat.ts",
+      "postimage": "postimages/apps/web/src/server/eval-chat/chat.ts",
+      "beforeSha256": "2099d7a4274d026de3adfd0807946b9b4afd9c5f1a5112056c92c2c45e4f1e57",
+      "afterSha256": "803db87ed645cd9f4251f0ebef8a8d5136eeee18379e938afe34571d4c8ef69c"
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/job-budget.test.ts",
+      "postimage": "postimages/apps/web/src/server/eval-chat/job-budget.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "11656b27dd65c8819b4e535e3b3ff95959e1ce92ba9c0dfb7e851087217eb936"
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/job-budget.ts",
+      "postimage": "postimages/apps/web/src/server/eval-chat/job-budget.ts",
+      "beforeSha256": null,
+      "afterSha256": "9663eb9d2420862e2f5c340be55a08f6ccaf63bc388c26ce3708e69722748582"
+    },
+    {
+      "path": "apps/web/src/server/eval-chat/service.ts",
+      "postimage": "postimages/apps/web/src/server/eval-chat/service.ts",
+      "beforeSha256": "e301ba974e689789115e7144e700fdcc4c025cc1dc30159623e3cc626bb00136",
+      "afterSha256": "9230aeb27ad839748b6f4fa7b9df7e9ab85acef900cc0a653c2f74e00570f586"
+    },
+    {
+      "path": "apps/web/src/server/expert-text-runtime.ts",
+      "postimage": "postimages/apps/web/src/server/expert-text-runtime.ts",
+      "beforeSha256": "312c732b6b4893a92da2018a7e84888876a526b532c76fc8eee623837371d23d",
+      "afterSha256": "e9e527e2cbef7f443839fa38f0ff75cd5575103a718201312518ff256d88af21"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-accounting.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-accounting.test.ts",
+      "beforeSha256": "6f3562045ae57c3e8bde3bb4d6e1ea5cf0b2e4933c200f14b72d3254018ee7a3",
+      "afterSha256": "62715eaab0ff979b99f46d8cb26d7e4350935d84e6a70122ec98a80125d8154d"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-store.test.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-store.test.ts",
+      "beforeSha256": "0379a56fade2cf3e9fa9a7335dacd594df6a2eec13ad0beecb709df030b7c510",
+      "afterSha256": "f216fcbcdf29d5de3ba2bf2efa4ace78434061084dcf744ffe24539abf6250c7"
+    },
+    {
+      "path": "apps/web/src/server/naive-copilot-store.ts",
+      "postimage": "postimages/apps/web/src/server/naive-copilot-store.ts",
+      "beforeSha256": "a2b855e4e35eb7e43d04139637aa10a8e06d5b0382bb12fb6f9b6f115843413b",
+      "afterSha256": "086dd1979777973c98bf1582fd1473dcf819e5c17a66bd7aca9e6cfea4e8dad7"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/common.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/common.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "239552fae2de6d2fe34d2bbbbe8a2d03fe228cd07910444dd98dd203a3b7d5aa"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/common.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/common.ts",
+      "beforeSha256": "72cb4a9495015cddc5a9efca5e8081083533d30c6647c47d3c67dda9e7f44bd9",
+      "afterSha256": "085108d81a34929c768a7d433e3a1e62e352691abfe3182336d412da1dc0b979"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/lifecycle.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/lifecycle.ts",
+      "beforeSha256": "741e4ee4404021bdf6273ffe90a867bbb16862de3a27e57b6cc1dcdb7c7b2786",
+      "afterSha256": "aaddedc7453cd661c8652e3e3955e42ff6a1650feeea3f13a84770db4459f5c5"
+    },
+    {
+      "path": "packages/core/src/adapters/budget.test.ts",
+      "postimage": "postimages/packages/core/src/adapters/budget.test.ts",
+      "beforeSha256": "f0df39175be03bbea3638a01ed5ba8df8d8298389d060cbd0fd3dfe8cc25635f",
+      "afterSha256": "5980c99a3b9feeb743fb1f9820def24c2a9c3d7fcab3e519869e1927d990663a"
+    },
+    {
+      "path": "packages/core/src/adapters/budget.ts",
+      "postimage": "postimages/packages/core/src/adapters/budget.ts",
+      "beforeSha256": "a077b9861cc2fcf97b2b7eb2b7b4ac9020f2dd5d7f7de8ab653117f6dd38931b",
+      "afterSha256": "4eec1aa4c735abec7743e065a401ab6ffc948583c7a55ad8f8d339fb16be1441"
+    },
+    {
+      "path": "packages/core/src/db/cost-settlement.ts",
+      "postimage": "postimages/packages/core/src/db/cost-settlement.ts",
+      "beforeSha256": "6601e712b210294f6a6e9ba30c1928ec3e753f81341f43eb8b4a5fb51ea91dca",
+      "afterSha256": "9f7caa1f3f0169e22203f73ed2d04caa7bcf709a157253a88b9cab4a415825a0"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-authority.test.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-authority.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "7c48606759a74d278b2f3ea8beb7349acc9ca38bda9e8a1b18752c50c946ca2d"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-authority.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-authority.ts",
+      "beforeSha256": null,
+      "afterSha256": "cfffb1a96e705ba2e96c95bd9185ea88136c95e0893dcc317b0edfee08ba73e1"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-ledger.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-ledger.ts",
+      "beforeSha256": null,
+      "afterSha256": "e2cb0e087b5cd54135057479862b9eaa9bfa05e84ad8c3ea8e8728f26328faec"
+    },
+    {
+      "path": "packages/core/src/db/job-budget-receipts.ts",
+      "postimage": "postimages/packages/core/src/db/job-budget-receipts.ts",
+      "beforeSha256": null,
+      "afterSha256": "87c46e27dcc2cb11a2355a092e5f8232e879912051f5e8634b05b1e443a89bb2"
+    },
+    {
+      "path": "packages/core/src/integration/eval-services.ts",
+      "postimage": "postimages/packages/core/src/integration/eval-services.ts",
+      "beforeSha256": "cda660b0495dd0048baa6c5caf3530cb250a105d11ae2e3a60d4b6c156bb8508",
+      "afterSha256": "03285b9e51652d601005fd00b937f53039ea76ad8af51e230308cbe033de7938"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-job-budget-authority.sql",
+      "sha256": "e6e55766acb22889a18c6499c263a42a3789d7e1d2130abd89caafd51e759988"
+    },
+    {
+      "path": "sql/002-gateway-turn-budget.sql",
+      "sha256": "b88f5673cd2d71d078a05d3ac7b89449ca496f3e57041b7951c60090c0bb6e98"
+    }
+  ]
+}

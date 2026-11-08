@@ -1,0 +1,1100 @@
+diff --git a/apps/web/src/server/eval-chat/chat-job-budget.test.ts b/apps/web/src/server/eval-chat/chat-job-budget.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/eval-chat/chat-job-budget.test.ts
+@@ -0,0 +1,15 @@
++import { expect,it,vi } from 'vitest';
++import { simulateReadableStream } from 'ai';
++import { MockLanguageModelV4 } from 'ai/test';
++import { streamCopilotTurn,toUserMessage,turnCost,type ChatDeps } from './chat';
++import { jobCtx,makeDeps } from './fixtures.testing';
++const message=()=>{const m=toUserMessage({role:'user',parts:[{type:'text',text:'progress?'}]});if(!m.ok)throw Error();return m.message;};
++const reply=()=>({stream:simulateReadableStream({chunks:[{type:'stream-start' as const,warnings:[]},{type:'text-start' as const,id:'one'},{type:'text-delta' as const,id:'one',delta:'Answer'},{type:'text-end' as const,id:'one'},{type:'finish' as const,finishReason:{unified:'stop' as const,raw:undefined},usage:{inputTokens:{total:100,noCache:100,cacheRead:undefined,cacheWrite:undefined},outputTokens:{total:10,text:10,reasoning:undefined}}}]})});
++const setup=()=>{const f=makeDeps(),events:string[]=[];const budget={dispatched:vi.fn(async()=>{events.push('dispatch');}),step:vi.fn(async()=>{events.push('step');}),complete:vi.fn(async()=>{events.push('complete');})};const model=new MockLanguageModelV4({doStream:async()=>{events.push('provider');return reply();}});const reserve=vi.fn(async()=>{events.push('reserve');return budget;});const deps:ChatDeps={...f.deps,model,reserveJobTurn:reserve};return {...f,budget,model,reserve,deps,events};};
++it('admits and durably marks dispatch before model work then records steps',async()=>{const t=setup();await(await streamCopilotTurn(t.deps,jobCtx(),message())).text();expect(t.events).toEqual(['reserve','dispatch','provider','step','complete']);expect(t.reserve.mock.calls[0]).toBeDefined();expect(t.budget.step).toHaveBeenCalledWith(0,expect.objectContaining({basis:'list_price_estimate'}));});
++it('does not start the provider if immutable turn replay admission rejects',async()=>{const t=setup();t.reserve.mockRejectedValue(Error('retained turn'));await expect(streamCopilotTurn(t.deps,jobCtx(),message())).rejects.toThrow('retained turn');expect(t.model.doStreamCalls).toHaveLength(0);});
++it('a cost recording failure cannot complete or release unknown turn usage',async()=>{vi.spyOn(console,'error').mockImplementation(()=>{});const t=setup();t.budget.step.mockRejectedValue(Error('cost database unavailable'));const out=await(await streamCopilotTurn(t.deps,jobCtx(),message())).text();expect(t.budget.complete).not.toHaveBeenCalled();expect(out).not.toContain('cost database unavailable');vi.restoreAllMocks();});
++it('a provider failure leaves the dispatched operation held',async()=>{vi.spyOn(console,'error').mockImplementation(()=>{});const t=setup();const model=new MockLanguageModelV4({doStream:async()=>{throw Error('provider unavailable');}});await(await streamCopilotTurn({...t.deps,model},jobCtx(),message())).text();expect(t.budget.dispatched).toHaveBeenCalledTimes(1);expect(t.budget.complete).not.toHaveBeenCalled();vi.restoreAllMocks();});
++it('fails closed when production job budget port is absent',async()=>{const t=setup();await expect(streamCopilotTurn({...t.deps,reserveJobTurn:undefined},jobCtx(),message())).rejects.toThrow('budget');expect(t.model.doStreamCalls).toHaveLength(0);});
++
++it('does not accept malformed or negative monetary strings as measured usage',()=>{for(const cost of ['0.01garbage','',-1])expect(turnCost([{providerMetadata:{gateway:{cost}}}],{inputTokens:100,outputTokens:10}).basis).toBe('list_price_estimate');});
+diff --git a/apps/web/src/server/eval-chat/chat.ts b/apps/web/src/server/eval-chat/chat.ts
+--- a/apps/web/src/server/eval-chat/chat.ts
++++ b/apps/web/src/server/eval-chat/chat.ts
+@@ -12,6 +12,7 @@
+ import type { ActionDeps, EvalContext } from "./actions";
+ import { systemPrompt } from "./prompt";
+ import { buildEvalTools } from "./tools";
++import { gatewayRequestDigest, type GatewayTurnBudget, type GatewayTurnIdentity } from "./job-budget";
+ 
+ export const MAX_MESSAGE_CHARS = 4_000;
+ const HISTORY_FOR_MODEL = 30;
+@@ -37,6 +38,7 @@
+ 
+ export interface ChatDeps extends ActionDeps {
+   model?: LanguageModel;
++  reserveJobTurn?: (input: GatewayTurnIdentity) => Promise<GatewayTurnBudget>;
+   /** Copilot model spend by this owner in the last 24h (micro-USD); enables the daily cap. */
+   spentTodayMicroUsd?: (ownerId: string) => Promise<number>;
+   recordCost?: (entry: { ownerId: string; ctx: EvalContext; microUsd: number; inputTokens: number; outputTokens: number; basis: string }) => Promise<void>;
+@@ -54,8 +56,8 @@
+   let reported = 0, sawReported = false;
+   for (const s of steps) {
+     const gw = (s.providerMetadata as { gateway?: { cost?: string | number } } | undefined)?.gateway;
+-    const n = typeof gw?.cost === "string" ? Number.parseFloat(gw.cost) : gw?.cost;
+-    if (typeof n === "number" && Number.isFinite(n)) { reported += n; sawReported = true; }
++    const n = typeof gw?.cost === "string" ? Number(gw.cost) : gw?.cost;
++    if (typeof n === "number" && Number.isFinite(n) && n >= 0 && !(typeof gw?.cost === "string" && !gw.cost.trim())) { reported += n; sawReported = true; }
+   }
+   const inputTokens = usage.inputTokens ?? 0, outputTokens = usage.outputTokens ?? 0;
+   const p = MODELS.sonnet.priceUsdPerMTok;
+@@ -82,19 +84,45 @@
+   const thread = [...history, userMessage];
+   const modelMessages = await convertToModelMessages(thread.slice(-HISTORY_FOR_MODEL), { tools, ignoreIncompleteToolCalls: true });
+ 
++  const instructions = systemPrompt(ctx);
++  const dailyCapMicroUsd = Math.floor(COPILOT_DAILY_BUDGET_USD() * 1e6);
++  const allowanceMicroUsd = Math.min(300_000, dailyCapMicroUsd);
++  let budget: GatewayTurnBudget | undefined;
++  if (ctx.ref.kind === "job") {
++    if (!deps.reserveJobTurn) throw new Error("Job copilot budget is unavailable.");
++    budget = await deps.reserveJobTurn({ jobId: ctx.ref.id, ownerId: ctx.ownerId, messageId: userMessage.id,
++      requestDigest: gatewayRequestDigest({ instructions, modelMessages, model: MODELS.sonnet.vercel, maxSteps: MAX_STEPS, maxOutputTokens: MAX_OUTPUT_TOKENS }),
++      allowanceMicroUsd, dailyCapMicroUsd });
++    // Retained BEFORE streamText, including any synchronous/provider start error.
++    await budget.dispatched();
++  }
++  let failed = false, stepIndex = 0, incurredMicroUsd = 0;
+   const result = streamText({
+     model: deps.model ?? copilotModel(),
+-    instructions: systemPrompt(ctx),
++    instructions,
+     messages: modelMessages,
+     tools,
+-    stopWhen: stepCountIs(MAX_STEPS),
++    stopWhen: budget ? [stepCountIs(MAX_STEPS), () => incurredMicroUsd >= allowanceMicroUsd] : stepCountIs(MAX_STEPS),
++    maxRetries: budget ? 0 : undefined,
+     maxOutputTokens: MAX_OUTPUT_TOKENS,
+     abortSignal,
+     // Per step, so a client disconnect mid-turn cannot skip recording what was already spent.
+     onStepEnd: async (step) => {
+       const cost = turnCost([step], step.usage);
++      if (budget) {
++        try { await budget.step(stepIndex++, cost); incurredMicroUsd += cost.microUsd; }
++        catch (error) { failed = true; throw error; }
++        return;
++      }
+       if (cost.microUsd > 0) await deps.recordCost?.({ ownerId: ctx.ownerId, ctx, ...cost }).catch((err) => console.error("eval copilot cost record failed", err instanceof Error ? err.message : err));
+     },
++    onError: budget ? async () => { failed = true; } : undefined,
++    onAbort: budget ? async () => { failed = true; } : undefined,
++    onEnd: budget ? async ({ finishReason }) => {
++      if (!failed && !abortSignal?.aborted && finishReason !== "error" && finishReason !== "other") {
++        try { await budget.complete(); } catch (error) { failed = true; throw error; }
++      }
++    } : undefined,
+   });
+ 
+   const stream = toUIMessageStream<typeof tools, EvalUIMessage>({
+@@ -108,7 +136,7 @@
+       return "The copilot could not answer just now. Try again.";
+     },
+     onEnd: async ({ responseMessage }) => {
+-      if (responseMessage.parts.length) await deps.store.saveMessages(ctx.ownerId, ctx.ref, [responseMessage]);
++      if (!failed && responseMessage.parts.length) await deps.store.saveMessages(ctx.ownerId, ctx.ref, [responseMessage]);
+     },
+   });
+   return createUIMessageStreamResponse({ stream });
+diff --git a/apps/web/src/server/eval-chat/job-budget.test.ts b/apps/web/src/server/eval-chat/job-budget.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/eval-chat/job-budget.test.ts
+@@ -0,0 +1,29 @@
++import { PGlite } from '@electric-sql/pglite';
++import { afterEach,beforeEach,expect,it } from 'vitest';
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { reserveGatewayTurn,gatewayRequestDigest,type GatewayBudgetSql } from './job-budget';
++import { jobBudgetExposure } from '@ae/core/db/job-budget-authority';
++let pg:PGlite,sql:GatewayBudgetSql;
++const job='11111111-1111-4111-8111-111111111111',owner='owner';
++const input=()=>({jobId:job,ownerId:owner,messageId:'msg-one',requestDigest:gatewayRequestDigest({question:'hi'}),allowanceMicroUsd:300_000,dailyCapMicroUsd:2_000_000});
++const measured={microUsd:40_000,inputTokens:100,outputTokens:50,basis:'gateway_reported'};
++const exposure=()=>sql.transaction(tx=>jobBudgetExposure(tx,job));
++beforeEach(async()=>{pg=new PGlite();sql={transaction:fn=>pg.transaction(t=>fn({query:(s,p)=>t.query(s,p)}))};await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id text,environment text,package text,budget_reserved_micro_usd bigint DEFAULT 0);
++CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++CREATE TABLE costs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid,source text,agent text,micro_usd bigint,meta jsonb,receipt_key text,receipt_identity jsonb,created_at timestamptz DEFAULT now());
++CREATE UNIQUE INDEX ON costs(source,receipt_key) WHERE receipt_key IS NOT NULL;
++CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');`);
++for(const name of ['001-job-budget-authority.sql','002-gateway-turn-budget.sql'])await pg.exec(readFileSync(resolve(process.env.JOB_BUDGET_SQL_DIR??'docs/naive-shared-budget-integration/sql',name),'utf8'));
++await pg.query("INSERT INTO jobs VALUES($1,$2,'test','trace_audit',0)",[job,owner]);});
++afterEach(async()=>{await pg.close();});
++it('reserves before dispatch and refuses every duplicate message identity',async()=>{const b=await reserveGatewayTurn(sql,input());expect((await exposure()).committedMicroUsd).toBe(300_000);await expect(reserveGatewayTurn(sql,input())).rejects.toThrow();await b.dispatched();await expect(b.dispatched()).rejects.toThrow();});
++it('records each step exactly once and terminal measured usage replaces hold',async()=>{const b=await reserveGatewayTurn(sql,input());await b.dispatched();await b.step(0,measured);await b.step(0,measured);expect((await pg.query('SELECT * FROM costs')).rows).toHaveLength(1);expect((await exposure()).committedMicroUsd).toBe(300_000);await b.complete();expect((await exposure()).committedMicroUsd).toBe(40_000);});
++it('keeps the hold for missing monetary measurement and unknown interrupted remainder',async()=>{const b=await reserveGatewayTurn(sql,input());await b.dispatched();await b.step(0,{...measured,basis:'list_price_estimate'});await b.complete();expect((await exposure()).committedMicroUsd).toBe(340_000);});
++it('retains actual overage rather than clipping',async()=>{const b=await reserveGatewayTurn(sql,input());await b.dispatched();await b.step(0,{...measured,microUsd:400_000});expect((await exposure()).committedMicroUsd).toBe(400_000);await b.complete();expect((await exposure()).committedMicroUsd).toBe(400_000);});
++it('rechecks current ownership/environment and refuses mismatching cost replay',async()=>{const b=await reserveGatewayTurn(sql,input());await b.dispatched();await b.step(0,measured);await expect(b.step(0,{...measured,microUsd:41_000})).rejects.toThrow();await pg.query("UPDATE jobs SET environment='live' WHERE id=$1",[job]);await expect(b.step(1,measured)).rejects.toThrow();expect((await exposure()).committedMicroUsd).toBe(300_000);});
++it('rolls cost and step back when shared accounting link fails',async()=>{const b=await reserveGatewayTurn(sql,input());await b.dispatched();await pg.exec("CREATE FUNCTION reject_link() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'no link'; END $$; CREATE TRIGGER reject_link BEFORE INSERT ON job_budget.cost_links FOR EACH ROW EXECUTE FUNCTION reject_link();");await expect(b.step(0,measured)).rejects.toThrow();expect((await pg.query('SELECT * FROM costs')).rows).toHaveLength(0);expect((await exposure()).committedMicroUsd).toBe(300_000);});
++it('includes outstanding Gateway holds in owner daily allowance',async()=>{const first={...input(),dailyCapMicroUsd:300_000};await reserveGatewayTurn(sql,first);await expect(reserveGatewayTurn(sql,{...first,messageId:'msg-two'})).rejects.toThrow();});
++it('rejects canonical job cap exhaustion and unauthorized owner before provider work',async()=>{await expect(reserveGatewayTurn(sql,{...input(),ownerId:'intruder'})).rejects.toThrow();await pg.query("INSERT INTO costs(job_id,micro_usd) VALUES($1,2900000)",[job]);await expect(reserveGatewayTurn(sql,input())).rejects.toThrow();});
++
++it('retains immutable Gateway turn identity and measured step evidence',async()=>{const b=await reserveGatewayTurn(sql,input());await b.dispatched();await b.step(0,measured);await expect(pg.query("UPDATE job_budget.gateway_turns SET request_digest=repeat('b',64)")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query('DELETE FROM job_budget.gateway_steps')).rejects.toThrow('job_budget_evidence_immutable');});
+diff --git a/apps/web/src/server/eval-chat/job-budget.ts b/apps/web/src/server/eval-chat/job-budget.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/eval-chat/job-budget.ts
+@@ -0,0 +1,66 @@
++import { createHash } from 'node:crypto';
++import { Pool } from '@neondatabase/serverless';
++import { lockJobBudget, reserveJobBudget, markJobBudgetDispatched, linkRunningJobBudgetCost, completeJobBudget, type JobBudgetTx } from '@ae/core/db/job-budget-authority';
++
++export interface GatewayBudgetSql { transaction<T>(fn:(tx:JobBudgetTx)=>Promise<T>):Promise<T> }
++export interface GatewayTurnIdentity { jobId:string; ownerId:string; messageId:string; requestDigest:string; allowanceMicroUsd:number; dailyCapMicroUsd:number }
++export interface GatewayStepCost { microUsd:number; inputTokens:number; outputTokens:number; basis:string }
++export interface GatewayTurnBudget { dispatched():Promise<void>; step(index:number,cost:GatewayStepCost):Promise<void>; complete():Promise<void> }
++export const gatewayRequestDigest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
++const fail=():never=>{throw Error('job_copilot_budget_unavailable');};
++/** One retained server message identity admits at most one provider attempt. Unknown
++ * dispatches and estimated usage retain their residual hold for reconciliation. */
++export async function reserveGatewayTurn(sql:GatewayBudgetSql,input:GatewayTurnIdentity):Promise<GatewayTurnBudget>{
++ const operationId=`gateway-copilot:${input.jobId}:${input.messageId}`;
++ const canonical=async(tx:JobBudgetTx)=>{
++  await lockJobBudget(tx,input.jobId);
++  const j=(await tx.query<{customer_id:string;environment:string;package:string}>('SELECT customer_id,environment,package::text AS package FROM jobs WHERE id=$1 FOR UPDATE',[input.jobId])).rows[0];
++  if(!j||j.customer_id!==input.ownerId||!['test','live'].includes(j.environment))return fail();return j;
++ };
++ if(!Number.isSafeInteger(input.allowanceMicroUsd)||input.allowanceMicroUsd<=0||!Number.isSafeInteger(input.dailyCapMicroUsd)||input.dailyCapMicroUsd<input.allowanceMicroUsd||!/^[a-f0-9]{64}$/.test(input.requestDigest))fail();
++ await sql.transaction(async tx=>{
++  const j=await canonical(tx);
++  // Serialize this owner's allowance across different jobs as well. This mutex is
++  // acquired only after the canonical job, consistently for all Gateway turns.
++  await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`gateway-copilot-owner:${input.ownerId}`]);
++  const old=(await tx.query('SELECT operation_id FROM job_budget.gateway_turns WHERE operation_id=$1',[operationId])).rows[0];if(old)return fail();
++  const spent=(await tx.query<{total:string}>(`SELECT (COALESCE((SELECT SUM(c.micro_usd) FROM costs c WHERE c.agent='eval_copilot' AND c.created_at>=clock_timestamp()-interval '24 hours' AND c.meta->>'ownerId'=$1),0)+COALESCE((SELECT SUM(GREATEST(0,t.allowance_micro_usd-COALESCE((SELECT SUM(c.micro_usd) FROM job_budget.cost_links l JOIN costs c ON c.id=l.cost_id WHERE l.operation_id=t.operation_id),0))) FROM job_budget.gateway_turns t JOIN job_budget.operations o ON o.operation_id=t.operation_id WHERE t.owner_id=$1 AND o.completed_at IS NULL AND o.refunded_at IS NULL),0))::text AS total`,[input.ownerId])).rows[0];
++  if(!spent||BigInt(spent.total)+BigInt(input.allowanceMicroUsd)>BigInt(input.dailyCapMicroUsd))return fail();
++  const r=await reserveJobBudget(tx,{jobId:input.jobId,operationId,amountMicroUsd:input.allowanceMicroUsd});if(!r.ok)return fail();
++  await tx.query('INSERT INTO job_budget.gateway_turns(operation_id,job_id,owner_id,environment,package,message_id,request_digest,allowance_micro_usd) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[operationId,input.jobId,input.ownerId,j.environment,j.package,input.messageId,input.requestDigest,input.allowanceMicroUsd]);
++ });
++ const retained=async(tx:JobBudgetTx)=>{
++  const j=await canonical(tx);
++  const t=(await tx.query<{environment:string;package:string;request_digest:string;dispatched_at:unknown;completed_at:unknown}>(`SELECT t.environment,t.package,t.request_digest,o.dispatched_at,o.completed_at FROM job_budget.gateway_turns t JOIN job_budget.operations o ON o.operation_id=t.operation_id WHERE t.operation_id=$1 AND t.owner_id=$2 FOR UPDATE OF t,o`,[operationId,input.ownerId])).rows[0];
++  if(!t||t.environment!==j.environment||t.package!==j.package||t.request_digest!==input.requestDigest)return fail();return t;
++ };
++ return {
++  dispatched:()=>sql.transaction(async tx=>{const t=await retained(tx);if(t.dispatched_at||t.completed_at)return fail();await markJobBudgetDispatched(tx,input.jobId,operationId);}),
++  step:(index,cost)=>sql.transaction(async tx=>{
++   const t=await retained(tx);if(!t.dispatched_at||t.completed_at||!Number.isSafeInteger(index)||index<0||index>=6||![cost.microUsd,cost.inputTokens,cost.outputTokens].every(n=>Number.isSafeInteger(n)&&n>=0)||!['gateway_reported','list_price_estimate'].includes(cost.basis))return fail();
++   const identity=JSON.stringify(cost);
++   const old=(await tx.query<{identity:string}>('SELECT identity FROM job_budget.gateway_steps WHERE operation_id=$1 AND step_index=$2',[operationId,index])).rows[0];if(old){if(old.identity!==identity)return fail();return;}
++   const receipt=`${operationId}:step:${index}`;
++   const c=(await tx.query<{id:string}>(`INSERT INTO costs(job_id,source,agent,micro_usd,meta,receipt_key,receipt_identity) VALUES($1,'ai_gateway','eval_copilot',$2,$3::jsonb,$4,$5::jsonb) RETURNING id`,[input.jobId,cost.microUsd,JSON.stringify({ownerId:input.ownerId,evalKind:'job',evalId:input.jobId,inputTokens:cost.inputTokens,outputTokens:cost.outputTokens,costBasis:cost.basis,operationId,step:index}),receipt,JSON.stringify({operationId,index,cost,ownerId:input.ownerId,environment:t.environment,jobId:input.jobId})])).rows[0];if(!c)return fail();
++   await tx.query('INSERT INTO job_budget.gateway_steps(operation_id,step_index,cost_id,identity,measured) VALUES($1,$2,$3,$4,$5)',[operationId,index,c.id,identity,cost.basis==='gateway_reported']);
++   if(cost.basis==='gateway_reported')await linkRunningJobBudgetCost(tx,{jobId:input.jobId,operationId,costId:c.id});
++  }),
++  complete:()=>sql.transaction(async tx=>{const t=await retained(tx);if(!t.dispatched_at)return fail();const steps=(await tx.query<{measured:boolean}>('SELECT measured FROM job_budget.gateway_steps WHERE operation_id=$1 ORDER BY step_index',[operationId])).rows;if(!steps.length||steps.some(s=>!s.measured))return;await completeJobBudget(tx,input.jobId,operationId);}),
++ };
++}
++let pool:Pool|undefined;
++export function gatewayBudgetSql():GatewayBudgetSql{return {transaction:async fn=>{
++ const connectionString=process.env.DATABASE_URL_UNPOOLED??process.env.DATABASE_URL;
++ if(!connectionString)return fail();
++ pool??=new Pool({connectionString,max:5});
++ const client=await pool.connect();let discard=false,committing=false;
++ try{
++  await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
++  const result=await fn({query:async<T>(text:string,params?:unknown[])=>({rows:(await client.query(text,params)).rows as T[]})});
++  committing=true;await client.query('COMMIT');return result;
++ }catch(e){
++  discard=committing;
++  try{await client.query('ROLLBACK');}catch{discard=true;}
++  throw e;
++ }finally{client.release(discard);}
++ }};}
+diff --git a/apps/web/src/server/eval-chat/service.ts b/apps/web/src/server/eval-chat/service.ts
+--- a/apps/web/src/server/eval-chat/service.ts
++++ b/apps/web/src/server/eval-chat/service.ts
+@@ -15,6 +15,7 @@
+ import { sandboxSuggestions } from "./grounding";
+ import { jobSuggestions, type JobGroundingInput } from "./job-grounding";
+ import { createDbEvalChatStore } from "./store";
++import { gatewayBudgetSql, reserveGatewayTurn } from "./job-budget";
+ 
+ const RUN_ID = /^(sample|run_[0-9a-f-]{36})$/;
+ const JOB_ID = /^[0-9a-f-]{36}$/i;
+@@ -45,6 +46,7 @@
+   const store = createDbEvalChatStore();
+   return {
+     store,
++    reserveJobTurn: input => reserveGatewayTurn(gatewayBudgetSql(), input),
+     sandbox: getSandboxService(),
+     jobs: {
+       async rerunFinding(data, findingId) {
+diff --git a/apps/web/src/server/expert-text-runtime.ts b/apps/web/src/server/expert-text-runtime.ts
+--- a/apps/web/src/server/expert-text-runtime.ts
++++ b/apps/web/src/server/expert-text-runtime.ts
+@@ -2,7 +2,7 @@
+ import { createHash } from 'node:crypto';
+ import { createClient } from '@usenaive-sdk/managed-agents';
+ import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
+-import { PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
++import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
+ import type { AgentTaskRunner } from '@ae/core/agents/session-service';
+ import { buildAgentDeps } from '@ae/core/integration/eval-services';
+ import type { ServiceContext, RunResult } from '@ae/core/contracts/services';
+@@ -174,7 +174,7 @@
+   const proxyKey=process.env.NAIVE_API_KEY;
+   if(!model||!proxyKey||!Number.isSafeInteger(reservation)||reservation<=0||!Number.isSafeInteger(output)||output<1)return fail();
+   const judge=createNaiveProxyServiceJudge(ctx,{jobId:ctx.jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints,
+-   budget:createNaiveProxyBudget(new PostgresBudgetLedger(sql),{jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:JUDGE_MONTHLY_CAP_MICRO_USD}),
++   budget:createNaiveProxyBudget(new SharedJobBudgetLedger(sql),{jobId:ctx.jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:JUDGE_MONTHLY_CAP_MICRO_USD}),
+    client:idempotencyKey=>createClient({apiKey:process.env.NAIVE_API_KEY!,...(process.env.NAIVE_BASE_URL?{baseUrl:process.env.NAIVE_BASE_URL}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
+    authorize:async()=>{const fresh=await current();if(process.env.NAIVE_JUDGE_MODEL!==model||process.env.NAIVE_API_KEY!==proxyKey)return fail();return {knownSecrets:fresh.secrets};}});
+   return {...a,retained:projection.retained,canonicalTarget:a.target,target:createTextTarget(a.target,deps.targetTransport),judge,knownSecrets:a.secrets};
+diff --git a/apps/web/src/server/naive-copilot-accounting.test.ts b/apps/web/src/server/naive-copilot-accounting.test.ts
+--- a/apps/web/src/server/naive-copilot-accounting.test.ts
++++ b/apps/web/src/server/naive-copilot-accounting.test.ts
+@@ -11,6 +11,8 @@
+ import { CopilotDispatchStore } from './naive-copilot-store';
+ import { copilotCreateBody, dispatchCopilot } from './naive-copilot-dispatch';
+ import { deliverCopilotCost } from './naive-copilot-accounting';
++import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
++import { jobBudgetExposure, reserveWorkflowJobBudget, releaseWorkflowJobBudget, reserveJobBudget } from '@ae/core/db/job-budget-authority';
+ 
+ const databases:PGlite[]=[];
+ afterEach(async()=>{await Promise.all(databases.splice(0).map(db=>db.close()));});
+@@ -22,11 +24,12 @@
+  const pg=new PGlite();databases.push(pg);
+  await pg.exec(`CREATE TYPE environment AS ENUM ('test','live');
+  CREATE TABLE customers(id uuid PRIMARY KEY);
+- CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid REFERENCES customers(id),environment environment,state text NOT NULL DEFAULT 'running',updated_at timestamptz NOT NULL DEFAULT now());
++ CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid REFERENCES customers(id),environment environment,package text NOT NULL DEFAULT 'trace_audit',budget_reserved_micro_usd bigint NOT NULL DEFAULT 0,state text NOT NULL DEFAULT 'running',updated_at timestamptz NOT NULL DEFAULT now());
++ CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
+  CREATE TABLE costs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid REFERENCES jobs(id),source text NOT NULL,agent text,session_id text,micro_usd bigint NOT NULL,meta jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+  CREATE TABLE progress_events(id uuid PRIMARY KEY,job_id uuid,milestone text,created_at timestamptz);
+  CREATE TABLE findings(id uuid PRIMARY KEY,job_id uuid,data jsonb,created_at timestamptz);`);
+- for(const path of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/db/migrations/0023_cost_receipts.sql','packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql','docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql','docs/naive-copilot-dispatch-integration/sql/001-copilot-dispatch.sql'])await pg.exec(readFileSync(path,'utf8'));
++ for(const path of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','packages/core/src/db/migrations/0023_cost_receipts.sql','packages/core/src/reporting/chat/persistence-migrations/001-conversations.sql','docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql','docs/naive-copilot-dispatch-integration/sql/001-copilot-dispatch.sql','docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'])await pg.exec(readFileSync(path,'utf8'));
+  await pg.query('INSERT INTO customers VALUES($1)',[customer]);
+  await pg.query("INSERT INTO jobs(id,customer_id,environment) VALUES($1,$2,'test')",[job,customer]);
+  await pg.query("INSERT INTO naive_internal.credentials(id,role,agent_id,agent_version,bearer_sha256) VALUES($1,'copilot',$2,1,$3)",[credential,pin.agentId,'a'.repeat(64)]);
+@@ -89,3 +92,18 @@
+  expect((await deliverCopilotCost(f.db,turn)).status).toBe('delivered');
+  expect((await f.pg.query('SELECT * FROM reporting_chat_exchanges')).rows).toHaveLength(0);
+ });
++it('counts Workflow and model holds together, retains shared denials, and substitutes the exact public receipt',async()=>{
++ const f=await fixture();
++ const stage=await f.db.transaction(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'engineer',amountMicroUsd:2700000}));
++ expect(stage.ok).toBe(true);
++ const ledger=new SharedJobBudgetLedger(f.db);
++ const request={reservationId:'second-model',jobId:job,amountMicroUsd:200000,scopes:[{key:`job:${job}`,capMicroUsd:1000000},{key:'agent:copilot:2026-11',capMicroUsd:20000000}]};
++ expect(await ledger.reserve(request)).toMatchObject({ok:false,availableMicroUsd:100000});
++ expect(await f.db.transaction(tx=>reserveJobBudget(tx,{jobId:job,operationId:'gateway-turn',amountMicroUsd:200000}))).toMatchObject({ok:false});
++ await f.dispatch();
++ expect((await f.db.transaction(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(2820000);
++ await deliverCopilotCost(f.db,turn);
++ expect((await f.db.transaction(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(2820000);
++ await f.db.transaction(tx=>releaseWorkflowJobBudget(tx,job,stage.reservationId));
++ expect(await ledger.reserve(request)).toMatchObject({ok:false,availableMicroUsd:100000});
++});
+diff --git a/apps/web/src/server/naive-copilot-store.test.ts b/apps/web/src/server/naive-copilot-store.test.ts
+--- a/apps/web/src/server/naive-copilot-store.test.ts
++++ b/apps/web/src/server/naive-copilot-store.test.ts
+@@ -8,9 +8,9 @@
+ const customer='10000000-0000-4000-8000-000000000001',job='20000000-0000-4000-8000-000000000001',credential='30000000-0000-4000-8000-000000000001';
+ async function fixture(){
+  const pg=new PGlite();databases.push(pg);
+- await pg.exec("CREATE TYPE environment AS ENUM ('test','live'); CREATE TABLE customers(id uuid PRIMARY KEY); CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid REFERENCES customers(id),environment environment);");
+- for(const path of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql','docs/naive-copilot-dispatch-integration/sql/001-copilot-dispatch.sql'])await pg.exec(readFileSync(path,'utf8'));
+- await pg.query('INSERT INTO customers VALUES($1)',[customer]);await pg.query("INSERT INTO jobs VALUES($1,$2,'test')",[job,customer]);
++ await pg.exec("CREATE TYPE environment AS ENUM ('test','live'); CREATE TABLE customers(id uuid PRIMARY KEY); CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid REFERENCES customers(id),environment environment,package text NOT NULL DEFAULT 'trace_audit',budget_reserved_micro_usd bigint NOT NULL DEFAULT 0); CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text); CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);");
++ for(const path of ['packages/core/src/agents/persistence-migrations/001-agent-persistence.sql','docs/naive-internal-mcp-integration/sql/001-internal-mcp.sql','docs/naive-copilot-dispatch-integration/sql/001-copilot-dispatch.sql','docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'])await pg.exec(readFileSync(path,'utf8'));
++ await pg.query('INSERT INTO customers VALUES($1)',[customer]);await pg.query("INSERT INTO jobs(id,customer_id,environment) VALUES($1,$2,'test')",[job,customer]);
+  await pg.query("INSERT INTO naive_internal.credentials(id,role,agent_id,agent_version,bearer_sha256) VALUES($1,'copilot','copilot',1,$2)",[credential,'a'.repeat(64)]);
+  const db={query:async<T>(sql:string,args?:unknown[])=>({rows:(await pg.query<T>(sql,args)).rows}),transaction:<T>(fn:(tx:AgentSqlExecutor)=>Promise<T>)=>pg.transaction(async tx=>fn({query:async<T>(sql:string,args?:unknown[])=>({rows:(await tx.query<T>(sql,args)).rows})}))};
+  const fresh=async()=>({customerId:customer});
+diff --git a/apps/web/src/server/naive-copilot-store.ts b/apps/web/src/server/naive-copilot-store.ts
+--- a/apps/web/src/server/naive-copilot-store.ts
++++ b/apps/web/src/server/naive-copilot-store.ts
+@@ -1,6 +1,8 @@
++import { SharedJobBudgetLedger } from '@ae/core/db/job-budget-ledger';
++import { lockJobBudget } from '@ae/core/db/job-budget-authority';
+ import { createHash } from 'node:crypto';
+ import { encryptJson, decryptJson } from '@ae/core/storage/crypto';
+-import { PostgresBudgetLedger, type AgentSqlExecutor, type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
++import { type AgentSqlExecutor, type AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
+ import { authorizeTask, type InternalTask, type FreshOwner, type ConfiguredPin } from './naive-internal-store';
+ export type CopilotCreateBody = Record<string,unknown> & {agent_id:string;agent_version:number;budget_micro_usd:number;message:string};
+ export interface PrepareDispatch { id:string; task:InternalTask; threadId:string; turnId:string; requestDigest:string; body:CopilotCreateBody; budget:{amountMicroUsd:number;jobCapMicroUsd:number;agentMonth:string;agentMonthCapMicroUsd:number;customerDay:string;customerDayCapMicroUsd:number} }
+@@ -38,9 +40,9 @@
+   if((!Number.isSafeInteger(b.amountMicroUsd)||b.amountMicroUsd<1||b.amountMicroUsd>300000)||b.agentMonthCapMicroUsd!==20000000||b.customerDayCapMicroUsd!==2000000||!Number.isSafeInteger(b.jobCapMicroUsd)||b.jobCapMicroUsd<1||! /^[A-Za-z0-9_-]+$/.test(b.agentMonth)||! /^\d{4}-\d{2}-\d{2}$/.test(b.customerDay))fail();
+   if(body.agent_id!==input.task.agentId||body.agent_version!==input.task.agentVersion||body.budget_micro_usd!==b.amountMicroUsd||typeof body.message!=='string'||body.message.length>100000)fail();
+   const identity:Identity={...rest,bodyDigest:digest(body),idempotencyKey:`copilot:${input.id}`,reservationId:`copilot:${input.id}`};
+-  await this.authority(tx,identity,true);
++  await lockJobBudget(tx,input.task.jobId);await this.authority(tx,identity,true);
+   const old=await this.row(tx,input.id);if(old){if(canonical(old.identity)!==canonical(identity))fail();return record(old);}
+-  const ledger=new PostgresBudgetLedger(adapter(tx));const reserved=await ledger.reserve({reservationId:identity.reservationId,jobId:input.task.jobId,amountMicroUsd:b.amountMicroUsd,scopes:[{key:`job:${input.task.jobId}`,capMicroUsd:b.jobCapMicroUsd},{key:`agent:copilot:${b.agentMonth}`,capMicroUsd:b.agentMonthCapMicroUsd},{key:`copilot-customer-day:${input.task.customerId}:${input.task.environment}:${b.customerDay}`,capMicroUsd:b.customerDayCapMicroUsd}]});if(!reserved.ok)fail();
++  const ledger=new SharedJobBudgetLedger(adapter(tx));const reserved=await ledger.reserve({reservationId:identity.reservationId,jobId:input.task.jobId,amountMicroUsd:b.amountMicroUsd,scopes:[{key:`job:${input.task.jobId}`,capMicroUsd:b.jobCapMicroUsd},{key:`agent:copilot:${b.agentMonth}`,capMicroUsd:b.agentMonthCapMicroUsd},{key:`copilot-customer-day:${input.task.customerId}:${input.task.environment}:${b.customerDay}`,capMicroUsd:b.customerDayCapMicroUsd}]});if(!reserved.ok)fail();
+   await tx.query("INSERT INTO naive_copilot.dispatches(id,identity,body_ciphertext,state) VALUES($1,$2::jsonb,$3,'reserved')",[input.id,JSON.stringify(identity),encryptJson({identityDigest:digest(identity),body},this.key)]);
+   return record((await this.row(tx,input.id))!);
+  });}catch{return fail();}}
+@@ -48,7 +50,7 @@
+  private async fenced(tx:AgentSqlExecutor,id:string,owner:string,revision:number){const r=await this.row(tx,id);if(!r||r.revision!==revision||r.lease_owner!==owner||Number(r.lease_until)<=await this.time(tx))return null;return r;}
+  async beginCreate(id:string,owner:string,revision:number){try{return await this.db.transaction(async tx=>{const initial=await this.peek(tx,id);if(!initial)return null;await this.authority(tx,initial.identity);const r=await this.fenced(tx,id,owner,revision);if(!r||r.state!=='reserved')return null;const envelope=decryptJson<{identityDigest:string;body:CopilotCreateBody}>(r.body_ciphertext,this.key);if(envelope.identityDigest!==digest(r.identity)||digest(envelope.body)!==r.identity.bodyDigest)fail();await tx.query("UPDATE naive_copilot.dispatches SET state='ambiguous',revision=revision+1 WHERE id=$1",[id]);return {record:record((await this.row(tx,id))!),body:envelope.body};});}catch{return fail();}}
+  async attachSession(id:string,owner:string,revision:number,sessionId:string){if(!/^ses_[0-9a-hjkmnp-tv-z]{26}$/.test(sessionId))fail();return this.db.transaction(async tx=>{const r=await this.fenced(tx,id,owner,revision);if(!r||!['ambiguous','running'].includes(r.state))return null;if(r.session_id&&r.session_id!==sessionId)fail();await tx.query("UPDATE naive_copilot.dispatches SET state='running',session_id=$2,revision=revision+1 WHERE id=$1",[id,sessionId]);return record((await this.row(tx,id))!);});}
+- async settle(id:string,owner:string,revision:number,measurement:{consumedMicroUsd:number;terminal:'completed'|'failed'}){if(!Number.isSafeInteger(measurement.consumedMicroUsd)||measurement.consumedMicroUsd<0||!['completed','failed'].includes(measurement.terminal))fail();return this.db.transaction(async tx=>{const initial=await this.peek(tx,id);if(!initial)return null;await tx.query('SELECT id FROM jobs WHERE id=$1 FOR SHARE',[initial.identity.task.jobId]);await tx.query('SELECT id FROM naive_internal.tasks WHERE id=$1 FOR UPDATE',[initial.identity.task.id]);const r=await this.fenced(tx,id,owner,revision);if(!r||!r.session_id||r.state!=='running')return null;const ledger=new PostgresBudgetLedger(adapter(tx));const settled=await ledger.settle(r.identity.reservationId,measurement.consumedMicroUsd);if(settled.settledMicroUsd!==measurement.consumedMicroUsd)fail();const t=r.identity.task;await tx.query('INSERT INTO naive_copilot.cost_outbox(dispatch_id,job_id,customer_id,environment,session_id,consumed_micro_usd) VALUES($1,$2,$3,$4,$5,$6)',[id,t.jobId,t.customerId,t.environment,r.session_id,measurement.consumedMicroUsd]);await tx.query('UPDATE naive_copilot.dispatches SET state=$2,consumed_micro_usd=$3,revision=revision+1 WHERE id=$1',[id,measurement.terminal,measurement.consumedMicroUsd]);if(measurement.terminal==='failed')await tx.query('UPDATE naive_internal.tasks SET revoked_at=clock_timestamp() WHERE id=$1 AND revoked_at IS NULL',[t.id]);return record((await this.row(tx,id))!);});}
++ async settle(id:string,owner:string,revision:number,measurement:{consumedMicroUsd:number;terminal:'completed'|'failed'}){if(!Number.isSafeInteger(measurement.consumedMicroUsd)||measurement.consumedMicroUsd<0||!['completed','failed'].includes(measurement.terminal))fail();return this.db.transaction(async tx=>{const initial=await this.peek(tx,id);if(!initial)return null;await lockJobBudget(tx,initial.identity.task.jobId);await tx.query('SELECT id FROM naive_internal.tasks WHERE id=$1 FOR UPDATE',[initial.identity.task.id]);const r=await this.fenced(tx,id,owner,revision);if(!r||!r.session_id||r.state!=='running')return null;const ledger=new SharedJobBudgetLedger(adapter(tx));const settled=await ledger.settle(r.identity.reservationId,measurement.consumedMicroUsd);if(settled.settledMicroUsd!==measurement.consumedMicroUsd)fail();const t=r.identity.task;await tx.query('INSERT INTO naive_copilot.cost_outbox(dispatch_id,job_id,customer_id,environment,session_id,consumed_micro_usd) VALUES($1,$2,$3,$4,$5,$6)',[id,t.jobId,t.customerId,t.environment,r.session_id,measurement.consumedMicroUsd]);await tx.query('UPDATE naive_copilot.dispatches SET state=$2,consumed_micro_usd=$3,revision=revision+1 WHERE id=$1',[id,measurement.terminal,measurement.consumedMicroUsd]);if(measurement.terminal==='failed')await tx.query('UPDATE naive_internal.tasks SET revoked_at=clock_timestamp() WHERE id=$1 AND revoked_at IS NULL',[t.id]);return record((await this.row(tx,id))!);});}
+  async publication<T>(id:string,owner:string,revision:number,fn:(tx:AgentSqlExecutor,r:DispatchRecord)=>Promise<T>):Promise<T|null>{try{return await this.db.transaction(async tx=>{const initial=await this.peek(tx,id);if(!initial)return null;await this.authority(tx,initial.identity,true,true);const r=await this.fenced(tx,id,owner,revision);if(!r||r.state!=='completed')return null;const result=await fn(tx,record(r));await tx.query('UPDATE naive_internal.tasks SET revoked_at=clock_timestamp() WHERE id=$1 AND revoked_at IS NULL',[r.identity.task.id]);return result;});}catch{return fail();}}
+  async revoke(id:string){return this.db.transaction(async tx=>{const initial=await this.peek(tx,id);if(!initial)return null;await tx.query('SELECT id FROM jobs WHERE id=$1 FOR UPDATE',[initial.identity.task.jobId]);await tx.query('UPDATE naive_internal.tasks SET revoked_at=clock_timestamp() WHERE id=$1 AND revoked_at IS NULL',[initial.identity.task.id]);const r=await this.row(tx,id);if(!r)return null;if(r.state==='reserved')await tx.query("UPDATE naive_copilot.dispatches SET state='revoked',revision=revision+1 WHERE id=$1",[id]);return record((await this.row(tx,id))!);});}
+ }
+diff --git a/apps/web/src/workflows/steps/common.test.ts b/apps/web/src/workflows/steps/common.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/workflows/steps/common.test.ts
+@@ -0,0 +1,52 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++const mocks = vi.hoisted(() => ({ reserve: vi.fn(), release: vi.fn(), job: vi.fn(), context: vi.fn() }));
++vi.mock("workflow", () => ({ FatalError: class extends Error {} }));
++vi.mock("@ae/core/adapters/budget", () => ({ reserveWorkflowBudget: mocks.reserve, releaseWorkflowBudget: mocks.release }));
++vi.mock("@/server/job-store", () => ({ getJob: mocks.job, makeServiceContext: mocks.context, getJobWithDecryptedCredentials: vi.fn() }));
++import { withBudget } from "./common";
++beforeEach(() => {
++  vi.resetAllMocks();
++  mocks.job.mockResolvedValue({ id: "job", package: "trace_audit" });
++  mocks.context.mockResolvedValue({ jobId: "job", budgetMicroUsd: 3_000_000 });
++  mocks.reserve.mockResolvedValue({ ok: true, reservationId: "stage", amountMicroUsd: 750_000 });
++});
++describe("whole Workflow stage shared budget", () => {
++  it("runs the whole callback under its admitted allowance and releases after success", async () => {
++    const events: string[] = [];
++    mocks.release.mockImplementation(async () => { events.push("release"); });
++    const result = await withBudget("job", "engineer", async ctx => {
++      expect(ctx.budgetMicroUsd).toBe(750_000);
++      events.push("call one", "call two", "cost persisted");
++      return "done";
++    });
++    expect(result).toEqual({ status: "ok", data: "done" });
++    expect(mocks.reserve).toHaveBeenCalledWith("job", "engineer", .25);
++    expect(events).toEqual(["call one", "call two", "cost persisted", "release"]);
++    expect(mocks.release).toHaveBeenCalledWith("job", "stage");
++  });
++  it("does not invoke service or release on denial", async () => {
++    mocks.reserve.mockResolvedValue({ ok: false, remainingMicroUsd: 4 });
++    const run = vi.fn();
++    expect(await withBudget("job", "engineer", run)).toMatchObject({ status: "budget_exceeded" });
++    expect(run).not.toHaveBeenCalled();
++    expect(mocks.context).not.toHaveBeenCalled();
++    expect(mocks.release).not.toHaveBeenCalled();
++  });
++  it("preserves failed or uncertain stage holds, including context construction failure", async () => {
++    await expect(withBudget("job", "judge", async () => { throw new Error("unknown provider outcome"); })).rejects.toThrow("unknown provider outcome");
++    mocks.context.mockRejectedValue(new Error("context unavailable"));
++    await expect(withBudget("job", "judge", vi.fn())).rejects.toThrow("context unavailable");
++    expect(mocks.release).not.toHaveBeenCalled();
++  });
++  it("retains the same returned reservation on retry and surfaces release uncertainty", async () => {
++    mocks.release.mockRejectedValue(new Error("commit uncertain"));
++    await expect(withBudget("job", "engineer", async () => "done")).rejects.toThrow("commit uncertain");
++    expect(mocks.release).toHaveBeenCalledTimes(1);
++    expect(mocks.reserve).toHaveBeenCalledTimes(1);
++  });
++  it("requires an existing job before admission", async () => {
++    mocks.job.mockResolvedValue(null);
++    await expect(withBudget("missing", "engineer", vi.fn())).rejects.toThrow("not found");
++    expect(mocks.reserve).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/workflows/steps/common.ts b/apps/web/src/workflows/steps/common.ts
+--- a/apps/web/src/workflows/steps/common.ts
++++ b/apps/web/src/workflows/steps/common.ts
+@@ -1,11 +1,8 @@
+ import { FatalError } from "workflow";
+-import { releaseStatement } from "@ae/core/adapters/budget";
+-import { and, eq, isNull, sql } from "drizzle-orm";
+-import { db, schema } from "@ae/core/db/client";
+-import { JOB_BUDGET_MICRO_USD } from "@ae/core/contracts/index";
++import { reserveWorkflowBudget, releaseWorkflowBudget } from "@ae/core/adapters/budget";
+ import type { ServiceContext } from "@ae/core/contracts/services";
+-import { getJob, makeServiceContext, jobKnownCostMicroUsd } from "@/server/job-store";
+-import { budgetCheck, type BudgetAgent } from "../decisions";
++import { getJob, makeServiceContext } from "@/server/job-store";
++import { BUDGET_SHARE, type BudgetAgent } from "../decisions";
+ 
+ /** Result of a step that may stop on budget exhaustion instead of throwing (so it is never retried). */
+ export type BudgetResult<T> = { status: "ok"; data: T } | { status: "budget_exceeded"; message: string };
+@@ -23,32 +20,22 @@
+ export async function withBudget<T>(
+   jobId: string, agent: BudgetAgent, run: (ctx: ServiceContext) => Promise<T>,
+ ): Promise<BudgetResult<T>> {
+-  const job = await requireJob(jobId);
+-  const cap = JOB_BUDGET_MICRO_USD[job.package];
+-  const spent = await jobKnownCostMicroUsd(jobId);
+-  const open = await db().select().from(schema.budgetReservations)
+-    .where(and(eq(schema.budgetReservations.jobId, jobId), isNull(schema.budgetReservations.releasedAt)));
+-  const mine = open.find((r) => r.agent === agent);
+-  const otherReserved = open.filter((r) => r !== mine).reduce((s, r) => s + r.microUsd, 0);
+-  const check = budgetCheck(cap, spent, otherReserved, agent);
+-  if (!check.ok) {
++  await requireJob(jobId);
++  // Admission and retry lookup share the same locked authority as Gateway and Naïve.
++  const admission = await reserveWorkflowBudget(jobId, agent, BUDGET_SHARE[agent]);
++  if (!admission.ok) {
+     return {
+       status: "budget_exceeded",
+-      message: `Per-job budget exhausted before the ${agent} stage (cap ${cap}, spent ${spent}, reserved ${otherReserved} micro-USD).`,
++      message: `Per-job budget exhausted before the ${agent} stage (${admission.remainingMicroUsd} micro-USD available).`,
+     };
+   }
+-  let reservationId = mine?.id;
+-  if (!reservationId) {
+-    const [row] = await db().insert(schema.budgetReservations)
+-      .values({ jobId, agent, microUsd: check.reserve }).returning({ id: schema.budgetReservations.id });
+-    reservationId = row!.id;
+-    await db().update(schema.jobs).set({ budgetReservedMicroUsd: sql`${schema.jobs.budgetReservedMicroUsd} + ${check.reserve}` })
+-      .where(eq(schema.jobs.id, jobId));
+-  }
+   const ctx = await makeServiceContext(jobId);
++  // ServiceContext's legacy cap-minus-cost calculation ignores concurrent holds.
++  ctx.budgetMicroUsd = admission.amountMicroUsd;
+   const data = await run(ctx);
+-  // Releases the row and decrements jobs.budget_reserved_micro_usd in one statement (same rule as the BudgetReserver).
+-  await db().execute(releaseStatement(jobId, reservationId));
++  // A thrown/uncertain provider call deliberately retains the hold for retry/reconciliation.
++  // Release the entire stage only after all service calls and cost recording succeeded.
++  await releaseWorkflowBudget(jobId, admission.reservationId);
+   return { status: "ok", data };
+ }
+ 
+diff --git a/apps/web/src/workflows/steps/lifecycle.ts b/apps/web/src/workflows/steps/lifecycle.ts
+--- a/apps/web/src/workflows/steps/lifecycle.ts
++++ b/apps/web/src/workflows/steps/lifecycle.ts
+@@ -1,4 +1,4 @@
+-import { eq, and, isNull } from "drizzle-orm";
++import { eq } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+ import type { JobState } from "@ae/core/contracts/index";
+ import { addMessage, recordProgress, setJobState } from "@/server/job-store";
+@@ -38,14 +38,14 @@
+   "use step";
+   await setJobState(jobId, "cancelled");
+   await recordProgress(jobId, "cancelled", `Job cancelled: ${reason}`);
+-  await releaseReservations(jobId);
++  // Terminal job state does not prove outstanding provider work stopped; retain holds for reconciliation.
+ }
+ 
+ export async function failStep(jobId: string, error: string): Promise<void> {
+   "use step";
+   await setJobState(jobId, "failed", { error: error.slice(0, 2000) });
+   await recordProgress(jobId, "failed", "The job stopped because of an error. Our team has been notified.");
+-  await releaseReservations(jobId);
++  // Terminal job state does not prove outstanding provider work stopped; retain holds for reconciliation.
+   await alertOperators({ kind: "job_failed", jobId, title: "Job failed", detail: `State: failed. ${error}`, severity: "critical" });
+ }
+ 
+@@ -53,7 +53,7 @@
+   "use step";
+   await setJobState(jobId, "paused_budget", { error: message.slice(0, 2000) });
+   await recordProgress(jobId, "paused_budget", "Paused: the per-job compute budget was reached. An operator will review before anything continues.");
+-  await releaseReservations(jobId);
++  // Terminal job state does not prove outstanding provider work stopped; retain holds for reconciliation.
+   await alertOperators({ kind: "paused_budget", jobId, title: "Job paused on budget limit", detail: `State: paused_budget. ${message}`, severity: "warning" });
+ }
+ 
+@@ -73,11 +73,6 @@
+   });
+   await recordProgress(jobId, "delivered", "Your report is ready.");
+   return { deliveredAtIso: d.deliveredAt.toISOString() };
+-}
+-
+-async function releaseReservations(jobId: string): Promise<void> {
+-  await db().update(schema.budgetReservations).set({ releasedAt: new Date() })
+-    .where(and(eq(schema.budgetReservations.jobId, jobId), isNull(schema.budgetReservations.releasedAt)));
+ }
+ 
+ /**
+diff --git a/packages/core/src/adapters/budget.test.ts b/packages/core/src/adapters/budget.test.ts
+--- a/packages/core/src/adapters/budget.test.ts
++++ b/packages/core/src/adapters/budget.test.ts
+@@ -1,59 +1,67 @@
+-import { describe, expect, it, vi, beforeEach } from "vitest";
+-import { PgDialect } from "drizzle-orm/pg-core";
++import { beforeEach, describe, expect, it, vi } from "vitest";
+ 
+-const execute = vi.hoisted(() => vi.fn());
+-vi.mock("../db/client", () => ({ db: () => ({ execute, batch: (items: Promise<unknown>[]) => Promise.all(items) }) }));
++const mocks = vi.hoisted(() => ({
++  query: vi.fn(), release: vi.fn(), lock: vi.fn(), exposure: vi.fn(),
++  reserve: vi.fn(), stage: vi.fn(), dispatched: vi.fn(), releaseHold: vi.fn(),
++}));
++vi.mock("@neondatabase/serverless", () => ({ Pool: class {
++  async connect() { return { query: mocks.query, release: mocks.release }; }
++} }));
++vi.mock("../db/job-budget-authority", () => ({
++  lockJobBudget: mocks.lock, jobBudgetExposure: mocks.exposure,
++  reserveJobBudget: mocks.reserve, reserveWorkflowJobBudget: mocks.stage,
++  markJobBudgetDispatched: mocks.dispatched, releaseWorkflowJobBudget: mocks.releaseHold,
++}));
++import { createBudgetReserver, reserveWorkflowBudget } from "./budget";
+ 
+-import { createBudgetReserver } from "./budget";
++beforeEach(() => {
++  vi.resetAllMocks();
++  vi.stubEnv("DATABASE_URL", "postgres://offline.invalid/test");
++  mocks.query.mockResolvedValue({ rows: [] });
++  mocks.exposure.mockResolvedValue({ capMicroUsd: 3_000_000, committedMicroUsd: 0, remainingMicroUsd: 3_000_000 });
++});
+ 
+-const dialect = new PgDialect();
+-beforeEach(() => execute.mockReset());
+-
+-describe("budget reserver", () => {
+-  it("reserve issues one insert-select guarded by remaining >= amount and returns the id", async () => {
+-    execute.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ reservation_id: "res1", remaining: "900" }] });
+-    const r = await createBudgetReserver("j1").reserve("engineer", 500);
+-    expect(r).toEqual({ ok: true, reservationId: "res1" });
+-    expect(execute).toHaveBeenCalledTimes(2);
+-    const lock = dialect.sqlToQuery(execute.mock.calls[0]![0]);
+-    expect(lock.sql).toMatch(/pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
+-    expect(lock.params).toEqual(["j1"]);
+-    const q = dialect.sqlToQuery(execute.mock.calls[1]![0]);
+-    expect(q.sql).toMatch(/insert into budget_reservations/);
+-    expect(q.sql).toMatch(/where remaining >= \$\d+::bigint/);
+-    expect(q.sql).toMatch(/released_at is null/);
+-    expect(q.sql).toMatch(/from costs/);
+-    expect(q.params).toEqual(expect.arrayContaining(["j1", "engineer", 500, "trace_audit", 3_000_000]));
++describe("shared production budget adapter", () => {
++  it("takes the canonical lock and derives stage allowance from the database cap", async () => {
++    mocks.stage.mockResolvedValue({ ok: true, reservationId: "stage" });
++    expect(await reserveWorkflowBudget("job", "engineer", .25)).toEqual({ ok: true, reservationId: "stage", amountMicroUsd: 750_000 });
++    expect(mocks.query.mock.calls.map(c => c[0])).toEqual(["BEGIN ISOLATION LEVEL READ COMMITTED", "COMMIT"]);
++    expect(mocks.lock).toHaveBeenCalledWith(expect.anything(), "job");
++    expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(mocks.exposure.mock.invocationCallOrder[0]!);
++    expect(mocks.stage).toHaveBeenCalledWith(expect.anything(), { jobId: "job", agent: "engineer", amountMicroUsd: 750_000 });
+   });
+-
+-  it("refuses when over budget and reports what remains", async () => {
+-    execute.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ reservation_id: null, remaining: "120" }] });
+-    expect(await createBudgetReserver("j1").reserve("engineer", 500)).toEqual({ ok: false, remainingMicroUsd: 120 });
++  it("routes legacy extra reservations through the same authority and marks dispatch before commit", async () => {
++    mocks.reserve.mockResolvedValue({ ok: true, reservationId: "extra" });
++    expect(await createBudgetReserver("job").reserve("judge", 500)).toEqual({ ok: true, reservationId: "extra" });
++    const operation = mocks.reserve.mock.calls[0]![1];
++    expect(operation).toMatchObject({ jobId: "job", amountMicroUsd: 500, workflowAgent: "judge" });
++    expect(operation.operationId).toMatch(/^adapter:/);
++    expect(mocks.dispatched).toHaveBeenCalledWith(expect.anything(), "job", operation.operationId);
++    expect(mocks.dispatched.mock.invocationCallOrder[0]).toBeLessThan(mocks.query.mock.invocationCallOrder[1]!);
+   });
+-
+-  it("reports zero remaining for unknown jobs and clamps negatives", async () => {
+-    execute.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ reservation_id: null, remaining: null }] });
+-    expect(await createBudgetReserver("x").reserve("a", 1)).toEqual({ ok: false, remainingMicroUsd: 0 });
+-    execute.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ reservation_id: null, remaining: "-50" }] });
+-    expect(await createBudgetReserver("x").reserve("a", 1)).toEqual({ ok: false, remainingMicroUsd: 0 });
++  it("returns denial without dispatch or release", async () => {
++    mocks.reserve.mockResolvedValue({ ok: false, remainingMicroUsd: 120 });
++    expect(await createBudgetReserver("job").reserve("judge", 500)).toEqual({ ok: false, remainingMicroUsd: 120 });
++    expect(mocks.dispatched).not.toHaveBeenCalled();
++    expect(mocks.releaseHold).not.toHaveBeenCalled();
+   });
+-
+-  it("rejects non-positive or fractional amounts without touching the db", async () => {
+-    for (const bad of [0, -1, 1.5, Number.NaN]) await expect(createBudgetReserver("j1").reserve("a", bad)).rejects.toThrow();
+-    expect(execute).not.toHaveBeenCalled();
++  it("rejects invalid amounts before connecting", async () => {
++    for (const amount of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
++      await expect(createBudgetReserver("job").reserve("judge", amount)).rejects.toThrow();
++    }
++    expect(mocks.query).not.toHaveBeenCalled();
+   });
+-
+-  it("release only touches unreleased rows of this job (idempotent) and never throws on repeats", async () => {
+-    execute.mockResolvedValue({ rows: [] });
+-    const b = createBudgetReserver("j1");
+-    await b.release("res1");
+-    await b.release("res1");
+-    const q = dialect.sqlToQuery(execute.mock.calls[0]![0]);
+-    expect(q.sql).toMatch(/set released_at = now\(\)/);
+-    expect(q.sql).toMatch(/released_at is null/);
+-    // The counter is decremented from the rows that actually transitioned (CTE), so repeats are no-ops.
+-    expect(q.sql).toMatch(/update jobs set budget_reserved_micro_usd = greatest\(0, budget_reserved_micro_usd - \(select sum\(micro_usd\) from rel\)\)/);
+-    expect(q.sql).toMatch(/where id in \(select job_id from rel\)/);
+-    expect(q.params).toEqual(["res1", "j1"]);
++  it("holds on ambiguous commit and never replays admission or releases it", async () => {
++    mocks.reserve.mockResolvedValue({ ok: true, reservationId: "extra" });
++    mocks.query.mockImplementation(async (text: string) => { if (text === "COMMIT") throw new Error("lost acknowledgement"); return { rows: [] }; });
++    await expect(createBudgetReserver("job").reserve("judge", 500)).rejects.toThrow("lost acknowledgement");
++    expect(mocks.reserve).toHaveBeenCalledTimes(1);
++    expect(mocks.releaseHold).not.toHaveBeenCalled();
++    expect(mocks.release).toHaveBeenCalledWith(expect.objectContaining({ message: "budget_commit_uncertain" }));
++  });
++  it("releases only through shared authority in a transaction", async () => {
++    await createBudgetReserver("job").release("extra");
++    expect(mocks.releaseHold).toHaveBeenCalledWith(expect.anything(), "job", "extra");
++    expect(mocks.query.mock.calls.map(c => c[0])).toEqual(["BEGIN ISOLATION LEVEL READ COMMITTED", "COMMIT"]);
+   });
+ });
+diff --git a/packages/core/src/adapters/budget.ts b/packages/core/src/adapters/budget.ts
+--- a/packages/core/src/adapters/budget.ts
++++ b/packages/core/src/adapters/budget.ts
+@@ -1,70 +1,75 @@
+-import { sql } from "drizzle-orm";
+-import { db } from "../db/client";
+-import { JOB_BUDGET_MICRO_USD } from "../contracts/index";
++import { randomUUID } from "node:crypto";
++import { Pool } from "@neondatabase/serverless";
+ import type { BudgetReserver, ReserveResult } from "../contracts/services";
++import {
++  lockJobBudget, jobBudgetExposure, reserveJobBudget, reserveWorkflowJobBudget,
++  markJobBudgetDispatched, releaseWorkflowJobBudget, type JobBudgetTx,
++} from "../db/job-budget-authority";
+ 
+-/** CASE over the single source of truth for per-package caps (JOB_BUDGET_MICRO_USD). */
+-const capCase = () => sql.join(
+-  Object.entries(JOB_BUDGET_MICRO_USD).map(([pkg, cap]) => sql`when ${pkg} then ${cap}::bigint`),
+-  sql` `,
+-);
++let pool: Pool | undefined;
+ 
+-/**
+- * One statement: remaining = cap - unreleased reservations - recorded costs (same rule as the workflow's
+- * budgetCheck), insert only if remaining >= amount, and bump jobs.budget_reserved_micro_usd like withBudget does.
+- */
+-export function reserveStatement(jobId: string, agent: string, microUsd: number) {
+-  return sql`
+-    with cap as (
+-      select j.id, (case j.package::text ${capCase()} end) as cap from jobs j where j.id = ${jobId}
+-    ), room as (
+-      select cap.id, cap.cap
+-        - coalesce((select sum(r.micro_usd) from budget_reservations r where r.job_id = cap.id and r.released_at is null), 0)
+-        - coalesce((select sum(c.micro_usd) from costs c where c.job_id = cap.id), 0) as remaining
+-      from cap
+-    ), ins as (
+-      insert into budget_reservations (job_id, agent, micro_usd)
+-      select id, ${agent}, ${microUsd}::bigint from room where remaining >= ${microUsd}::bigint
+-      returning id, job_id
+-    ), bump as (
+-      update jobs set budget_reserved_micro_usd = budget_reserved_micro_usd + ${microUsd}::bigint
+-      where id in (select job_id from ins)
+-    )
+-    select (select id from ins) as reservation_id, (select remaining from room) as remaining`;
++/** Pinned READ COMMITTED transaction: no HTTP batches, automatic retries, or callback replay. */
++async function transaction<T>(fn: (tx: JobBudgetTx) => Promise<T>): Promise<T> {
++  const connectionString = process.env.DATABASE_URL;
++  if (!connectionString) throw new Error("DATABASE_URL is not set");
++  pool ??= new Pool({ connectionString, max: 5 });
++  const connection = await pool.connect();
++  let discard: Error | undefined;
++  try {
++    await connection.query("BEGIN ISOLATION LEVEL READ COMMITTED");
++    const tx: JobBudgetTx = {
++      async query<R>(text: string, params?: unknown[]) {
++        const result = await connection.query(text, params);
++        return { rows: result.rows as R[] };
++      },
++    };
++    const result = await fn(tx);
++    try { await connection.query("COMMIT"); }
++    catch (error) { discard = new Error("budget_commit_uncertain"); throw error; }
++    return result;
++  } catch (error) {
++    try { await connection.query("ROLLBACK"); }
++    catch { discard = new Error("budget_rollback_failed"); }
++    throw error;
++  } finally { connection.release(discard); }
+ }
+ 
+-/** Per-job transaction-scoped advisory lock; the next statement in the same batch sees a fresh snapshot after acquiring it. */
+-export const lockJobStatement = (jobId: string) => sql`select pg_advisory_xact_lock(hashtext(${jobId}))`;
++export type WorkflowAdmission =
++  | { ok: true; reservationId: string; amountMicroUsd: number }
++  | { ok: false; remainingMicroUsd: number };
+ 
+-/**
+- * Marks the reservation released and, only if that transition actually happened, decrements the job's
+- * reserved counter by the released amount (never below zero).
+- */
+-export function releaseStatement(jobId: string, reservationId: string) {
+-  return sql`
+-    with rel as (
+-      update budget_reservations set released_at = now()
+-      where id = ${reservationId} and job_id = ${jobId} and released_at is null
+-      returning job_id, micro_usd
+-    )
+-    update jobs set budget_reserved_micro_usd = greatest(0, budget_reserved_micro_usd - (select sum(micro_usd) from rel))
+-    where id in (select job_id from rel)`;
++/** Reuse an open stage on retry; a subsequent successful same-agent stage gets a new hold. */
++export async function reserveWorkflowBudget(jobId: string, agent: string, share: number): Promise<WorkflowAdmission> {
++  if (!Number.isFinite(share) || share <= 0 || share > 1) throw new Error("invalid budget share");
++  return transaction(async tx => {
++    await lockJobBudget(tx, jobId);
++    const exposure = await jobBudgetExposure(tx, jobId);
++    const amountMicroUsd = Math.floor(exposure.capMicroUsd * share);
++    const result = await reserveWorkflowJobBudget(tx, { jobId, agent, amountMicroUsd });
++    return result.ok
++      ? { ok: true, reservationId: result.reservationId, amountMicroUsd }
++      : { ok: false, remainingMicroUsd: result.remainingMicroUsd };
++  });
++}
++
++export async function releaseWorkflowBudget(jobId: string, reservationId: string): Promise<void> {
++  await transaction(tx => releaseWorkflowJobBudget(tx, jobId, reservationId));
+ }
+ 
+ export function createBudgetReserver(jobId: string): BudgetReserver {
+   return {
+     async reserve(agent, microUsd): Promise<ReserveResult> {
+       if (!Number.isSafeInteger(microUsd) || microUsd <= 0) throw new Error("microUsd must be a positive integer");
+-      // Non-interactive transaction: the xact lock serializes concurrent reservers of this job, and the
+-      // reserve statement then reads a snapshot taken after the lock was granted (READ COMMITTED).
+-      const d = db();
+-      const [, res] = await d.batch([d.execute(lockJobStatement(jobId)), d.execute(reserveStatement(jobId, agent, microUsd))]);
+-      const row = res.rows[0] as { reservation_id: string | null; remaining: string | number | null } | undefined;
+-      if (row?.reservation_id) return { ok: true, reservationId: row.reservation_id };
+-      return { ok: false, remainingMicroUsd: Math.max(0, Number(row?.remaining ?? 0)) };
++      // This legacy API has no caller idempotency key. An unknown commit remains held;
++      // callers must never assume a failed reserve means no reservation exists.
++      const operationId = `adapter:${randomUUID()}`;
++      return transaction(async tx => {
++        const result = await reserveJobBudget(tx, { jobId, operationId, amountMicroUsd: microUsd, workflowAgent: agent });
++        if (!result.ok) return { ok: false, remainingMicroUsd: result.remainingMicroUsd };
++        await markJobBudgetDispatched(tx, jobId, operationId);
++        return { ok: true, reservationId: result.reservationId };
++      });
+     },
+-    async release(reservationId) {
+-      await db().execute(releaseStatement(jobId, reservationId));
+-    },
++    release: reservationId => releaseWorkflowBudget(jobId, reservationId),
+   };
+ }
+diff --git a/packages/core/src/db/cost-settlement.ts b/packages/core/src/db/cost-settlement.ts
+--- a/packages/core/src/db/cost-settlement.ts
++++ b/packages/core/src/db/cost-settlement.ts
+@@ -1,3 +1,4 @@
++import { linkRetainedModelReceipt } from './job-budget-receipts';
+ import { CostEntry } from '../contracts/index';
+ 
+ export interface CostTransaction {
+@@ -77,6 +78,7 @@
+     if (!inserted.rows.length) {
+       const retained = (await tx.query<{ receipt_identity: unknown }>('SELECT receipt_identity FROM costs WHERE source=$1 AND receipt_key=$2 FOR UPDATE', [entry.source, receiptKey])).rows[0];
+       if (!retained || canonical(retained.receipt_identity) !== canonical(identity)) return conflict();
++      if(target.kind==='job' && receiptKey)await linkRetainedModelReceipt(tx,target.id,receiptKey);
+       return { inserted: false, microUsd: entry.microUsd };
+     }
+     if (target.kind !== 'job') {
+@@ -84,6 +86,7 @@
+       const result = await tx.query<{ id: string }>(`UPDATE ${table} SET cost_micro_usd=cost_micro_usd+$1 WHERE id=$2 AND cost_micro_usd+$1 <= 9007199254740991 RETURNING id`, [entry.microUsd,target.id]);
+       if (result.rows.length !== 1) return conflict();
+     }
++    if(target.kind==='job' && receiptKey)await linkRetainedModelReceipt(tx,target.id,receiptKey);
+     return { inserted: true, microUsd: entry.microUsd };
+   });
+ }
+diff --git a/packages/core/src/db/job-budget-authority.test.ts b/packages/core/src/db/job-budget-authority.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/job-budget-authority.test.ts
+@@ -0,0 +1,45 @@
++import { PGlite } from '@electric-sql/pglite';
++import { beforeEach,afterEach,expect,it } from 'vitest';
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { JOB_BUDGET_MICRO_USD } from '../contracts/index';
++import { admitModelReservationInTransaction,completeJobBudget,jobBudgetExposure,linkRunningJobBudgetCost,linkJobBudgetCost,markJobBudgetDispatched,refundUndispatchedJobBudget,reserveJobBudget,reserveWorkflowJobBudget,releaseWorkflowJobBudget,type JobBudgetTx } from './job-budget-authority';
++let pg:PGlite;
++const job='11111111-1111-4111-8111-111111111111', cost='22222222-2222-4222-8222-222222222222';
++const cap=JOB_BUDGET_MICRO_USD.trace_audit;
++const run=<T>(fn:(tx:JobBudgetTx)=>Promise<T>)=>pg.transaction(t=>fn({query:(s,p)=>t.query(s,p)}));
++beforeEach(async()=>{pg=new PGlite();await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,budget_reserved_micro_usd bigint DEFAULT 0);
++CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
++CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);
++CREATE SCHEMA agent_persistence;CREATE TABLE agent_persistence.reservations(id text PRIMARY KEY,job_id text,amount_micro_usd bigint,settled_micro_usd bigint,first_result jsonb,scopes jsonb DEFAULT '[]');
++`);await pg.exec(readFileSync(resolve(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));await pg.query('INSERT INTO jobs(id,package) VALUES($1,$2)',[job,'trace_audit']);});
++afterEach(async()=>{await pg.close();});
++it('uses canonical cap and combines ordinary holds, all costs, and model holds',async()=>{await pg.query('INSERT INTO budget_reservations VALUES($1,$2,$3,$4,NULL)',[cost,job,'engineer',100]);await pg.query('INSERT INTO costs VALUES($1,$2,$3,NULL)',[cost,job,200]);await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('model',$1,300,NULL,'{"ok":true}')`,[job]);expect(await run(tx=>jobBudgetExposure(tx,job))).toEqual({capMicroUsd:cap,committedMicroUsd:600,remainingMicroUsd:cap-600});expect(await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'large',amountMicroUsd:cap-599}))).toMatchObject({ok:false});});
++it('retains replay identity and refuses postdispatch refund',async()=>{const input={jobId:job,operationId:'op',amountMicroUsd:100};expect(await run(tx=>reserveJobBudget(tx,input))).toMatchObject({ok:true,replayed:false});expect(await run(tx=>reserveJobBudget(tx,input))).toMatchObject({ok:true,replayed:true});await expect(run(tx=>reserveJobBudget(tx,{...input,amountMicroUsd:101}))).rejects.toThrow();await run(tx=>markJobBudgetDispatched(tx,job,'op'));await expect(run(tx=>refundUndispatchedJobBudget(tx,job,'op'))).rejects.toThrow();expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
++it('refunds only undispatched and retains the operation',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await run(tx=>refundUndispatchedJobBudget(tx,job,'op'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(0);await expect(run(tx=>markJobBudgetDispatched(tx,job,'op'))).rejects.toThrow();});
++it('covers running measured costs exactly once and releases residual only at known completion',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await run(tx=>markJobBudgetDispatched(tx,job,'op'));await run(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,40,NULL)',[cost,job]);await linkRunningJobBudgetCost(tx,{jobId:job,operationId:'op',costId:cost});});expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);await run(tx=>completeJobBudget(tx,job,'op'));expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(40);});
++it('rolls reservation and model write back together on admission conflict',async()=>{await expect(run(async tx=>{await admitModelReservationInTransaction(tx,{jobId:job,reservationId:'r',amountMicroUsd:100,requestDigest:'digest'},async()=>{await tx.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('r',$1,101,NULL,'{"ok":true}')`,[job]);return {ok:true};});})).rejects.toThrow();expect((await pg.query('SELECT * FROM agent_persistence.reservations')).rows).toHaveLength(0);});
++it('reuses open workflow stage then creates fresh hold after success',async()=>{const a=await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));expect(await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}))).toMatchObject({reservationId:a.reservationId,replayed:true});await run(tx=>releaseWorkflowJobBudget(tx,job,a.reservationId));const b=await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));expect(b.reservationId).not.toBe(a.reservationId);expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);});
++it('rolls back cost insertion when a retained link conflicts',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:100}));await expect(run(async tx=>{await tx.query('INSERT INTO costs VALUES($1,$2,40,NULL)',[cost,job]);await linkRunningJobBudgetCost(tx,{jobId:job,operationId:'op',costId:cost});})).rejects.toThrow();expect((await pg.query('SELECT * FROM costs')).rows).toHaveLength(0);});
++it('excludes separately capped expert promises while keeping ordinary model commitments',async()=>{await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,first_result,scopes) VALUES('expert',$1,999999999,'{"ok":true}','[{"key":"expert-job:x"}]')`,[job]);expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(0);});
++it('refuses stage reuse once recorded usage overruns the canonical cap',async()=>{await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}));await pg.query('INSERT INTO costs VALUES($1,$2,$3,NULL)',[cost,job,cap]);expect(await run(tx=>reserveWorkflowJobBudget(tx,{jobId:job,agent:'judge',amountMicroUsd:100}))).toMatchObject({ok:false});});
++it('retains canonical denials across capacity changes and rejects changed scope digest',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'full',amountMicroUsd:cap}));const input={jobId:job,reservationId:'denied',amountMicroUsd:10,requestDigest:'scopes-one'};let callbacks=0;const reserve=async()=>{callbacks++;return {ok:true};};expect(await run(tx=>admitModelReservationInTransaction(tx,input,reserve))).toEqual({ok:false,remainingMicroUsd:0});await run(tx=>refundUndispatchedJobBudget(tx,job,'full'));expect(await run(tx=>admitModelReservationInTransaction(tx,input,reserve))).toEqual({ok:false,remainingMicroUsd:0});await expect(run(tx=>admitModelReservationInTransaction(tx,{...input,requestDigest:'scopes-two'},reserve))).rejects.toThrow();expect(callbacks).toBe(0);});
++
++it('deduplicates model settlement only with exact retained session binding and receipt',async()=>{
++ await pg.exec('CREATE TABLE agent_persistence.tasks(task_key text,record jsonb)');
++ await pg.query(`INSERT INTO agent_persistence.reservations(id,job_id,amount_micro_usd,settled_micro_usd,first_result) VALUES('r',$1,100,40,'{"ok":true}')`,[job]);
++ await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'model:r',amountMicroUsd:100,agentReservationId:'r'}));
++ await run(tx=>markJobBudgetDispatched(tx,job,'model:r'));
++ const receipt='naive:ses_00000000000000000000000000';
++ await pg.query('INSERT INTO costs VALUES($1,$2,40,$3)',[cost,job,receipt]);
++ const input={jobId:job,operationId:'model:r',costId:cost,expectedReceiptKey:receipt};
++ await expect(run(tx=>linkJobBudgetCost(tx,input))).rejects.toThrow();
++ expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(80);
++ await pg.query('INSERT INTO agent_persistence.tasks VALUES($1,$2)', ['task',JSON.stringify({reservationId:'r',jobId:job,sessionId:receipt.slice(6)})]);
++ await run(tx=>linkJobBudgetCost(tx,input));
++ expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(40);
++ await expect(run(tx=>linkJobBudgetCost(tx,{...input,expectedReceiptKey:'naive:other'}))).rejects.toThrow();
++});
++it('database rejects rewriting or deleting retained operation and admission evidence',async()=>{await run(tx=>reserveJobBudget(tx,{jobId:job,operationId:'op',amountMicroUsd:cap}));await run(tx=>admitModelReservationInTransaction(tx,{jobId:job,reservationId:'denied',amountMicroUsd:1,requestDigest:'digest'},async()=>({ok:true})));await expect(pg.query("DELETE FROM job_budget.operations WHERE operation_id='op'")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query("UPDATE job_budget.operations SET amount_micro_usd=1 WHERE operation_id='op'")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query("UPDATE job_budget.model_admissions SET admitted=true WHERE reservation_id='denied'")).rejects.toThrow('job_budget_evidence_immutable');await expect(pg.query('DELETE FROM job_budget.model_admissions')).rejects.toThrow('job_budget_evidence_immutable');});
++
++it('rejects negative persisted cost offsets instead of using them as spending credit',async()=>{await pg.query('INSERT INTO costs VALUES($1,$2,-1,NULL)',[cost,job]);await expect(run(tx=>jobBudgetExposure(tx,job))).rejects.toThrow('job_budget_conflict');});
+diff --git a/packages/core/src/db/job-budget-authority.ts b/packages/core/src/db/job-budget-authority.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/job-budget-authority.ts
+@@ -0,0 +1,141 @@
++import { randomUUID } from 'node:crypto';
++import { JOB_BUDGET_MICRO_USD } from '../contracts/index';
++
++/** Pinned READ COMMITTED transaction; rollback on exception, no automatic callback retry.
++ * Lock order: canonical job -> Workflow advisory mutex -> operation -> model scopes.
++ * Every spending writer must participate. Merely installing the table changes no authority. */
++export interface JobBudgetTx { query<T = Record<string, unknown>>(text:string, params?:unknown[]):Promise<{rows:T[]}> }
++const fail=():never=>{throw Error('job_budget_conflict');};
++const amount=(n:number,min=0)=>{if(!Number.isSafeInteger(n)||n<min)fail();};
++const key=(s:string)=>{if(typeof s!=='string'||!s.length||s.length>4096||/[\u0000\uD800-\uDFFF]/u.test(s))fail();};
++type Operation={operation_id:string;job_id:string;amount_micro_usd:string|number;workflow_agent:string|null;workflow_reservation_id:string|null;agent_reservation_id:string|null;admitted:boolean;dispatched_at:unknown;refunded_at:unknown;cost_id:string|null;completed_at:unknown};
++export async function lockJobBudget(tx:JobBudgetTx,jobId:string){
++ key(jobId);
++ const j=(await tx.query<{package:string}>('SELECT package::text AS package FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++ if(!j||!Object.prototype.hasOwnProperty.call(JOB_BUDGET_MICRO_USD,j.package))return fail();
++ await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[jobId]);
++ return JOB_BUDGET_MICRO_USD[j.package as keyof typeof JOB_BUDGET_MICRO_USD]!;
++}
++/** Unproven costs/holds and parent-child overlap remain counted. Only retained exact
++ * receipt links remove a settled model debit already represented by a costs row. */
++export async function jobBudgetExposure(tx:JobBudgetTx,jobId:string){
++ const capMicroUsd=await lockJobBudget(tx,jobId);
++ const invalid=(await tx.query<{invalid:boolean}>(`SELECT
++ EXISTS(SELECT 1 FROM costs WHERE job_id=$1 AND (micro_usd<0 OR micro_usd>9007199254740991))
++ OR EXISTS(SELECT 1 FROM budget_reservations WHERE job_id=$1 AND (micro_usd<0 OR micro_usd>9007199254740991))
++ OR EXISTS(SELECT 1 FROM agent_persistence.reservations WHERE job_id=$1::text AND
++ (amount_micro_usd<0 OR amount_micro_usd>9007199254740991 OR settled_micro_usd<0 OR settled_micro_usd>9007199254740991)) AS invalid`,[jobId])).rows[0];
++ if(!invalid||invalid.invalid)return fail();
++ const r=(await tx.query<{committed:string}>(`SELECT (
++ COALESCE((SELECT SUM(micro_usd) FROM costs WHERE job_id=$1),0)
++ +COALESCE((SELECT SUM(micro_usd) FROM budget_reservations WHERE job_id=$1 AND released_at IS NULL),0)
++ +COALESCE((SELECT SUM(COALESCE(r.settled_micro_usd,r.amount_micro_usd)) FROM agent_persistence.reservations r
++ WHERE r.job_id=$1::text AND r.first_result->>'ok'='true' AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(r.scopes) s WHERE s->>'key' LIKE 'expert-%') AND NOT EXISTS (
++ SELECT 1 FROM job_budget.operations o JOIN costs c ON c.id=o.cost_id
++ WHERE o.agent_reservation_id=r.id AND o.job_id=$1 AND c.job_id=$1
++ AND r.settled_micro_usd IS NOT NULL AND c.micro_usd=r.settled_micro_usd)),0)
++ +COALESCE((SELECT SUM(GREATEST(0,o.amount_micro_usd-COALESCE((SELECT SUM(c.micro_usd) FROM job_budget.cost_links l JOIN costs c ON c.id=l.cost_id WHERE l.operation_id=o.operation_id AND c.job_id=o.job_id),0))) FROM job_budget.operations o WHERE o.job_id=$1 AND o.admitted
++ AND o.workflow_reservation_id IS NULL AND o.agent_reservation_id IS NULL AND o.refunded_at IS NULL AND o.cost_id IS NULL AND o.completed_at IS NULL),0)
++ )::text AS committed`,[jobId])).rows[0];
++ if(!r)return fail();
++ const committed=BigInt(r.committed);if(committed<0n||committed>BigInt(Number.MAX_SAFE_INTEGER))fail();
++ return {capMicroUsd,committedMicroUsd:Number(committed),remainingMicroUsd:Number(BigInt(capMicroUsd)>committed?BigInt(capMicroUsd)-committed:0n)};
++}
++export interface JobBudgetRequest {jobId:string;operationId:string;amountMicroUsd:number;workflowAgent?:string;agentReservationId?:string}
++async function operation(tx:JobBudgetTx,id:string){return (await tx.query<Operation>('SELECT * FROM job_budget.operations WHERE operation_id=$1 FOR UPDATE',[id])).rows[0];}
++export async function reserveJobBudget(tx:JobBudgetTx,input:JobBudgetRequest){
++ const {jobId,operationId,amountMicroUsd,workflowAgent,agentReservationId}=input;
++ key(operationId);amount(amountMicroUsd,1);if(workflowAgent!==undefined)key(workflowAgent);if(agentReservationId!==undefined)key(agentReservationId);
++ if(workflowAgent&&agentReservationId)fail();
++ const exposure=await jobBudgetExposure(tx,jobId);
++ const old=await operation(tx,operationId);
++ if(old){if(old.job_id!==jobId||Number(old.amount_micro_usd)!==amountMicroUsd||old.workflow_agent!==(workflowAgent??null)||old.agent_reservation_id!==(agentReservationId??null))fail();return {ok:old.admitted,reservationId:old.workflow_reservation_id??operationId,remainingMicroUsd:exposure.remainingMicroUsd,replayed:true};}
++ // Linking an already admitted model hold adopts its debit rather than charging twice.
++ let represented=false;
++ if(agentReservationId){const r=(await tx.query<{job_id:string;amount_micro_usd:string;first_result:{ok:boolean}|null}>('SELECT job_id,amount_micro_usd,first_result FROM agent_persistence.reservations WHERE id=$1 FOR UPDATE',[agentReservationId])).rows[0];if(!r||r.job_id!==jobId||Number(r.amount_micro_usd)!==amountMicroUsd||!r.first_result?.ok)fail();represented=true;}
++ const ok=represented?exposure.committedMicroUsd<=exposure.capMicroUsd:exposure.remainingMicroUsd>=amountMicroUsd;
++ const reservationId=workflowAgent&&ok?randomUUID():null;
++ if(reservationId){await tx.query('INSERT INTO budget_reservations(id,job_id,agent,micro_usd) VALUES($1,$2,$3,$4)',[reservationId,jobId,workflowAgent,amountMicroUsd]);await tx.query('UPDATE jobs SET budget_reserved_micro_usd=budget_reserved_micro_usd+$2 WHERE id=$1',[jobId,amountMicroUsd]);}
++ await tx.query('INSERT INTO job_budget.operations(operation_id,job_id,amount_micro_usd,workflow_agent,workflow_reservation_id,agent_reservation_id,admitted) VALUES($1,$2,$3,$4,$5,$6,$7)',[operationId,jobId,amountMicroUsd,workflowAgent??null,reservationId,agentReservationId??null,ok]);
++ return {ok,reservationId:reservationId??operationId,remainingMicroUsd:exposure.remainingMicroUsd,replayed:false};
++}
++export async function reserveWorkflowJobBudget(tx:JobBudgetTx,input:{jobId:string;agent:string;amountMicroUsd:number}){
++ await lockJobBudget(tx,input.jobId);key(input.agent);amount(input.amountMicroUsd,1);
++ const open=(await tx.query<{id:string;micro_usd:string|number}>('SELECT id,micro_usd FROM budget_reservations WHERE job_id=$1 AND agent=$2 AND released_at IS NULL ORDER BY id FOR UPDATE',[input.jobId,input.agent])).rows;
++ if(open.length>1)fail();
++ if(open[0]){if(Number(open[0].micro_usd)!==input.amountMicroUsd)fail();const e=await jobBudgetExposure(tx,input.jobId);return {ok:e.committedMicroUsd<=e.capMicroUsd,reservationId:open[0].id,remainingMicroUsd:e.remainingMicroUsd,replayed:true};}
++ const operationId=`workflow:${randomUUID()}`;
++ const result=await reserveJobBudget(tx,{jobId:input.jobId,operationId,amountMicroUsd:input.amountMicroUsd,workflowAgent:input.agent});
++ if(result.ok)await markJobBudgetDispatched(tx,input.jobId,operationId);
++ return {...result,operationId};
++}
++export async function releaseWorkflowJobBudget(tx:JobBudgetTx,jobId:string,reservationId:string){
++ await lockJobBudget(tx,jobId);
++ await tx.query(`WITH r AS (UPDATE budget_reservations SET released_at=clock_timestamp() WHERE job_id=$1 AND id=$2 AND released_at IS NULL RETURNING micro_usd)
++ UPDATE jobs SET budget_reserved_micro_usd=GREATEST(0,budget_reserved_micro_usd-(SELECT SUM(micro_usd) FROM r)) WHERE id=$1 AND EXISTS(SELECT 1 FROM r)`,[jobId,reservationId]);
++}
++export async function markJobBudgetDispatched(tx:JobBudgetTx,jobId:string,operationId:string){
++ await lockJobBudget(tx,jobId);const o=await operation(tx,operationId);if(!o||o.job_id!==jobId||!o.admitted||o.refunded_at)fail();
++ await tx.query('UPDATE job_budget.operations SET dispatched_at=COALESCE(dispatched_at,clock_timestamp()) WHERE operation_id=$1',[operationId]);
++}
++/** Trusted caller invokes before any provider dispatch attempt. Unknown create/usage can
++ * never use this transition. Refunding model-ledger links requires ledger reconciliation. */
++export async function refundUndispatchedJobBudget(tx:JobBudgetTx,jobId:string,operationId:string){
++ await lockJobBudget(tx,jobId);const o=await operation(tx,operationId);if(!o||o.job_id!==jobId||!o.admitted||o.dispatched_at||o.cost_id||o.agent_reservation_id)fail();
++ if(o.workflow_reservation_id)await releaseWorkflowJobBudget(tx,jobId,o.workflow_reservation_id);
++ await tx.query('UPDATE job_budget.operations SET refunded_at=COALESCE(refunded_at,clock_timestamp()) WHERE operation_id=$1',[operationId]);
++}
++/** Receipt identity must already be validated by settleCost in this SAME transaction.
++ * Exact retained model settlement + cost row is necessary; no metadata-based guessing. */
++export async function linkJobBudgetCost(tx:JobBudgetTx,input:{jobId:string;operationId:string;costId:string;expectedReceiptKey:string}){
++ await lockJobBudget(tx,input.jobId);const o=await operation(tx,input.operationId);if(!o||o.job_id!==input.jobId||!o.admitted||o.refunded_at||!o.dispatched_at||o.workflow_reservation_id||(o.cost_id&&o.cost_id!==input.costId))fail();
++ const c=(await tx.query<{micro_usd:string|number;receipt_key:string|null}>('SELECT micro_usd,receipt_key FROM costs WHERE id=$1 AND job_id=$2 FOR UPDATE',[input.costId,input.jobId])).rows[0];if(!c||!c.receipt_key||c.receipt_key!==input.expectedReceiptKey||!c.receipt_key.startsWith('naive:ses_'))fail();
++ const sessionId=c!.receipt_key!.slice('naive:'.length);
++ let bound=false;
++ if(o.agent_reservation_id){
++ const tasks=(await tx.query<{present:string|null}>("SELECT to_regclass('agent_persistence.tasks')::text AS present")).rows[0];
++ if(tasks?.present)bound=(await tx.query("SELECT task_key FROM agent_persistence.tasks WHERE record->>'reservationId'=$1 AND record->>'sessionId'=$2 AND record->>'jobId'=$3 LIMIT 1",[o.agent_reservation_id,sessionId,input.jobId])).rows.length===1;
++ const copilot=(await tx.query<{present:string|null}>("SELECT to_regclass('naive_copilot.dispatches')::text AS present")).rows[0];
++ if(!bound&&copilot?.present)bound=(await tx.query("SELECT id FROM naive_copilot.dispatches WHERE identity->>'reservationId'=$1 AND session_id=$2 AND identity->'task'->>'jobId'=$3 LIMIT 1",[o.agent_reservation_id,sessionId,input.jobId])).rows.length===1;
++ }
++ if(!bound||(await tx.query('SELECT cost_id FROM job_budget.cost_links WHERE cost_id=$1',[input.costId])).rows.length)fail();
++ if(o.agent_reservation_id){const r=(await tx.query<{settled_micro_usd:string|number|null}>('SELECT settled_micro_usd FROM agent_persistence.reservations WHERE id=$1 FOR UPDATE',[o.agent_reservation_id])).rows[0];if(!r||r.settled_micro_usd===null||BigInt(r.settled_micro_usd)!==BigInt(c.micro_usd))fail();}
++ await tx.query('UPDATE job_budget.operations SET cost_id=$2 WHERE operation_id=$1',[input.operationId,input.costId]);
++}
++
++/** The callback MUST reserve through the model ledger bound to this exact transaction.
++ * No provider work occurs here. Failed callback/authority adoption rolls back everything. */
++export async function admitModelReservationInTransaction<T extends {ok:boolean}>(tx:JobBudgetTx, input:{jobId:string;reservationId:string;amountMicroUsd:number;requestDigest:string}, reserve:()=>Promise<T>):Promise<T|{ok:false;remainingMicroUsd:number}> {
++ amount(input.amountMicroUsd,1);key(input.reservationId);key(input.requestDigest);
++ const e=await jobBudgetExposure(tx,input.jobId);
++ const decision=(await tx.query<{job_id:string;amount_micro_usd:string|number;request_digest:string;admitted:boolean;remaining_micro_usd:string|number}>('SELECT * FROM job_budget.model_admissions WHERE reservation_id=$1 FOR UPDATE',[input.reservationId])).rows[0];
++ if(decision&&(decision.job_id!==input.jobId||Number(decision.amount_micro_usd)!==input.amountMicroUsd||decision.request_digest!==input.requestDigest))fail();
++ if(decision&&!decision.admitted)return {ok:false,remainingMicroUsd:Number(decision.remaining_micro_usd)};
++ const existing=(await tx.query<{job_id:string;amount_micro_usd:string|number;first_result:{ok:boolean}|null}>('SELECT job_id,amount_micro_usd,first_result FROM agent_persistence.reservations WHERE id=$1 FOR UPDATE',[input.reservationId])).rows[0];
++ if(existing&&(existing.job_id!==input.jobId||Number(existing.amount_micro_usd)!==input.amountMicroUsd))fail();
++ if(!decision&&!existing?.first_result&&e.remainingMicroUsd<input.amountMicroUsd){
++ await tx.query('INSERT INTO job_budget.model_admissions(reservation_id,job_id,amount_micro_usd,request_digest,admitted,remaining_micro_usd) VALUES($1,$2,$3,$4,false,$5)',[input.reservationId,input.jobId,input.amountMicroUsd,input.requestDigest,e.remainingMicroUsd]);
++ return {ok:false,remainingMicroUsd:e.remainingMicroUsd};
++ }
++ const result=await reserve();
++ if(!decision&&result.ok)await tx.query('INSERT INTO job_budget.model_admissions(reservation_id,job_id,amount_micro_usd,request_digest,admitted,remaining_micro_usd) VALUES($1,$2,$3,$4,$5,$6)',[input.reservationId,input.jobId,input.amountMicroUsd,input.requestDigest,result.ok,e.remainingMicroUsd]);
++ if(result.ok){const admitted=await reserveJobBudget(tx,{jobId:input.jobId,operationId:`model:${input.reservationId}`,amountMicroUsd:input.amountMicroUsd,agentReservationId:input.reservationId});if(!admitted.ok)fail();}
++ return result;
++}
++
++/** Cost identity is retained by the caller's measured cost sink in this transaction.
++ * Each cost can cover one operation only; unrelated legacy costs remain additive. */
++export async function linkRunningJobBudgetCost(tx:JobBudgetTx,input:{jobId:string;operationId:string;costId:string}){
++ await lockJobBudget(tx,input.jobId);const o=await operation(tx,input.operationId);
++ if(!o||o.job_id!==input.jobId||!o.admitted||!o.dispatched_at||o.refunded_at||o.completed_at||o.agent_reservation_id||o.workflow_reservation_id)fail();
++ const c=(await tx.query<{id:string}>('SELECT id FROM costs WHERE id=$1 AND job_id=$2 FOR UPDATE',[input.costId,input.jobId])).rows[0];if(!c)fail();
++ await tx.query('INSERT INTO job_budget.cost_links(operation_id,cost_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[input.operationId,input.costId]);
++ const retained=(await tx.query<{operation_id:string}>('SELECT operation_id FROM job_budget.cost_links WHERE cost_id=$1',[input.costId])).rows[0];if(retained?.operation_id!==input.operationId)fail();
++}
++/** Trusted known terminal only, after all measured step costs were inserted and linked.
++ * An abort, lost response, or unknown final usage must retain the pending hold. */
++export async function completeJobBudget(tx:JobBudgetTx,jobId:string,operationId:string){
++ await lockJobBudget(tx,jobId);const o=await operation(tx,operationId);
++ if(!o||o.job_id!==jobId||!o.admitted||!o.dispatched_at||o.refunded_at||o.agent_reservation_id||o.workflow_reservation_id)fail();
++ await tx.query('UPDATE job_budget.operations SET completed_at=COALESCE(completed_at,clock_timestamp()) WHERE operation_id=$1',[operationId]);
++}
+diff --git a/packages/core/src/db/job-budget-ledger.ts b/packages/core/src/db/job-budget-ledger.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/job-budget-ledger.ts
+@@ -0,0 +1,48 @@
++import { createHash } from 'node:crypto';
++import { PostgresBudgetLedger, type AgentSqlExecutor, type AgentTransactionalSql } from '../agents/postgres-ports';
++import type { BudgetLedger, BudgetReservationRequest, BudgetReservationResult } from '../evals/types';
++import { admitModelReservationInTransaction, lockJobBudget, markJobBudgetDispatched } from './job-budget-authority';
++
++const fail = (): never => { throw Error('shared_model_budget_conflict'); };
++const bound = (tx:AgentSqlExecutor):AgentTransactionalSql => ({query:(sql,args)=>tx.query(sql,args),transaction:fn=>fn(tx)});
++/** Existing role/period/job model-ledger caps remain enforced. The shared job gate
++ * adds public costs and outstanding Workflow/Gateway/model commitments atomically.
++ * Use only a pinned connection with READ COMMITTED, rollback, and no auto retries. */
++export class SharedJobBudgetLedger implements BudgetLedger {
++  constructor(private readonly db:AgentTransactionalSql) {}
++  async reserve(input:BudgetReservationRequest):Promise<BudgetReservationResult> {
++    if (!input || !Number.isSafeInteger(input.amountMicroUsd)||input.amountMicroUsd<1
++      ||!Array.isArray(input.scopes)||!input.scopes.length
++      ||input.scopes.some(s=>typeof s.key!=='string'||!Number.isSafeInteger(s.capMicroUsd)||s.capMicroUsd<0)) return fail();
++    // Expert honorarium promises are a separate obligation/cap, not model spend.
++    // Their normal ledger validates the exact expert-only scope shape.
++    if(input.scopes.some(s=>s.key.startsWith('expert-'))) return new PostgresBudgetLedger(this.db).reserve(input);
++    const request={...input,scopes:[...input.scopes].sort((a,b)=>a.key<b.key?-1:a.key>b.key?1:0)};
++    const requestDigest=createHash('sha256').update(JSON.stringify(request)).digest('hex');
++    return this.db.transaction(async tx=>{
++      const cap=await lockJobBudget(tx,input.jobId);
++      const result=await admitModelReservationInTransaction(tx,{
++        jobId:input.jobId,reservationId:input.reservationId,amountMicroUsd:input.amountMicroUsd,requestDigest,
++      },()=>new PostgresBudgetLedger(bound(tx)).reserve(request));
++      if(!result.ok && 'remainingMicroUsd' in result) return {
++        ok:false,reservationId:input.reservationId,exhaustedScope:`job:${input.jobId}`,
++        capMicroUsd:cap,availableMicroUsd:result.remainingMicroUsd,
++      };
++      if(result.ok) await markJobBudgetDispatched(tx,input.jobId,`model:${input.reservationId}`);
++      return result;
++    });
++  }
++  async settle(reservationId:string,consumedMicroUsd:number) {
++    return this.db.transaction(async tx=>{
++      const r=(await tx.query<{job_id:string;scopes:{key:string}[]}>(
++        'SELECT job_id,scopes FROM agent_persistence.reservations WHERE id=$1',[reservationId])).rows[0];
++      if(!r)return fail();
++      if(!r.scopes.some(s=>s.key.startsWith('expert-')))await lockJobBudget(tx,r.job_id);
++      const settled=await new PostgresBudgetLedger(bound(tx)).settle(reservationId,consumedMicroUsd);
++      if(settled.settledMicroUsd!==consumedMicroUsd)return fail();
++      // Until an exact provider receipt is linked, this measured commitment stays
++      // counted even when the application cost delivery has not yet happened.
++      return settled;
++    });
++  }
++}
+diff --git a/packages/core/src/db/job-budget-receipts.ts b/packages/core/src/db/job-budget-receipts.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/db/job-budget-receipts.ts
+@@ -0,0 +1,32 @@
++import { linkJobBudgetCost, type JobBudgetTx } from './job-budget-authority';
++
++/** Called only by the cost sink inside its canonical job transaction, AFTER its
++ * immutable receipt validation. No linkage is inferred from equal amounts alone. */
++export async function linkRetainedModelReceipt(tx:JobBudgetTx,jobId:string,receiptKey:string) {
++  if(!/^naive:ses_[0-9a-hjkmnp-tv-z]{26}$/.test(receiptKey))return;
++  const installed=(await tx.query<{present:unknown}>("SELECT to_regclass('job_budget.operations') AS present")).rows[0];
++  if(!installed?.present)return; // Legacy-only installations have no bridge debit to substitute.
++  const sessionId=receiptKey.slice('naive:'.length);
++  const ids=new Set<string>();
++  const native=(await tx.query<{reservation_id:string}>(`SELECT record->>'reservationId' AS reservation_id
++    FROM agent_persistence.tasks WHERE record->>'jobId'=$1 AND record->>'sessionId'=$2`,[jobId,sessionId])).rows;
++  for(const row of native)if(row.reservation_id)ids.add(row.reservation_id);
++  const optional=(await tx.query<{present:unknown}>("SELECT to_regclass('naive_copilot.dispatches') AS present")).rows[0];
++  if(optional?.present){
++    const copilot=(await tx.query<{reservation_id:string}>(`SELECT identity->>'reservationId' AS reservation_id
++      FROM naive_copilot.dispatches WHERE identity->'task'->>'jobId'=$1 AND session_id=$2`,[jobId,sessionId])).rows;
++    for(const row of copilot)if(row.reservation_id)ids.add(row.reservation_id);
++  }
++  const operations=[];
++  for(const id of ids){
++    const rows=(await tx.query<{operation_id:string}>(
++      'SELECT operation_id FROM job_budget.operations WHERE job_id=$1 AND agent_reservation_id=$2 AND admitted',[jobId,id])).rows;
++    operations.push(...rows);
++  }
++  if(!operations.length)return; // Unlinked historical usage remains conservatively additive.
++  if(operations.length!==1)throw Error('job_budget_receipt_conflict');
++  const cost=(await tx.query<{id:string}>(
++    "SELECT id FROM costs WHERE job_id=$1 AND source='naive' AND receipt_key=$2",[jobId,receiptKey])).rows[0];
++  if(!cost)throw Error('job_budget_receipt_conflict');
++  await linkJobBudgetCost(tx,{jobId,operationId:operations[0]!.operation_id,costId:cost.id,expectedReceiptKey:receiptKey});
++}
+diff --git a/packages/core/src/integration/eval-services.ts b/packages/core/src/integration/eval-services.ts
+--- a/packages/core/src/integration/eval-services.ts
++++ b/packages/core/src/integration/eval-services.ts
+@@ -13,7 +13,8 @@
+ import type { EvalServices, ServiceContext } from "../contracts/services";
+ import { db, schema } from "../db/client";
+ import { createNaiveClient, createNaiveSessionsPort } from "../agents/naive-adapter";
+-import { PostgresAgentTaskStore, PostgresBudgetLedger } from "../agents/postgres-ports";
++import { PostgresAgentTaskStore } from "../agents/postgres-ports";
++import { SharedJobBudgetLedger } from "../db/job-budget-ledger";
+ import { AgentSessionService } from "../agents/session-service";
+ import { pooledCalendarDatabase } from "../simulator/pool";
+ import { PostgresBranchLedger } from "../simulator/branch-ledger";
+@@ -106,7 +107,7 @@
+   const runner = new AgentSessionService({
+     naive,
+     store: new PostgresAgentTaskStore(sql),
+-    ledger: new PostgresBudgetLedger(sql),
++    ledger: new SharedJobBudgetLedger(sql),
+     directory: agentDirectory(),
+     budgetPeriodId: process.env.NAIVE_BUDGET_PERIOD_ID || new Date().toISOString().slice(0, 7),
+     idempotencyNamespace: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",

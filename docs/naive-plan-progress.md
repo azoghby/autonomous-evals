@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Latest shared job budget candidate (2026-11-08)
+
+`naive-shared-budget-integration` adds 20 source/test postimages and two SQL files over internal MCP13/copilot dispatch6 (36 unique composed paths). Canonical package caps, atomic job admission, model-ledger composition, Workflow reservations, Gateway job-turn reservation/measurement and exact retained session-receipt substitution are wired in staged source. It preserves unknown holds and records overages. 66 focused and 4,025 full staged tests pass (zero failures/two skips), web types and production build (57 steps/four workflows); independent patch, reproducible assembly and 2,234 baseline pins verified. Actual source and production are unchanged.
+
+This does not close full budget acceptance: Workflow retry reuse is not a concurrent stage fence, parent envelopes and exact proxy receipt links remain incomplete, combined customer daily admission is absent, and unknown Gateway-turn UX/recovery still needs work. This layer has not been rebased with factual39/sourcing26 and must not be blindly combined with them. Native PostgreSQL contention and hosted acceptance remain gates. Read the artifact README/validation receipt before adopting or extending it; the complete Naïve phase sequence remains the goal.
+
 ## Latest copilot dispatch candidate (2026-11-08)
 
 `naive-copilot-dispatch-integration` adds six source/test paths and SQL over internal MCP13, without adopting either candidate. It connects encrypted request replay storage, atomic shared model-ledger reservation, fenced dispatch, uncertain-create lookup recovery, measured terminal settlement/outbox, current owner/pin grounded publication and actual application cost delivery. 26 focused and 3,990 full staged tests pass (zero failures/two skips), web types and production build (57 steps/four workflows). Parent verified 19 composed postimages/2,234 baseline pins and independent patch/reproducible assembly. Actual source remains at the earlier Gateway chat implementation; no hosted call or activation is claimed.
