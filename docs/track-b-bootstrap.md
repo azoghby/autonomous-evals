@@ -26,6 +26,10 @@ source inspection. Track B's `evals/index` remains a factory entry, not a global
    storage, not disposable simulator branches. Apply calendar migration on the
    isolated simulator branch. Configure connection/statement/lock timeouts.
 3. The server bootstrap now constructs `AgentSessionService` and `createTrackBServices`.
+   Track B also exposes `createPostgresAgentRuntime` for explicit SQL/runtime/cost
+   composition; see [the architecture handoff](track-b-naive-architecture.md).
+   Its cost sink must atomically deduplicate the same `naive:<sessionId>` keys used
+   by eval adapters. Wrapping the runner does not replace that database invariant.
    Verify authorization at the calling Workflow boundary and atomic cost-key
    deduplication in `ctx.recordCost`. Supply `listJobCosts` for a complete measured
    report ledger (the inspected bootstrap omits it, so report costs remain unknown).
