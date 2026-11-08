@@ -13,11 +13,12 @@ import { EASE, SPRING, Stagger, StaggerItem } from "./motion";
 import { OperatorExperts } from "./operator-experts";
 import { OperatorInfra } from "./operator-infra";
 import { OperatorLeads } from "./operator-leads";
+import { OperatorNotifications } from "./operator-notifications";
 
 const UNKNOWN_COSTS = ["Customer provider usage (their own API credits)", "Hosting (Vercel, Neon)"];
 const KINDS = ["refund", "override", "fix", "approve_outreach", "other"] as const;
 
-const TABS = ["Overview", "Experts", "Infra"] as const;
+const TABS = ["Overview", "Experts", "Infra", "Notifications"] as const;
 type Tab = (typeof TABS)[number];
 
 function Tabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
@@ -64,6 +65,7 @@ export function OperatorConsole() {
           {tab === "Overview" && <><Overview data={data} reload={reload} /><div className="mt-12"><OperatorLeads /></div></>}
           {tab === "Experts" && <OperatorExperts />}
           {tab === "Infra" && <OperatorInfra />}
+          {tab === "Notifications" && <OperatorNotifications />}
         </motion.div>
       </AnimatePresence>
     </div>
