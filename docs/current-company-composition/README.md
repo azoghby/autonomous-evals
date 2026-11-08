@@ -42,10 +42,13 @@ provider boundaries. The dependency staging selected installed ipaddr.js 2.5;
 an older cached 1.9 declaration caused the earlier compiler failure. Shared
 caches and production source were not changed to resolve that staging issue.
 
-The combined production build, current-main adoption, hosted authorization,
-independent production SQL contention/recovery, real provider billing evidence,
-and deployment remain unverified. Individual child build results do not establish
-a combined production build. Genuine owner adapters and exact migration/grant
+The parent also verified core production TypeScript, full application TypeScript,
+and the combined Next/Workflow webpack production build. All 2,041 recorded
+source hashes still matched after the build. The build used existing offline
+dependencies and cached real font files; no production source or manifests changed.
+
+Current-main adoption, hosted authorization, independent production SQL
+contention/recovery, real provider billing evidence, and deployment remain unverified. Genuine owner adapters and exact migration/grant
 adoption are still required. Unknown costs retain their holds; no live operation
 budget has been raised. The approved Pixel Scout mascot is a separate pending
 extension and is not included in this candidate.
