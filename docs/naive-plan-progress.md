@@ -218,3 +218,9 @@ Actual core now supports explicit new-operation factual-gap policy, bounded exac
 Actual core also implements the optional SQL judge attempt/recovery protocol described in [naive-judge-undispatched-recovery.md](naive-judge-undispatched-recovery.md). Seventy-two focused judge tests and parent integration checks cover immutable attempts, atomic additional scopes, current-authority recovery, lost acknowledgements, legacy-worker fencing and exact v2 accounting. The app still does not install the store or enumerate v2 accounting attempts, and the new sidecar is not live. H6/H7 therefore remain activation gates for both expert and future generic text routes.
 
 Final current-root verification for this core batch: `npx tsc -p apps/web --noEmit` passed; `npm test -- --maxWorkers=4` passed **3780tests/0failures/2documented skips**. Focused core types also passed. These results cover the implemented optional capabilities, not owner activation.
+
+## Refreshed generic app candidate at35fbcab
+
+The16-file candidate is now revalidated against actual current core. Shared judge-month scope uses the canonical60m cap, preserving the separate3m jobcap and generic allocation. Selected reconciliation-required failures park the Workflow for review; unrelated legacy errors retain their prior handling. Fullcandidate npm passes **3858tests/0failures/2skips**, including78candidate tests. Fullweb/coretypes and the offline-font productionbuild pass. Parent verified16current preimages/postimages, independentpatchapplication and1254unchanged source blobs (1257baselinepins). Historical7c61008 receipts remain explicitly separate.
+
+This source candidate still does not install the optional dispatchstore/sidecar or v2 drains, and does not enable factual-gap expert entry. Source adoption approvals, operator configuration and hosted acceptance remain open.

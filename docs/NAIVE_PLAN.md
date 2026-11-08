@@ -2,6 +2,8 @@
 
 Owner: Alex (Track B), with Ronit (Track A). Status: proposal. Written 2026-11-07 against `origin/main` @ `e8e33c4` and `@usenaive-sdk/managed-agents` 0.12.3.
 
+Current implementation evidence is tracked in [naive-plan-progress.md](naive-plan-progress.md) and `LEDGER.md`. The original facts/proposals below retain their written-at snapshot; do not treat historical “not migrated,” key, routing or deployment statements as a current inventory. The full phase sequence and acceptance gates remain the governing roadmap.
+
 ## Phase 0 status (2026-11-07, ~23:00 PT)
 
 Run by Track A on branch `naive-p0`. Prod is unchanged (`EVAL_SERVICES=lite`, no deploy).

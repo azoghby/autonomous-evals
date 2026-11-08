@@ -1,0 +1,9 @@
+{
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "stage": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified",
+  "trackedFiles": 1257,
+  "postimages": 16,
+  "environmentFilesCopied": false,
+  "assemblyMode": "git ls-tree pinned blob hashes checked against current tracked bytes; docs and standalone Track B harness inventory explicitly excluded after terminated cloud-blocked archive",
+  "dependencyMode": "actual root and matching app/core nested installed dependencies; stage @ae/core workspace binding"
+}

@@ -32,6 +32,9 @@ export function requireNaivePackage(pkg: string, selection = readRoutingSelectio
 }
 /** A selected owner operation parks in one durable Workflow instead of consuming step retries. */
 export function toNaiveWorkflowError(error: unknown): unknown {
+  if (error instanceof TrackBBlockedError && error.code === 'needs_operator') {
+    return new FatalError('NAIVE_RECONCILIATION_REQUIRED');
+  }
   if (error instanceof TrackBPendingError) {
     const admission = ['Generic text design admission pending.', 'Text design admission is pending.'].includes(error.reason);
     return new FatalError(`${admission ? 'NAIVE_ADMISSION_PENDING' : 'NAIVE_OPERATION_PENDING'}: ${error.message}`);

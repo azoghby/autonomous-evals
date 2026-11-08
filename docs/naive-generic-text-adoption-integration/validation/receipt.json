@@ -1,74 +1,130 @@
 {
-  "baselineCommit": "7c610084dd9827e5cbecca27e09d5b8ca5e2ae8a",
-  "validationStage": "/tmp/naive-generic-text-adoption-7c61008",
+  "baselineCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "validationStage": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified",
+  "sourceSnapshot": {
+    "mode": "git ls-tree pinned blob hashes checked against current tracked bytes; docs and standalone Track B harness inventory explicitly excluded after terminated cloud-blocked archive",
+    "trackedFiles": 1257,
+    "committedBlobVerification": "SHA1 Git blob header+bytes equals git ls-tree baseline for every copied file before overlay",
+    "inventory": "committed-blob-inventory.json",
+    "excluded": "docs/** and tests/track-b/** except tests/track-b/trace-acceptance.json; required standard input filesystem-reference audit found trace-acceptance.json only",
+    "cloudAttempts": "git archive confirmed terminated; first raw copy confirmed terminated on obsolete standalone Track B harness; no concurrent stage writers",
+    "requiredTraceFixtureSha256": "a7b51eec6f6794eec94addfddb99e07cf086e53aa5b1f7e2b48937e8737b20d2",
+    "unownedPostbuildChanges": 0
+  },
   "postimages": {
     "source": 8,
     "tests": 8,
     "exactStageMatches": 16,
-    "manifestSha256": "bde44ff2b29e2b86fe705a0442ced469bc3cc49d354a43fe001e42bafd48b0c4",
-    "ownerPatchSha256": "59f48f008591e708711b8170869441d662a06fd2285791d10e5962c00bc26703"
-  },
-  "baselineIntegrity": {
-    "trackedSourceFiles": 1209,
-    "unownedDifferences": 0,
-    "requiredTraceFixture": "tests/track-b/trace-acceptance.json",
-    "traceFixtureSha256": "a7b51eec6f6794eec94addfddb99e07cf086e53aa5b1f7e2b48937e8737b20d2"
+    "manifestSha256": "cb427413bdc11e19be4b58e368abd510dba19509274b3852fea9f090169230ce",
+    "ownerPatchSha256": "48ae4046802ecc94353c155c6fd9aedba6843535c8f2c68df714f73bdd37e913"
   },
   "dependencies": {
-    "install": "Root exact npm ci dependencies; stage @ae/core bound to stage packages/core; app/core nested dependencies bound to matching root nested installs",
+    "mode": "actual root and matching app/core nested installed dependencies; stage @ae/core workspace binding",
     "packageLockSha256": "20f30e1361d2bc727dda014c7a4ca0cf71386e8a6a04950ee9ae67162cda0f10",
     "versions": {
-      "typescript": "6.0.3",
-      "vitest": "5.1.0",
-      "next": "16.4.5",
-      "workflow": "5.4.0"
-    }
+      "typescript": {
+        "version": "6.0.3",
+        "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/typescript"
+      },
+      "vitest": {
+        "version": "5.1.0",
+        "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/vitest"
+      },
+      "next": {
+        "version": "16.4.5",
+        "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/next"
+      },
+      "workflow": {
+        "version": "5.4.0",
+        "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/node_modules/workflow"
+      },
+      "web-typescript": {
+        "version": "5.9.3",
+        "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/apps/web/node_modules/typescript"
+      },
+      "core-ipaddr": {
+        "version": "2.5.0",
+        "resolvedPath": "/Users/alexzoghby/Documents/ChatGPT/YC Hackathon 2/packages/core/node_modules/ipaddr.js"
+      }
+    },
+    "environmentFilesCopied": false
   },
   "fullTests": {
-    "command": "node node_modules/vitest/vitest.mjs run --maxWorkers=4 --reporter=json --outputFile=/tmp/naive-generic-7c61008-full-tests-final.json",
+    "command": "npm test -- --maxWorkers=4 --reporter=json --outputFile=<validation/full-tests.json>",
     "exitCode": 0,
-    "passed": 3755,
+    "passed": 3858,
     "failed": 0,
     "skipped": 2,
-    "suites": 916,
+    "suites": 939,
     "failedSuites": 0,
-    "candidateTests": 74,
-    "candidateFiles": 8
+    "candidateFiles": 8,
+    "candidateTests": 78
   },
-  "typegen": {
-    "command": "node ../../node_modules/next/dist/bin/next typegen",
-    "exitCode": 0
-  },
-  "webTypecheck": {
-    "command": "node node_modules/typescript/bin/tsc -p apps/web --noEmit",
-    "exitCode": 0
-  },
-  "coreTypecheck": {
-    "command": "node node_modules/typescript/bin/tsc -p packages/core --noEmit",
-    "exitCode": 0
+  "checks": {
+    "typegen": {
+      "command": [
+        "node",
+        "../../node_modules/next/dist/bin/next",
+        "typegen"
+      ],
+      "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified/apps/web",
+      "exitCode": 0
+    },
+    "web-typecheck": {
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "-p",
+        "apps/web",
+        "--noEmit"
+      ],
+      "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified",
+      "exitCode": 0
+    },
+    "core-typecheck": {
+      "command": [
+        "node",
+        "node_modules/typescript/bin/tsc",
+        "-p",
+        "packages/core",
+        "--noEmit"
+      ],
+      "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified",
+      "exitCode": 0
+    },
+    "build": {
+      "command": [
+        "node",
+        "../../node_modules/next/dist/bin/next",
+        "build",
+        "--webpack"
+      ],
+      "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified/apps/web",
+      "exitCode": 0
+    }
   },
   "build": {
-    "command": "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=/tmp/naive-generic-text-adoption-7c61008/font-mock.cjs NEXT_TELEMETRY_DISABLED=1 node ../../node_modules/next/dist/bin/next build --webpack",
     "exitCode": 0,
     "compiledSteps": 61,
     "compiledWorkflows": 4,
-    "fontMock": "stage-only offline Google CSS fixture; actual candidate app fonts unchanged"
+    "offlineFontFixture": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified/font-mock.cjs",
+    "offlineFontFixtureSha256": "98abcddd54fde777816283b754cdbd95a140234418a18c6a258c3e545cd77107",
+    "nextConfigSubstituted": false,
+    "workflowConfigSubstituted": false,
+    "routeSha256": "b8d2b4f8ba18dd725524423e34520dcdcb382201fe4166bd0028949be034e1f8"
   },
-  "applyCheck": {
-    "command": "git apply --check docs/naive-generic-text-adoption-integration/owner.patch",
-    "exitCode": 0
-  },
-  "correctedValidationIssues": [
-    "Initial staged typecheck exposed package-export imports; combined postimages now use @ae/core/contracts/index.",
-    "Stage core nested dependency binding corrected to exact root core dependency tree.",
-    "Initial full suite missed tracked trace-acceptance fixture (3731 passing assertions, no failed assertions, one setup-failed suite); required fixture copied and final full run passed."
-  ],
+  "postbuildVerification": "postbuild-verification.json",
+  "applyCheckExitCode": 0,
   "limitations": [
-    "Source adoption and hosted configuration/activation are separate owner actions. No live provider, target, customer email, migration or deployment calls were made.",
-    "Supported generic route is text design/run/investigation. Workflow/comparison and owner remediation/rerun remain unsupported.",
-    "Entirely unassessed baselines and bounded pending exhaustion hold delivery/settlement.",
-    "Notification claims fence attempts, not successful delivery. Ambiguous dispatch requires reconciliation and never automatic redispatch.",
-    "Rejected SQL publication may leave private orphan artifact uploads.",
-    "Local tests use real SQL ports and fake transports; Workflow tests exercise real orchestration with mocked step ports, not hosted durable runtime replay."
+    "Source candidate only; no hosted configuration, deployment, migration, live provider/target/email/payment acceptance.",
+    "H6/H7 stay open: optional core judge recovery capability is not wired into application dispatch and its sidecar is not migrated by this candidate.",
+    "Typed factual-gap policy and expert-plan entry bridge are not wired by the generic builder; no automatically connected acquisition loop is claimed.",
+    "Workflow/comparison and owner remediation/rerun remain unsupported.",
+    "Entirely unassessed baselines and pending/reconciliation states hold delivery/settlement.",
+    "Notification attempt fencing is not successful delivery or exactly-once email; ambiguous outcomes require reconciliation.",
+    "Rejected SQL publication may leave private orphan uploads.",
+    "Real SQL tests fake provider/target transports; Workflow caller tests mock step ports and do not prove hosted durable replay.",
+    "Installed dependency graph is shared via explicit root and matching nested dependency bindings; stage @ae/core points to stage source.",
+    "Build uses a stage-only offline Google CSS fixture and webpack; actual app font/configuration postimages are unchanged."
   ]
 }

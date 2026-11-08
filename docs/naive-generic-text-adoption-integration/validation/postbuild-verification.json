@@ -1,0 +1,11 @@
+{
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
+  "trackedFiles": 1257,
+  "unownedStageDifferences": [],
+  "exactPostimageMatches": 16,
+  "actualRootPreimageMismatches": [],
+  "manifestSha256": "cb427413bdc11e19be4b58e368abd510dba19509274b3852fea9f090169230ce",
+  "ownerPatchSha256": "48ae4046802ecc94353c155c6fd9aedba6843535c8f2c68df714f73bdd37e913",
+  "gitApplyCheckExitCode": 0,
+  "stage": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified"
+}

@@ -1,0 +1,43 @@
+{
+  "typegen": {
+    "command": [
+      "node",
+      "../../node_modules/next/dist/bin/next",
+      "typegen"
+    ],
+    "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified/apps/web",
+    "exitCode": 0
+  },
+  "web-typecheck": {
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "apps/web",
+      "--noEmit"
+    ],
+    "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified",
+    "exitCode": 0
+  },
+  "core-typecheck": {
+    "command": [
+      "node",
+      "node_modules/typescript/bin/tsc",
+      "-p",
+      "packages/core",
+      "--noEmit"
+    ],
+    "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified",
+    "exitCode": 0
+  },
+  "build": {
+    "command": [
+      "node",
+      "../../node_modules/next/dist/bin/next",
+      "build",
+      "--webpack"
+    ],
+    "cwd": "/tmp/naive-generic-text-adoption-current-35fbcab1b003-verified/apps/web",
+    "exitCode": 0
+  }
+}

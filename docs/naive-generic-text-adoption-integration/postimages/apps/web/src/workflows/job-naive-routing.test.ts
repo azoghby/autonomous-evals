@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const p = vi.hoisted(() => ({
-  design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),
+  design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),progress:vi.fn(),
 }));
 vi.mock('workflow', () => ({FatalError: class FatalError extends Error {}, sleep: p.sleep, createHook: () => ({[Symbol.dispose]() {}, [Symbol.asyncIterator]: () => ({next: p.next})})}));
 vi.mock('@/workflows/decisions', () => ({decideResumePlan: p.plan, selectFindingsForFix: () => [], needsConnectionCheck: () => false}));
@@ -8,10 +8,12 @@ vi.mock('@/workflows/steps/expert-data', () => ({expertDataGateStep: p.gate, exp
 vi.mock('@/workflows/steps/expert-text', () => ({expertTextEvaluationStep: p.expert, expertTextReportStep: async () => ({status:'ok'})}));
 vi.mock('@/workflows/steps/resume', () => ({loadResumeSnapshotStep:p.snapshot, discardPartialEvaluationStep: vi.fn()}));
 vi.mock('@/workflows/steps/evaluate', () => ({createBranchStep:p.branch, designSuiteStep:p.design, runSuiteStep:p.run, investigateStep:async () => ({status:'ok',data:[]}), renderReportStep:async () => ({status:'ok',data:{}}), persistReportStep:vi.fn(), proposeFixStep:p.fix,genericTextExecutionPolicyStep:p.policy,genericTextReportStep:p.genericReport,genericTextCommittedReceiptStep:p.receipt,genericTextNotifyStep:p.notify, auditTraceStep:vi.fn()}));
-vi.mock('@/workflows/steps/lifecycle', () => ({setStateStep:async () => true, progressStep:vi.fn(), deliverStep:p.deliver, neonDeliverySafetyStep:vi.fn(), failStep:p.fail, cancelStep:p.cancel}));
+vi.mock('@/workflows/steps/lifecycle', () => ({setStateStep:async () => true, progressStep:p.progress, deliverStep:p.deliver, neonDeliverySafetyStep:vi.fn(), failStep:p.fail, cancelStep:p.cancel}));
 vi.mock('@/workflows/steps/quote', () => ({connectionCheckStep:vi.fn(), createQuoteStep:vi.fn(), qualifyStep:vi.fn()}));
 vi.mock('@/workflows/steps/notify', () => ({notifyCustomerStep:vi.fn()}));
 vi.mock('@/workflows/steps/billing', () => ({settlePaymentStep:p.settle, flagSettlementFailureStep:vi.fn()}));
+import { TrackBBlockedError } from '@ae/core/integration/eval-services';
+import { routeNaiveMethods,readRoutingSelection } from '@/server/naive-method-routing';
 import { jobWorkflow } from '@/workflows/job';
 describe('actual candidate Workflow caller', () => {
  beforeEach(() => {vi.clearAllMocks();p.gate.mockResolvedValue('legacy');p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});p.plan.mockReturnValue({phase:'execute',quoteVersion:1});p.receipt.mockResolvedValue(null);p.notify.mockResolvedValue(true);p.policy.mockResolvedValue(false);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});p.deliver.mockResolvedValue({deliveredAtIso:''});p.branch.mockResolvedValue({});p.design.mockResolvedValue({status:'ok',data:{scenarios:[]}});p.run.mockResolvedValue({status:'ok',data:{results:[]}});p.next.mockImplementation(() => new Promise(() => {}));p.sleep.mockResolvedValue(undefined);});
@@ -56,5 +58,21 @@ describe('actual candidate Workflow caller', () => {
   p.policy.mockResolvedValue(true);p.genericReport.mockRejectedValueOnce(new Error('commit_unknown'));p.receipt.mockRejectedValueOnce(new Error('database_unavailable'));
   expect((await jobWorkflow('job')).status).toBe('on_hold');expect(p.fail).not.toHaveBeenCalled();expect(p.notify).not.toHaveBeenCalled();
  });
+
+
+it('actual selected typed reconciliation holds the Workflow without another dispatch, failure or delivery',async()=>{
+ p.policy.mockResolvedValue(true);
+ const dispatch=vi.fn(async()=>{throw new TrackBBlockedError('needs_operator','ambiguous retained provider state');});
+ const routed=routeNaiveMethods({} as never,{} as never,readRoutingSelection({EVAL_SERVICES:'real',EVAL_NAIVE_METHODS:'designSuite'}),async()=>({designSuite:dispatch}));
+ p.design.mockImplementationOnce(()=>routed.designSuite({budgetMicroUsd:1} as never,{} as never));
+ expect((await jobWorkflow('job')).status).toBe('on_hold');expect(dispatch).toHaveBeenCalledOnce();expect(p.design).toHaveBeenCalledOnce();
+ expect(p.progress).toHaveBeenCalledWith('job','naive_reconciliation_required',expect.any(String));
+ for(const fn of [p.fail,p.deliver,p.settle,p.notify,p.run,p.sleep])expect(fn).not.toHaveBeenCalled();
+});
+
+it('unselected legacy reconciliation-like text retains the existing failure path',async()=>{
+ p.policy.mockResolvedValue(false);p.design.mockRejectedValueOnce(new Error('NAIVE_RECONCILIATION_REQUIRED'));
+ expect((await jobWorkflow('job')).status).toBe('failed');expect(p.fail).toHaveBeenCalledWith('job','NAIVE_RECONCILIATION_REQUIRED');expect(p.sleep).not.toHaveBeenCalled();
+});
 
 });

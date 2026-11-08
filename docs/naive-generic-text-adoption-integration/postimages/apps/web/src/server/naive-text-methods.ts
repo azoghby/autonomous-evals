@@ -3,6 +3,7 @@ import { createHash,randomUUID } from 'node:crypto';
 import { createClient } from '@usenaive-sdk/managed-agents';
 import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
 import { PostgresAgentTaskStore,PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
+import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
 import { createNaiveClient,createNaiveSessionsPort } from '@ae/core/agents/naive-adapter';
 import { AgentSessionService,type AgentTaskRunner } from '@ae/core/agents/session-service';
@@ -122,7 +123,7 @@ export async function createNaiveTextMethods(ctx:ServiceContext,deps:NaiveTextMe
   if('cost' in result&&result.cost){const parsed=CostEntrySchema.parse(result.cost);if(parsed.jobId!==jobId)return fail();await retainCost(toContractCost(parsed));}
   await authority.current(result);return result;
  }};
- const proxyBudget=createNaiveProxyBudget(ledger,{jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID??new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:cap});
+ const proxyBudget=createNaiveProxyBudget(ledger,{jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd});
  const judge=createNaiveProxyServiceJudge(stable,{jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints:authority.checkpoints,
   budget:proxyBudget,
   client:idempotencyKey=>createClient({apiKey:proxyKey,...(baseUrl?{baseUrl}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),

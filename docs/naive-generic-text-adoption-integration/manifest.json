@@ -1,7 +1,7 @@
 {
-  "baseCommit": "7c610084dd9827e5cbecca27e09d5b8ca5e2ae8a",
+  "baseCommit": "35fbcab1b0035ffb447f3766ec43f4363a03c3fd",
   "branch": "track-a",
-  "status": "candidate-only; source approval and activation separate",
+  "status": "candidate-only; source approval, application recovery wiring/migration and activation separate",
   "sourceFiles": 8,
   "testFiles": 8,
   "files": [
@@ -37,14 +37,14 @@
       "path": "apps/web/src/server/naive-method-routing.test.ts",
       "operation": "add",
       "preimageSha256": null,
-      "postimageSha256": "28a8efc873212a77d9991e553e4ccbcc5fb3e05353845c9bc3958e3c95cab7b5",
+      "postimageSha256": "659c70a9e6fc7868337da6f3a193349a36a1ca0298f39594566834e658e6c31e",
       "role": "test"
     },
     {
       "path": "apps/web/src/server/naive-method-routing.ts",
       "operation": "add",
       "preimageSha256": null,
-      "postimageSha256": "771d6b12a5245d7fcf18416560bb16107fbcb98e9b55c6f4c6c2351e926000bd",
+      "postimageSha256": "c5e595b5a8a958159c731479f1451585d282ab95bcbe13c386ab31f82aae4de0",
       "role": "source"
     },
     {
@@ -58,14 +58,14 @@
       "path": "apps/web/src/server/naive-text-methods.test.ts",
       "operation": "add",
       "preimageSha256": null,
-      "postimageSha256": "3b5e3070c44e6f5d2d90823b4bcc7c137669580d1d0849f63e1447005af9ba4c",
+      "postimageSha256": "16db6792087cd346a02fca616e84db1b6f270c0209925660e8e516b05b1bb871",
       "role": "test"
     },
     {
       "path": "apps/web/src/server/naive-text-methods.ts",
       "operation": "add",
       "preimageSha256": null,
-      "postimageSha256": "531c8dfd972fbeb9e80b138845e510d61d11d0d0ebd2f23dc573beba2798a26a",
+      "postimageSha256": "ab3e18a5d51053e91ccf04a655d4c5d568e7290ed7c5eafb0ce8d045aa529b9a",
       "role": "source"
     },
     {
@@ -93,14 +93,14 @@
       "path": "apps/web/src/workflows/job-naive-routing.test.ts",
       "operation": "add",
       "preimageSha256": null,
-      "postimageSha256": "4fa3dea8458fababa9be6504209c0b24160f034281f0ce086362de41264b7b70",
+      "postimageSha256": "8fbbe4d4595595030cdd7646f1c20899af688a20dc8d3527f91ecf3e19953649",
       "role": "test"
     },
     {
       "path": "apps/web/src/workflows/job.ts",
       "operation": "modify",
       "preimageSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b",
-      "postimageSha256": "46cf31ad5525a4bdd1121a78bbf143f8e4e5822b65f008e2b0672e2e774c9d9e",
+      "postimageSha256": "447f6815b076c7ff343ef8cdd5e71ed4adcc711de42bc55d88f714e98ad1a215",
       "role": "source"
     },
     {

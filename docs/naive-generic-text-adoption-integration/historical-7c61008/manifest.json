@@ -1,0 +1,121 @@
+{
+  "baseCommit": "7c610084dd9827e5cbecca27e09d5b8ca5e2ae8a",
+  "branch": "track-a",
+  "status": "candidate-only; source approval and activation separate",
+  "sourceFiles": 8,
+  "testFiles": 8,
+  "files": [
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "8adb5f4111933f1c2cc611569b42e52330152929951f5ee3cca6f3e052527cf2",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/server/naive-engine-admission-policy.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "012c36d90cef47f9eb3482a18eb271ad7bd9e1ffef87d1947ac07eb7aadd23c6",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "1ab965bad3ebcbf2d66d4f1d66b6bfcf2bf98a76af1fc8f18e63a8143a5bef02",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-authority.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "1cdd0dc542b94926c0c0c8e85305c7156dff8233bc13f15389d8697372b2ac5c",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "28a8efc873212a77d9991e553e4ccbcc5fb3e05353845c9bc3958e3c95cab7b5",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/server/naive-method-routing.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "771d6b12a5245d7fcf18416560bb16107fbcb98e9b55c6f4c6c2351e926000bd",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/server/naive-services-registration.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "9d9968cda2dc92b35c7494c50a963a55d2b515642edf737458f7be241543d7d3",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "3b5e3070c44e6f5d2d90823b4bcc7c137669580d1d0849f63e1447005af9ba4c",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-methods.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "531c8dfd972fbeb9e80b138845e510d61d11d0d0ebd2f23dc573beba2798a26a",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "9fbb77a6f4bf7dcf004cad870667082b84f87d618dcd572341317b8b153a8b71",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/server/naive-text-publication.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "138b5fbc914eed203a5eae675610f5c234cc94f50418e131386a651360829619",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "operation": "modify",
+      "preimageSha256": "653a5296f154309bf8dd61c5816543bd8517a5e117566e6c910fe4ab53001f01",
+      "postimageSha256": "69ff3fe6f6a31177e3b03f9ee8c17f7ed1a8c276d0b3248357a439b74ed5c727",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/workflows/job-naive-routing.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "4fa3dea8458fababa9be6504209c0b24160f034281f0ce086362de41264b7b70",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "operation": "modify",
+      "preimageSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b",
+      "postimageSha256": "46cf31ad5525a4bdd1121a78bbf143f8e4e5822b65f008e2b0672e2e774c9d9e",
+      "role": "source"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate-naive-routing.test.ts",
+      "operation": "add",
+      "preimageSha256": null,
+      "postimageSha256": "a563aeeceabd99f823f64ab7ac369af8ca73aa413c3a44f18d054371a0d0f522",
+      "role": "test"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "operation": "modify",
+      "preimageSha256": "ba10d271051605f5f78035d04dfeb38f985beeee71d2e2f651e5a621e090865c",
+      "postimageSha256": "2253465f6f231b7f7174c134f051b07922fd4397e2328ec125025079df69d8d7",
+      "role": "source"
+    }
+  ]
+}

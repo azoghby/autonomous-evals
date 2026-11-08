@@ -1,11 +1,21 @@
-Workflow 5.4.0 local documentation, foundations/workflows-and-steps.mdx:93:
-Calling a step from another step runs in the same process like a normal function; use step is a no-op.
-The same document at line118 states outside-workflow calls provide no retry semantics.
+Built flow route SHA256: b8d2b4f8ba18dd725524423e34520dcdcb382201fe4166bd0028949be034e1f8
+61 steps, four workflows; current selected hold marker present.
+Workflow 5.4.0 docs foundations/workflows-and-steps.mdx:93 says nested step calls run in the same process; line118 says outside-workflow calls provide no retry semantics.
 
-Built production flow route sha256: 1de920c9416e410bdc8b9337c1047f6dfe70b74bb019522a65f6fc0dac30861b
+async function Q(a)
+eliveredAtIso}}}async function P(a){return(0,B.Fx)(await (0,y.vt)(a))}async function Q(a){let b=await (0,y.vt)(a),c=await (0,B.GM)(b);return"pending"!==c.status&&("completed"===c.status||(await (0,E.i)(a),await (0,B.px)(b,c.token),!0))}E=(G.then?(await G)():G)[0],e=Symbol.for("@workflow/core//registeredSteps"),(globalThis[e]||(globalThis[e]=new Map)).set("step//./src/workflows/steps/evaluate//auditTraceStep",H),H.stepId="step//./src/workflows/steps/evaluate//auditTraceStep",Object.defineProperty(H,"name",{value:"auditTraceStep",configurable:!0}),H.maxRetries=1,f=a
 
-Compiled selected notification step body (Q) directly awaits imported sender, then completes its claim; no nested Workflow dispatcher is introduced:
-async function Q(a){let b=await (0,y.vt)(a),c=await (0,B.GM)(b);return"pending"!==c.status&&("completed"===c.status||(await (0,E.i)(a),await (0,B.px)(b,c.token),!0))}
+Q.maxRetries=0
+ineProperty(Q,"name",{value:"genericTextNotifyStep",configurable:!0}),Q.maxRetries=0,d()}catch(a){d(a)}})},78474:a=>{a.exports=require("node:events")},78559:(a,b,c)=>{c.a(a,async(a,b)=>{try{var d,e,f,g=c(96523),h=c(24543),i=a([g]);async function j(a){try{return await (0,g.m)(a)}catch(b){return console.error("expert_data_gate_pending",a,b instanceof Error?`${b.name}: ${b.message}`.slice(0,300):"non_error_throw"),"pending"}}g=(i.then?(await i)():i)[0],d=Symbol.for("@workflow/core//registeredSteps"),(globalThis[d]||(globalThis[d]=new Map)).set("step//./src/workflows/
 
-Registration retains outer maxRetries=0:
-s/steps/evaluate//genericTextNotifyStep",Object.defineProperty(Q,"name",{value:"genericTextNotifyStep",configurable:!0}),Q.maxRetries=0,d()}catch(a){d(a)}})},78474:a=>{a.exports=re
+if (genericSelected && message === "NAIVE_RECONCILIATION_REQUIRED")
+t message = err instanceof Error ? err.message : String(err);
+        if (genericSelected && message === "NAIVE_RECONCILIATION_REQUIRED") {
+          await progressStep(jobId, "naive_reconciliation_required", "Evaluation requires operator reconciliation of its existing provider operation.");
+          return {
+            jobId,
+            status: "on_hold"
+          };
+        }
+        if (message.startsWith("NAIVE_ADMISSION_PENDING:") || message.startsWith("NAIVE_OPERATION_PENDING:")) {
+          const admission = message.startsWith("NAIVE_ADMISSION_PENDING:")

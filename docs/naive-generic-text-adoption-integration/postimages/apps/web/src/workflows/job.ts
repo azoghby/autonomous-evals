@@ -40,6 +40,7 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
   let admissionPolls = 0;
   let operationPolls = 0;
   let genericAttempted = false;
+  let genericSelected = false;
   let genericDelivery: { deliveredAtIso: string } | undefined;
   let admissionEvent: Promise<JobEvent> | undefined;
 
@@ -284,6 +285,7 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
   async function runEndpointEval(pkg: QualifyResult["package"]): Promise<Stopped | undefined> {
     if (!(await setStateStep(jobId, "planning", { milestone: "planning", message: "Designing your test suite." }))) return { stopped: "cancelled" };
     const generic = await genericTextExecutionPolicyStep();
+    genericSelected = generic;
     const branch = await createBranchStep(jobId);
     const designed = await designSuiteStep(jobId);
     if (designed.status === "budget_exceeded") { await pauseBudgetStep(jobId, designed.message); return { stopped: "paused_budget" }; }
@@ -337,6 +339,10 @@ export async function jobWorkflow(jobId: string): Promise<Outcome> {
       return await run();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (genericSelected && message === 'NAIVE_RECONCILIATION_REQUIRED') {
+        await progressStep(jobId, 'naive_reconciliation_required', 'Evaluation requires operator reconciliation of its existing provider operation.');
+        return { jobId, status: 'on_hold' };
+      }
       if (message.startsWith("NAIVE_ADMISSION_PENDING:") || message.startsWith("NAIVE_OPERATION_PENDING:")) {
         const admission = message.startsWith("NAIVE_ADMISSION_PENDING:");
         await progressStep(jobId, admission ? "naive_admission_pending" : "naive_operation_pending", admission ? "Evaluation is waiting for owner admission." : "Evaluation is awaiting its existing provider operation.");

@@ -24,7 +24,7 @@ Required evidence: detection without sends; exact plan replay/conflicts; missing
 
 ## Rerun storage and finding resolution
 
-Core `naive-rerun-service.ts` retains Ines dismissal but cannot project it through the current public finding contract. Actual `job-actions.ts` permits reruns after delivery, while the generic authority candidate permits active evaluations only. Its three-attempt limit is count-then-insert, without an atomic attempt claim or stable request identity. Public scenario hints and blobs cannot establish baseline authority.
+Core `naive-rerun-service.ts` retains Ines dismissal but cannot project it through the current public finding contract. Actual `job-actions.ts` permits reruns after delivery, while the generic authority candidate permits active evaluations only. The original audit found a count-then-insert three-attempt limit. Track A subsequently added `claimRerunSlot` before paid execution in `68c94df`, preserved in merge `b659725`; this closes that admission race. Stable request/replay identity and explicit retest resolution remain separate gaps. Public scenario hints and blobs cannot establish baseline authority.
 
 Define an additive immutable retest operation/resolution record that preserves the original finding and evidence. Resolve canonical rich findings from retained investigation and match the stored public finding. Distinguish lost-response replay from a genuinely new attempt. Post-delivery credentials and retest budget require explicit policy; do not weaken the active evaluation authority check to bypass this design.
 

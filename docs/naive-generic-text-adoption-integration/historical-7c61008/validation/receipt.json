@@ -1,0 +1,74 @@
+{
+  "baselineCommit": "7c610084dd9827e5cbecca27e09d5b8ca5e2ae8a",
+  "validationStage": "/tmp/naive-generic-text-adoption-7c61008",
+  "postimages": {
+    "source": 8,
+    "tests": 8,
+    "exactStageMatches": 16,
+    "manifestSha256": "bde44ff2b29e2b86fe705a0442ced469bc3cc49d354a43fe001e42bafd48b0c4",
+    "ownerPatchSha256": "59f48f008591e708711b8170869441d662a06fd2285791d10e5962c00bc26703"
+  },
+  "baselineIntegrity": {
+    "trackedSourceFiles": 1209,
+    "unownedDifferences": 0,
+    "requiredTraceFixture": "tests/track-b/trace-acceptance.json",
+    "traceFixtureSha256": "a7b51eec6f6794eec94addfddb99e07cf086e53aa5b1f7e2b48937e8737b20d2"
+  },
+  "dependencies": {
+    "install": "Root exact npm ci dependencies; stage @ae/core bound to stage packages/core; app/core nested dependencies bound to matching root nested installs",
+    "packageLockSha256": "20f30e1361d2bc727dda014c7a4ca0cf71386e8a6a04950ee9ae67162cda0f10",
+    "versions": {
+      "typescript": "6.0.3",
+      "vitest": "5.1.0",
+      "next": "16.4.5",
+      "workflow": "5.4.0"
+    }
+  },
+  "fullTests": {
+    "command": "node node_modules/vitest/vitest.mjs run --maxWorkers=4 --reporter=json --outputFile=/tmp/naive-generic-7c61008-full-tests-final.json",
+    "exitCode": 0,
+    "passed": 3755,
+    "failed": 0,
+    "skipped": 2,
+    "suites": 916,
+    "failedSuites": 0,
+    "candidateTests": 74,
+    "candidateFiles": 8
+  },
+  "typegen": {
+    "command": "node ../../node_modules/next/dist/bin/next typegen",
+    "exitCode": 0
+  },
+  "webTypecheck": {
+    "command": "node node_modules/typescript/bin/tsc -p apps/web --noEmit",
+    "exitCode": 0
+  },
+  "coreTypecheck": {
+    "command": "node node_modules/typescript/bin/tsc -p packages/core --noEmit",
+    "exitCode": 0
+  },
+  "build": {
+    "command": "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=/tmp/naive-generic-text-adoption-7c61008/font-mock.cjs NEXT_TELEMETRY_DISABLED=1 node ../../node_modules/next/dist/bin/next build --webpack",
+    "exitCode": 0,
+    "compiledSteps": 61,
+    "compiledWorkflows": 4,
+    "fontMock": "stage-only offline Google CSS fixture; actual candidate app fonts unchanged"
+  },
+  "applyCheck": {
+    "command": "git apply --check docs/naive-generic-text-adoption-integration/owner.patch",
+    "exitCode": 0
+  },
+  "correctedValidationIssues": [
+    "Initial staged typecheck exposed package-export imports; combined postimages now use @ae/core/contracts/index.",
+    "Stage core nested dependency binding corrected to exact root core dependency tree.",
+    "Initial full suite missed tracked trace-acceptance fixture (3731 passing assertions, no failed assertions, one setup-failed suite); required fixture copied and final full run passed."
+  ],
+  "limitations": [
+    "Source adoption and hosted configuration/activation are separate owner actions. No live provider, target, customer email, migration or deployment calls were made.",
+    "Supported generic route is text design/run/investigation. Workflow/comparison and owner remediation/rerun remain unsupported.",
+    "Entirely unassessed baselines and bounded pending exhaustion hold delivery/settlement.",
+    "Notification claims fence attempts, not successful delivery. Ambiguous dispatch requires reconciliation and never automatic redispatch.",
+    "Rejected SQL publication may leave private orphan artifact uploads.",
+    "Local tests use real SQL ports and fake transports; Workflow tests exercise real orchestration with mocked step ports, not hosted durable runtime replay."
+  ]
+}

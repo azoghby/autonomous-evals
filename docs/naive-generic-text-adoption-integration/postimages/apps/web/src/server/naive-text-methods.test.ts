@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto';
+import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
+import { canonicalJson } from '@ae/core/evals/text/freeze';
+import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
+import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
 /** Real generic owner SQL + concrete admission + rich adapters; provider/target transport only are fakes. */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -124,12 +129,20 @@ describe('generic application text composition with durable SQL authority',()=>{
   const lower={...f.ctx,budgetMicroUsd:600000},api=await f.runtime(lower),suite=await api.designSuite(lower,f.intake);expect(suite.scenarios).toHaveLength(12);
   expect((await f.pg.query<{cap_micro_usd:string}>('SELECT cap_micro_usd::text FROM agent_persistence.scopes WHERE key=$1',[`job:${f.jobId}`])).rows[0].cap_micro_usd).toBe('3000000');
  },60000);
- it('shares the canonical judge-period scope across jobs with different generic allocations',async()=>{
+ it('shares the expert writer judge-period scope across generic allocations with empty period fallback',async()=>{
+  vi.stubEnv('NAIVE_BUDGET_PERIOD_ID','');
   const first=await fixture(true),second=await fixture(true,'223e4567-e89b-42d3-a456-426614174000',first);
+  // Seed with the actual SQL budget writer and the exact expert runtime configuration.
+  // A mismatched generic cap must fail against this pre-existing immutable scope.
+  const period=new Date().toISOString().slice(0,7),operationId='expert-shared-scope';
+  const reservationId=`naive-proxy:${createHash('sha256').update(canonicalJson({jobId:first.jobId,operationId})).digest('hex')}`;
+  const expertBudget=createNaiveProxyBudget(new PostgresBudgetLedger(first.sql),{jobId:first.jobId,period,jobCapMicroUsd:JOB_BUDGET_MICRO_USD.text_eval,judgeCapMicroUsd:COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd});
+  expect(COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd).toBe(60000000);
+  expect(await expertBudget.reserve({jobId:first.jobId,operationId,reservationId,inputDigest:'a'.repeat(64),amountMicroUsd:1})).toBe(true);
   const a={...first.ctx,budgetMicroUsd:1000000},b={...second.ctx,budgetMicroUsd:600000};
   for(const [f,ctx] of [[first,a],[second,b]] as const){const api=await f.runtime(ctx),suite=await api.designSuite(ctx,f.intake),run=await api.runSuite(ctx,suite,f.target);expect(run.results.every(r=>r.assessment?.kind==='rubric'&&r.assessment.checks.some(c=>c.checkId.endsWith('.r1')&&c.status==='pass'))).toBe(true);}
-  const judgeScopes=(await first.pg.query<{cap_micro_usd:string}>(`SELECT cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'agent:judge:%'`)).rows;expect(judgeScopes).toEqual([{cap_micro_usd:'3000000'}]);expect(first.proxyFetch).toHaveBeenCalledTimes(48);
-  const genericScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'generic-text:%' ORDER BY key`)).rows;expect(genericScopes).toEqual([{key:`generic-text:${first.jobId}`,cap_micro_usd:'1000000'},{key:`generic-text:${second.jobId}`,cap_micro_usd:'600000'}]);expect((await first.pg.query<{count:number}>('SELECT count(*)::int AS count FROM agent_persistence.reservations')).rows[0].count).toBe(28);
+  const judgeScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'agent:judge:%'`)).rows;expect(judgeScopes).toEqual([{key:`agent:judge:${period}`,cap_micro_usd:'60000000'}]);expect(first.proxyFetch).toHaveBeenCalledTimes(48);
+  const genericScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'generic-text:%' ORDER BY key`)).rows;expect(genericScopes).toEqual([{key:`generic-text:${first.jobId}`,cap_micro_usd:'1000000'},{key:`generic-text:${second.jobId}`,cap_micro_usd:'600000'}]);expect((await first.pg.query<{count:number}>('SELECT count(*)::int AS count FROM agent_persistence.reservations')).rows[0].count).toBe(29);
  },60000);
  it('recovers lost cost acknowledgement via reconstruction without another provider operation',async()=>{
   const f=await fixture();f.loseCostAck();const first=await f.runtime();await expect(first.designSuite(f.ctx,f.intake)).rejects.toThrow('cost_ack_lost');const calls=f.provider.naive.createCalls.length;

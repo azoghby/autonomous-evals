@@ -1,3 +1,5 @@
+diff --git a/apps/web/src/server/naive-engine-admission-policy.test.ts b/apps/web/src/server/naive-engine-admission-policy.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-engine-admission-policy.test.ts
 @@ -0,0 +1,55 @@
@@ -56,6 +58,8 @@
 +  ['wrong requested schema',`UPDATE agent_persistence.tasks SET record=jsonb_set(record,'{requestBody,output_schema}','{}')`],
 + ] as const)it(`refuses ${name} before issuing an approval`,async()=>{const f=await fixture();try{await f.pg.exec(sql);await expect(f.policy.admissionPolicy(f.tx,f.identity,f.suite)).rejects.toThrow();}finally{await f.pg.close();}});
 +});
+diff --git a/apps/web/src/server/naive-engine-admission-policy.ts b/apps/web/src/server/naive-engine-admission-policy.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-engine-admission-policy.ts
 @@ -0,0 +1,59 @@
@@ -118,6 +122,8 @@
 + }
 + return {admissionPolicy,authorizeApproval};
 +}
+diff --git a/apps/web/src/server/naive-method-authority.test.ts b/apps/web/src/server/naive-method-authority.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-method-authority.test.ts
 @@ -0,0 +1,55 @@
@@ -176,6 +182,8 @@
 +  const f=await fixture();try{const a=await f.create();await f.pg.query(`UPDATE jobs SET intake=jsonb_set(intake,'{notes}','"changed"')`);await expect(a.current()).rejects.toThrow();await expect(f.create()).rejects.toThrow();await f.pg.query(`UPDATE jobs SET state='cancelled'`);await expect(a.current()).rejects.toThrow();}finally{await f.pg.close();}
 + });
 +});
+diff --git a/apps/web/src/server/naive-method-authority.ts b/apps/web/src/server/naive-method-authority.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-method-authority.ts
 @@ -0,0 +1,103 @@
@@ -282,12 +290,14 @@
 +   return {...a,scope,frozen,retained:projection.retained,suite:projection.suite,runId:`generic-${hash({scope,targetVersion:a.targetVersion}).slice(0,24)}`};
 +  }};
 +}
+diff --git a/apps/web/src/server/naive-method-routing.test.ts b/apps/web/src/server/naive-method-routing.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-method-routing.test.ts
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,59 @@
 +import { describe, it, expect, vi } from 'vitest';
 +import type { EvalServices, ServiceContext } from '@ae/core/contracts/services';
-+import { EvalServiceUnavailableError, TrackBPendingError } from '@ae/core/integration/eval-services';
++import { EvalServiceUnavailableError, TrackBPendingError, TrackBBlockedError } from '@ae/core/integration/eval-services';
 +import { readRoutingSelection, routeNaiveMethods, requireNaivePackage } from './naive-method-routing';
 +const ctx = { budgetMicroUsd: 100 } as ServiceContext;
 +const selection = readRoutingSelection({ EVAL_SERVICES: 'real', EVAL_NAIVE_METHODS: 'designSuite' });
@@ -331,9 +341,24 @@
 +    expect(build).toHaveBeenCalledOnce();
 +  });
 +});
++
++it('maps typed selected reconciliation to a static terminal hold marker without leaking provider text',async()=>{
++ const legacy=vi.fn(),builder=vi.fn(async()=>{throw new TrackBBlockedError('needs_operator','sensitive provider detail');});
++ const routed=routeNaiveMethods({designSuite:legacy} as unknown as EvalServices,{} as EvalServices,selection,builder);
++ await expect(routed.designSuite(ctx,{} as never)).rejects.toThrow(/^NAIVE_RECONCILIATION_REQUIRED$/);
++ expect(builder).toHaveBeenCalledOnce();expect(legacy).not.toHaveBeenCalled();
++});
++it('preserves unselected and arbitrary-text errors without inventing reconciliation authority',async()=>{
++ const error=new TrackBBlockedError('needs_operator','operator detail'),legacy=vi.fn(async()=>{throw error;});
++ const routed=routeNaiveMethods({runSuite:legacy} as unknown as EvalServices,{} as EvalServices,selection,async()=>{throw new Error('needs_operator');});
++ await expect(routed.runSuite(ctx,{} as never,{} as never)).rejects.toBe(error);
++ await expect(routed.designSuite(ctx,{} as never)).rejects.toThrow(/^needs_operator$/);
++});
+diff --git a/apps/web/src/server/naive-method-routing.ts b/apps/web/src/server/naive-method-routing.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-method-routing.ts
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,71 @@
 +import { FatalError } from 'workflow';
 +import type { EvalServices, ServiceContext } from '@ae/core/contracts/services';
 +import { EvalServiceConfigError, EvalServiceUnavailableError, TrackBBlockedError, TrackBPendingError } from '@ae/core/integration/eval-services';
@@ -368,6 +393,9 @@
 +}
 +/** A selected owner operation parks in one durable Workflow instead of consuming step retries. */
 +export function toNaiveWorkflowError(error: unknown): unknown {
++  if (error instanceof TrackBBlockedError && error.code === 'needs_operator') {
++    return new FatalError('NAIVE_RECONCILIATION_REQUIRED');
++  }
 +  if (error instanceof TrackBPendingError) {
 +    const admission = ['Generic text design admission pending.', 'Text design admission is pending.'].includes(error.reason);
 +    return new FatalError(`${admission ? 'NAIVE_ADMISSION_PENDING' : 'NAIVE_OPERATION_PENDING'}: ${error.message}`);
@@ -402,6 +430,8 @@
 +export const unavailableNaiveBuilder: NaiveMethodBuilder = async method => {
 +  throw new EvalServiceUnavailableError(method, `Selected Naive method ${method} requires an installed owner builder`);
 +};
+diff --git a/apps/web/src/server/naive-services-registration.test.ts b/apps/web/src/server/naive-services-registration.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-services-registration.test.ts
 @@ -0,0 +1,16 @@
@@ -421,9 +451,16 @@
 +  expect(ports.createBuilder).toHaveBeenCalledOnce();expect(ports.builder).toHaveBeenCalledTimes(2);expect(ports.builder).toHaveBeenCalledWith('designSuite',ctx);
 + });
 +});
+diff --git a/apps/web/src/server/naive-text-methods.test.ts b/apps/web/src/server/naive-text-methods.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-text-methods.test.ts
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,167 @@
++import { createHash } from 'node:crypto';
++import { createNaiveProxyBudget } from '@ae/core/judges/naive-proxy-budget';
++import { canonicalJson } from '@ae/core/evals/text/freeze';
++import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
++import { JOB_BUDGET_MICRO_USD } from '@ae/core/contracts/index';
 +/** Real generic owner SQL + concrete admission + rich adapters; provider/target transport only are fakes. */
 +import { readFileSync } from 'node:fs';
 +import { resolve } from 'node:path';
@@ -550,12 +587,20 @@
 +  const lower={...f.ctx,budgetMicroUsd:600000},api=await f.runtime(lower),suite=await api.designSuite(lower,f.intake);expect(suite.scenarios).toHaveLength(12);
 +  expect((await f.pg.query<{cap_micro_usd:string}>('SELECT cap_micro_usd::text FROM agent_persistence.scopes WHERE key=$1',[`job:${f.jobId}`])).rows[0].cap_micro_usd).toBe('3000000');
 + },60000);
-+ it('shares the canonical judge-period scope across jobs with different generic allocations',async()=>{
++ it('shares the expert writer judge-period scope across generic allocations with empty period fallback',async()=>{
++  vi.stubEnv('NAIVE_BUDGET_PERIOD_ID','');
 +  const first=await fixture(true),second=await fixture(true,'223e4567-e89b-42d3-a456-426614174000',first);
++  // Seed with the actual SQL budget writer and the exact expert runtime configuration.
++  // A mismatched generic cap must fail against this pre-existing immutable scope.
++  const period=new Date().toISOString().slice(0,7),operationId='expert-shared-scope';
++  const reservationId=`naive-proxy:${createHash('sha256').update(canonicalJson({jobId:first.jobId,operationId})).digest('hex')}`;
++  const expertBudget=createNaiveProxyBudget(new PostgresBudgetLedger(first.sql),{jobId:first.jobId,period,jobCapMicroUsd:JOB_BUDGET_MICRO_USD.text_eval,judgeCapMicroUsd:COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd});
++  expect(COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd).toBe(60000000);
++  expect(await expertBudget.reserve({jobId:first.jobId,operationId,reservationId,inputDigest:'a'.repeat(64),amountMicroUsd:1})).toBe(true);
 +  const a={...first.ctx,budgetMicroUsd:1000000},b={...second.ctx,budgetMicroUsd:600000};
 +  for(const [f,ctx] of [[first,a],[second,b]] as const){const api=await f.runtime(ctx),suite=await api.designSuite(ctx,f.intake),run=await api.runSuite(ctx,suite,f.target);expect(run.results.every(r=>r.assessment?.kind==='rubric'&&r.assessment.checks.some(c=>c.checkId.endsWith('.r1')&&c.status==='pass'))).toBe(true);}
-+  const judgeScopes=(await first.pg.query<{cap_micro_usd:string}>(`SELECT cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'agent:judge:%'`)).rows;expect(judgeScopes).toEqual([{cap_micro_usd:'3000000'}]);expect(first.proxyFetch).toHaveBeenCalledTimes(48);
-+  const genericScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'generic-text:%' ORDER BY key`)).rows;expect(genericScopes).toEqual([{key:`generic-text:${first.jobId}`,cap_micro_usd:'1000000'},{key:`generic-text:${second.jobId}`,cap_micro_usd:'600000'}]);expect((await first.pg.query<{count:number}>('SELECT count(*)::int AS count FROM agent_persistence.reservations')).rows[0].count).toBe(28);
++  const judgeScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'agent:judge:%'`)).rows;expect(judgeScopes).toEqual([{key:`agent:judge:${period}`,cap_micro_usd:'60000000'}]);expect(first.proxyFetch).toHaveBeenCalledTimes(48);
++  const genericScopes=(await first.pg.query<{key:string;cap_micro_usd:string}>(`SELECT key,cap_micro_usd::text FROM agent_persistence.scopes WHERE key LIKE 'generic-text:%' ORDER BY key`)).rows;expect(genericScopes).toEqual([{key:`generic-text:${first.jobId}`,cap_micro_usd:'1000000'},{key:`generic-text:${second.jobId}`,cap_micro_usd:'600000'}]);expect((await first.pg.query<{count:number}>('SELECT count(*)::int AS count FROM agent_persistence.reservations')).rows[0].count).toBe(29);
 + },60000);
 + it('recovers lost cost acknowledgement via reconstruction without another provider operation',async()=>{
 +  const f=await fixture();f.loseCostAck();const first=await f.runtime();await expect(first.designSuite(f.ctx,f.intake)).rejects.toThrow('cost_ack_lost');const calls=f.provider.naive.createCalls.length;
@@ -578,14 +623,17 @@
 +  const retained=(await f.pg.query<{state:string;value:{ok:boolean;text:string}}>(`SELECT state,value FROM text_integration.checkpoints WHERE kind='target'`)).rows;expect(retained.some(row=>row.state==='completed'&&row.value.ok===true&&row.value.text==='WRONG')).toBe(true);await expect(api.runSuite(f.ctx,suite,f.target)).rejects.toThrow();expect(f.post).toHaveBeenCalledTimes(1);
 + },60000);
 +});
+diff --git a/apps/web/src/server/naive-text-methods.ts b/apps/web/src/server/naive-text-methods.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-text-methods.ts
-@@ -0,0 +1,153 @@
+@@ -0,0 +1,154 @@
 +import 'server-only';
 +import { createHash,randomUUID } from 'node:crypto';
 +import { createClient } from '@usenaive-sdk/managed-agents';
 +import type { AgentTransactionalSql } from '@ae/core/agents/postgres-ports';
 +import { PostgresAgentTaskStore,PostgresBudgetLedger } from '@ae/core/agents/postgres-ports';
++import { COMPANY_ROLE_DEFINITIONS } from '@ae/core/agents/company-roles';
 +import { ROLE_DEFINITIONS,TASK_BUDGETS } from '@ae/core/agents/roles';
 +import { createNaiveClient,createNaiveSessionsPort } from '@ae/core/agents/naive-adapter';
 +import { AgentSessionService,type AgentTaskRunner } from '@ae/core/agents/session-service';
@@ -705,7 +753,7 @@
 +  if('cost' in result&&result.cost){const parsed=CostEntrySchema.parse(result.cost);if(parsed.jobId!==jobId)return fail();await retainCost(toContractCost(parsed));}
 +  await authority.current(result);return result;
 + }};
-+ const proxyBudget=createNaiveProxyBudget(ledger,{jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID??new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:cap});
++ const proxyBudget=createNaiveProxyBudget(ledger,{jobId,period:process.env.NAIVE_BUDGET_PERIOD_ID||new Date().toISOString().slice(0,7),jobCapMicroUsd:cap,judgeCapMicroUsd:COMPANY_ROLE_DEFINITIONS.judge.monthlyMicroUsd});
 + const judge=createNaiveProxyServiceJudge(stable,{jobId,model,maxOutputTokens:output,reservationMicroUsd:reservation,checkpoints:authority.checkpoints,
 +  budget:proxyBudget,
 +  client:idempotencyKey=>createClient({apiKey:proxyKey,...(baseUrl?{baseUrl}:{}),idempotencyKey:()=>idempotencyKey,fetch:deps.proxyFetch}),
@@ -734,6 +782,8 @@
 +  return createNaiveTextMethods(ctx,deps);
 + };
 +}
+diff --git a/apps/web/src/server/naive-text-publication.test.ts b/apps/web/src/server/naive-text-publication.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-text-publication.test.ts
 @@ -0,0 +1,131 @@
@@ -868,6 +918,8 @@
 + },60000);
 +
 +});
+diff --git a/apps/web/src/server/naive-text-publication.ts b/apps/web/src/server/naive-text-publication.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/server/naive-text-publication.ts
 @@ -0,0 +1,168 @@
@@ -1039,6 +1091,7 @@
 +  if(row.state==='pending')await tx.query(`UPDATE text_integration.checkpoints SET state='completed',value=$3::jsonb WHERE job_id=$1 AND kind='naive_text_notification' AND id=$2`,[ctx.jobId,SLOT,JSON.stringify(receipt)]);
 + });
 +}
+diff --git a/apps/web/src/server/services.ts b/apps/web/src/server/services.ts
 --- a/apps/web/src/server/services.ts
 +++ b/apps/web/src/server/services.ts
 @@ -12,6 +12,8 @@
@@ -1084,12 +1137,14 @@
 -}
 +  return withWorkflowErrors(routeNaiveMethods(real, trackBServices, selection, builder));
 +}
+diff --git a/apps/web/src/workflows/job-naive-routing.test.ts b/apps/web/src/workflows/job-naive-routing.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/workflows/job-naive-routing.test.ts
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,78 @@
 +import { beforeEach, describe, expect, it, vi } from 'vitest';
 +const p = vi.hoisted(() => ({
-+  design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),
++  design: vi.fn(), branch: vi.fn(), run: vi.fn(), expert: vi.fn(), gate: vi.fn(), fail: vi.fn(), cancel: vi.fn(), sleep: vi.fn(), next: vi.fn(), policy:vi.fn(),genericReport:vi.fn(),deliveryGate:vi.fn(),fix:vi.fn(),deliver:vi.fn(),settle:vi.fn(),receipt:vi.fn(),notify:vi.fn(),snapshot:vi.fn(),plan:vi.fn(),progress:vi.fn(),
 +}));
 +vi.mock('workflow', () => ({FatalError: class FatalError extends Error {}, sleep: p.sleep, createHook: () => ({[Symbol.dispose]() {}, [Symbol.asyncIterator]: () => ({next: p.next})})}));
 +vi.mock('@/workflows/decisions', () => ({decideResumePlan: p.plan, selectFindingsForFix: () => [], needsConnectionCheck: () => false}));
@@ -1097,10 +1152,12 @@
 +vi.mock('@/workflows/steps/expert-text', () => ({expertTextEvaluationStep: p.expert, expertTextReportStep: async () => ({status:'ok'})}));
 +vi.mock('@/workflows/steps/resume', () => ({loadResumeSnapshotStep:p.snapshot, discardPartialEvaluationStep: vi.fn()}));
 +vi.mock('@/workflows/steps/evaluate', () => ({createBranchStep:p.branch, designSuiteStep:p.design, runSuiteStep:p.run, investigateStep:async () => ({status:'ok',data:[]}), renderReportStep:async () => ({status:'ok',data:{}}), persistReportStep:vi.fn(), proposeFixStep:p.fix,genericTextExecutionPolicyStep:p.policy,genericTextReportStep:p.genericReport,genericTextCommittedReceiptStep:p.receipt,genericTextNotifyStep:p.notify, auditTraceStep:vi.fn()}));
-+vi.mock('@/workflows/steps/lifecycle', () => ({setStateStep:async () => true, progressStep:vi.fn(), deliverStep:p.deliver, neonDeliverySafetyStep:vi.fn(), failStep:p.fail, cancelStep:p.cancel}));
++vi.mock('@/workflows/steps/lifecycle', () => ({setStateStep:async () => true, progressStep:p.progress, deliverStep:p.deliver, neonDeliverySafetyStep:vi.fn(), failStep:p.fail, cancelStep:p.cancel}));
 +vi.mock('@/workflows/steps/quote', () => ({connectionCheckStep:vi.fn(), createQuoteStep:vi.fn(), qualifyStep:vi.fn()}));
 +vi.mock('@/workflows/steps/notify', () => ({notifyCustomerStep:vi.fn()}));
 +vi.mock('@/workflows/steps/billing', () => ({settlePaymentStep:p.settle, flagSettlementFailureStep:vi.fn()}));
++import { TrackBBlockedError } from '@ae/core/integration/eval-services';
++import { routeNaiveMethods,readRoutingSelection } from '@/server/naive-method-routing';
 +import { jobWorkflow } from '@/workflows/job';
 +describe('actual candidate Workflow caller', () => {
 + beforeEach(() => {vi.clearAllMocks();p.gate.mockResolvedValue('legacy');p.snapshot.mockResolvedValue({package:'text_eval',receivedRecorded:true});p.plan.mockReturnValue({phase:'execute',quoteVersion:1});p.receipt.mockResolvedValue(null);p.notify.mockResolvedValue(true);p.policy.mockResolvedValue(false);p.genericReport.mockResolvedValue({status:'ok',data:{assessed:true,deliveredAtIso:'2026-11-08T00:00:00.000Z'}});p.deliver.mockResolvedValue({deliveredAtIso:''});p.branch.mockResolvedValue({});p.design.mockResolvedValue({status:'ok',data:{scenarios:[]}});p.run.mockResolvedValue({status:'ok',data:{results:[]}});p.next.mockImplementation(() => new Promise(() => {}));p.sleep.mockResolvedValue(undefined);});
@@ -1146,7 +1203,24 @@
 +  expect((await jobWorkflow('job')).status).toBe('on_hold');expect(p.fail).not.toHaveBeenCalled();expect(p.notify).not.toHaveBeenCalled();
 + });
 +
++
++it('actual selected typed reconciliation holds the Workflow without another dispatch, failure or delivery',async()=>{
++ p.policy.mockResolvedValue(true);
++ const dispatch=vi.fn(async()=>{throw new TrackBBlockedError('needs_operator','ambiguous retained provider state');});
++ const routed=routeNaiveMethods({} as never,{} as never,readRoutingSelection({EVAL_SERVICES:'real',EVAL_NAIVE_METHODS:'designSuite'}),async()=>({designSuite:dispatch}));
++ p.design.mockImplementationOnce(()=>routed.designSuite({budgetMicroUsd:1} as never,{} as never));
++ expect((await jobWorkflow('job')).status).toBe('on_hold');expect(dispatch).toHaveBeenCalledOnce();expect(p.design).toHaveBeenCalledOnce();
++ expect(p.progress).toHaveBeenCalledWith('job','naive_reconciliation_required',expect.any(String));
++ for(const fn of [p.fail,p.deliver,p.settle,p.notify,p.run,p.sleep])expect(fn).not.toHaveBeenCalled();
 +});
++
++it('unselected legacy reconciliation-like text retains the existing failure path',async()=>{
++ p.policy.mockResolvedValue(false);p.design.mockRejectedValueOnce(new Error('NAIVE_RECONCILIATION_REQUIRED'));
++ expect((await jobWorkflow('job')).status).toBe('failed');expect(p.fail).toHaveBeenCalledWith('job','NAIVE_RECONCILIATION_REQUIRED');expect(p.sleep).not.toHaveBeenCalled();
++});
++
++});
+diff --git a/apps/web/src/workflows/job.ts b/apps/web/src/workflows/job.ts
 --- a/apps/web/src/workflows/job.ts
 +++ b/apps/web/src/workflows/job.ts
 @@ -12,7 +12,7 @@
@@ -1158,19 +1232,20 @@
  } from "./steps/evaluate";
  import { notifyCustomerStep } from "./steps/notify";
  import { flagSettlementFailureStep, settlePaymentStep } from "./steps/billing";
-@@ -37,6 +37,11 @@
+@@ -37,6 +37,12 @@
    const events = hook[Symbol.asyncIterator]();
    const stashedPayments: PaymentEvent[] = [];
    const seenPaymentIds: string[] = [];
 +  let admissionPolls = 0;
 +  let operationPolls = 0;
 +  let genericAttempted = false;
++  let genericSelected = false;
 +  let genericDelivery: { deliveredAtIso: string } | undefined;
 +  let admissionEvent: Promise<JobEvent> | undefined;
  
    async function nextEvent(): Promise<JobEvent> {
      const r = await events.next();
-@@ -62,7 +67,19 @@
+@@ -62,7 +68,19 @@
      // re-qualifying and waiting for events (quote acceptance, payment) that already happened.
      const snap = await loadResumeSnapshotStep(jobId);
      const plan = decideResumePlan(snap);
@@ -1191,7 +1266,7 @@
      if (plan.phase === "hold") return { jobId, status: "on_hold" };
      if (snap.receivedRecorded) {
        await progressStep(jobId, "workflow_restarted", `Internal note: workflow restarted, resuming at ${plan.phase}.`);
-@@ -191,13 +208,19 @@
+@@ -191,13 +209,19 @@
      }
  
      // 5. Deadlines (credentials +24h, branch +48h) are stamped here and enforced independently by Cron.
@@ -1213,15 +1288,16 @@
      return { jobId, status: "delivered" };
    }
  
-@@ -260,6 +283,7 @@
+@@ -260,6 +284,8 @@
  
    async function runEndpointEval(pkg: QualifyResult["package"]): Promise<Stopped | undefined> {
      if (!(await setStateStep(jobId, "planning", { milestone: "planning", message: "Designing your test suite." }))) return { stopped: "cancelled" };
 +    const generic = await genericTextExecutionPolicyStep();
++    genericSelected = generic;
      const branch = await createBranchStep(jobId);
      const designed = await designSuiteStep(jobId);
      if (designed.status === "budget_exceeded") { await pauseBudgetStep(jobId, designed.message); return { stopped: "paused_budget" }; }
-@@ -279,6 +303,15 @@
+@@ -279,6 +305,15 @@
      if (!(await setStateStep(jobId, "investigating", { milestone: "investigating", message: "Investigating failures and reproducing findings." }))) return { stopped: "cancelled" };
      const inv = await investigateStep(jobId, suite, runs);
      if (inv.status === "budget_exceeded") { await pauseBudgetStep(jobId, inv.message); return { stopped: "paused_budget" }; }
@@ -1237,7 +1313,7 @@
      return finishReport(inv.data, suite);
    }
  
-@@ -299,11 +332,47 @@
+@@ -299,11 +334,51 @@
      return undefined;
    }
  
@@ -1252,6 +1328,10 @@
 +      return await run();
 +    } catch (err) {
 +      const message = err instanceof Error ? err.message : String(err);
++      if (genericSelected && message === 'NAIVE_RECONCILIATION_REQUIRED') {
++        await progressStep(jobId, 'naive_reconciliation_required', 'Evaluation requires operator reconciliation of its existing provider operation.');
++        return { jobId, status: 'on_hold' };
++      }
 +      if (message.startsWith("NAIVE_ADMISSION_PENDING:") || message.startsWith("NAIVE_OPERATION_PENDING:")) {
 +        const admission = message.startsWith("NAIVE_ADMISSION_PENDING:");
 +        await progressStep(jobId, admission ? "naive_admission_pending" : "naive_operation_pending", admission ? "Evaluation is waiting for owner admission." : "Evaluation is awaiting its existing provider operation.");
@@ -1291,6 +1371,8 @@
 +    }
    }
  }
+diff --git a/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
+new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/workflows/steps/evaluate-naive-routing.test.ts
 @@ -0,0 +1,36 @@
@@ -1330,6 +1412,7 @@
 + });
 +
 +});
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
 --- a/apps/web/src/workflows/steps/evaluate.ts
 +++ b/apps/web/src/workflows/steps/evaluate.ts
 @@ -8,7 +8,12 @@

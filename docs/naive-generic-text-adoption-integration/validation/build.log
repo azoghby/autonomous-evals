@@ -1,22 +1,22 @@
 ▲ Next.js 16.4.5 (webpack)
-✓ Compiled workflows in 1.5s (61 steps, 4 workflows)
-✓ Running next.config.ts took 1648ms
+✓ Compiled workflows in 1.3s (61 steps, 4 workflows)
+✓ Running next.config.ts took 1595ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 32.1s
+✓ Compiled successfully in 31.3s
   Running next.config.js provided runAfterProductionCompile ...
-✓ Completed runAfterProductionCompile in 2ms
+✓ Completed runAfterProductionCompile in 1.5ms
   Running TypeScript ...
-  Finished TypeScript in 19.6s ...
+  Finished TypeScript in 19.5s ...
   Collecting page data using 9 workers ...
   Generating static pages using 9 workers (0/47) ...
+  Generating static pages using 9 workers (11/47) 
+  Generating static pages using 9 workers (23/47) 
 getPublicOrgChart failed DATABASE_URL is not set
 [leaderboard] load failed DATABASE_URL is not set
 [leaderboard] load failed DATABASE_URL is not set
-  Generating static pages using 9 workers (11/47) 
-  Generating static pages using 9 workers (23/47) 
   Generating static pages using 9 workers (35/47) 
-✓ Generating static pages using 9 workers (47/47) in 2.9s
+✓ Generating static pages using 9 workers (47/47) in 2.8s
 [leaderboard] load failed DATABASE_URL is not set
   Finalizing page optimization ...
   Collecting build traces ...
@@ -110,6 +110,7 @@ Route (app)                                               Revalidate  Expire
 ├ ƒ /api/sandbox/drafts/[draftId]/scenarios/[scenarioId]
 ├ ƒ /api/sandbox/runs/[runId]
 ├ ƒ /api/stats/revenue
+├ ƒ /api/status
 ├ ƒ /api/stripe/webhook
 ├ ƒ /api/v1/regression-runs
 ├ ƒ /api/v1/regression-runs/[runId]
@@ -148,6 +149,7 @@ Route (app)                                               Revalidate  Expire
 ├ ○ /sample
 ├ ○ /sample/suite.json
 ├ ○ /sandbox
+├ ƒ /sandbox/compare
 ├ ƒ /sandbox/new
 ├ ƒ /sandbox/runs/[runId]
 ├ ƒ /settings/billing
@@ -155,7 +157,8 @@ Route (app)                                               Revalidate  Expire
 ├ ƒ /signin
 ├ ƒ /signin/confirm
 ├ ○ /sitemap.xml
-└ ƒ /start
+├ ƒ /start
+└ ƒ /status
 
 
 ○  (Static)   prerendered as static content

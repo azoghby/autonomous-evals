@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { EvalServices, ServiceContext } from '@ae/core/contracts/services';
-import { EvalServiceUnavailableError, TrackBPendingError } from '@ae/core/integration/eval-services';
+import { EvalServiceUnavailableError, TrackBPendingError, TrackBBlockedError } from '@ae/core/integration/eval-services';
 import { readRoutingSelection, routeNaiveMethods, requireNaivePackage } from './naive-method-routing';
 const ctx = { budgetMicroUsd: 100 } as ServiceContext;
 const selection = readRoutingSelection({ EVAL_SERVICES: 'real', EVAL_NAIVE_METHODS: 'designSuite' });
@@ -43,4 +43,17 @@ describe('generic Naive routing candidate', () => {
     expect(await routed.createJobBranch('job')).toMatchObject({ branchId: 'real' });
     expect(build).toHaveBeenCalledOnce();
   });
+});
+
+it('maps typed selected reconciliation to a static terminal hold marker without leaking provider text',async()=>{
+ const legacy=vi.fn(),builder=vi.fn(async()=>{throw new TrackBBlockedError('needs_operator','sensitive provider detail');});
+ const routed=routeNaiveMethods({designSuite:legacy} as unknown as EvalServices,{} as EvalServices,selection,builder);
+ await expect(routed.designSuite(ctx,{} as never)).rejects.toThrow(/^NAIVE_RECONCILIATION_REQUIRED$/);
+ expect(builder).toHaveBeenCalledOnce();expect(legacy).not.toHaveBeenCalled();
+});
+it('preserves unselected and arbitrary-text errors without inventing reconciliation authority',async()=>{
+ const error=new TrackBBlockedError('needs_operator','operator detail'),legacy=vi.fn(async()=>{throw error;});
+ const routed=routeNaiveMethods({runSuite:legacy} as unknown as EvalServices,{} as EvalServices,selection,async()=>{throw new Error('needs_operator');});
+ await expect(routed.runSuite(ctx,{} as never,{} as never)).rejects.toBe(error);
+ await expect(routed.designSuite(ctx,{} as never)).rejects.toThrow(/^needs_operator$/);
 });

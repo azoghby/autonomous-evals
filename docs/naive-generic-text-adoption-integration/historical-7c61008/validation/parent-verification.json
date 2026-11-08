@@ -1,0 +1,14 @@
+{
+  "baseCommit": "7c610084dd9827e5cbecca27e09d5b8ca5e2ae8a",
+  "currentPreimagesVerified": 16,
+  "postimagesVerified": 16,
+  "independentPatchApplicationMatched": 16,
+  "unchangedSupportPinsVerifiedAgainstGitAndStage": 1206,
+  "supportPinsTotalIncludingModifiedPreimages": 1209,
+  "fullTestReport": {
+    "passed": 3755,
+    "failed": 0,
+    "skipped": 2
+  },
+  "scope": "Pinned application/core/support inputs, not every historical file left in the temporary stage. An unpinned tests/track-b/autonomy-release-adoption/evidence/full-build.log differs from Git; it is outside the configured tests and imported trace fixture. No hosted acceptance."
+}
