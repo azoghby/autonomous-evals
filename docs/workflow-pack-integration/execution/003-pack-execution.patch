@@ -1,0 +1,277 @@
+diff --git a/apps/web/migrations/003-workflow-packs.sql b/apps/web/migrations/003-workflow-packs.sql
+new file mode 100644
+index 0000000..432d307
+--- /dev/null
++++ b/apps/web/migrations/003-workflow-packs.sql
+@@ -0,0 +1,16 @@
++BEGIN;
++-- Authenticated operator endpoint is the only application writer. No runtime DDL.
++-- One immutable approval per job: a Workflow restart cannot choose a new run to evade a fence.
++CREATE TABLE workflow_integration.pack_approvals (
++ job_id uuid PRIMARY KEY REFERENCES jobs(id),
++ tenant_id uuid NOT NULL REFERENCES customers(id),
++ environment text NOT NULL CHECK(environment IN ('test','live')),
++ authorization_id text NOT NULL UNIQUE,
++ manifest jsonb NOT NULL,
++ source_rules jsonb NOT NULL,
++ reviewed_by text NOT NULL,
++ reviewed_at timestamptz NOT NULL,
++ revoked_at timestamptz
++);
++-- Keep this table private with the existing jobs/checkpoint tables. No customer grants.
++COMMIT;
+diff --git a/apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts b/apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts
+new file mode 100644
+index 0000000..fc6db63
+--- /dev/null
++++ b/apps/web/src/app/api/operator/jobs/[jobId]/workflow-pack/route.ts
+@@ -0,0 +1,65 @@
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/index';
++import { verifyAdmittedFrozenSuite } from '@ae/core/evals/text/freeze';
++import { z } from 'zod';
++import { containsSecret } from '@ae/core/agents/redact';
++import { draftFromAppendedInventory, freezePack, packReviewDigest, actualPackTargetDigest, canonicalPackJson } from '@ae/core/evals/packs/index';
++import { requireOperator, readJson, jsonError, isUuid } from '@/server/http';
++import { makeServiceContext, getJob } from '@/server/job-store';
++import { createRichWorkflowServices, workflowSql } from '@/server/rich-services';
++import { workflowPackRegistry } from '@/server/workflow-pack-registry';
++const Input=z.object({authorizationId:z.string().uuid(),baseDigest:z.string().regex(/^[a-f0-9]{64}$/),
++ scenarioIds:z.array(z.string().regex(/^rt_[a-z0-9_]+$/)).min(1).max(20),
++ sourceRuleIds:z.array(z.string().min(1).max(256)).min(1).max(100),
++ action:z.enum(['preview','approve']),contentDigest:z.string().regex(/^[a-f0-9]{64}$/).optional()}).strict();
++/** Explicit authenticated human review. Not registered as an agent tool or reachable from intake. */
++export async function POST(req:Request,context:{params:Promise<{jobId:string}>}) {
++ const auth=await requireOperator();if(auth.res)return auth.res;
++ const {jobId}=await context.params;if(!isUuid(jobId))return jsonError(404,'Not found');
++ const body=await readJson(req,Input);if(!body.ok)return body.res;
++ const job=await getJob(jobId);if(!job||job.package!=='text_eval'||!job.workflowRunId||job.isMock)return jsonError(404,'Not found');
++ const api=await createRichWorkflowServices(await makeServiceContext(jobId),{workflowRunId:job.workflowRunId});
++ try {
++  const target=await api.resolvePackTarget();
++  const stored=await new PostgresTextCheckpointStore(workflowSql()).get({jobId,kind:'suite',id:body.data.baseDigest});
++  if(stored?.state!=='completed')return jsonError(409,'Design and retain base12 before pack review');
++  const baseSuite=verifyAdmittedFrozenSuite(stored.value);
++  if(baseSuite.jobId!==jobId||baseSuite.digest!==body.data.baseDigest)return jsonError(409,'Base scope mismatch');
++  if(containsSecret(canonicalPackJson(body.data),target.knownSecrets))return jsonError(400,'Credential content refused');
++  const draft=draftFromAppendedInventory({draft:{packId:'workflow-redteam',version:'1',baseDigest:body.data.baseDigest,
++   authorization:{authorizationId:body.data.authorizationId,sourceRuleIds:body.data.sourceRuleIds,
++    targetConfigDigest:actualPackTargetDigest(target.configuration)}},
++   baseScenarioIds:baseSuite.scenarios.map(s=>s.id),
++   sharedScenarioIds:[...baseSuite.scenarios.map(s=>s.id),...body.data.scenarioIds]});
++  const contentDigest=packReviewDigest(draft,workflowPackRegistry);
++  const manifest=freezePack(draft,workflowPackRegistry,{reviewerId:auth.viewer.id,reviewedAt:new Date().toISOString(),contentDigest});
++  if(body.data.action==='preview')return Response.json({draft,contentDigest,inventory:manifest.inventory,
++   instruction:'Review every case, quarantine and source-rule reference; approve this exact digest explicitly.'});
++  if(body.data.contentDigest!==contentDigest)return jsonError(409,'Reviewed content changed; preview again');
++  // One immutable authorization per job. Even a fresh Workflow run cannot reset dispatch identities.
++  const inserted=await workflowSql().query(`INSERT INTO workflow_integration.pack_approvals
++   (job_id,tenant_id,environment,authorization_id,manifest,source_rules,reviewed_by,reviewed_at)
++   VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8) ON CONFLICT(job_id) DO NOTHING RETURNING job_id`,
++   [jobId,job.customerId,job.environment,body.data.authorizationId,canonicalPackJson(manifest),
++    JSON.stringify(body.data.sourceRuleIds),auth.viewer.id,manifest.review.reviewedAt]);
++  if(!inserted.rows.length)return jsonError(409,'Approval already exists; retain its identity and reconcile existing work');
++  return Response.json({selection:{authorizationId:body.data.authorizationId},manifest});
++ } catch {return jsonError(409,'Pack approval refused; operator review required');}
++ finally {await api.dispose();}
++}
++
++/** Authorized discovery of the retained design for the explicit preview/approval round trip. */
++export async function GET(_req:Request,context:{params:Promise<{jobId:string}>}) {
++ const auth=await requireOperator();if(auth.res)return auth.res;
++ const {jobId}=await context.params;if(!isUuid(jobId))return jsonError(404,'Not found');
++ const job=await getJob(jobId);if(!job||job.package!=='text_eval'||!job.workflowRunId||job.isMock)return jsonError(404,'Not found');
++ const api=await createRichWorkflowServices(await makeServiceContext(jobId),{workflowRunId:job.workflowRunId});
++ try {
++  const target=await api.resolvePackTarget();
++  const stored=await new PostgresTextCheckpointStore(workflowSql()).get({jobId,kind:'design',id:`suite:${jobId}:frozen12`});
++  const design=stored?.state==='completed'?stored.value as {status:string;suite:unknown}:null;
++  if(design?.status!=='completed')return jsonError(409,'Base design not ready');
++  const baseSuite=verifyAdmittedFrozenSuite(design.suite);
++  if(baseSuite.jobId!==jobId||containsSecret(canonicalPackJson(baseSuite),target.knownSecrets))return jsonError(409,'Base design refused');
++  return Response.json({baseSuite,baseDigest:baseSuite.digest},{headers:{'Cache-Control':'private, no-store'}});
++ } finally {await api.dispose();}
++}
+diff --git a/apps/web/src/server/rich-services.ts b/apps/web/src/server/rich-services.ts
+index fefe010..6bee1d7 100644
+--- a/apps/web/src/server/rich-services.ts
++++ b/apps/web/src/server/rich-services.ts
+@@ -98,6 +98,13 @@ export async function createRichWorkflowServices(ctx: ServiceContext, authority:
+       WHERE job_id=$1 AND (baseline_suite_digest IS NULL OR (baseline_suite_digest=$2 AND baseline_run_id=$3))
+       RETURNING job_id`, [ctx.jobId,suiteDigest,runId]).then(r => { if (r.rows.length !== 1) return refused(); });
+   }
+-  return { text, calendar, inventory, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
++  async function resolvePackTarget() {
++    const a = await canonical();
++    if (a.job.package !== 'text_eval') return refused();
++    return { configuration: { endpoint: a.intake.endpoint.url, model: a.intake.endpoint.model,
++      configurationVersion: a.targetVersion, systemPrompt: a.intake.endpoint.systemPrompt || null },
++      target: createTextTarget(a.intake.endpoint), knownSecrets: a.knownSecrets };
++  }
++  return { resolvePackTarget, text, calendar, inventory, branchId: initial.row.neonBranchId ?? undefined, dispose: async () => { await branchBinding?.pool.end(); }, renderReport: reportServices.renderReport, bindTextBaseline, intake: initial.intake, job: initial.job,
+     targetVersion: initial.targetVersion, knownSecrets: initial.knownSecrets };
+ }
+diff --git a/apps/web/src/server/workflow-pack-registry.ts b/apps/web/src/server/workflow-pack-registry.ts
+new file mode 100644
+index 0000000..0aea662
+--- /dev/null
++++ b/apps/web/src/server/workflow-pack-registry.ts
+@@ -0,0 +1,17 @@
++import 'server-only';
++import { RED_TEAM_LIBRARY } from '@ae/core/redteam/library';
++import { gradeRedTeam } from '@ae/core/redteam/grade';
++import { createTrustedRegistry, type TrustedPackGrader } from '@ae/core/evals/packs/index';
++/** These imports MUST remain the exact Track A archive source. stage.mjs pins it. */
++export const workflowPackRegistry = createTrustedRegistry({
++  sourceRevision: 'f0068733ca49c37f40fd7de279325f21a4b5fbbb',
++  sourcePath: 'packages/core/src/redteam/library.ts', specs: RED_TEAM_LIBRARY,
++});
++export const workflowPackGrader: TrustedPackGrader = {
++  provenance: workflowPackRegistry.provenance,
++  gradeRule(spec, index, response) {
++    const source = RED_TEAM_LIBRARY.find(s => s.id === spec.id);
++    if (!source || !source.rules[index]) throw new Error('pack_source_rule_missing');
++    return gradeRedTeam({ ...source, rules: [source.rules[index]!] }, { response });
++  },
++};
+diff --git a/apps/web/src/server/workflow-packs.ts b/apps/web/src/server/workflow-packs.ts
+new file mode 100644
+index 0000000..8daa4a7
+--- /dev/null
++++ b/apps/web/src/server/workflow-packs.ts
+@@ -0,0 +1,67 @@
++import 'server-only';
++import { z } from 'zod';
++import { createPackExecutionService, createSecuredTextPackRunner, actualPackTargetDigest,
++  verifyPack, canonicalPackJson, type FrozenPack, type PackRunEvidence } from '@ae/core/evals/packs/index';
++import { PostgresTextCheckpointStore } from '@ae/core/evals/integration/index';
++import type { FrozenTextSuite, SuiteRun } from '@ae/core/evals/text/schema';
++import { createRichWorkflowServices, workflowSql } from './rich-services';
++import { makeServiceContext } from './job-store';
++import { workflowPackRegistry, workflowPackGrader } from './workflow-pack-registry';
++export const WorkflowPackSelection = z.object({ authorizationId: z.string().uuid() }).strict();
++export type WorkflowPackSelection = z.infer<typeof WorkflowPackSelection>;
++export const workflowPackRunId = (jobId: string) => `pack:${jobId}:baseline`;
++export interface WorkflowPackInput {
++ jobId: string; environmentId: 'test' | 'live'; workflowRunId: string; agentId: string;
++ baseSuite: FrozenTextSuite; baseRun: SuiteRun | null; selection: WorkflowPackSelection;
++}
++/** Internal Workflow authority, never expose as an intake/agent tool or customer route. */
++export async function executeWorkflowPack(raw: WorkflowPackInput): Promise<PackRunEvidence> {
++ const input: WorkflowPackInput = structuredClone(raw);
++ const selection = WorkflowPackSelection.parse(input.selection);
++ if (input.baseSuite.jobId !== input.jobId || !input.agentId) throw new Error('pack_job_scope');
++ const ctx = await makeServiceContext(input.jobId);
++ if(ctx.environment!==input.environmentId)throw new Error('pack_environment_scope');
++ const api = await createRichWorkflowServices(ctx, {workflowRunId:input.workflowRunId});
++ try {
++  const sql=workflowSql();
++  async function approval() {
++   const row=(await sql.query<{manifest:unknown;source_rules:unknown;reviewed_by:string;reviewed_at:Date|string}>(
++    `SELECT p.manifest,p.source_rules,p.reviewed_by,p.reviewed_at FROM workflow_integration.pack_approvals p
++     JOIN jobs j ON j.id=p.job_id AND j.customer_id=p.tenant_id AND j.environment=p.environment
++     WHERE p.job_id=$1 AND p.tenant_id=$2 AND p.environment=$3 AND p.authorization_id=$4
++       AND p.revoked_at IS NULL AND j.workflow_run_id=$5`,
++     [input.jobId,api.job.customerId,input.environmentId,selection.authorizationId,input.workflowRunId])).rows[0];
++   if(!row)throw new Error('pack_operator_approval_required');
++   const manifest=verifyPack(row.manifest,workflowPackRegistry);
++   if(manifest.authorization.authorizationId!==selection.authorizationId
++     || manifest.review.reviewerId!==row.reviewed_by
++     || new Date(manifest.review.reviewedAt).getTime()!==new Date(row.reviewed_at).getTime()
++     || canonicalPackJson(manifest.authorization.sourceRuleIds)!==canonicalPackJson(row.source_rules))throw new Error('pack_operator_receipt_mismatch');
++   return manifest;
++  }
++  const manifest=await approval();
++  const target=await api.resolvePackTarget();
++  const runner=createSecuredTextPackRunner({...target,registry:workflowPackRegistry,grader:workflowPackGrader});
++  const service=createPackExecutionService({checkpoints:new PostgresTextCheckpointStore(sql),registry:workflowPackRegistry,runner,
++   resolve:async jobId=>{
++    if(jobId!==input.jobId)throw new Error('pack_job_scope');
++    const current=await api.resolvePackTarget(); // rechecks stored Workflow, credentials and target revision
++    const approved=await approval();
++    return {jobId,environment:input.environmentId,authorizationId:selection.authorizationId,
++      sourceRuleIds:approved.authorization.sourceRuleIds,targetConfigDigest:actualPackTargetDigest(current.configuration)};
++   },
++   verifyReview:async (value:FrozenPack)=>{
++    if(canonicalPackJson(await approval())!==canonicalPackJson(value))throw new Error('pack_review_changed');
++   },
++  });
++  await service.run({runId:workflowPackRunId(input.jobId),manifest,baseSuite:input.baseSuite,baseRun:input.baseRun});
++  return await service.report(input.jobId,workflowPackRunId(input.jobId));
++ } finally {await api.dispose();}
++}
++/** Selection contains only a durable reference, never approval or executable scenario specs. */
++export async function workflowPackSelection(jobId:string):Promise<WorkflowPackSelection> {
++ const row=(await workflowSql().query<{authorization_id:string}>(
++  'SELECT authorization_id FROM workflow_integration.pack_approvals WHERE job_id=$1 AND revoked_at IS NULL',[jobId])).rows[0];
++ if(!row)throw new Error('pack_operator_approval_required');
++ return WorkflowPackSelection.parse({authorizationId:row.authorization_id});
++}
+diff --git a/apps/web/src/workflows/steps/rich-evaluation.ts b/apps/web/src/workflows/steps/rich-evaluation.ts
+index 7ec8a32..03b4451 100644
+--- a/apps/web/src/workflows/steps/rich-evaluation.ts
++++ b/apps/web/src/workflows/steps/rich-evaluation.ts
+@@ -4,6 +4,9 @@ import { calendarOperationRunId } from '@ae/core/evals/calendar-integration/inde
+ import { renderCalendarReport } from '@ae/core/reporting/calendar';
+ import { containsSecret } from '@ae/core/agents/redact';
+ import { createRichWorkflowServices, workflowSql } from '@/server/rich-services';
++import { attachWorkflowPackEvidence, containsWorkflowPackArtifactSecret } from '@/server/workflow-pack-projection';
++import { executeWorkflowPack, workflowPackSelection } from '@/server/workflow-packs';
++import type { PackRunEvidence } from '@ae/core/evals/packs/index';
+ import { persistRichArtifact } from '@/server/rich-artifacts';
+ import { getJob, recordProgress, setJobState } from '@/server/job-store';
+ import { createBranchStep, persistReportStep } from './evaluate';
+@@ -15,11 +18,6 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+   'use step';
+   let authorized = false;
+   try {
+-    // Rich engines freeze exactly twelve. Appending Track A's default 32-case
+-    // rt_* pack would silently skip paid scope: explicit operator decision required.
+-    if (!/^(0|false|off|no)$/i.test(process.env.REDTEAM_PACK ?? '')) {
+-      throw new TrackBBlockedError('needs_operator', 'Set REDTEAM_PACK=off for frozen12; appended32 requires an agreed rich-pack integration.');
+-    }
+     const canonical = await getJob(jobId);
+     if (!canonical || canonical.workflowRunId !== workflowRunId || canonical.isMock
+       || ['failed', 'cancelled', 'delivered'].includes(canonical.state)) throw new TrackBBlockedError('rejected_input', 'Workflow authority refused.');
+@@ -40,6 +38,9 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+       // Stable across fresh Workflow runs. Core stores bind changes to immutable digests.
+       const suiteId = `suite:${jobId}:frozen12`;
+       const runId = `run:${jobId}:baseline`;
++      const packEnabled = !/^(0|false|off|no)$/i.test(process.env.REDTEAM_PACK ?? '');
++      if (packEnabled && intake.package !== 'text_eval') throw new TrackBBlockedError('needs_operator', 'Calendar appended-pack semantics require review.');
++      let pack: PackRunEvidence | null = null;
+       let report;
+       let evidence;
+       let suiteDigest: string;
+@@ -54,6 +55,7 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+         }
+         const suite = designed.suite;
+         if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
++        const packSelection = packEnabled ? await workflowPackSelection(jobId) : null;
+         const association = { runId, suiteDigest: suite.digest, scenarioIds: suite.scenarios.map(s => s.id) };
+         await setJobState(jobId, 'running');
+         await inventory.touch();
+@@ -65,9 +67,12 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+         if (!['completed', 'skipped'].includes(investigation.investigatorStatus)) throw new TrackBBlockedError('needs_operator', 'Investigation requires reconciliation.');
+         const input = await api.text.reportInput(ctx, { suiteDigest: suite.digest, runId });
+         await api.bindTextBaseline(suite.digest, runId);
+-        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations: [...input.limitations, 'Remediation not run; no fix verified.'] });
++        if (packEnabled) pack = await executeWorkflowPack({jobId,environmentId:ctx.environment,workflowRunId,
++          agentId:'workflow',baseSuite:suite,baseRun:run,selection:packSelection!});
++        report = await api.renderReport(ctx, { intake, findings: [], richFindings: input.richFindings, limitations: [...input.limitations, ...(pack ? [`Appended pack status: ${pack.pack.status}. Full pack evidence retained separately; base12 investigation and remediation do not assess appended cases.`] : []), 'Remediation not run; no fix verified.'] });
+         suiteDigest = suite.digest;
+         evidence = { format: 'rich_text.v1', suite, run, investigation, limitations: input.limitations };
++        if (pack) evidence = attachWorkflowPackEvidence(evidence, pack);
+       } else {
+         const suite = await api.calendar.freezeSuite(ctx, { suiteId });
+         if (suite.scenarios.length !== 12) throw new TrackBBlockedError('needs_operator', 'Frozen scope differs from twelve scenarios.');
+@@ -89,8 +94,9 @@ export async function richEvaluationStep(jobId: string, workflowRunId: string):
+         suiteDigest = suite.hash;
+         evidence = { format: 'rich_calendar.v1', suite, run, investigation, limitations: input.limitations };
+       }
+-      if (containsSecret(JSON.stringify({ evidence, report }), api.knownSecrets)) throw new TrackBBlockedError('needs_operator', 'Credential-bearing evidence refused.');
++      if (containsWorkflowPackArtifactSecret(evidence, api.knownSecrets) || containsSecret(JSON.stringify(report), api.knownSecrets)) throw new TrackBBlockedError('needs_operator', 'Credential-bearing evidence refused.');
+       await persistRichArtifact(workflowSql(), { jobId, tenantId: job.customerId, environment: job.environment }, suiteDigest, evidence, api.knownSecrets);
++      if (pack && !['pass','fail','concern'].includes(pack.pack.status)) throw new TrackBBlockedError('needs_operator', 'Appended coverage incomplete; separate evidence retained for operator reconciliation.');
+       await persistReportStep(jobId, report);
+       await inventory.touch();
+       } finally { await api.dispose(); }

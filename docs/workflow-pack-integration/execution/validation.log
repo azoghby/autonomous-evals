@@ -1,0 +1,14 @@
+
+ RUN  v5.1.0 /private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-pack-execution-40zzmP
+
+
+ Test Files  5 passed (5)
+      Tests  38 passed (38)
+   Start at  17:18:45
+   Duration  20.59s (tests 88%, import 8%, transform 3%)
+
+✓ Compiled workflows in 739ms (47 steps, 1 workflow)
+Generating route types...
+✓ Types generated successfully
+Actual complete core and Next app strict TypeScript passed, actual Next/Workflow route generation compiled. No external declarations or source substitutions.
+{"stage":"/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-pack-execution-40zzmP","tests":"applied adapter, rich step and core pack regressions; full core/app strict TypeScript and Workflow compilation"}
