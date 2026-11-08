@@ -45,14 +45,14 @@ const mcp = createMcpHandler((server) => {
   server.registerPrompt(
     "sample_report",
     { title: "Show a sample report", description: "See what a delivered eval report looks like before hiring." },
-    async () => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: `Here is a sample report from Autonomous Evals. Summarize what an agent would get for its money.\n\n${sampleReportMarkdown(origin())}` } }] }),
+    async () => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: `Here is a sample report from Standard Evals. Summarize what an agent would get for its money.\n\n${sampleReportMarkdown(origin())}` } }] }),
   );
   server.registerPrompt(
     "hire_eval",
     { title: "Hire an eval", description: "Step-by-step workflow for evaluating an agent: package, job, quote, payment, report, rerun.", argsSchema: { target: z.string().max(500).describe("What to evaluate, e.g. 'our support agent endpoint https://...'") } },
     async ({ target }) => ({ messages: [{ role: "user" as const, content: { type: "text" as const, text: HIRE_WORKFLOW_PROMPT(target) } }] }),
   );
-}, { serverInfo: { name: "autonomous-evals", version: "1.0.0" } });
+}, { serverInfo: { name: "standard-evals", version: "1.0.0" } });
 
 const authed = withMcpAuth(
   async (req) => {

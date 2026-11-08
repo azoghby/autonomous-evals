@@ -37,7 +37,7 @@ export function Pricing() {
       <Reveal>
         <SectionHeader
           id="pricing-h"
-          index="04"
+          index="06"
           eyebrow="Pricing"
           title={<>Pay a fixed price, or only for what we prove. <span className="text-muted">Pilot rates, no contract.</span></>}
         />

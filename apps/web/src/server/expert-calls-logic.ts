@@ -91,9 +91,9 @@ export const consentLine = (consent: boolean) =>
 /** Description embedded in the .ics: AI disclosure, consent status, opt-out link. */
 export function icsDescription(i: Pick<CallEmailInput, "meetUrl" | "recordingConsent" | "optOutUrl" | "domain">): string {
   return [
-    `Expert call about ${i.domain} with Autonomous Evals.`,
+    `Expert call about ${i.domain} with Standard Evals.`,
     `Join: ${i.meetUrl}`,
-    "Autonomous Evals uses AI agents. An AI agent arranged this call and prepared the questions; people at Autonomous Evals will run it.",
+    "Standard Evals uses AI agents. An AI agent arranged this call and prepared the questions; people at Standard Evals will run it.",
     consentLine(i.recordingConsent),
     `Cancel or opt out of future contact: ${i.optOutUrl}`,
   ].join("\n");
@@ -113,16 +113,16 @@ export function buildCallEmail(i: CallEmailInput): { subject: string; text: stri
     };
   }
   return {
-    subject: `Your call with Autonomous Evals is ${verb}`,
+    subject: `Your call with Standard Evals is ${verb}`,
     text: [
       `Hi ${i.expertName},`, "",
       `Your ${i.durationMin}-minute call about ${i.domain} is ${verb}.`, "",
       `When: ${when(i.startsAt)}`, `Join (no account needed): ${i.meetUrl}`, "",
       "A calendar invite is attached. You can also add it here: " + i.icsUrl, "",
-      "Transparency: Autonomous Evals builds AI agents that evaluate other AI agents. An AI agent arranged this call and prepared the questions, and your answers become reference material labeled as expert-sourced.",
+      "Transparency: Standard Evals builds AI agents that evaluate other AI agents. An AI agent arranged this call and prepared the questions, and your answers become reference material labeled as expert-sourced.",
       consentLine(i.recordingConsent) + " You can change your mind at the start of the call.", "",
       `Don't want to be contacted again? Opt out here: ${i.optOutUrl}`, "",
-      "Autonomous Evals", i.companyAddress,
+      "Standard Evals", i.companyAddress,
     ].join("\n"),
   };
 }
@@ -133,7 +133,7 @@ export function buildCancelEmail(i: { audience: "expert" | "operator"; expertNam
     text: [
       i.audience === "expert" ? `Hi ${i.expertName},` : "Expert call cancelled.", "",
       `The call scheduled for ${when(i.startsAt)} about ${i.domain} was cancelled.`,
-      ...(i.audience === "expert" ? ["", "You can pick a new time any time from your original link.", `Opt out of future contact: ${i.optOutUrl}`, "", "Autonomous Evals", i.companyAddress] : []),
+      ...(i.audience === "expert" ? ["", "You can pick a new time any time from your original link.", `Opt out of future contact: ${i.optOutUrl}`, "", "Standard Evals", i.companyAddress] : []),
     ].join("\n"),
   };
 }

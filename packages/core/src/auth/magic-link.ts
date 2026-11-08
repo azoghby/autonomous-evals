@@ -41,7 +41,7 @@ export async function requestMagicLink(rawEmail: string, next?: string): Promise
     to: email,
     purpose: "auth",
     subject: "Your sign-in link",
-    text: `Sign in to Autonomous Evals: ${link}\n\nThis link expires in 15 minutes and works once.`,
+    text: `Sign in to Standard Evals: ${link}\n\nThis link expires in 15 minutes and works once.`,
   });
   return {};
 }

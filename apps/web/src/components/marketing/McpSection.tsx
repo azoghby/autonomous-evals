@@ -1,25 +1,32 @@
 import Link from "next/link";
-import { PRICE_CENTS } from "@ae/core/contracts/index";
 import { McpTerminal } from "./extras/McpTerminal";
+import { OauthSteps } from "./mcp/OauthSteps";
 import { NudgeArrow, Reveal, Section, SectionHeader } from "../ui";
 
-const CMD = `claude mcp add --transport http autonomous-evals https://autonomous-evals.vercel.app/api/mcp/mcp --header "Authorization: Bearer ae_..."`;
-const CAN = ["Get a quote for a job", "Submit a job and pay by key", "Fetch the finished report"] as const;
+const CMD = "claude mcp add --transport http standard-evals https://autonomous-evals.vercel.app/api/mcp/mcp";
+const CAN = [
+  "No API key: sign in once in your browser",
+  "Hire an audit, get a quote, pay",
+  "Run sandbox evals from your repo",
+] as const;
 
 export function McpSection() {
   return (
-    <Section id="mcp" labelledBy="mcp-h" band className="scroll-mt-16 [content-visibility:auto] [contain-intrinsic-size:auto_900px]">
+    <Section id="mcp" labelledBy="mcp-h" band className="scroll-mt-16 [content-visibility:auto] [contain-intrinsic-size:auto_1100px]">
       <Reveal>
         <SectionHeader
           id="mcp-h"
-          index="05"
+          index="07"
           eyebrow="MCP"
-          title={<>Hire us from your agent. <span className="text-muted">One command adds Standard Evals as a tool.</span></>}
+          title={<>Hire us from your coding agent. <span className="text-muted">One command, sign in once, 13 tools.</span></>}
         />
       </Reveal>
-      <Reveal className="mt-14 grid gap-8 md:mt-20 lg:grid-cols-12 lg:gap-8">
+      <Reveal className="mt-12 md:mt-16">
+        <OauthSteps />
+      </Reveal>
+      <Reveal className="mt-12 grid gap-8 md:mt-16 lg:grid-cols-12 lg:gap-8">
         <div className="min-w-0 lg:col-span-8 lg:col-start-5">
-          <McpTerminal command={CMD} quote={`$${PRICE_CENTS.trace_audit / 100}`} />
+          <McpTerminal command={CMD} />
         </div>
         <ul className="flex flex-col gap-3 lg:col-span-4 lg:col-start-1 lg:row-start-1">
           {CAN.map((c) => (
@@ -28,7 +35,7 @@ export function McpSection() {
             </li>
           ))}
           <li className="mt-3">
-            <Link href="/settings/keys" className="group inline-flex items-center gap-1 text-[15px] text-fg underline decoration-line-3 underline-offset-4 hover:decoration-fg">Create an API key <NudgeArrow /></Link>
+            <Link href="/settings/keys" className="group inline-flex items-center gap-1 text-[14px] text-muted underline decoration-line-3 underline-offset-4 hover:text-fg hover:decoration-fg">API key for CI <NudgeArrow /></Link>
           </li>
         </ul>
       </Reveal>

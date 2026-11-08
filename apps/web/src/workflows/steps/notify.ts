@@ -17,7 +17,7 @@ export async function notifyCustomerStep(jobId: string): Promise<void> {
     const sent = await sendEmail({
       purpose: "commercial",
       to: row.email,
-      subject: row.isMock ? "[MOCK] Your Autonomous Evals report is ready" : "Your Autonomous Evals report is ready",
+      subject: row.isMock ? "[MOCK] Your Standard Evals report is ready" : "Your Standard Evals report is ready",
       text: `Your report is ready. Sign in to view findings and evidence:\n\n${link}\n\nCredentials you provided are deleted 24 hours after delivery.`,
     });
     await recordEmailThread(sent.threadId, "job", { jobId });

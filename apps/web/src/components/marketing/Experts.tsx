@@ -8,7 +8,7 @@ export function Experts() {
       <Reveal>
         <SectionHeader
           id="experts-h"
-          index="06"
+          index="08"
           eyebrow="Expert network"
           title={<>Domain reviewers when judgment matters. <span className="text-muted">Ask a question or book a call.</span></>}
         />

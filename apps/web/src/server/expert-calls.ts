@@ -106,7 +106,7 @@ function eventFor(row: Loaded, slot: { startsAt: Date; durationMin: number }, to
   const optOutUrl = `${appUrl()}/expert/opt-out/${token}`;
   return {
     uid: icsUid(row.engagement.id), startsAt: slot.startsAt, durationMin: slot.durationMin,
-    summary: `Autonomous Evals expert call (${row.request.domain})`,
+    summary: `Standard Evals expert call (${row.request.domain})`,
     description: icsDescription({ meetUrl, recordingConsent, optOutUrl, domain: row.request.domain }),
     location: meetUrl, url: meetUrl, method, sequence: Math.floor(Date.now() / 1000),
     organizerEmail: process.env.AGENTMAIL_COMMERCIAL_INBOX_ID || [...operatorEmails()][0],

@@ -1,4 +1,5 @@
 import { Button, Eyebrow } from "@/components/ui";
+import { SandboxDiagram } from "@/components/marketing/sandbox-showcase/SandboxDiagram";
 
 export function Hero() {
   return (
@@ -15,6 +16,7 @@ export function Hero() {
         <Button href="/sandbox/new" variant="primary" size="lg">Start a sandbox eval</Button>
         <Button href="/sandbox/runs/sample" variant="outline" size="lg">See a sample report</Button>
       </div>
+      <SandboxDiagram className="mt-8 md:mt-12" />
     </header>
   );
 }

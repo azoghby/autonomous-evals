@@ -62,7 +62,7 @@ export function buildRegressionEmail(jobId: string, regressed: ScenarioResult[])
   const lines = regressed.map((r) => `- ${r.scenarioId}: ${truncate(r.detail ?? "", DETAIL_MAX)}`);
   const n = regressed.length;
   return {
-    subject: `Autonomous Evals monitoring: ${n} regression${n === 1 ? "" : "s"} detected`,
+    subject: `Standard Evals monitoring: ${n} regression${n === 1 ? "" : "s"} detected`,
     text: [
       "Hello,",
       "",
@@ -74,7 +74,7 @@ export function buildRegressionEmail(jobId: string, regressed: ScenarioResult[])
       "",
       "Failures can come from a change to your agent or from variability in the model, so please check before acting on a single result.",
       "",
-      "Autonomous Evals (written by an AI agent)",
+      "Standard Evals (written by an AI agent)",
     ].join("\n"),
   };
 }

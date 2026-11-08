@@ -11,6 +11,7 @@ export type NavItem = { label: string; href: string };
 export const DEFAULT_NAV: NavItem[] = [
   { label: "Services", href: "/#services" },
   { label: "How it works", href: "/#how" },
+  { label: "Sandbox", href: "/sandbox" },
   { label: "Sample report", href: "/sample" },
   { label: "Leaderboard", href: "/leaderboard" },
   { label: "Pricing", href: "/#pricing" },
@@ -72,8 +73,8 @@ export function TopBar({
     >
       <div className="container-x flex h-16 items-center gap-8">
         <Wordmark />
-        <nav aria-label="Main navigation" className="hidden md:block">
-          <ul className="flex items-center gap-8">
+        <nav aria-label="Main navigation" className="hidden lg:block">
+          <ul className="flex items-center gap-6 xl:gap-8">
             {nav.map((item) => {
               const isActive = item.href === current;
               return (
@@ -82,7 +83,7 @@ export function TopBar({
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "inline-flex h-9 items-center rounded-[4px] text-sm transition-colors duration-150 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                      "inline-flex h-9 items-center whitespace-nowrap rounded-[4px] text-sm transition-colors duration-150 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
                       isActive ? "text-fg" : "text-fg-2",
                     )}
                   >
@@ -103,7 +104,7 @@ export function TopBar({
             aria-controls={panelId}
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((o) => !o)}
-            className="inline-flex size-8 items-center justify-center rounded-[4px] border border-line-3 text-fg transition-colors duration-150 hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:hidden"
+            className="inline-flex size-8 items-center justify-center rounded-[4px] border border-line-3 text-fg transition-colors duration-150 hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               {open ? <path d="M3 3l10 10M13 3L3 13" /> : <path d="M2 4.5h12M2 8h12M2 11.5h12" />}
@@ -112,7 +113,7 @@ export function TopBar({
         </div>
       </div>
       {open && (
-        <nav id={panelId} aria-label="Mobile navigation" className="absolute inset-x-0 top-full border-b border-line-2 bg-black md:hidden">
+        <nav id={panelId} aria-label="Mobile navigation" className="absolute inset-x-0 top-full border-b border-line-2 bg-black lg:hidden">
           <ul className="container-x">
             {mobileItems.map((item) => (
               <li key={item.href} className="border-b border-line last:border-b-0">

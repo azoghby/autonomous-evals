@@ -23,7 +23,7 @@ export function ReportPreview() {
       <Reveal>
         <SectionHeader
           id="report-h"
-          index="02"
+          index="04"
           eyebrow="The report"
           title={<>A report you can act on. <span className="text-muted">Every finding ships with evidence and a re-run.</span></>}
           lead={<>No scores to interpret. Each finding is confirmed by reproduction, tied to the exact trace turn, and re-runnable on demand. <Link href="/sample" className="group inline-flex items-center gap-1 text-fg underline decoration-line-3 underline-offset-4 hover:decoration-fg">Read the full sample <NudgeArrow /></Link></>}

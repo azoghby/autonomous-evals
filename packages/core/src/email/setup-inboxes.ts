@@ -11,8 +11,8 @@ const WEBHOOK_URL = process.env.AGENTMAIL_WEBHOOK_URL ?? "https://autonomous-eva
 const ENV_FILES = [".env", "apps/web/.env.local"];
 
 const INBOXES = [
-  { env: "AGENTMAIL_COMMERCIAL_INBOX_ID", username: "ae-commercial", clientId: "ae-commercial", displayName: "Autonomous Evals" },
-  { env: "AGENTMAIL_AUTH_INBOX_ID", username: "ae-auth", clientId: "ae-auth", displayName: "Autonomous Evals Sign-in" },
+  { env: "AGENTMAIL_COMMERCIAL_INBOX_ID", username: "ae-commercial", clientId: "ae-commercial", displayName: "Standard Evals" },
+  { env: "AGENTMAIL_AUTH_INBOX_ID", username: "ae-auth", clientId: "ae-auth", displayName: "Standard Evals Sign-in" },
 ] as const;
 
 function upsertEnv(file: string, name: string, value: string) {

@@ -43,8 +43,8 @@ function CopyButton({ text, label, variant = "outline" }: { text: string; label:
 
 function McpSnippets({ origin, apiKey }: { origin: string; apiKey: string }) {
   const url = `${origin}/api/mcp/mcp`;
-  const json = JSON.stringify({ mcpServers: { "autonomous-evals": { url, headers: { Authorization: `Bearer ${apiKey}` } } } }, null, 2);
-  const cli = `claude mcp add --transport http autonomous-evals ${url} --header "Authorization: Bearer ${apiKey}"`;
+  const json = JSON.stringify({ mcpServers: { "standard-evals": { url, headers: { Authorization: `Bearer ${apiKey}` } } } }, null, 2);
+  const cli = `claude mcp add --transport http standard-evals ${url} --header "Authorization: Bearer ${apiKey}"`;
   return (
     <div className="grid items-start gap-6 lg:grid-cols-2">
       <CodeBlock label="MCP config (JSON)" code={json} />

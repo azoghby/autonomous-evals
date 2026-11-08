@@ -38,7 +38,7 @@ export function Fixes() {
       <Reveal>
         <SectionHeader
           id="fixes-h"
-          index="03"
+          index="05"
           eyebrow="Validated fixes"
           title={<>We do not stop at the bug. <span className="text-muted">Every proposed fix is retested before you see it.</span></>}
           lead="A patch only reaches the report if the failing case passes and the rest of the suite does not regress."

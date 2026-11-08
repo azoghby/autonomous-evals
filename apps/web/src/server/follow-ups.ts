@@ -89,14 +89,14 @@ export function expertReminderDue(
 
 // ---- email copy (short, plain text, honest about who/what sends it) -----------------------------
 
-const SIGNOFF = "Autonomous Evals (this message was written and sent by our AI agent)";
+const SIGNOFF = "Standard Evals (this message was written and sent by our AI agent)";
 
 export const formatMonthlyPrice = (cents: number = MONITORING_PRICE_CENTS_MONTHLY) =>
   `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}/month`;
 
 export function buildClarificationNudge(name: string | null, link: string) {
   return {
-    subject: "Quick question still open on your Autonomous Evals job",
+    subject: "Quick question still open on your Standard Evals job",
     text: [
       `Hi ${firstName(name)},`,
       "",
@@ -110,7 +110,7 @@ export function buildClarificationNudge(name: string | null, link: string) {
 
 export function buildQuoteReminder(name: string | null, link: string) {
   return {
-    subject: "Your Autonomous Evals quote is ready when you are",
+    subject: "Your Standard Evals quote is ready when you are",
     text: [
       `Hi ${firstName(name)},`,
       "",
@@ -144,18 +144,18 @@ export function buildExpertReminder(
   i: { name: string; domain: string; questionnaireUrl: string; optOutUrl: string; companyAddress: string },
 ) {
   return {
-    subject: `Reminder: paid expert question from Autonomous Evals (${i.domain})`,
+    subject: `Reminder: paid expert question from Standard Evals (${i.domain})`,
     text: [
       `Hi ${firstName(i.name)},`,
       "",
-      "This is a one-time reminder from Autonomous Evals, written and sent by our AI agent. A few days ago we invited you to answer a short paid questionnaire about " + i.domain + ".",
+      "This is a one-time reminder from Standard Evals, written and sent by our AI agent. A few days ago we invited you to answer a short paid questionnaire about " + i.domain + ".",
       `Answer here, in your own time: ${i.questionnaireUrl}`,
       "(This link replaces the one in our earlier email.)",
       "",
       "No reply is needed if you are not interested. To never hear from us again, opt out in one click:",
       i.optOutUrl,
       "",
-      "Autonomous Evals",
+      "Standard Evals",
       i.companyAddress,
     ].join("\n"),
   };

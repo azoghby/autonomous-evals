@@ -7,9 +7,9 @@ type Row = { segs: Seg[] };
 
 const C = { fg: "text-fg", mut: "text-subtle", acc: "text-accent-text", ok: "text-ok", str: "text-warn", dim: "text-fg-2" };
 
-export type McpProps = { quote: string; command: string };
+export type McpProps = { command: string };
 
-function buildRows(quote: string, command: string): { cmd: Seg[]; rows: Row[] } {
+function buildRows(command: string): { cmd: Seg[]; rows: Row[] } {
   const [head, ...rest] = command.split(" --");
   const cmd: Seg[] = [{ t: "claude ", c: C.fg }, { t: head.replace("claude ", ""), c: C.acc }];
   for (const r of rest) {
@@ -20,15 +20,24 @@ function buildRows(quote: string, command: string): { cmd: Seg[]; rows: Row[] } 
     if (url) { cmd.push({ t: ` ${v.replace(url, "").trim()} `, c: C.dim }, { t: url, c: C.str }); }
     else cmd.push({ t: ` ${v}`, c: C.str });
   }
-  const call = (name: string): Seg[] => [{ t: "→ ", c: C.acc }, { t: name, c: C.fg }];
+  const call = (name: string, args?: string): Seg[] => [{ t: "→ ", c: C.acc }, { t: name, c: C.fg }, ...(args ? [{ t: args, c: C.mut }] : [])];
+  const blank: Row = { segs: [{ t: "", c: "" }] };
   const rows: Row[] = [
-    { segs: [{ t: "✓ Added HTTP MCP server autonomous-evals", c: C.ok }] },
-    { segs: [{ t: "", c: "" }] },
-    { segs: [{ t: "> ", c: C.mut }, { t: "Audit my support agent at api.acme.dev", c: C.dim }] },
-    { segs: [...call("hire_audit"), { t: '({ package: "trace_audit" })', c: C.mut }] },
-    { segs: [...call("quote"), { t: ` ${quote}, fixed, no contract`, c: C.dim }] },
-    { segs: [...call("pay"), { t: " settled by key", c: C.dim }, { t: "  ✓", c: C.ok }] },
-    { segs: [...call("report"), { t: " https://autonomous-evals.vercel.app/r/…", c: C.str }] },
+    { segs: [{ t: "✓ Added HTTP MCP server standard-evals", c: C.ok }] },
+    blank,
+    { segs: [{ t: "> ", c: C.mut }, { t: "/mcp", c: C.dim }, { t: " → standard-evals → ", c: C.mut }, { t: "Authenticate", c: C.fg }] },
+    { segs: [{ t: "  ↗ browser: sign in, then Allow Claude Code to use Standard Evals", c: C.mut }] },
+    { segs: [{ t: "✓ Authenticated as you@acme.dev · 13 tools", c: C.ok }] },
+    blank,
+    { segs: [{ t: "> ", c: C.mut }, { t: "Run a sandbox eval on my support agent", c: C.dim }] },
+    { segs: [...call("Read", " openapi.yaml")] },
+    { segs: [...call("Read", " db/schema.sql")] },
+    { segs: [...call("Read", " docs/policies/refunds.md")] },
+    { segs: [...call("sandbox_create_environment", '({ name: "acme-support", openapi, ddl, policies })')] },
+    { segs: [...call("sandbox_generate_suite", "({ environmentId })")] },
+    { segs: [...call("sandbox_run", "({ k: 5 })")] },
+    { segs: [...call("sandbox_status", "({ runId })")] },
+    { segs: [...call("sandbox_report", "({ runId })")] },
   ];
   return { cmd, rows };
 }
@@ -51,8 +60,8 @@ function Segs({ segs, n }: { segs: Seg[]; n: number }) {
   );
 }
 
-export function McpTerminal({ quote, command }: McpProps) {
-  const { cmd, rows } = buildRows(quote, command);
+export function McpTerminal({ command }: McpProps) {
+  const { cmd, rows } = buildRows(command);
   const total = cmd.reduce((a, s) => a + s.t.length, 0);
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
@@ -92,14 +101,14 @@ export function McpTerminal({ quote, command }: McpProps) {
         <div className="flex h-10 items-center justify-between gap-3 border-b border-line px-3">
           <span className="flex items-center gap-3">
             <span aria-hidden className="flex gap-1.5"><i className="size-2 rounded-full bg-line-3" /><i className="size-2 rounded-full bg-line-3" /><i className="size-2 rounded-full bg-line-3" /></span>
-            <span className="font-mono text-[11px] uppercase text-subtle">Add the MCP server</span>
+            <span className="font-mono text-[11px] uppercase text-subtle">Sample session</span>
           </span>
           <button type="button" onClick={onCopy} className="inline-flex h-7 items-center rounded-[4px] px-2 font-mono text-[11px] uppercase text-fg-2 transition-colors duration-150 hover:bg-bg-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">
             <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
           </button>
         </div>
         <div className="p-4 font-mono text-[13px] leading-[1.7]">
-          <span className="sr-only">{command}</span>
+          <span className="sr-only">{command}. Sample session: authenticate with /mcp, then the coding agent reads openapi.yaml, db/schema.sql and docs/policies/refunds.md and calls sandbox_create_environment, sandbox_generate_suite, sandbox_run, sandbox_status and sandbox_report.</span>
           <div aria-hidden className="whitespace-pre-wrap break-all">
             <span className="mr-2 select-none text-subtle">$</span>
             <Segs segs={cmd} n={chars} />
@@ -115,6 +124,7 @@ export function McpTerminal({ quote, command }: McpProps) {
           </div>
         </div>
       </div>
+      <p className="mt-3 text-[13px] leading-relaxed text-subtle">Sandbox tools are rolling out. Until the engine is live they validate input and return coming_soon.</p>
     </div>
   );
 }

@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Button, Container, NudgeArrow, Wordmark } from "../ui";
 
 const COLS = [
-  ["Product", [["Get an eval", "/start"], ["Sample report", "/sample"], ["Pricing", "/#pricing"]]],
+  ["Product", [["Get an eval", "/start"], ["Sandbox evals", "/sandbox"], ["Sample report", "/sample"], ["Sandbox sample", "/sandbox/runs/sample"], ["Pricing", "/#pricing"]]],
   ["Agents", [["MCP", "/#mcp"], ["API keys", "/settings/keys"]]],
-  ["Network", [["Experts", "/experts"]]],
+  ["Network", [["Experts", "/experts"], ["Leaderboard", "/leaderboard"], ["Submit your agent", "/leaderboard/submit"]]],
   ["Account", [["Dashboard", "/jobs"]]],
 ] as const;
 

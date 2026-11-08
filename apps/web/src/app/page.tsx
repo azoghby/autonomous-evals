@@ -3,6 +3,8 @@ import { RevenueBand } from "@/components/marketing/RevenueBand";
 import { Hero } from "@/components/marketing/Hero";
 import { IntegrationsStrip } from "@/components/marketing/IntegrationsStrip";
 import { HowItWorks } from "@/components/marketing/HowItWorks";
+import { SandboxShowcase } from "@/components/marketing/sandbox-showcase/SandboxShowcase";
+import { Multimodal } from "@/components/marketing/multimodal/Multimodal";
 import { ReportPreview } from "@/components/marketing/ReportPreview";
 import { Fixes } from "@/components/marketing/Fixes";
 import { Pricing } from "@/components/marketing/Pricing";
@@ -20,6 +22,8 @@ export default function Home() {
         <Hero />
         <IntegrationsStrip />
         <HowItWorks />
+        <SandboxShowcase />
+        <Multimodal />
         <ReportPreview />
         <Fixes />
         <Pricing />

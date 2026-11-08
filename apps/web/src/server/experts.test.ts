@@ -120,7 +120,7 @@ describe("invite email", () => {
   });
   it("is honest and compliant", () => {
     expect(mail.body).toMatch(/written by an AI agent/);
-    expect(mail.body).toContain("Autonomous Evals");
+    expect(mail.body).toContain("Standard Evals");
     expect(mail.body).toContain("$25");
     expect(mail.body).toContain("https://x.test/expert/opt-out/T");
     expect(mail.body).toContain("1 Main St");

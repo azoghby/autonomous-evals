@@ -43,7 +43,9 @@ export function Th({ children, className }: { children?: ReactNode; className?: 
 
 export const LEADERBOARD_NAV = [
   { label: "How it works", href: "/#how" },
+  { label: "Sandbox", href: "/sandbox" },
   { label: "Sample report", href: "/sample" },
   { label: "Leaderboard", href: "/leaderboard" },
+  { label: "Submit agent", href: "/leaderboard/submit" },
   { label: "Pricing", href: "/#pricing" },
 ];

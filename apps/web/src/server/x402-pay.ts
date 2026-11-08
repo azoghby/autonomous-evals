@@ -103,7 +103,7 @@ export async function handleX402Pay(req: Request, jobId: string, deps: X402PayDe
   const args: X402QuoteArgs = {
     priceCents: quote.priceCents, payTo,
     resourceUrl: `${origin}${x402PayPath(jobId)}`,
-    description: `Autonomous Evals ${quote.package.replace(/_/g, " ")} eval, job ${jobId}, quote v${quote.version} (${(quote.priceCents / 100).toFixed(2)} USDC, Base Sepolia testnet)`,
+    description: `Standard Evals ${quote.package.replace(/_/g, " ")} eval, job ${jobId}, quote v${quote.version} (${(quote.priceCents / 100).toFixed(2)} USDC, Base Sepolia testnet)`,
   };
   const header = readPaymentHeader(req);
   if (!header) return toResponse(paymentRequired(args));

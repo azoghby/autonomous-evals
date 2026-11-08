@@ -41,7 +41,7 @@ export async function createCheckoutForQuote(a: CheckoutArgs): Promise<{ session
       quantity: 1,
       price_data: {
         currency: "usd", unit_amount: a.priceCents,
-        product_data: { name: a.productName ?? "Autonomous Evals report" },
+        product_data: { name: a.productName ?? "Standard Evals report" },
       },
     }],
     metadata,
@@ -67,7 +67,7 @@ export async function createMonitoringCheckout(
       quantity: 1,
       price_data: {
         currency: "usd", unit_amount: MONITORING_PRICE_CENTS_MONTHLY, recurring: { interval: "month" },
-        product_data: { name: "Autonomous Evals monitoring" },
+        product_data: { name: "Standard Evals monitoring" },
       },
     }],
     metadata,

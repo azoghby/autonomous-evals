@@ -82,7 +82,7 @@ export const listPackages = () => ({
   })),
   monitoringPriceCentsMonthly: MONITORING_PRICE_CENTS_MONTHLY,
   common: "All requests need authorizedToTest=true and a unique idempotencyKey. Optional `notes` (max 5000 chars).",
-  sample: "Read the resource autonomous-evals://sample-report (or use the sample_report prompt) to see a finished report.",
+  sample: "Read the resource standard-evals://sample-report (or use the sample_report prompt) to see a finished report.",
 });
 /** @deprecated kept for existing callers; use listPackages. */
 export const listServices = listPackages;
@@ -220,7 +220,7 @@ export async function acceptQuote(c: McpCaller, jobId: string, quoteVersion: num
       const created = await createCheckoutForQuote({
         jobId, quoteVersion: quote.version, priceCents: chargeCents, pricingMode, customerEmail: c.email,
         successUrl: `${jobUrl(c, jobId)}?checkout=success`, cancelUrl: `${jobUrl(c, jobId)}?checkout=cancelled`,
-        productName: `Autonomous Evals: ${quote.package.replace(/_/g, " ")}`, retryAfterSessionId,
+        productName: `Standard Evals: ${quote.package.replace(/_/g, " ")}`, retryAfterSessionId,
       });
       await db().update(schema.quotes).set({ stripeCheckoutSessionId: created.sessionId, pricingMode, capCents })
         .where(and(eq(schema.quotes.id, quote.id), quote.stripeCheckoutSessionId ? eq(schema.quotes.stripeCheckoutSessionId, quote.stripeCheckoutSessionId) : isNull(schema.quotes.stripeCheckoutSessionId)));
@@ -348,7 +348,7 @@ export const TOOLS = [
     run: (c: McpCaller, i: { jobId: string; reason?: string }) => cancelJob(c, i.jobId, i.reason) },
 ] as unknown as ToolDef[];
 
-export const SAMPLE_REPORT_URI = "autonomous-evals://sample-report";
+export const SAMPLE_REPORT_URI = "standard-evals://sample-report";
 
 /** Markdown rendering of the static /sample report (fictional agent), for the MCP resource and prompt. */
 export function sampleReportMarkdown(origin = ""): string {
@@ -371,7 +371,7 @@ export function sampleReportMarkdown(origin = ""): string {
   return lines.join("\n");
 }
 
-export const HIRE_WORKFLOW_PROMPT = (what: string) => `You are hiring Autonomous Evals (MCP server "autonomous-evals") to evaluate: ${what}
+export const HIRE_WORKFLOW_PROMPT = (what: string) => `You are hiring Standard Evals (MCP server "standard-evals") to evaluate: ${what}
 
 Follow this loop:
 1. list_packages and pick the package that fits (trace_audit for a transcript, text_eval / workflow_eval for a live HTTPS endpoint, version_comparison for A vs B). Compare the pricing modes: fixed vs per_finding.

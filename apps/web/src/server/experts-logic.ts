@@ -111,16 +111,16 @@ export function buildInviteEmail(input: {
 }): { subject: string; body: string } {
   const first = input.expertName.trim().split(/\s+/)[0] || "there";
   return {
-    subject: `Paid expert review request from Autonomous Evals: ${input.domain}`,
+    subject: `Paid expert review request from Standard Evals: ${input.domain}`,
     body: [
       `Hi ${first},`,
       "",
-      "This message is from Autonomous Evals and was written by an AI agent working for us. A human founder reviewed and approved it before it was sent.",
+      "This message is from Standard Evals and was written by an AI agent working for us. A human founder reviewed and approved it before it was sent.",
       "",
       `We build evaluations for AI agents. We would like a working professional in ${input.domain} to answer ${input.questionCount} short question${input.questionCount === 1 ? "" : "s"}, so our tests reflect what correct looks like in your field.`,
       "",
       `What the answers are for: ${input.purpose}`,
-      `Your answers are stored by Autonomous Evals and used as reference material for those evaluations. Nothing is attributed to you by name without your explicit consent.`,
+      `Your answers are stored by Standard Evals and used as reference material for those evaluations. Nothing is attributed to you by name without your explicit consent.`,
       "",
       `Honorarium: ${dollars(input.honorariumCents)}, paid manually after you submit.`,
       "",
@@ -129,7 +129,7 @@ export function buildInviteEmail(input: {
       "No reply is needed if you are not interested. To never hear from us again, opt out in one click:",
       input.optOutUrl,
       "",
-      "Autonomous Evals",
+      "Standard Evals",
       input.companyAddress,
     ].join("\n"),
   };
