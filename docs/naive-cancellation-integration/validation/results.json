@@ -1,0 +1,55 @@
+{
+  "status": "verified_unapplied_incremental_candidate",
+  "reviewedRepositoryCommit": "c4fcf0f",
+  "testedMain": "6793f48",
+  "incrementalPaths": 28,
+  "composedUniquePaths": 75,
+  "baselinePins": 2234,
+  "upstreamPreservationOverrides": 19,
+  "verifiedExpectedFiles": 2294,
+  "focused": {
+    "passed": 132,
+    "failed": 0,
+    "skipped": 0,
+    "includedInFullSuite": true
+  },
+  "fullSuite": {
+    "passed": 4199,
+    "failed": 0,
+    "skipped": 2,
+    "maxWorkers": 2
+  },
+  "webTypesExitCode": 0,
+  "productionBuild": {
+    "exitCode": 0,
+    "steps": 57,
+    "workflows": 4,
+    "offlineFontFixture": true
+  },
+  "allPrePostimagesVerified": true,
+  "independentIncrementalPatch": true,
+  "reproducibleAssembly": true,
+  "manifestSha256": "e015f2be107416fe8e8587f735d472817307bc21a0bcbfb9182e1d29f5461e77",
+  "retainedDependencies": true,
+  "newSqlFiles": 1,
+  "rootVerification": {
+    "passed": 3954,
+    "failed": 0,
+    "skipped": 2,
+    "webTypesExitCode": 0
+  },
+  "nativePostgresConcurrencyVerified": false,
+  "hostedAcceptanceVerified": false,
+  "sourceAdopted": false,
+  "providerCalls": 0,
+  "liveMigrationApplied": false,
+  "deployed": false,
+  "remainingGates": [
+    "Mixed callback provider/target/proxy recovery",
+    "Parent and daily budget authority",
+    "Factual/sourcing rebase and exact source adoption",
+    "Conversation sends/cumulative accounting/streaming/idle",
+    "Full roster and native PostgreSQL/hosted/Naive acceptance",
+    "Manual reconciliation of permanently missing notification hooks and existing refund policy"
+  ]
+}

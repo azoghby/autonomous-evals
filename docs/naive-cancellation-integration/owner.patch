@@ -1,0 +1,1569 @@
+diff --git a/apps/web/src/app/api/cron/stale-jobs/cancellation.test.ts b/apps/web/src/app/api/cron/stale-jobs/cancellation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/api/cron/stale-jobs/cancellation.test.ts
+@@ -0,0 +1,29 @@
++import { beforeEach, expect, it, vi } from "vitest";
++const mocks = vi.hoisted(() => ({ auth: vi.fn(), drain: vi.fn(), candidates: vi.fn(), process: vi.fn(), where: vi.fn() }));
++vi.mock("../_auth", () => ({ requireCronAuth: mocks.auth }));
++vi.mock("@/server/job-cancellation-delivery", () => ({ drainJobCancellations: mocks.drain }));
++vi.mock("../../../../server/stale-jobs", () => ({ processStaleJobs: mocks.process }));
++vi.mock("./recovery", () => ({ loadCandidates: mocks.candidates, staleJobDeps: {} }));
++vi.mock("@ae/core/db/client", () => ({ db: () => ({ select: () => ({ from: () => ({ where: mocks.where }) }) }),
++  schema: { payments: { id: "id", jobId: "job", createdAt: "created", status: "status" } } }));
++import { GET } from "./route";
++beforeEach(() => {
++  vi.resetAllMocks();
++  mocks.auth.mockReturnValue(null); mocks.drain.mockResolvedValue({ attempted: 1, errors: [] });
++  mocks.candidates.mockResolvedValue([]); mocks.process.mockResolvedValue({ errors: [] }); mocks.where.mockResolvedValue([]);
++});
++it("drains cancellation outbox even with no stale lifecycle candidates", async () => {
++  const response = await GET(new Request("https://example.test"));
++  expect(response.status).toBe(200);
++  expect(mocks.drain).toHaveBeenCalledTimes(1);
++  expect((await response.json()).cancellations.attempted).toBe(1);
++});
++it("retains retry failures in cron response", async () => {
++  mocks.drain.mockResolvedValue({ attempted: 1, errors: ["job:workflow_notification_pending"] });
++  expect((await GET(new Request("https://example.test"))).status).toBe(500);
++});
++it("authenticates before attempting cancellation delivery", async () => {
++  mocks.auth.mockReturnValue(new Response(null, { status: 401 }));
++  expect((await GET(new Request("https://example.test"))).status).toBe(401);
++  expect(mocks.drain).not.toHaveBeenCalled();
++});
+diff --git a/apps/web/src/app/api/cron/stale-jobs/route.test.ts b/apps/web/src/app/api/cron/stale-jobs/route.test.ts
+--- a/apps/web/src/app/api/cron/stale-jobs/route.test.ts
++++ b/apps/web/src/app/api/cron/stale-jobs/route.test.ts
+@@ -2,6 +2,7 @@
+ 
+ const inserted = vi.hoisted(() => [] as Array<{ table: string; values: Record<string, unknown> }>);
+ 
++vi.mock("@/server/job-cancellation-delivery", () => ({ drainJobCancellations: async () => ({ attempted: 0, errors: [] }) }));
+ vi.mock("../_auth", () => ({ requireCronAuth: () => null }));
+ vi.mock("../../../../server/stale-jobs", () => ({ processStaleJobs: async () => ({ errors: [] }) }));
+ vi.mock("./recovery", () => ({ loadCandidates: async () => [], staleJobDeps: {} }));
+diff --git a/apps/web/src/app/api/cron/stale-jobs/route.ts b/apps/web/src/app/api/cron/stale-jobs/route.ts
+--- a/apps/web/src/app/api/cron/stale-jobs/route.ts
++++ b/apps/web/src/app/api/cron/stale-jobs/route.ts
+@@ -3,6 +3,7 @@
+ import { requireCronAuth } from "../_auth";
+ import { processStaleJobs } from "../../../../server/stale-jobs";
+ import { loadCandidates, staleJobDeps } from "./recovery";
++import { drainJobCancellations } from "@/server/job-cancellation-delivery";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -17,10 +18,12 @@
+ export async function GET(request: Request) {
+   const denied = requireCronAuth(request);
+   if (denied) return denied;
++  // Independent of stale state/age scans: draft, quoted and terminal jobs can have pending notifications.
++  const cancellations = await drainJobCancellations();
+   const now = Date.now();
+   const summary = await processStaleJobs(await loadCandidates(now), now, staleJobDeps);
+   const expiring = await flagExpiringAuthorizations(now);
+-  return Response.json({ ...summary, expiringAuthorizations: expiring }, { status: summary.errors.length ? 500 : 200 });
++  return Response.json({ ...summary, cancellations, expiringAuthorizations: expiring }, { status: summary.errors.length || cancellations.errors.length ? 500 : 200 });
+ }
+ 
+ /** Per-finding holds still uncaptured after 5 days are about to lapse: flag once per payment for an operator. */
+diff --git a/apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts b/apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts
+--- a/apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts
++++ b/apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts
+@@ -1,98 +1,16 @@
+-import { beforeEach, describe, expect, it, vi } from "vitest";
+-
+-const getCurrentCustomer = vi.fn();
+-const selectJob = vi.fn();
+-const insertValues = vi.fn(async () => undefined);
+-const sendJobEvent = vi.fn(async () => undefined);
+-const expireOpenCheckout = vi.fn(async () => "expired");
+-const addMessage = vi.fn(async () => "m1");
+-
+-vi.mock("@/server/queries", () => ({ getCurrentCustomer: () => getCurrentCustomer() }));
+-vi.mock("@/server/job-store", () => ({ addMessage: (...a: unknown[]) => addMessage(...a) }));
+-vi.mock("@ae/core/payments/checkout", () => ({ expireOpenCheckout: (...a: unknown[]) => expireOpenCheckout(...a) }));
+-vi.mock("@/workflows/events", () => ({ sendJobEvent: (...a: unknown[]) => sendJobEvent(...a) }));
+-vi.mock("@/server/http", async () => {
+-  const { z } = await import("zod");
+-  return {
+-    jsonError: (status: number, error: string, extra?: object) => Response.json({ error, ...extra }, { status }),
+-    isUuid: (s: string) => z.uuid().safeParse(s).success,
+-    readJson: async (req: Request, schema: any) => {
+-      const parsed = schema.safeParse(await req.json());
+-      return parsed.success ? { ok: true, data: parsed.data } : { ok: false, res: Response.json({ error: "bad" }, { status: 400 }) };
+-    },
+-  };
+-});
+-vi.mock("@ae/core/db/client", () => ({
+-  schema: { jobs: {}, interventions: {} },
+-  db: () => ({
+-    select: () => ({ from: () => ({ where: () => ({ limit: async () => selectJob() }) }) }),
+-    insert: () => ({ values: insertValues }),
+-  }),
+-}));
+-vi.mock("drizzle-orm", () => ({ eq: () => ({}) }));
+-
+-import { POST } from "./route";
+-
+-const JOB_ID = "11111111-1111-4111-8111-111111111111";
+-const call = (body: object = {}) =>
+-  POST(new Request("http://x", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ jobId: JOB_ID }) });
+-const owner = { id: "u1", email: "o@x.io", isOperator: false };
+-
+-describe("POST /api/jobs/[jobId]/cancel", () => {
+-  beforeEach(() => { vi.clearAllMocks(); });
+-
+-  it("401 when signed out", async () => {
+-    getCurrentCustomer.mockResolvedValue(null);
+-    expect((await call()).status).toBe(401);
+-  });
+-  it("404 for another customer's job", async () => {
+-    getCurrentCustomer.mockResolvedValue({ ...owner, id: "u2" });
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "quoted" }]);
+-    expect((await call()).status).toBe(404);
+-    expect(sendJobEvent).not.toHaveBeenCalled();
+-  });
+-  it("owner cancels while quoted", async () => {
+-    getCurrentCustomer.mockResolvedValue(owner);
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "quoted" }]);
+-    const res = await call({ reason: "changed my mind" });
+-    expect(res.status).toBe(202);
+-    expect(sendJobEvent).toHaveBeenCalledWith(JOB_ID, { type: "cancel", reason: "changed my mind" });
+-    expect(addMessage).toHaveBeenCalled();
+-    expect(insertValues).not.toHaveBeenCalled();
+-  });
+-  it("expires the open Checkout session before notifying the workflow", async () => {
+-    getCurrentCustomer.mockResolvedValue(owner);
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "awaiting_payment" }]);
+-    const order: string[] = [];
+-    expireOpenCheckout.mockImplementationOnce(async () => { order.push("expire"); return "expired"; });
+-    sendJobEvent.mockImplementationOnce(async () => { order.push("send"); });
+-    expect((await call()).status).toBe(202);
+-    expect(expireOpenCheckout).toHaveBeenCalledWith(JOB_ID);
+-    expect(order).toEqual(["expire", "send"]);
+-  });
+-  it("still cancels when session expiry throws", async () => {
+-    getCurrentCustomer.mockResolvedValue(owner);
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "awaiting_payment" }]);
+-    expireOpenCheckout.mockRejectedValueOnce(new Error("stripe down"));
+-    expect((await call()).status).toBe(202);
+-    expect(sendJobEvent).toHaveBeenCalled();
+-  });
+-  it("owner gets 409 once running", async () => {
+-    getCurrentCustomer.mockResolvedValue(owner);
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "running" }]);
+-    expect((await call()).status).toBe(409);
+-    expect(sendJobEvent).not.toHaveBeenCalled();
+-  });
+-  it("operator cancels a running job and records an intervention", async () => {
+-    getCurrentCustomer.mockResolvedValue({ id: "op", email: "op@x.io", isOperator: true });
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "running" }]);
+-    expect((await call()).status).toBe(202);
+-    expect(insertValues).toHaveBeenCalledOnce();
+-    expect(sendJobEvent).toHaveBeenCalled();
+-  });
+-  it("409 for terminal jobs even for operators", async () => {
+-    getCurrentCustomer.mockResolvedValue({ id: "op", email: "op@x.io", isOperator: true });
+-    selectJob.mockReturnValue([{ customerId: "u1", state: "delivered" }]);
+-    expect((await call()).status).toBe(409);
+-  });
+-});
++import { beforeEach,expect,it,vi } from 'vitest';
++const state=vi.hoisted(()=>({viewer:vi.fn(),record:vi.fn(),dispatch:vi.fn()}));
++vi.mock('@/server/queries',()=>({getCurrentCustomer:state.viewer}));
++vi.mock('@/server/job-cancellation',()=>({requestJobCancellation:state.record}));
++vi.mock('@/server/job-cancellation-delivery',()=>({dispatchJobCancellation:state.dispatch}));
++import { POST } from './route';
++const job='11111111-1111-4111-8111-111111111111';
++const call=(reason='reason',id=job)=>POST(new Request('https://test',{method:'POST',body:JSON.stringify({reason})}),{params:Promise.resolve({jobId:id})});
++beforeEach(()=>{vi.clearAllMocks();state.viewer.mockResolvedValue({id:'owner'});state.record.mockResolvedValue({ok:true,created:true,request:{reason:'retained'}});state.dispatch.mockResolvedValue({errors:[]});});
++it('requires authentication before intent or delivery',async()=>{state.viewer.mockResolvedValue(null);expect((await call()).status).toBe(401);expect(state.record).not.toHaveBeenCalled();expect(state.dispatch).not.toHaveBeenCalled();});
++it('validates job identifiers and reason before recording',async()=>{expect((await call('ok','invalid')).status).toBe(404);expect((await call('x'.repeat(1001))).status).toBe(400);expect(state.record).not.toHaveBeenCalled();});
++it.each([404,409])('preserves current transactional authorization refusal %s',async status=>{state.record.mockResolvedValue({ok:false,status,error:'denied'});expect((await call()).status).toBe(status);expect(state.dispatch).not.toHaveBeenCalled();});
++it('commits authority before delivery and passes only authenticated identity',async()=>{const order:string[]=[];state.record.mockImplementation(async()=>{order.push('commit');return{ok:true};});state.dispatch.mockImplementation(async()=>{order.push('send');return{errors:[]};});expect((await call()).status).toBe(202);expect(order).toEqual(['commit','send']);expect(state.record).toHaveBeenCalledWith(job,{id:'owner'},'reason');});
++it('returns durable acceptance when external notification remains pending',async()=>{state.dispatch.mockResolvedValue({errors:['workflow_notification_pending']});const res=await call();expect(res.status).toBe(202);expect(await res.json()).toEqual({ok:true,notificationPending:true});});
++it('preserves acceptance after delivery lookup failure for cron retry',async()=>{state.dispatch.mockRejectedValue(Error('db'));expect((await call()).status).toBe(202);});
++it('does not send when intent commit fails',async()=>{state.record.mockRejectedValue(Error('commit'));await expect(call()).rejects.toThrow('commit');expect(state.dispatch).not.toHaveBeenCalled();});
+diff --git a/apps/web/src/app/api/jobs/[jobId]/cancel/route.ts b/apps/web/src/app/api/jobs/[jobId]/cancel/route.ts
+--- a/apps/web/src/app/api/jobs/[jobId]/cancel/route.ts
++++ b/apps/web/src/app/api/jobs/[jobId]/cancel/route.ts
+@@ -1,45 +1,18 @@
+-import { z } from "zod";
+-import { eq } from "drizzle-orm";
+-import { db, schema } from "@ae/core/db/client";
+-import type { JobState } from "@ae/core/contracts/index";
+-import { jsonError, readJson, isUuid } from "@/server/http";
+-import { getCurrentCustomer } from "@/server/queries";
+-import { addMessage } from "@/server/job-store";
+-import { expireOpenCheckout } from "@ae/core/payments/checkout";
+-import { sendJobEvent } from "@/workflows/events";
+-import { decideCancel } from "@/workflows/decisions";
+-
+-export const dynamic = "force-dynamic";
+-const Body = z.object({ reason: z.string().trim().max(1_000).optional() });
+-
+-/** Owner: only before planning. Operator: any non-terminal job (recorded as an intervention). */
+-export async function POST(request: Request, ctx: { params: Promise<{ jobId: string }> }) {
+-  const me = await getCurrentCustomer();
+-  if (!me) return jsonError(401, "Authentication required");
+-  const { jobId } = await ctx.params;
+-  if (!isUuid(jobId)) return jsonError(404, "Job not found");
+-  const body = await readJson(request, Body);
+-  if (!body.ok) return body.res;
+-
+-  const [job] = await db().select().from(schema.jobs).where(eq(schema.jobs.id, jobId)).limit(1);
+-  if (!job) return jsonError(404, "Job not found");
+-  const decision = decideCancel({ customerId: job.customerId, state: job.state as JobState }, me);
+-  if (!decision.allowed) return jsonError(decision.status, decision.error, decision.status === 409 ? { state: job.state } : undefined);
+-
+-  const reason = body.data.reason || (decision.asOperator ? "Cancelled by an operator" : "Cancelled by the customer");
+-  if (decision.asOperator) {
+-    await db().insert(schema.interventions).values({ jobId, operatorEmail: me.email, kind: "other", note: `Cancelled job: ${reason}` });
+-  }
+-  await addMessage(jobId, decision.asOperator ? "operator" : "customer", `Cancellation requested: ${reason}`);
+-  // Close the open Checkout session so a cancelled job cannot still be paid (best effort; late payments are handled on arrival).
+-  try { await expireOpenCheckout(jobId); } catch (err) {
+-    console.error("cancel expireOpenCheckout failed", jobId, err instanceof Error ? err.message : err);
+-  }
+-  try {
+-    await sendJobEvent(jobId, { type: "cancel", reason });
+-  } catch (err) {
+-    console.error("cancel sendJobEvent failed", jobId, err instanceof Error ? err.message : err);
+-    return jsonError(502, "Cancellation recorded but the job could not be notified; please retry");
+-  }
+-  return Response.json({ ok: true }, { status: 202 });
++import { z } from 'zod';
++import { jsonError,readJson,isUuid } from '@/server/http';
++import { getCurrentCustomer } from '@/server/queries';
++import { requestJobCancellation } from '@/server/job-cancellation';
++import { dispatchJobCancellation } from '@/server/job-cancellation-delivery';
++export const dynamic='force-dynamic';
++const Body=z.object({reason:z.string().trim().max(1000).optional()});
++/** Acknowledgement means the cancellation fence/outbox is durable, not that external cleanup finished. */
++export async function POST(request:Request,ctx:{params:Promise<{jobId:string}>}){
++ const me=await getCurrentCustomer();if(!me)return jsonError(401,'Authentication required');
++ const {jobId}=await ctx.params;if(!isUuid(jobId))return jsonError(404,'Job not found');
++ const body=await readJson(request,Body);if(!body.ok)return body.res;
++ const result=await requestJobCancellation(jobId,{id:me.id},body.data.reason);
++ if(!result.ok)return jsonError(result.status,result.error,result.state?{state:result.state}:undefined);
++ let pending=false;
++ try{pending=(await dispatchJobCancellation(jobId)).errors.length>0;}catch{pending=true;}
++ return Response.json({ok:true,notificationPending:pending},{status:202});
+ }
+diff --git a/apps/web/src/server/job-cancellation-delivery.test.ts b/apps/web/src/server/job-cancellation-delivery.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/job-cancellation-delivery.test.ts
+@@ -0,0 +1,49 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++const mocks = vi.hoisted(() => ({
++  get: vi.fn(), list: vi.fn(), attempt: vi.fn(), checkoutAck: vi.fn(), eventAck: vi.fn(), expire: vi.fn(), send: vi.fn(),
++}));
++vi.mock("./job-cancellation", () => ({ getJobCancellation: mocks.get, listPendingCancellationJobs: mocks.list, markJobCancellationAttempt: mocks.attempt,
++  markJobCancellationCheckoutDone: mocks.checkoutAck, markJobCancellationDelivered: mocks.eventAck }));
++vi.mock("@ae/core/payments/checkout", () => ({ expireOpenCheckoutForCancellation: mocks.expire }));
++vi.mock("@/workflows/events", () => ({ sendJobEvent: mocks.send }));
++import { dispatchJobCancellation, drainJobCancellations } from "./job-cancellation-delivery";
++beforeEach(() => {
++  vi.resetAllMocks();
++  mocks.get.mockResolvedValue({ jobId: "job", reason: "retained reason", checkoutDone: false, eventDelivered: false });
++  mocks.list.mockResolvedValue(["job"]);
++});
++describe("durable cancellation delivery", () => {
++  it("records retry rotation before external effects", async () => {
++    mocks.attempt.mockRejectedValueOnce(new Error("db"));
++    await expect(dispatchJobCancellation("job")).rejects.toThrow("db");
++    expect(mocks.expire).not.toHaveBeenCalled();
++    expect(mocks.send).not.toHaveBeenCalled();
++  });
++  it("attempts notification even when Checkout expiry fails; only acknowledges success", async () => {
++    mocks.expire.mockRejectedValue(new Error("offline"));
++    expect(await dispatchJobCancellation("job")).toEqual({ jobId: "job", errors: ["checkout_expiry_pending"] });
++    expect(mocks.checkoutAck).not.toHaveBeenCalled();
++    expect(mocks.send).toHaveBeenCalledWith("job", { type: "cancel", reason: "retained reason" });
++    expect(mocks.eventAck).toHaveBeenCalledWith("job");
++  });
++  it("keeps missing hooks pending and does not repeat completed Checkout work", async () => {
++    mocks.get.mockResolvedValue({ reason: "original", checkoutDone: true, eventDelivered: false });
++    mocks.send.mockRejectedValue(new Error("HookNotFoundError"));
++    expect((await dispatchJobCancellation("job")).errors).toEqual(["workflow_notification_pending"]);
++    expect(mocks.expire).not.toHaveBeenCalled();
++    expect(mocks.eventAck).not.toHaveBeenCalled();
++  });
++  it("retries sends after a lost acknowledgement (at-least-once)", async () => {
++    mocks.eventAck.mockRejectedValueOnce(new Error("ack lost"));
++    expect((await dispatchJobCancellation("job")).errors).toContain("workflow_notification_pending");
++    await dispatchJobCancellation("job");
++    expect(mocks.send).toHaveBeenCalledTimes(2);
++  });
++  it("skips acknowledged delivery and drains bounded rows despite a per-job error", async () => {
++    mocks.list.mockResolvedValue(["broken", "done"]);
++    mocks.get.mockRejectedValueOnce(new Error("db")).mockResolvedValueOnce({ checkoutDone: true, eventDelivered: true });
++    expect(await drainJobCancellations(2)).toEqual({ attempted: 2, errors: ["broken:cancellation_delivery_pending"] });
++    expect(mocks.list).toHaveBeenCalledWith(2);
++    expect(mocks.send).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/server/job-cancellation-delivery.ts b/apps/web/src/server/job-cancellation-delivery.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/job-cancellation-delivery.ts
+@@ -0,0 +1,46 @@
++import "server-only";
++import { expireOpenCheckoutForCancellation } from "@ae/core/payments/checkout";
++import { sendJobEvent } from "@/workflows/events";
++import {
++  getJobCancellation, listPendingCancellationJobs, markJobCancellationAttempt,
++  markJobCancellationCheckoutDone, markJobCancellationDelivered,
++} from "./job-cancellation";
++
++export interface CancellationDelivery { jobId: string; errors: string[] }
++
++/** At-least-once delivery: a crash after send but before acknowledgement can repeat a cancel event.
++ * No external call is transactional. A failed send (including missing hook) stays pending; never restart
++ * a job solely to notify it. Checkout expiry and Workflow notification retry independently.
++ */
++export async function dispatchJobCancellation(jobId: string): Promise<CancellationDelivery> {
++  const request = await getJobCancellation(jobId);
++  const errors: string[] = [];
++  if (!request) return { jobId, errors };
++  await markJobCancellationAttempt(jobId);
++  if (!request.checkoutDone) {
++    try {
++      await expireOpenCheckoutForCancellation(jobId);
++      await markJobCancellationCheckoutDone(jobId);
++    } catch { errors.push("checkout_expiry_pending"); }
++  }
++  if (!request.eventDelivered) {
++    try {
++      await sendJobEvent(jobId, { type: "cancel", reason: request.reason });
++      await markJobCancellationDelivered(jobId);
++    } catch { errors.push("workflow_notification_pending"); }
++  }
++  return { jobId, errors };
++}
++
++/** Bounded oldest-first automatic retry, independent of job lifecycle state and stale-job age. */
++export async function drainJobCancellations(limit = 25): Promise<{ attempted: number; errors: string[] }> {
++  const jobs = await listPendingCancellationJobs(limit);
++  const errors: string[] = [];
++  for (const jobId of jobs) {
++    try {
++      const result = await dispatchJobCancellation(jobId);
++      errors.push(...result.errors.map(error => `${jobId}:${error}`));
++    } catch { errors.push(`${jobId}:cancellation_delivery_pending`); }
++  }
++  return { attempted: jobs.length, errors };
++}
+diff --git a/apps/web/src/server/job-cancellation.test.ts b/apps/web/src/server/job-cancellation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/job-cancellation.test.ts
+@@ -0,0 +1,132 @@
++import { PGlite } from "@electric-sql/pglite";
++import { readFileSync } from "node:fs";
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { requestJobCancellation, markJobCancellationDelivered, listPendingCancellationJobs, markJobCancellationAttempt, markJobCancellationCheckoutDone, type CancellationPool } from "./job-cancellation";
++
++function fixture(options: { state?: string; owner?: string; email?: string; retained?: boolean; failMessage?: boolean; failCommit?: boolean; failRollback?: boolean } = {}) {
++  const calls: { sql: string; params?: unknown[] }[] = [];
++  const row = { job_id: "job", reason: "original", requested_by: "owner", as_operator: false, event_delivered_at: null };
++  const release = vi.fn();
++  const query = vi.fn(async (sql: string, params?: unknown[]) => {
++    calls.push({ sql, params });
++    if (sql === "COMMIT" && options.failCommit) throw new Error("commit uncertain");
++    if (sql === "ROLLBACK" && options.failRollback) throw new Error("rollback failed");
++    if (sql.includes("SELECT customer_id")) return { rows: [{ customer_id: options.owner ?? "owner", state: options.state ?? "draft" }] };
++    if (sql.includes("SELECT email")) return { rows: [{ email: options.email ?? "owner@example.com" }] };
++    if (sql.includes("SELECT *")) return { rows: options.retained ? [row] : [] };
++    if (sql.includes("INSERT INTO workflow_stage.cancellations")) return { rows: [{ ...row, reason: params![1], requested_by: params![2], as_operator: params![3] }] };
++    if (options.failMessage && sql.includes("INSERT INTO messages")) throw new Error("message failed");
++    return { rows: [] };
++  });
++  const pool: CancellationPool = { connect: async () => ({ query, release }) };
++  return { pool, calls, release };
++}
++afterEach(() => vi.unstubAllEnvs());
++describe("durable cancellation authority", () => {
++  it("locks the canonical job and writes intent and message before committing", async () => {
++    const f = fixture();
++    const result = await requestJobCancellation("job", { id: "owner" }, " stop ", f.pool);
++    expect(result).toMatchObject({ ok: true, created: true, request: { reason: "stop" } });
++    expect(f.calls.map(c => c.sql).join("\n")).toMatch(/BEGIN[\s\S]*jobs WHERE id=\$1 FOR UPDATE[\s\S]*customers[\s\S]*INSERT INTO workflow_stage.cancellations[\s\S]*INSERT INTO messages[\s\S]*COMMIT/);
++    expect(f.release).toHaveBeenCalledOnce();
++  });
++  it("retains the original receipt on terminal retries without another message", async () => {
++    const f = fixture({ state: "cancelled", retained: true });
++    expect(await requestJobCancellation("job", { id: "owner" }, "replacement", f.pool)).toMatchObject({ ok: true, created: false, request: { reason: "original" } });
++    expect(f.calls.some(c => c.sql.includes("INSERT"))).toBe(false);
++  });
++  it("does not reveal retained intent to a currently unauthorized viewer", async () => {
++    const f = fixture({ retained: true });
++    expect(await requestJobCancellation("job", { id: "outsider" }, "x", f.pool)).toMatchObject({ ok: false, status: 404 });
++    expect(f.calls.some(c => c.sql.includes("SELECT *"))).toBe(false);
++  });
++  it("rejects an owner after planning before creating any intent", async () => {
++    const f = fixture({ state: "running" });
++    expect(await requestJobCancellation("job", { id: "owner" }, "x", f.pool)).toMatchObject({ ok: false, status: 409 });
++    expect(f.calls.some(c => c.sql.includes("INSERT"))).toBe(false);
++  });
++  it("uses the current operator email and records the intervention atomically", async () => {
++    vi.stubEnv("OPERATOR_EMAILS", "operator@example.com");
++    const f = fixture({ state: "running", email: "operator@example.com" });
++    expect(await requestJobCancellation("job", { id: "operator" }, "halt", f.pool)).toMatchObject({ ok: true, request: { asOperator: true } });
++    expect(f.calls.find(c => c.sql.includes("INSERT INTO interventions"))?.params).toEqual(["job", "operator@example.com", "Cancelled job: halt"]);
++  });
++  it("does not grant an operator role to an owner-scoped MCP identity", async () => {
++    vi.stubEnv("OPERATOR_EMAILS", "operator@example.com");
++    const f = fixture({ state: "running", email: "operator@example.com" });
++    expect(await requestJobCancellation("job", { id: "operator", allowOperator: false }, "halt", f.pool)).toMatchObject({ ok: false, status: 404 });
++    expect(f.calls.some(c => c.sql.includes("INSERT"))).toBe(false);
++  });
++  it("rolls back intent if the audit message fails", async () => {
++    const f = fixture({ failMessage: true });
++    await expect(requestJobCancellation("job", { id: "owner" }, "x", f.pool)).rejects.toThrow("message failed");
++    expect(f.calls.at(-1)?.sql).toBe("ROLLBACK");
++    expect(f.calls.some(c => c.sql === "COMMIT")).toBe(false);
++  });
++  it("discards an uncertain commit connection and never retries the writes", async () => {
++    const f = fixture({ failCommit: true });
++    await expect(requestJobCancellation("job", { id: "owner" }, "x", f.pool)).rejects.toThrow("commit uncertain");
++    expect(f.release).toHaveBeenCalledWith(expect.objectContaining({ message: "commit uncertain" }));
++    expect(f.calls.filter(c => c.sql.includes("INSERT INTO messages"))).toHaveLength(1);
++  });
++  it("preserves the original error when rollback fails and discards the connection", async () => {
++    const f = fixture({ failMessage: true, failRollback: true });
++    await expect(requestJobCancellation("job", { id: "owner" }, "x", f.pool)).rejects.toThrow("message failed");
++    expect(f.release).toHaveBeenCalledWith(expect.objectContaining({ message: "rollback failed" }));
++  });
++  it("bounds a non-finite pending limit before passing SQL parameters", async () => {
++    const f = fixture();
++    await listPendingCancellationJobs(Number.NaN, f.pool);
++    expect(f.calls[0]?.params).toEqual([100]);
++  });
++  it("acknowledges delivery without replacing payload or creating intent", async () => {
++    const f = fixture();
++    await markJobCancellationDelivered("job", f.pool);
++    expect(f.calls).toEqual([{ sql: "UPDATE workflow_stage.cancellations SET event_delivered_at=COALESCE(event_delivered_at,now()) WHERE job_id=$1", params: ["job"] }]);
++  });
++});
++
++
++it("rotates failed batches through all pending requests using actual SQL", async () => {
++  const pg = new PGlite();
++  try {
++    await pg.exec(`CREATE SCHEMA workflow_stage;
++      CREATE TABLE jobs(id uuid PRIMARY KEY,customer_id uuid,state text NOT NULL DEFAULT 'awaiting_payment',updated_at timestamptz DEFAULT now());
++      CREATE TABLE customers(id uuid PRIMARY KEY,email text);
++      CREATE TABLE messages(job_id uuid,role text,body text);
++      CREATE TABLE interventions(job_id uuid,operator_email text,kind text,note text);
++      CREATE TABLE progress_events(job_id uuid,milestone text,message text);`);
++    await pg.exec(readFileSync("docs/naive-cancellation-integration/sql/001-job-cancellation.sql", "utf8"));
++    const owner = "22222222-2222-4222-8222-222222222222";
++    await pg.query("INSERT INTO customers(id) VALUES($1)", [owner]);
++    const ids = Array.from({length: 61}, (_, n) => `11111111-1111-4111-8111-${String(n).padStart(12, "0")}`);
++    for (const id of ids) {
++      await pg.query("INSERT INTO jobs(id) VALUES($1)", [id]);
++      await pg.query("INSERT INTO workflow_stage.cancellations(job_id,reason,requested_by,as_operator) VALUES($1,'missing hook',$2,false)", [id, owner]);
++    }
++    const pool: CancellationPool = { connect: async () => ({ query: async (sql, params) => {
++      const result = await pg.query<Record<string, unknown>>(sql, params);
++      return { rows: result.rows };
++    }, release: () => {} }) };
++    // A newly admitted request becomes terminal before the event or checkout provider is contacted.
++    const fresh = "11111111-1111-4111-8111-999999999999";
++    await pg.query("UPDATE customers SET email='owner@example.com' WHERE id=$1", [owner]);
++    await pg.query("INSERT INTO jobs(id,customer_id) VALUES($1,$2)", [fresh,owner]);
++    expect(await requestJobCancellation(fresh, { id: owner }, "stop now", pool)).toMatchObject({ok:true,created:true});
++    expect((await pg.query<{state:string}>("SELECT state FROM jobs WHERE id=$1", [fresh])).rows[0]!.state).toBe("cancelled");
++    expect(await requestJobCancellation(fresh, { id: owner }, "replacement", pool)).toMatchObject({ok:true,created:false,request:{reason:"stop now"}});
++    expect((await pg.query<{count:number}>("SELECT count(*)::int AS count FROM progress_events WHERE job_id=$1 AND milestone='cancelled'", [fresh])).rows[0]!.count).toBe(1);
++    await markJobCancellationDelivered(fresh, pool);
++    await markJobCancellationCheckoutDone(fresh, pool);
++    const attempted = new Set<string>();
++    for (let round = 0; round < 3; round++) {
++      for (const id of await listPendingCancellationJobs(25, pool)) {
++        attempted.add(id);
++        await markJobCancellationAttempt(id, pool);
++        // A permanently missing hook leaves both acknowledgements pending.
++      }
++    }
++    expect(attempted.size).toBe(61);
++    expect((await pg.query<{ count: number }>("SELECT count(*)::int AS count FROM workflow_stage.cancellations WHERE event_delivered_at IS NULL AND checkout_done_at IS NULL")).rows[0]!.count).toBe(61);
++  } finally { await pg.close(); }
++});
+diff --git a/apps/web/src/server/job-cancellation.ts b/apps/web/src/server/job-cancellation.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/server/job-cancellation.ts
+@@ -0,0 +1,121 @@
++import { Pool } from "@neondatabase/serverless";
++import { isOperator } from "@ae/core/auth/tokens";
++import type { JobState } from "@ae/core/contracts/index";
++import { decideCancel } from "@/workflows/decisions";
++
++export interface CancellationClient {
++  query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
++  release(error?: Error): void;
++}
++export interface CancellationPool { connect(): Promise<CancellationClient> }
++export interface CancellationRequest {
++  jobId: string; reason: string; requestedBy: string; asOperator: boolean; eventDelivered: boolean; checkoutDone: boolean;
++}
++export type CancellationResult =
++  | { ok: true; request: CancellationRequest; created: boolean }
++  | { ok: false; status: 403 | 404 | 409; error: string; state?: string };
++
++let pool: CancellationPool | undefined;
++function defaultPool(): CancellationPool {
++  const connectionString = process.env.DATABASE_URL_UNPOOLED?.trim();
++  if (!connectionString) throw new Error("DATABASE_URL_UNPOOLED is required for cancellation authority");
++  return pool ??= new Pool({ connectionString, max: 5 }) as unknown as CancellationPool;
++}
++function receipt(row: Record<string, unknown>): CancellationRequest {
++  return { jobId: String(row.job_id), reason: String(row.reason), requestedBy: String(row.requested_by),
++    asOperator: row.as_operator === true, eventDelivered: row.event_delivered_at != null, checkoutDone: row.checkout_done_at != null };
++}
++
++/** viewer.id must come from server session authentication. Role/email are re-read under the jobs lock. */
++export async function requestJobCancellation(
++  jobId: string, viewer: { id: string; allowOperator?: boolean }, reason?: string, authorityPool?: CancellationPool,
++): Promise<CancellationResult> {
++  const tx = await (authorityPool ?? defaultPool()).connect();
++  let discard: Error | undefined;
++  let committing = false;
++  const commit = async () => {
++    committing = true;
++    await tx.query("COMMIT");
++    committing = false;
++  };
++  try {
++    await tx.query("BEGIN");
++    const job = (await tx.query("SELECT customer_id,state FROM jobs WHERE id=$1 FOR UPDATE", [jobId])).rows[0];
++    if (!job) { await commit(); return { ok: false, status: 404, error: "Job not found" }; }
++    const customer = (await tx.query("SELECT email FROM customers WHERE id=$1 FOR SHARE", [viewer.id])).rows[0];
++    const operator = customer && viewer.allowOperator !== false ? isOperator(String(customer.email)) : false;
++    // Check current access before revealing even an existing receipt. Do not trust a stale client role.
++    if (!customer || (String(job.customer_id) !== viewer.id && !operator)) {
++      await commit(); return { ok: false, status: 404, error: "Job not found" };
++    }
++    const retained = (await tx.query("SELECT * FROM workflow_stage.cancellations WHERE job_id=$1", [jobId])).rows[0];
++    if (retained) { await commit(); return { ok: true, request: receipt(retained), created: false }; }
++    const decision = decideCancel({ customerId: String(job.customer_id), state: job.state as JobState }, { id: viewer.id, isOperator: operator });
++    if (!decision.allowed) {
++      await commit();
++      return { ok: false, status: decision.status, error: decision.error, state: String(job.state) };
++    }
++    const why = reason?.trim() || (decision.asOperator ? "Cancelled by an operator" : "Cancelled by the customer");
++    if (why.length > 1_000) throw new Error("Cancellation reason exceeds 1000 characters");
++    // This immutable row is both the canonical cancellation fence and retained event/outbox intent.
++    const row = (await tx.query(`INSERT INTO workflow_stage.cancellations(job_id,reason,requested_by,as_operator)
++      VALUES($1,$2,$3,$4) RETURNING *`, [jobId, why, viewer.id, decision.asOperator])).rows[0]!;
++    // Publish the terminal state in the same transaction so existing late-payment handling sees cancellation.
++    // Outstanding child holds remain charged/reserved until their own usage proof settles them.
++    await tx.query("UPDATE jobs SET state='cancelled',updated_at=now() WHERE id=$1", [jobId]);
++    await tx.query("INSERT INTO progress_events(job_id,milestone,message) VALUES($1,'cancelled',$2)",
++      [jobId, `Job cancelled: ${why.slice(0, 980)}`]);
++    await tx.query("INSERT INTO messages(job_id,role,body) VALUES($1,$2,$3)",
++      [jobId, decision.asOperator ? "operator" : "customer", `Cancellation requested: ${why}`]);
++    if (decision.asOperator) await tx.query("INSERT INTO interventions(job_id,operator_email,kind,note) VALUES($1,$2,'other',$3)",
++      [jobId, String(customer.email), `Cancelled job: ${why}`]);
++    await commit();
++    return { ok: true, request: receipt(row), created: true };
++  } catch (error) {
++    if (committing) discard = error instanceof Error ? error : new Error("Cancellation COMMIT outcome uncertain");
++    try { await tx.query("ROLLBACK"); }
++    catch (rollbackError) {
++      discard ??= rollbackError instanceof Error ? rollbackError : new Error("Cancellation ROLLBACK failed");
++    }
++    throw error;
++  } finally { tx.release(discard); }
++}
++
++/** Delivery acknowledgement only; never creates intent or changes the retained original reason. */
++export async function markJobCancellationDelivered(jobId: string, authorityPool?: CancellationPool): Promise<void> {
++  const tx = await (authorityPool ?? defaultPool()).connect();
++  try {
++    await tx.query("UPDATE workflow_stage.cancellations SET event_delivered_at=COALESCE(event_delivered_at,now()) WHERE job_id=$1", [jobId]);
++  } finally { tx.release(); }
++}
++
++/** Separate retryable cleanup acknowledgement: no spending or provider call occurs here. */
++export async function markJobCancellationCheckoutDone(jobId: string, authorityPool?: CancellationPool): Promise<void> {
++  const tx = await (authorityPool ?? defaultPool()).connect();
++  try { await tx.query("UPDATE workflow_stage.cancellations SET checkout_done_at=COALESCE(checkout_done_at,now()) WHERE job_id=$1", [jobId]); }
++  finally { tx.release(); }
++}
++
++export async function listPendingCancellationJobs(limit = 100, authorityPool?: CancellationPool): Promise<string[]> {
++  const tx = await (authorityPool ?? defaultPool()).connect();
++  try {
++    const result = await tx.query("SELECT * FROM workflow_stage.cancellations WHERE event_delivered_at IS NULL OR checkout_done_at IS NULL ORDER BY COALESCE(last_attempt_at,'epoch'::timestamptz),requested_at,job_id LIMIT $1", [Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.floor(limit))) : 100]);
++    return result.rows.map(row => String(row.job_id));
++  } finally { tx.release(); }
++}
++
++/** Internal delivery-worker lookup; caller must authenticate before exposing a receipt to a viewer. */
++export async function getJobCancellation(jobId: string, authorityPool?: CancellationPool): Promise<CancellationRequest | null> {
++  const tx = await (authorityPool ?? defaultPool()).connect();
++  try {
++    const row = (await tx.query("SELECT * FROM workflow_stage.cancellations WHERE job_id=$1", [jobId])).rows[0];
++    return row ? receipt(row) : null;
++  } finally { tx.release(); }
++}
++
++/** Rotate failed deliveries behind untouched requests without mutating the retained payload. */
++export async function markJobCancellationAttempt(jobId: string, authorityPool?: CancellationPool): Promise<void> {
++  const tx = await (authorityPool ?? defaultPool()).connect();
++  try { await tx.query("UPDATE workflow_stage.cancellations SET last_attempt_at=now() WHERE job_id=$1", [jobId]); }
++  finally { tx.release(); }
++}
+diff --git a/apps/web/src/server/job-store-stage-sql.test.ts b/apps/web/src/server/job-store-stage-sql.test.ts
+--- a/apps/web/src/server/job-store-stage-sql.test.ts
++++ b/apps/web/src/server/job-store-stage-sql.test.ts
+@@ -4,9 +4,9 @@
+ import { Finding,JOB_STATES,type Remediation } from '@ae/core/contracts/index';
+ import { claimWorkflowStage,markWorkflowStagePending,registerWorkflowStageChild,recoverWorkflowStage,type WorkflowStageClaim } from '@ae/core/db/workflow-stage-authority';
+ import type { WorkflowStageScope } from './workflow-stage-runtime';
+-import { setJobState,recordProgress,saveFindings,saveRemediation,recordCost } from './job-store';
++import { setJobState,recordProgress,saveFindings,saveRemediation,recordCost,setJobStateIfActive,finalizeJobCancellation,discardPartialJobEvaluation,createQuote,addMessage } from './job-store';
+ const state=vi.hoisted(()=>({scope:undefined as WorkflowStageScope|undefined,settle:vi.fn()}));
+-vi.mock('./workflow-stage-runtime',()=>({currentWorkflowStageScope:()=>state.scope,workflowStageDigest:JSON.stringify}));
++vi.mock('./workflow-stage-runtime',()=>({workflowStageTransaction:(fn:any)=>tx(fn),currentWorkflowStageScope:()=>state.scope,workflowStageDigest:JSON.stringify}));
+ vi.mock('./cost-settlement',()=>({recordSettledCost:state.settle}));
+ vi.mock('@ae/core/db/client',()=>({db:()=>{throw Error('unexpected_unfenced_database');},schema:{}}));
+ vi.mock('@ae/core/adapters/index',()=>({createServiceAdapters:()=>({})}));
+@@ -32,6 +32,8 @@
+  await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
+  await pg.exec(readFileSync(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql','utf8'));
+  await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql','utf8'));
++ await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
++ await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
+  await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/002-stage-progress.sql','utf8'));
+  await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4),($5,$2,$3,$4)',[job,'trace_audit',customer,'test',other]);
+  const decision=await tx(t=>claimWorkflowStage(t,claim));if(decision.kind!=='owned')throw Error('owner');state.scope={owner:decision.owner,transaction:tx};
+@@ -91,3 +93,40 @@
+  await recordProgress(job,'audit','Working');await recordProgress(job,'audit','Finished');
+  expect((await pg.query('SELECT message FROM progress_events ORDER BY created_at')).rows).toEqual([{message:'Working'},{message:'Finished'}]);
+ });
++
++it('immediate cancellation fences scoped and standalone publication while accounting stays ingestible',async()=>{
++ await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customer,'owner@example.test']);
++ await pg.query('INSERT INTO workflow_stage.cancellations(job_id,reason,requested_by,as_operator) VALUES($1,$2,$3,false)',[job,'original',customer]);
++ for(const write of [()=>recordProgress(job,'late','late'),()=>setJobState(job,'delivered'),()=>saveFindings(job,[finding])])await expect(write()).rejects.toThrow('workflow_stage_conflict');
++ state.scope=undefined;
++ for(const write of [()=>recordProgress(job,'late','late'),()=>setJobState(job,'delivered'),()=>saveFindings(job,[finding])])await expect(write()).rejects.toThrow('job_cancellation_requested');
++ expect(await setJobStateIfActive(job,'running')).toBe(false);
++ await finalizeJobCancellation(job,'replacement');await finalizeJobCancellation(job,'duplicate');
++ expect((await pg.query('SELECT state FROM jobs WHERE id=$1',[job])).rows[0]).toMatchObject({state:'cancelled'});
++ expect((await pg.query('SELECT milestone,message FROM progress_events')).rows).toEqual([{milestone:'cancelled',message:'Job cancelled: original'}]);
++ await recordCost({jobId:job,source:'ai_gateway',requestId:'late',microUsd:9,meta:{measured:true}});expect(state.settle).toHaveBeenCalledOnce();
++ expect((await pg.query('SELECT released_at FROM budget_reservations')).rows[0]).toMatchObject({released_at:null});
++});
++it('atomically publishes active lifecycle state and progress and refuses terminal reopening',async()=>{
++ state.scope=undefined;expect(await setJobStateIfActive(job,'running',{milestone:'running',message:'Started'})).toBe(true);
++ expect(await setJobStateIfActive(job,'delivered',undefined,{reportBlobPath:'report'})).toBe(true);
++ expect(await setJobStateIfActive(job,'running')).toBe(false);
++ await expect(setJobState(job,'running')).rejects.toThrow('job_terminal_transition');
++ expect((await pg.query('SELECT state,report_blob_path FROM jobs WHERE id=$1',[job])).rows[0]).toMatchObject({state:'delivered',report_blob_path:'report'});
++});
++
++it('cancellation also blocks quotes/commercial messages and preserves unfinished evidence',async()=>{
++ await saveFindings(job,[finding]);state.scope=undefined;
++ await pg.exec("CREATE TABLE quotes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid,version integer,package text,price_cents integer,scope_summary text,deliverables jsonb);CREATE TABLE messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),job_id uuid,role text,body text)");
++ const q={package:'trace_audit',scopeSummary:'Scope',deliverables:['report']} as any;
++ await setJobState(job,'running');await createQuote(job,q);await addMessage(job,'commercial','Before');
++ await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customer,'owner@example.test']);await pg.query('INSERT INTO workflow_stage.cancellations(job_id,reason,requested_by,as_operator) VALUES($1,$2,$3,false)',[job,'stop',customer]);
++ await expect(createQuote(job,q)).rejects.toThrow('job_cancellation_requested');await expect(addMessage(job,'commercial','After')).rejects.toThrow('job_cancellation_requested');
++ expect(await discardPartialJobEvaluation(job)).toEqual({findings:0,remediations:0});
++ expect((await pg.query('SELECT * FROM findings')).rows).toHaveLength(1);expect((await pg.query('SELECT * FROM quotes')).rows).toHaveLength(1);expect((await pg.query('SELECT * FROM messages')).rows).toHaveLength(1);
++});
++it('unfinished evidence reset and its progress commit atomically only while active',async()=>{
++ await saveFindings(job,[finding]);state.scope=undefined;await setJobState(job,'running');
++ expect(await discardPartialJobEvaluation(job)).toEqual({findings:1,remediations:0});expect((await pg.query('SELECT * FROM findings')).rows).toHaveLength(0);
++ expect((await pg.query('SELECT milestone FROM progress_events')).rows).toEqual([{milestone:'partial_results_discarded'}]);
++});
+diff --git a/apps/web/src/server/job-store.ts b/apps/web/src/server/job-store.ts
+--- a/apps/web/src/server/job-store.ts
++++ b/apps/web/src/server/job-store.ts
+@@ -1,5 +1,17 @@
+ import "server-only";
+-import { workflowStageDigest, currentWorkflowStageScope } from './workflow-stage-runtime';
++import type { JobBudgetTx } from '@ae/core/db/job-budget-authority';
++
++async function publication<T>(jobId:string,scope:ReturnType<typeof stageScopeFor>,write:(tx:JobBudgetTx)=>Promise<T>,allowCancellation=false):Promise<T>{
++ if(scope)return publishWorkflowStage(write,scope);
++ return workflowStageTransaction(async tx=>{
++  const job=(await tx.query<{state:string}>('SELECT state FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++  if(!job)throw Error('job_not_found');
++  if(!allowCancellation&&(job.state==='cancelled'||(await tx.query('SELECT 1 FROM workflow_stage.cancellations WHERE job_id=$1',[jobId])).rows.length))throw Error('job_cancellation_requested');
++  return write(tx);
++ });
++}
++
++import { workflowStageTransaction, workflowStageDigest, currentWorkflowStageScope } from './workflow-stage-runtime';
+ import { publishWorkflowStage } from './workflow-stage-children';
+ 
+ /** A scoped publication must stay on the pinned owner-check transaction. */
+@@ -43,7 +55,7 @@
+ 
+ export async function setJobState(jobId: string, state: JobState, extra: JobStateExtra = {}): Promise<void> {
+   const scope=stageScopeFor(jobId);
+-  if(scope) {
++  {
+     const columns:Record<keyof JobStateExtra,string>={error:'error',deliveredAt:'delivered_at',neonBranchId:'neon_branch_id',reportBlobPath:'report_blob_path',suiteBlobPath:'suite_blob_path',workflowRunId:'workflow_run_id',credentialsDeleteAfter:'credentials_delete_after',branchDeleteAfter:'branch_delete_after',budgetReservedMicroUsd:'budget_reserved_micro_usd'};
+     const params:unknown[]=[jobId,state];
+     const assignments=['state=$2','updated_at=now()'];
+@@ -52,23 +64,27 @@
+       if(value===undefined)continue;
+       params.push(value);assignments.push(`${columns[key as keyof JobStateExtra]}=$${params.length}`);
+     }
+-    await publishWorkflowStage(tx=>tx.query(`UPDATE jobs SET ${assignments.join(',')} WHERE id=$1`,params),scope);
+-    return;
+-  }
+-  await db().update(schema.jobs).set({ ...extra, state, updatedAt: new Date() }).where(eq(schema.jobs.id, jobId));
++    await publication(jobId,scope,async tx=>{
++      const current=scope?undefined:(await tx.query<{state:string}>('SELECT state FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++      if(current&&['cancelled','failed','delivered'].includes(current.state)&&current.state!==state)throw Error('job_terminal_transition');
++      await tx.query(`UPDATE jobs SET ${assignments.join(',')} WHERE id=$1`,params);
++    },state==='cancelled');
++    return;
++  }
++
+ }
+ 
+ export async function recordProgress(jobId: string, milestone: string, message: string): Promise<void> {
+   const scope=stageScopeFor(jobId);
+-  if(scope) {
+-    await publishWorkflowStage(tx=>tx.query(`WITH claim AS (
++  {
++    await publication(jobId,scope,tx=>scope?tx.query(`WITH claim AS (
+       INSERT INTO workflow_stage.progress(job_id,stage_key,milestone,message_digest) VALUES($1,$4,$2,$5)
+       ON CONFLICT DO NOTHING RETURNING job_id)
+       INSERT INTO progress_events(job_id,milestone,message) SELECT job_id,$2,$3 FROM claim`,
+-      [jobId,milestone.slice(0,100),message.slice(0,1000),scope.owner.stageKey,workflowStageDigest(message.slice(0,1000))]),scope);
+-    return;
+-  }
+-  await db().insert(schema.progressEvents).values({ jobId, milestone: milestone.slice(0, 100), message: message.slice(0, 1000) });
++      [jobId,milestone.slice(0,100),message.slice(0,1000),scope.owner.stageKey,workflowStageDigest(message.slice(0,1000))]):tx.query('INSERT INTO progress_events(job_id,milestone,message) VALUES($1,$2,$3)',[jobId,milestone.slice(0,100),message.slice(0,1000)]));
++    return;
++  }
++
+ }
+ 
+ export async function recordCost(entry: CostEntry, expected?: { ownerId: string; environment: Environment }): Promise<void> {
+@@ -80,53 +96,35 @@
+ export async function saveFindings(jobId: string, findings: Finding[], rerunOfFindingId?: string): Promise<void> {
+   const scope=stageScopeFor(jobId);
+   if (findings.length === 0) return;
+-  if(scope) {
+-    await publishWorkflowStage(async tx=>{
++  {
++    await publication(jobId,scope,async tx=>{
+       const existing=await tx.query<{k:string}>('SELECT finding_key AS k FROM findings WHERE job_id=$1 AND rerun_of_finding_id IS NOT DISTINCT FROM $2::uuid',[jobId,rerunOfFindingId??null]);
+       const have=new Set(existing.rows.map(r=>r.k));
+       const fresh=rerunOfFindingId?findings:findings.filter(f=>!have.has(f.id));
+       for(const finding of fresh)await tx.query('INSERT INTO findings(job_id,finding_key,data,rerun_of_finding_id) VALUES($1,$2,$3::jsonb,$4)',[jobId,finding.id,JSON.stringify(finding),rerunOfFindingId??null]);
+-    },scope);
+-    return;
+-  }
+-  const existing = await db().select({ k: schema.findings.findingKey }).from(schema.findings)
+-    .where(and(eq(schema.findings.jobId, jobId), rerunOfFindingId ? eq(schema.findings.rerunOfFindingId, rerunOfFindingId) : sql`${schema.findings.rerunOfFindingId} is null`));
+-  const have = new Set(existing.map((r) => r.k));
+-  const fresh = rerunOfFindingId ? findings : findings.filter((f) => !have.has(f.id));
+-  if (fresh.length === 0) return;
+-  await db().insert(schema.findings).values(fresh.map((f) => ({
+-    jobId, findingKey: f.id, data: f, rerunOfFindingId: rerunOfFindingId ?? null,
+-  })));
++    });
++    return;
++  }
++
+ }
+ 
+ export async function addMessage(jobId: string, role: "customer" | "commercial" | "operator" | "system", body: string): Promise<string> {
++  if(role==='commercial'||currentWorkflowStageScope())return publication(jobId,stageScopeFor(jobId),async tx=>{
++    const row=(await tx.query<{id:string}>('INSERT INTO messages(job_id,role,body) VALUES($1,$2,$3) RETURNING id',[jobId,role,body])).rows[0];if(!row)throw Error('job_message_write_failed');return row.id;
++  });
+   const [row] = await db().insert(schema.messages).values({ jobId, role, body }).returning({ id: schema.messages.id });
+   return row!.id;
+ }
+ 
+ /** Creates the next quote version. Price comes only from PRICE_CENTS, never from the agent. */
+-export async function createQuote(jobId: string, qualify: QualifyResult): Promise<Quote> {
+-  const job = await getJob(jobId);
+-  if (!job) throw new Error(`Job ${jobId} not found`);
+-  const pkg: Package = qualify.package;
+-  for (let attempt = 0; attempt < 3; attempt++) {
+-    const [{ max }] = await db().select({ max: sql<number>`coalesce(max(${schema.quotes.version}), 0)::int` })
+-      .from(schema.quotes).where(eq(schema.quotes.jobId, jobId));
+-    const version = max + 1;
+-    try {
+-      await db().insert(schema.quotes).values({
+-        jobId, version, package: pkg, priceCents: PRICE_CENTS[pkg],
+-        scopeSummary: qualify.scopeSummary, deliverables: qualify.deliverables,
+-      });
+-      return {
+-        jobId, version, package: pkg, priceCents: PRICE_CENTS[pkg], scopeSummary: qualify.scopeSummary,
+-        deliverables: qualify.deliverables, environment: job.environment,
+-      };
+-    } catch (err) {
+-      if (attempt === 2) throw err; // unique (job, version) race: retry with fresh max
+-    }
+-  }
+-  throw new Error("unreachable");
++export async function createQuote(jobId:string,qualify:QualifyResult):Promise<Quote>{
++ return publication(jobId,stageScopeFor(jobId),async tx=>{
++  const job=(await tx.query<{environment:Environment}>('SELECT environment FROM jobs WHERE id=$1',[jobId])).rows[0];if(!job)throw Error('job_not_found');
++  const version=Number((await tx.query<{version:number}>('SELECT COALESCE(MAX(version),0)+1 AS version FROM quotes WHERE job_id=$1',[jobId])).rows[0]!.version);
++  const pkg=qualify.package,priceCents=PRICE_CENTS[pkg];
++  await tx.query('INSERT INTO quotes(job_id,version,package,price_cents,scope_summary,deliverables) VALUES($1,$2,$3,$4,$5,$6::jsonb)',[jobId,version,pkg,priceCents,qualify.scopeSummary,JSON.stringify(qualify.deliverables)]);
++  return {jobId,version,package:pkg,priceCents,scopeSummary:qualify.scopeSummary,deliverables:qualify.deliverables,environment:job.environment};
++ });
+ }
+ 
+ export interface JobWithCredentials {
+@@ -191,14 +189,49 @@
+ /** Persists a validated fix for a finding row. Idempotent: one remediation per finding row (retries overwrite). */
+ export async function saveRemediation(jobId: string, findingRowId: string, remediation: Remediation): Promise<void> {
+   const scope=stageScopeFor(jobId);
+-  if(scope) {
+-    await publishWorkflowStage(async tx=>{
++  {
++    await publication(jobId,scope,async tx=>{
+       const finding=(await tx.query<{id:string}>('SELECT id FROM findings WHERE id=$1 AND job_id=$2',[findingRowId,jobId])).rows[0];
+       if(!finding)throw new Error('workflow_stage_finding_job_mismatch');
+       await tx.query('INSERT INTO remediations(job_id,finding_row_id,data) VALUES($1,$2,$3::jsonb) ON CONFLICT(finding_row_id) DO UPDATE SET data=excluded.data',[jobId,findingRowId,JSON.stringify(remediation)]);
+-    },scope);
+-    return;
+-  }
+-  await db().insert(schema.remediations).values({ jobId, findingRowId, data: remediation })
+-    .onConflictDoUpdate({ target: schema.remediations.findingRowId, set: { data: remediation } });
+-}
++    });
++    return;
++  }
++
++}
++
++/** One job-row transaction makes lifecycle eligibility and publication indivisible. */
++export async function setJobStateIfActive(jobId:string,state:JobState,progress?:{milestone:string;message:string},extra:JobStateExtra={}):Promise<boolean>{
++ return workflowStageTransaction(async tx=>{
++  const job=(await tx.query<{state:string}>('SELECT state FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++  if(!job||['cancelled','failed','delivered'].includes(job.state)||(await tx.query('SELECT 1 FROM workflow_stage.cancellations WHERE job_id=$1',[jobId])).rows.length)return false;
++  const columns:Record<keyof JobStateExtra,string>={error:'error',deliveredAt:'delivered_at',neonBranchId:'neon_branch_id',reportBlobPath:'report_blob_path',suiteBlobPath:'suite_blob_path',workflowRunId:'workflow_run_id',credentialsDeleteAfter:'credentials_delete_after',branchDeleteAfter:'branch_delete_after',budgetReservedMicroUsd:'budget_reserved_micro_usd'};
++  const params:unknown[]=[jobId,state],sets=['state=$2','updated_at=now()'];
++  for(const [key,value] of Object.entries(extra)){if(!Object.hasOwn(columns,key))throw Error('job_invalid_column');if(value===undefined)continue;params.push(value);sets.push(`${columns[key as keyof JobStateExtra]}=$${params.length}`);}
++  await tx.query(`UPDATE jobs SET ${sets.join(',')} WHERE id=$1`,params);
++  if(progress)await tx.query('INSERT INTO progress_events(job_id,milestone,message) VALUES($1,$2,$3)',[jobId,progress.milestone.slice(0,100),progress.message.slice(0,1000)]);
++  return true;
++ });
++}
++/** Repeated event delivery never duplicates cancellation progress or releases unknown holds. */
++export async function finalizeJobCancellation(jobId:string,reason:string):Promise<void>{
++ await workflowStageTransaction(async tx=>{
++  const job=(await tx.query<{state:string}>('SELECT state FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++  if(!job||['cancelled','failed','delivered'].includes(job.state))return;
++  const retained=(await tx.query<{reason:string}>('SELECT reason FROM workflow_stage.cancellations WHERE job_id=$1',[jobId])).rows[0];
++  await tx.query("UPDATE jobs SET state='cancelled',updated_at=now() WHERE id=$1",[jobId]);
++  await tx.query("INSERT INTO progress_events(job_id,milestone,message) VALUES($1,'cancelled',$2)",[jobId,`Job cancelled: ${(retained?.reason??reason).slice(0,980)}`]);
++ });
++}
++
++/** Deletes only unfinished results while holding the same row used by cancellation admission. */
++export async function discardPartialJobEvaluation(jobId:string):Promise<{findings:number;remediations:number}>{
++ return workflowStageTransaction(async tx=>{
++  const job=(await tx.query<{state:string;report_blob_path:string|null}>('SELECT state,report_blob_path FROM jobs WHERE id=$1 FOR UPDATE',[jobId])).rows[0];
++  if(!job||job.report_blob_path||!['quoted','awaiting_payment','planning','running','investigating'].includes(job.state)||(await tx.query('SELECT 1 FROM workflow_stage.cancellations WHERE job_id=$1',[jobId])).rows.length)return {findings:0,remediations:0};
++  const rem=(await tx.query('DELETE FROM remediations WHERE job_id=$1 RETURNING id',[jobId])).rows;
++  const fnd=(await tx.query('DELETE FROM findings WHERE job_id=$1 RETURNING id',[jobId])).rows;
++  if(rem.length||fnd.length)await tx.query("INSERT INTO progress_events(job_id,milestone,message) VALUES($1,'partial_results_discarded',$2)",[jobId,`Internal note: discarded ${fnd.length} finding(s) and ${rem.length} fix(es) from an interrupted run before re-running the evaluation.`]);
++  return {findings:fnd.length,remediations:rem.length};
++ });
++}
+diff --git a/apps/web/src/server/mcp-tools.test.ts b/apps/web/src/server/mcp-tools.test.ts
+--- a/apps/web/src/server/mcp-tools.test.ts
++++ b/apps/web/src/server/mcp-tools.test.ts
+@@ -22,6 +22,15 @@
+     report: { summary: "2 findings", markdown: "# Report" },
+   };
+ });
++const requestJobCancellation = vi.fn(async (jobId: string, viewer: { id: string; allowOperator?: boolean }, reason?: string) => {
++  const job = jobs[jobId];
++  if (!job || job.customerId !== viewer.id) return { ok: false, status: 404, error: "Job not found" };
++  if (job.state === "running") return { ok: false, status: 409, error: "Work has already started", state: job.state };
++  return { ok: true, request: { jobId, reason }, created: true };
++});
++const dispatchJobCancellation = vi.fn(async () => ({ jobId: A_JOB, errors: [] }));
++vi.mock("./job-cancellation", () => ({ requestJobCancellation }));
++vi.mock("./job-cancellation-delivery", () => ({ dispatchJobCancellation }));
+ const createJob = vi.fn(async () => ({ jobId: "33333333-3333-4333-8333-333333333333" }));
+ const sendJobEvent = vi.fn(async () => undefined);
+ const addMessage = vi.fn(async () => "m");
+@@ -153,12 +162,17 @@
+ });
+ 
+ describe("cancel_job", () => {
+-  it("cancels a pre-planning job, closes checkout and sends the cancel event", async () => {
++  it("accepts durable intent even when immediate delivery fails", async () => {
++    dispatchJobCancellation.mockRejectedValueOnce(new Error("offline"));
++    expect((await cancelJob(A, A_JOB)).isError).toBeUndefined();
++  });
++
++  it("records using authenticated identity and dispatches the durable request", async () => {
+     jobs[A_JOB].state = "quoted";
+     const r = await cancelJob(A, A_JOB, "changed my mind");
+     expect(r.isError).toBeUndefined();
+-    expect(expireOpenCheckout).toHaveBeenCalledWith(A_JOB);
+-    expect(sendJobEvent).toHaveBeenCalledWith(A_JOB, { type: "cancel", reason: "changed my mind" });
++    expect(requestJobCancellation).toHaveBeenCalledWith(A_JOB, { id: "A", allowOperator: false }, "changed my mind");
++    expect(dispatchJobCancellation).toHaveBeenCalledWith(A_JOB);
+   });
+   it("refuses once work has started", async () => {
+     jobs[A_JOB].state = "running";
+diff --git a/apps/web/src/server/mcp-tools.ts b/apps/web/src/server/mcp-tools.ts
+--- a/apps/web/src/server/mcp-tools.ts
++++ b/apps/web/src/server/mcp-tools.ts
+@@ -8,13 +8,14 @@
+   PER_FINDING_CENTS, PER_FINDING_CAP_CENTS, PricingMode, type JobState, type Package,
+ } from "@ae/core/contracts/index";
+ import { PLANS, formatUsd } from "@ae/core/pricing/plans";
+-import { createCheckoutForQuote, expireOpenCheckout } from "@ae/core/payments/checkout";
++import { createCheckoutForQuote } from "@ae/core/payments/checkout";
+ import { stripe } from "@ae/core/payments/stripe";
+ import { createJob } from "./create-job";
+ import { withIdempotency, IdempotencyInProgressError } from "./idempotency";
+ import { getJobForViewer } from "./queries";
+-import { addMessage, latestQuote } from "./job-store";
+-import { decideCancel } from "@/workflows/decisions";
++import { latestQuote } from "./job-store";
++import { requestJobCancellation } from "./job-cancellation";
++import { dispatchJobCancellation } from "./job-cancellation-delivery";
+ import { sendJobEvent } from "@/workflows/events";
+ import { rerunFindingForJob, submitClarificationAnswer } from "./job-actions";
+ import type { Viewer } from "./access";
+@@ -261,22 +262,13 @@
+ }
+ 
+ export async function cancelJob(c: McpCaller, jobId: string, reason?: string): Promise<McpToolResult> {
+-  const data = await loadOwnedJob(c, jobId);
+-  if (!data) return NOT_FOUND();
+-  const decision = decideCancel({ customerId: c.customerId, state: data.job.state as JobState }, viewerOf(c));
+-  if (!decision.allowed) return fail(decision.error, decision.status === 409 ? { state: data.job.state } : undefined);
+-  const why = reason || "Cancelled by the customer";
+-  await addMessage(jobId, "customer", `Cancellation requested: ${why}`);
+-  try { await expireOpenCheckout(jobId); } catch (err) {
+-    console.error("mcp cancel expireOpenCheckout failed", jobId, err instanceof Error ? err.message : err);
+-  }
+-  try {
+-    await sendJobEvent(jobId, { type: "cancel", reason: why });
+-  } catch (err) {
+-    console.error("mcp cancel sendJobEvent failed", jobId, err instanceof Error ? err.message : err);
+-    return fail("Cancellation recorded but the job could not be notified; please retry");
+-  }
+-  return ok({ ok: true, jobId, state: "cancelling", note: "Cancellation accepted; poll get_job to see state 'cancelled'." });
++  const result = await requestJobCancellation(jobId, { id: c.customerId, allowOperator: false }, reason);
++  if (!result.ok) return fail(result.error, result.status === 409 ? { state: result.state } : undefined);
++  // Accepted once intent is durable. Cron retries notification and Checkout expiry failures.
++  try { await dispatchJobCancellation(jobId); } catch (err) {
++    console.error("mcp cancel delivery deferred", jobId, err instanceof Error ? err.message : err);
++  }
++  return ok({ ok: true, jobId, state: "cancelling", note: "Cancellation accepted; notification is retried automatically. Poll get_job to see state 'cancelled'." });
+ }
+ 
+ const EVIDENCE_EXCERPT_MAX = 600;
+diff --git a/apps/web/src/server/services-recovery.test.ts b/apps/web/src/server/services-recovery.test.ts
+--- a/apps/web/src/server/services-recovery.test.ts
++++ b/apps/web/src/server/services-recovery.test.ts
+@@ -58,3 +58,11 @@
+   await expect(recoverableEvalStage(method,'job',key,{})).rejects.toThrow('workflow_stage_recovery_profile_invalid');
+  }
+ });
++
++it('distinguishes pending/control flow from definitive remediation failure',async()=>{
++ const {isWorkflowStagePendingError,isWorkflowStageControlError}=await import('./services');
++ const {TrackBPendingError}=await import('@ae/core/integration/eval-services');const {RetryableError,FatalError}=await import('workflow');
++ for(const e of [new TrackBPendingError(5000,'pending'),new RetryableError('pending')]){expect(isWorkflowStagePendingError(e)).toBe(true);expect(isWorkflowStageControlError(e)).toBe(true);}
++ for(const e of [new FatalError('stop'),new Error('workflow_stage_conflict'),new Error('job_cancellation_requested')]){expect(isWorkflowStageControlError(e)).toBe(true);expect(isWorkflowStagePendingError(e)).toBe(false);}
++ expect(isWorkflowStageControlError(new Error('definitive verification failure'))).toBe(false);
++});
+diff --git a/apps/web/src/server/services.ts b/apps/web/src/server/services.ts
+--- a/apps/web/src/server/services.ts
++++ b/apps/web/src/server/services.ts
+@@ -279,3 +279,7 @@
+ export async function workflowServiceCall<T>(run: () => Promise<T>): Promise<T> {
+  try { return await run(); } catch (error) { throw toWorkflowError(error); }
+ }
++
++/** Recognize pending before Workflow translation or after it, without swallowing authority errors. */
++export function isWorkflowStagePendingError(error:unknown):boolean{return error instanceof TrackBPendingError||error instanceof RetryableError;}
++export function isWorkflowStageControlError(error:unknown):boolean{return isWorkflowStagePendingError(error)||error instanceof FatalError||(error instanceof Error&&/^(workflow_stage_|job_cancellation_)/.test(error.message));}
+diff --git a/apps/web/src/server/workflow-stage-children.test.ts b/apps/web/src/server/workflow-stage-children.test.ts
+--- a/apps/web/src/server/workflow-stage-children.test.ts
++++ b/apps/web/src/server/workflow-stage-children.test.ts
+@@ -19,6 +19,8 @@
+  await pg.exec(readFileSync(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql','utf8'));
+  await pg.exec(readFileSync(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql','utf8'));
+  await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql','utf8'));
++ await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
++ await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
+  await pg.exec(readFileSync('docs/naive-stage-recovery-integration/sql/002-stage-progress.sql','utf8'));
+  await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);
+  const owned=await tx(t=>claimWorkflowStage(t,claim));if(owned.kind!=='owned')throw Error('owner');scope={owner:owned.owner,transaction:tx};
+diff --git a/apps/web/src/server/workflow-stage-recovery-integration.test.ts b/apps/web/src/server/workflow-stage-recovery-integration.test.ts
+--- a/apps/web/src/server/workflow-stage-recovery-integration.test.ts
++++ b/apps/web/src/server/workflow-stage-recovery-integration.test.ts
+@@ -22,11 +22,12 @@
+  'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql',
+  'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql',
+  'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql',
++ 'docs/naive-cancellation-integration/sql/001-job-cancellation.sql',
+ ];
+ beforeEach(async()=>{
+  process.env.DATABASE_URL='postgres://offline-fixture';process.env.CREDENTIALS_ENCRYPTION_KEY=Buffer.alloc(32,7).toString('base64');
+  pg=new PGlite();state.pg=pg;state.stepId='first';state.attempt=0;
+- await pg.exec(`CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,state text NOT NULL DEFAULT 'running',budget_reserved_micro_usd bigint DEFAULT 0);
++ await pg.exec(`CREATE TABLE customers(id uuid PRIMARY KEY,email text);CREATE TABLE jobs(id uuid PRIMARY KEY,package text,customer_id uuid,environment text,state text NOT NULL DEFAULT 'running',budget_reserved_micro_usd bigint DEFAULT 0);
+  CREATE TABLE budget_reservations(id uuid PRIMARY KEY,job_id uuid,agent text,micro_usd bigint,released_at timestamptz);
+  CREATE TABLE costs(id uuid PRIMARY KEY,job_id uuid,micro_usd bigint,receipt_key text);`);
+  for(const path of migrations)await pg.exec(readFileSync(resolve(path),'utf8'));
+diff --git a/apps/web/src/workflows/job.ts b/apps/web/src/workflows/job.ts
+--- a/apps/web/src/workflows/job.ts
++++ b/apps/web/src/workflows/job.ts
+@@ -303,7 +303,7 @@
+     return await run();
+   } catch (err) {
+     const message = err instanceof Error ? err.message : String(err);
+-    await failStep(jobId, message);
+-    return { jobId, status: "failed" };
++    const status = await failStep(jobId, message);
++    return { jobId, status: status === "cancelled" ? "cancelled" : "failed" };
+   }
+ }
+diff --git a/apps/web/src/workflows/steps/evaluate.ts b/apps/web/src/workflows/steps/evaluate.ts
+--- a/apps/web/src/workflows/steps/evaluate.ts
++++ b/apps/web/src/workflows/steps/evaluate.ts
+@@ -9,7 +9,7 @@
+ import { putJobArtifact } from "@ae/core/storage/blob";
+ import { findingRowIdByKey, recordProgress, saveFindings, saveRemediation, setJobState } from "@/server/job-store";
+ import { resolveBranchConnection } from "@/server/branch-connection";
+-import { getEvalServices, recoverableEvalStage, workflowServiceCall } from "@/server/services";
++import { getEvalServices, isWorkflowStageControlError, isWorkflowStagePendingError, recoverableEvalStage, workflowServiceCall } from "@/server/services";
+ import { loadIntake, requireJob, withBudget, type BudgetResult } from "./common";
+ 
+ /** Feature flag: on by default; REDTEAM_PACK=0|false|off|no disables. */
+@@ -112,33 +112,36 @@
+ }
+ investigateStep.maxRetries = 1;
+ 
+-/**
+- * Proposes + verifies a fix for one confirmed finding (engineer budget share). Never fails the job:
+- * a service error yields data=null and a progress note. The finding row is stored first (idempotent) so the
+- * remediation can reference it; persistReportStep later skips already-stored keys.
++/** Proposes and verifies a fix. Only definitive service failures become a null result.
++ * Pending work retains the mixed callback's parent hold; it never enables automatic replay.
++ * Publication and ownership failures escape the semantic service-failure catch.
+  */
+ export async function proposeFixStep(jobId: string, finding: Finding, suite?: Suite): Promise<BudgetResult<Remediation | null>> {
+   "use step";
+   const intake = await loadIntake(jobId, false);
+   const services = await getEvalServices();
+-  const result = await withBudget(jobId, "engineer", {key: `remediation:${finding.id}`, input: {finding, suite, intake}}, async (ctx) => {
++  return workflowServiceCall(() => withBudget(jobId, "engineer", {
++    key: `remediation:${finding.id}`, input: {finding, suite, intake},
++    isPendingError: isWorkflowStagePendingError,
++  }, async (ctx) => {
++    await ctx.recordProgress("proposing_fix", `Proposing and verifying a fix for "${finding.title.slice(0, 120)}".`);
++    let fix: Remediation;
+     try {
+-      await ctx.recordProgress("proposing_fix", `Proposing and verifying a fix for "${finding.title.slice(0, 120)}".`);
+-      const fix = await services.proposeAndVerifyFix(ctx, { finding, suite, intake });
++      fix = await services.proposeAndVerifyFix(ctx, { finding, suite, intake });
++    } catch (err) {
++      if (isWorkflowStageControlError(err)) throw err;
+       await assertWorkflowStageCurrent();
+-      await saveFindings(jobId, [finding]);
+-      const rowId = await findingRowIdByKey(jobId, finding.id);
+-      if (!rowId) throw new Error("finding row missing");
+-      await assertWorkflowStageCurrent();
+-      await saveRemediation(jobId, rowId, fix);
+-      return fix;
+-    } catch (err) {
+-      await assertWorkflowStageCurrent();
+-      await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
++      await ctx.recordProgress("fix_failed", `Could not verify a fix for finding ${finding.id}.`);
+       return null;
+     }
+-  });
+-  return result;
++    await assertWorkflowStageCurrent();
++    await saveFindings(jobId, [finding]);
++    const rowId = await findingRowIdByKey(jobId, finding.id);
++    if (!rowId) throw new Error("finding row missing");
++    await assertWorkflowStageCurrent();
++    await saveRemediation(jobId, rowId, fix);
++    return fix;
++  }));
+ }
+ proposeFixStep.maxRetries = 1;
+ 
+diff --git a/apps/web/src/workflows/steps/lifecycle-cancellation.test.ts b/apps/web/src/workflows/steps/lifecycle-cancellation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/workflows/steps/lifecycle-cancellation.test.ts
+@@ -0,0 +1,66 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest';
++const mocks = vi.hoisted(() => ({ getJob: vi.fn(), active: vi.fn(), finalize: vi.fn(), cancellation: vi.fn(), alert: vi.fn(), progress: vi.fn(), setState: vi.fn() }));
++vi.mock('@ae/core/db/client', () => ({ db: vi.fn(), schema: {} }));
++vi.mock('@/server/job-store', () => ({
++  getJob: mocks.getJob, addMessage: vi.fn(), recordProgress: mocks.progress, setJobState: mocks.setState,
++  setJobStateIfActive: mocks.active, finalizeJobCancellation: mocks.finalize,
++}));
++vi.mock('@/server/job-cancellation', () => ({ getJobCancellation: mocks.cancellation }));
++vi.mock('@/server/operator-alerts', () => ({ alertOperators: mocks.alert }));
++import { cancelStep, declineStep, deliverStep, failStep, pauseBudgetStep, setStateStep } from './lifecycle';
++
++describe('cancellation-aware lifecycle', () => {
++  beforeEach(() => { vi.clearAllMocks(); mocks.getJob.mockResolvedValue(null); mocks.active.mockResolvedValue(true); mocks.cancellation.mockResolvedValue(null); });
++  it('delegates state and progress to one atomic active-state write', async () => {
++    const progress = { milestone: 'running', message: 'Running' };
++    await expect(setStateStep('job', 'running', progress)).resolves.toBe(true);
++    expect(mocks.active).toHaveBeenCalledWith('job', 'running', progress);
++    expect(mocks.setState).not.toHaveBeenCalled(); expect(mocks.progress).not.toHaveBeenCalled();
++  });
++  it('uses idempotent cancellation finalization without releasing provider holds', async () => {
++    await cancelStep('job', 'reason'); await cancelStep('job', 'reason');
++    expect(mocks.finalize).toHaveBeenCalledTimes(2);
++    expect(mocks.finalize).toHaveBeenCalledWith('job', 'reason');
++    expect(mocks.setState).not.toHaveBeenCalled(); expect(mocks.progress).not.toHaveBeenCalled();
++  });
++  it('a retained request turns a late failure into cancellation without an operator failure alert', async () => {
++    mocks.cancellation.mockResolvedValue({ reason: 'original reason' });
++    await expect(failStep('job', 'failure')).resolves.toBe('cancelled');
++    expect(mocks.finalize).toHaveBeenCalledWith('job', 'original reason');
++    expect(mocks.active).not.toHaveBeenCalled(); expect(mocks.alert).not.toHaveBeenCalled();
++  });
++  it('handles cancellation arriving between failure lookup and atomic transition', async () => {
++    mocks.active.mockResolvedValue(false);
++    mocks.cancellation.mockResolvedValueOnce(null).mockResolvedValueOnce({ reason: 'racing cancellation' });
++    await expect(failStep('job', 'failure')).resolves.toBe('cancelled');
++    expect(mocks.finalize).toHaveBeenCalledWith('job', 'racing cancellation');
++    expect(mocks.alert).not.toHaveBeenCalled();
++  });
++  it('returns cancelled for an already cancelled legacy job without a marker', async () => {
++    mocks.active.mockResolvedValue(false); mocks.getJob.mockResolvedValue({ state: 'cancelled' });
++    await expect(failStep('job', 'late failure')).resolves.toBe('cancelled');
++    expect(mocks.alert).not.toHaveBeenCalled();
++  });
++  it('budget pause routes marked cancellation through workflow cancellation control flow', async () => {
++    mocks.cancellation.mockResolvedValue({ reason: 'original reason' });
++    await expect(pauseBudgetStep('job', 'budget')).rejects.toThrow('job_cancellation_requested');
++    expect(mocks.finalize).toHaveBeenCalledWith('job', 'original reason'); expect(mocks.alert).not.toHaveBeenCalled();
++  });
++  it('declines using one atomic cancelled state and progress write', async () => {
++    await declineStep('job', 'decline reason');
++    expect(mocks.active).toHaveBeenCalledWith('job', 'cancelled', { milestone: 'declined', message: 'This request was not accepted.' }, { error: 'decline reason' });
++    expect(mocks.setState).not.toHaveBeenCalled(); expect(mocks.progress).not.toHaveBeenCalled();
++  });
++  it('replays committed delivery timestamp after a lost acknowledgement', async () => {
++    mocks.active.mockResolvedValue(false);
++    mocks.getJob.mockResolvedValue({ state: 'delivered', deliveredAt: new Date('2026-11-08T01:00:00.000Z') });
++    await expect(deliverStep('job')).resolves.toEqual({ deliveredAtIso: '2026-11-08T01:00:00.000Z' });
++    expect(mocks.progress).not.toHaveBeenCalled();
++  });
++  it('delivery rejection prevents a delivered result and progress note', async () => {
++    mocks.active.mockResolvedValue(false);
++    await expect(deliverStep('job')).rejects.toThrow('job_cancellation_requested');
++    expect(mocks.active).toHaveBeenCalledWith('job', 'delivered', { milestone: 'delivered', message: 'Your report is ready.' }, expect.objectContaining({ deliveredAt: expect.any(Date) }));
++    expect(mocks.progress).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/workflows/steps/lifecycle.ts b/apps/web/src/workflows/steps/lifecycle.ts
+--- a/apps/web/src/workflows/steps/lifecycle.ts
++++ b/apps/web/src/workflows/steps/lifecycle.ts
+@@ -1,12 +1,10 @@
+ import { eq } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+ import type { JobState } from "@ae/core/contracts/index";
+-import { addMessage, recordProgress, setJobState } from "@/server/job-store";
++import { addMessage, finalizeJobCancellation, getJob, recordProgress, setJobStateIfActive } from "@/server/job-store";
++import { getJobCancellation } from "@/server/job-cancellation";
+ import { alertOperators } from "@/server/operator-alerts";
+ import { deliveryDeadlines, sanitizeCheckDetail } from "../decisions";
+-
+-/** States a customer/operator cancellation or terminal outcome must not be overwritten from. */
+-const TERMINAL: readonly JobState[] = ["cancelled", "failed", "delivered"];
+ 
+ export async function getStateStep(jobId: string): Promise<JobState> {
+   "use step";
+@@ -17,11 +15,12 @@
+ /** Moves the job forward unless it already reached a terminal state (e.g. cancelled by the customer meanwhile). */
+ export async function setStateStep(jobId: string, state: JobState, progress?: { milestone: string; message: string }): Promise<boolean> {
+   "use step";
+-  const [row] = await db().select({ s: schema.jobs.state }).from(schema.jobs).where(eq(schema.jobs.id, jobId)).limit(1);
+-  if (!row || TERMINAL.includes(row.s as JobState)) return false;
+-  await setJobState(jobId, state);
+-  if (progress) await recordProgress(jobId, progress.milestone, progress.message);
+-  return true;
++  const changed = await setJobStateIfActive(jobId, state, progress);
++  if (!changed) {
++    const request = await getJobCancellation(jobId);
++    if (request) await finalizeJobCancellation(jobId, request.reason);
++  }
++  return changed;
+ }
+ 
+ export async function progressStep(jobId: string, milestone: string, message: string): Promise<void> {
+@@ -36,24 +35,45 @@
+ 
+ export async function cancelStep(jobId: string, reason: string): Promise<void> {
+   "use step";
+-  await setJobState(jobId, "cancelled");
+-  await recordProgress(jobId, "cancelled", `Job cancelled: ${reason}`);
+-  // Terminal job state does not prove outstanding provider work stopped; retain holds for reconciliation.
++  await finalizeJobCancellation(jobId, reason);
++  // Outstanding provider work may still be running; retain every unknown hold for reconciliation.
+ }
+ 
+-export async function failStep(jobId: string, error: string): Promise<void> {
++/** Cancellation wins over late failure and budget outcomes. */
++export async function failStep(jobId: string, error: string): Promise<"failed" | "cancelled"> {
+   "use step";
+-  await setJobState(jobId, "failed", { error: error.slice(0, 2000) });
+-  await recordProgress(jobId, "failed", "The job stopped because of an error. Our team has been notified.");
+-  // Terminal job state does not prove outstanding provider work stopped; retain holds for reconciliation.
++  const request = await getJobCancellation(jobId);
++  if (request) { await finalizeJobCancellation(jobId, request.reason); return "cancelled"; }
++  const changed = await setJobStateIfActive(jobId, "failed", {
++    milestone: "failed", message: "The job stopped because of an error. Our team has been notified.",
++  }, { error: error.slice(0, 2000) });
++  if (!changed) {
++    const lateRequest = await getJobCancellation(jobId);
++    if (lateRequest) { await finalizeJobCancellation(jobId, lateRequest.reason); return "cancelled"; }
++    if ((await getJob(jobId))?.state === "cancelled") return "cancelled";
++    return "failed";
++  }
++  // No outstanding provider hold is released by a terminal job transition.
+   await alertOperators({ kind: "job_failed", jobId, title: "Job failed", detail: `State: failed. ${error}`, severity: "critical" });
++  return "failed";
+ }
+ 
+ export async function pauseBudgetStep(jobId: string, message: string): Promise<void> {
+   "use step";
+-  await setJobState(jobId, "paused_budget", { error: message.slice(0, 2000) });
+-  await recordProgress(jobId, "paused_budget", "Paused: the per-job compute budget was reached. An operator will review before anything continues.");
+-  // Terminal job state does not prove outstanding provider work stopped; retain holds for reconciliation.
++  const request = await getJobCancellation(jobId);
++  if (request) {
++    await finalizeJobCancellation(jobId, request.reason);
++    throw new Error("job_cancellation_requested");
++  }
++  const changed = await setJobStateIfActive(jobId, "paused_budget", {
++    milestone: "paused_budget", message: "Paused: the per-job compute budget was reached. An operator will review before anything continues.",
++  }, { error: message.slice(0, 2000) });
++  if (!changed) {
++    const lateRequest = await getJobCancellation(jobId);
++    if (lateRequest) { await finalizeJobCancellation(jobId, lateRequest.reason); throw new Error("job_cancellation_requested"); }
++    return;
++  }
++  // No outstanding provider hold is released by a pause.
+   await alertOperators({ kind: "paused_budget", jobId, title: "Job paused on budget limit", detail: `State: paused_budget. ${message}`, severity: "warning" });
+ }
+ 
+@@ -61,17 +81,26 @@
+ export async function declineStep(jobId: string, reason: string): Promise<void> {
+   "use step";
+   await addMessage(jobId, "commercial", reason);
+-  await setJobState(jobId, "cancelled", { error: reason.slice(0, 2000) });
+-  await recordProgress(jobId, "declined", "This request was not accepted.");
++  const changed = await setJobStateIfActive(jobId, "cancelled", { milestone: "declined", message: "This request was not accepted." }, { error: reason.slice(0, 2000) });
++  if (!changed) {
++    const request = await getJobCancellation(jobId);
++    if (request) await finalizeJobCancellation(jobId, request.reason);
++  }
+ }
+ 
+ export async function deliverStep(jobId: string): Promise<{ deliveredAtIso: string }> {
+   "use step";
+   const d = deliveryDeadlines(new Date());
+-  await setJobState(jobId, "delivered", {
++  const changed = await setJobStateIfActive(jobId, "delivered", { milestone: "delivered", message: "Your report is ready." }, {
+     deliveredAt: d.deliveredAt, credentialsDeleteAfter: d.credentialsDeleteAfter, branchDeleteAfter: d.branchDeleteAfter,
+   });
+-  await recordProgress(jobId, "delivered", "Your report is ready.");
++  if (!changed) {
++    const retained = await getJob(jobId);
++    if (retained?.state === "delivered" && retained.deliveredAt) {
++      return { deliveredAtIso: retained.deliveredAt.toISOString() };
++    }
++    throw new Error("job_cancellation_requested");
++  }
+   return { deliveredAtIso: d.deliveredAt.toISOString() };
+ }
+ 
+diff --git a/apps/web/src/workflows/steps/remediation-pending.test.ts b/apps/web/src/workflows/steps/remediation-pending.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/workflows/steps/remediation-pending.test.ts
+@@ -0,0 +1,88 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest';
++
++const mocks = vi.hoisted(() => ({
++  propose: vi.fn(), progress: vi.fn(), assertCurrent: vi.fn(), saveFindings: vi.fn(),
++  saveRemediation: vi.fn(), pending: vi.fn(), complete: vi.fn(), stages: [] as unknown[],
++}));
++vi.mock('workflow', () => ({
++  FatalError: class FatalError extends Error {}, RetryableError: class RetryableError extends Error {},
++}));
++vi.mock('@ae/core/db/client', () => ({ db: vi.fn(), schema: {} }));
++vi.mock('@ae/core/storage/blob', () => ({ putJobArtifact: vi.fn() }));
++vi.mock('@/server/branch-connection', () => ({ resolveBranchConnection: vi.fn() }));
++vi.mock('@/server/workflow-stage-runtime', () => ({ assertWorkflowStageCurrent: mocks.assertCurrent }));
++vi.mock('@/server/job-store', () => ({
++  findingRowIdByKey: vi.fn(async () => 'row'), recordProgress: mocks.progress,
++  saveFindings: mocks.saveFindings, saveRemediation: mocks.saveRemediation, setJobState: vi.fn(),
++}));
++vi.mock('@/server/services', async () => {
++  const { RetryableError, FatalError } = await import('workflow');
++  return {
++    getEvalServices: async () => ({ proposeAndVerifyFix: mocks.propose }),
++    isWorkflowStagePendingError: (error: unknown) => error instanceof RetryableError,
++    isWorkflowStageControlError: (error: unknown) => error instanceof RetryableError || error instanceof FatalError || (error instanceof Error && /^(workflow_stage_|job_cancellation_)/.test(error.message)),
++    workflowServiceCall: async (run: () => Promise<unknown>) => run(),
++    recoverableEvalStage: vi.fn(),
++  };
++});
++vi.mock('./common', () => ({
++  loadIntake: vi.fn(async () => ({ package: 'trace_audit' })), requireJob: vi.fn(),
++  withBudget: async (_job: string, _role: string, stage: { isPendingError?: (error: unknown) => boolean }, run: (ctx: unknown) => Promise<unknown>) => {
++    mocks.stages.push(stage);
++    try {
++      const data = await run({ recordProgress: mocks.progress });
++      mocks.complete(data);
++      return { status: 'ok', data };
++    } catch (error) {
++      if (stage.isPendingError?.(error)) mocks.pending(error);
++      throw error;
++    }
++  },
++}));
++
++import { FatalError, RetryableError } from 'workflow';
++import type { Finding } from '@ae/core/contracts/index';
++import { proposeFixStep } from './evaluate';
++
++const finding = { id: 'finding-1', title: 'Finding' } as Finding;
++describe('remediation pending and publication boundary', () => {
++  beforeEach(() => { vi.clearAllMocks(); mocks.stages.length = 0; mocks.assertCurrent.mockResolvedValue(undefined); });
++  it('throws converted pending to the stage predicate without completion, failure note or saves', async () => {
++    const pending = new RetryableError('sensitive pending detail');
++    mocks.propose.mockRejectedValueOnce(pending);
++    await expect(proposeFixStep('job', finding)).rejects.toBe(pending);
++    expect(mocks.pending).toHaveBeenCalledWith(pending);
++    expect(mocks.complete).not.toHaveBeenCalled();
++    expect(mocks.saveFindings).not.toHaveBeenCalled();
++    expect(mocks.saveRemediation).not.toHaveBeenCalled();
++    expect(mocks.progress.mock.calls.some(([milestone]) => milestone === 'fix_failed')).toBe(false);
++    expect(mocks.stages[0]).not.toHaveProperty('recovery');
++  });
++  it('propagates fatal control flow without treating it as a verified failure', async () => {
++    const error = new FatalError('blocked'); mocks.propose.mockRejectedValueOnce(error);
++    await expect(proposeFixStep('job', finding)).rejects.toBe(error);
++    expect(mocks.complete).not.toHaveBeenCalled();
++    expect(mocks.progress).toHaveBeenCalledTimes(1);
++  });
++  it('does not swallow ownership failure from within the service', async () => {
++    const error = new Error('workflow_stage_conflict'); mocks.propose.mockRejectedValueOnce(error);
++    await expect(proposeFixStep('job', finding)).rejects.toBe(error);
++    expect(mocks.complete).not.toHaveBeenCalled();
++    expect(mocks.progress).toHaveBeenCalledTimes(1);
++  });
++  it('does not convert lost ownership during publication to null', async () => {
++    const error = new Error('workflow_stage_conflict');
++    mocks.propose.mockResolvedValueOnce({ id: 'fix' }); mocks.assertCurrent.mockRejectedValueOnce(error);
++    await expect(proposeFixStep('job', finding)).rejects.toBe(error);
++    expect(mocks.complete).not.toHaveBeenCalled();
++    expect(mocks.saveRemediation).not.toHaveBeenCalled();
++    expect(mocks.progress).toHaveBeenCalledTimes(1);
++  });
++  it('permits definitive failure as null with a sanitized progress note', async () => {
++    mocks.propose.mockRejectedValueOnce(new Error('private provider detail'));
++    await expect(proposeFixStep('job', finding)).resolves.toEqual({ status: 'ok', data: null });
++    expect(mocks.complete).toHaveBeenCalledWith(null);
++    expect(mocks.progress).toHaveBeenLastCalledWith('fix_failed', 'Could not verify a fix for finding finding-1.');
++    expect(mocks.saveRemediation).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/workflows/steps/resume-cancellation.test.ts b/apps/web/src/workflows/steps/resume-cancellation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/workflows/steps/resume-cancellation.test.ts
+@@ -0,0 +1,19 @@
++import { beforeEach, describe, expect, it, vi } from 'vitest';
++const mocks = vi.hoisted(() => ({ discard: vi.fn(), db: vi.fn() }));
++vi.mock('@ae/core/db/client', () => ({ db: mocks.db, schema: {} }));
++vi.mock('@/server/job-store', () => ({ discardPartialJobEvaluation: mocks.discard }));
++import { discardPartialEvaluationStep } from './resume';
++describe('restart cleanup cancellation boundary', () => {
++  beforeEach(() => vi.clearAllMocks());
++  it('delegates deletion and progress to the atomic job-store authority', async () => {
++    mocks.discard.mockResolvedValueOnce({ findings: 2, remediations: 1 });
++    await expect(discardPartialEvaluationStep('job')).resolves.toEqual({ findings: 2, remediations: 1 });
++    expect(mocks.discard).toHaveBeenCalledExactlyOnceWith('job');
++    expect(mocks.db).not.toHaveBeenCalled();
++  });
++  it('propagates cancellation instead of continuing with an empty result', async () => {
++    const error = new Error('job_cancellation_requested'); mocks.discard.mockRejectedValueOnce(error);
++    await expect(discardPartialEvaluationStep('job')).rejects.toBe(error);
++    expect(mocks.db).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/workflows/steps/resume.ts b/apps/web/src/workflows/steps/resume.ts
+--- a/apps/web/src/workflows/steps/resume.ts
++++ b/apps/web/src/workflows/steps/resume.ts
+@@ -1,7 +1,7 @@
+ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+ import { db, schema } from "@ae/core/db/client";
+ import type { JobState, Package } from "@ae/core/contracts/index";
+-import { recordProgress } from "@/server/job-store";
++import { discardPartialJobEvaluation } from "@/server/job-store";
+ import type { ResumeSnapshot } from "../decisions";
+ 
+ const COUNTED_MILESTONES = ["received", "qualified", "connection_check_failed"] as const;
+@@ -64,15 +64,5 @@
+  */
+ export async function discardPartialEvaluationStep(jobId: string): Promise<{ findings: number; remediations: number }> {
+   "use step";
+-  const [job] = await db().select({ state: schema.jobs.state, reportBlobPath: schema.jobs.reportBlobPath })
+-    .from(schema.jobs).where(eq(schema.jobs.id, jobId)).limit(1);
+-  const preDelivery: readonly string[] = ["quoted", "awaiting_payment", "planning", "running", "investigating"];
+-  if (!job || job.reportBlobPath || !preDelivery.includes(job.state)) return { findings: 0, remediations: 0 };
+-  const rem = await db().delete(schema.remediations).where(eq(schema.remediations.jobId, jobId)).returning({ id: schema.remediations.id });
+-  const fnd = await db().delete(schema.findings).where(eq(schema.findings.jobId, jobId)).returning({ id: schema.findings.id });
+-  if (rem.length || fnd.length) {
+-    await recordProgress(jobId, "partial_results_discarded",
+-      `Internal note: discarded ${fnd.length} finding(s) and ${rem.length} fix(es) from an interrupted run before re-running the evaluation.`);
+-  }
+-  return { findings: fnd.length, remediations: rem.length };
++  return discardPartialJobEvaluation(jobId);
+ }
+diff --git a/packages/core/src/db/workflow-stage-authority.test.ts b/packages/core/src/db/workflow-stage-authority.test.ts
+--- a/packages/core/src/db/workflow-stage-authority.test.ts
++++ b/packages/core/src/db/workflow-stage-authority.test.ts
+@@ -19,6 +19,8 @@
+ await pg.exec(readFileSync(resolve(process.env.JOB_BUDGET_SQL??'docs/naive-shared-budget-integration/sql/001-job-budget-authority.sql'),'utf8'));
+ await pg.exec(readFileSync(resolve(process.env.WORKFLOW_STAGE_SQL??'docs/naive-stage-ownership-integration/sql/001-workflow-stage-ownership.sql'),'utf8'));
+ await pg.exec(readFileSync(resolve(process.env.WORKFLOW_STAGE_RECOVERY_SQL??'docs/naive-stage-recovery-integration/sql/001-stage-recovery-profile.sql'),'utf8'));
++ await pg.exec("CREATE TABLE IF NOT EXISTS customers(id uuid PRIMARY KEY,email text)");
++ await pg.exec(readFileSync('docs/naive-cancellation-integration/sql/001-job-cancellation.sql','utf8'));
+ await pg.query('INSERT INTO jobs(id,package,customer_id,environment) VALUES($1,$2,$3,$4)',[job,'trace_audit',customer,'test']);});
+ afterEach(async()=>{await pg.close();});
+ it('exclusive claim rejects duplicate delivery, even same invocation and overlapping SDK retry',async()=>{await claim();expect(await run(tx=>claimWorkflowStage(tx,input))).toMatchObject({kind:'busy'});expect(await run(tx=>claimWorkflowStage(tx,{...input,invocation:{...input.invocation,attempt:1}}))).toMatchObject({kind:'busy'});expect((await pg.query('SELECT * FROM budget_reservations')).rows).toHaveLength(1);});
+@@ -43,3 +45,11 @@
+ 
+ it('strict completion requires terminal retained children while zero-child and generic stages remain compatible',async()=>{const owner=await claim(strictInput);expect(await run(tx=>workflowStageChildrenSettled(tx,owner,proof))).toBe(true);await run(tx=>registerWorkflowStageChild(tx,owner,naiveChild));for(const state of ['unknown','resumable','undispatched'] as const)expect(await run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>({state,evidenceKey:'retained'})}))).toBe(false);expect(await run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>({state:'terminal',evidenceKey:'settled'})}))).toBe(true);const generic=await claim({...input,stageKey:'generic'});await run(tx=>registerWorkflowStageChild(tx,generic,child));expect(await run(tx=>workflowStageChildrenSettled(tx,generic,{read:async()=>{throw Error('must not read generic');}}))).toBe(true);});
+ it('completion settlement check rejects unexpected children, reader failure and expired owners',async()=>{const owner=await claim(strictInput);await run(tx=>registerWorkflowStageChild(tx,owner,naiveChild));await expect(run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>{throw Error('reader unavailable');}}))).rejects.toThrow('reader unavailable');await pg.query('INSERT INTO workflow_stage.children(job_id,stage_key,kind,operation_key,request_digest,registered_generation) VALUES($1,$2,$3,$4,$5,1)',[job,input.stageKey,'other','unexpected','body']);expect(await run(tx=>workflowStageChildrenSettled(tx,owner,{read:async()=>({state:'terminal',evidenceKey:'settled'})}))).toBe(false);await expire();await expect(run(tx=>workflowStageChildrenSettled(tx,owner,proof))).rejects.toThrow('workflow_stage_conflict');});
++
++it('durable cancellation immediately revokes claims, renewals, result replay and completion without releasing holds',async()=>{
++ const owner=await claim();const completedInput={...input,stageKey:'completed-before-cancel'};const completedOwner=await claim(completedInput);await run(tx=>completeWorkflowStage(tx,completedOwner,'retained'));
++ await pg.query('INSERT INTO customers(id,email) VALUES($1,$2)',[customer,'owner@example.test']);
++ await pg.query('INSERT INTO workflow_stage.cancellations(job_id,reason,requested_by,as_operator) VALUES($1,$2,$3,false)',[job,'stop',customer]);
++ for(const action of [(tx:JobBudgetTx)=>claimWorkflowStage(tx,input),(tx:JobBudgetTx)=>claimWorkflowStage(tx,completedInput),(tx:JobBudgetTx)=>renewWorkflowStageLease(tx,owner,300000),(tx:JobBudgetTx)=>completeWorkflowStage(tx,owner,'ciphertext'),(tx:JobBudgetTx)=>recoverWorkflowStage(tx,input,proof)])await expect(run(action)).rejects.toThrow('workflow_stage_conflict');
++ expect((await run(tx=>jobBudgetExposure(tx,job))).committedMicroUsd).toBe(100);
++});
+diff --git a/packages/core/src/db/workflow-stage-authority.ts b/packages/core/src/db/workflow-stage-authority.ts
+--- a/packages/core/src/db/workflow-stage-authority.ts
++++ b/packages/core/src/db/workflow-stage-authority.ts
+@@ -12,7 +12,7 @@
+ function key(v:string){if(typeof v!=='string'||!v.length||v.length>4096||/[\u0000\uD800-\uDFFF]/u.test(v))fail();}
+ function validate(i:WorkflowStageClaim){const profile=i.recoveryProfile??'none';if(!['none','retained-children','naive-single-child-v1'].includes(profile))fail();if(profile==='naive-single-child-v1'){key(i.expectedChildKey!);}else if(i.expectedChildKey!=null)fail();[i.jobId,i.ownerId,i.environment,i.stageKey,i.inputDigest,i.role,i.invocation.workflowRunId,i.invocation.stepId].forEach(key);if(!Number.isSafeInteger(i.amountMicroUsd)||i.amountMicroUsd<=0||!Number.isSafeInteger(i.leaseMs)||i.leaseMs<1||i.leaseMs>300000||!Number.isSafeInteger(i.invocation.attempt)||i.invocation.attempt<0)fail();}
+ async function row(tx:JobBudgetTx,jobId:string,stageKey:string){return (await tx.query<Stage>('SELECT *,lease_until<=clock_timestamp() AS expired FROM workflow_stage.stages WHERE job_id=$1 AND stage_key=$2 FOR UPDATE',[jobId,stageKey])).rows[0];}
+-async function canonical(tx:JobBudgetTx,jobId:string,customerId:string,environment:string){await lockJobBudget(tx,jobId);const j=(await tx.query<{customer_id:string;environment:string;state:string}>('SELECT customer_id,environment::text,state::text FROM jobs WHERE id=$1',[jobId])).rows[0];if(!j||j.customer_id!==customerId||j.environment!==environment||!['draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'].includes(j.state))fail();}
++async function canonical(tx:JobBudgetTx,jobId:string,customerId:string,environment:string){await lockJobBudget(tx,jobId);const j=(await tx.query<{customer_id:string;environment:string;state:string}>('SELECT customer_id,environment::text,state::text FROM jobs WHERE id=$1',[jobId])).rows[0];if(!j||j.customer_id!==customerId||j.environment!==environment||!['draft','needs_clarification','quoted','awaiting_payment','planning','running','investigating'].includes(j.state)||(await tx.query('SELECT 1 FROM workflow_stage.cancellations WHERE job_id=$1',[jobId])).rows.length)fail();}
+ function identity(s:Stage,i:WorkflowStageClaim){if(s.recovery_profile!==(i.recoveryProfile??'none')||s.expected_child_key!==(i.expectedChildKey??null)||s.customer_id!==i.ownerId||s.environment!==i.environment||s.input_digest!==i.inputDigest||s.role!==i.role||Number(s.amount_micro_usd)!==i.amountMicroUsd)fail();}
+ function details(s:Stage):Details{return {reservationId:s.reservation_id,amountMicroUsd:Number(s.amount_micro_usd)};}
+ function owned(s:Stage,recovery?:'undispatched'|'resume'):WorkflowStageDecision{return {kind:'owned',owner:{jobId:s.job_id,stageKey:s.stage_key,token:s.owner_token,generation:Number(s.generation)},...details(s),...(recovery?{recovery}:{})};}
+diff --git a/packages/core/src/payments/checkout-cancellation.test.ts b/packages/core/src/payments/checkout-cancellation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/packages/core/src/payments/checkout-cancellation.test.ts
+@@ -0,0 +1,47 @@
++import { beforeEach, expect, it, vi } from "vitest";
++const mocks = vi.hoisted(() => ({ limit: vi.fn(), retrieve: vi.fn(), expire: vi.fn(), stripe: vi.fn() }));
++vi.mock("../db/client", () => ({ db: () => ({ select: () => ({ from: () => ({ where: () => ({ orderBy: () => ({ limit: mocks.limit }) }) }) }) }),
++  schema: { quotes: { stripeCheckoutSessionId: "session", jobId: "job", version: "version" } } }));
++vi.mock("./stripe", () => ({ stripe: mocks.stripe, getStripeMode: vi.fn() }));
++import { expireOpenCheckoutForCancellation } from "./checkout";
++beforeEach(() => {
++  vi.resetAllMocks(); vi.stubEnv("STRIPE_SECRET_KEY", "test");
++  mocks.limit.mockResolvedValue([{ sessionId: "cs_retained" }]);
++  mocks.stripe.mockReturnValue({ checkout: { sessions: { retrieve: mocks.retrieve, expire: mocks.expire } } });
++});
++it("proves absent sessions without requiring Stripe configuration", async () => {
++  vi.stubEnv("STRIPE_SECRET_KEY", ""); mocks.limit.mockResolvedValue([]);
++  await expireOpenCheckoutForCancellation("job");
++  expect(mocks.stripe).not.toHaveBeenCalled();
++});
++it("retries missing credentials when a session exists", async () => {
++  vi.stubEnv("STRIPE_SECRET_KEY", "");
++  await expect(expireOpenCheckoutForCancellation("job")).rejects.toThrow("Stripe is required");
++});
++it.each(["complete", "expired"])("acknowledges proven %s sessions without expiry", async status => {
++  mocks.retrieve.mockResolvedValue({ status }); await expireOpenCheckoutForCancellation("job");
++  expect(mocks.expire).not.toHaveBeenCalled();
++});
++it("expires an open session and verifies returned status", async () => {
++  mocks.retrieve.mockResolvedValue({ status: "open" }); mocks.expire.mockResolvedValue({ status: "expired" });
++  await expireOpenCheckoutForCancellation("job"); expect(mocks.expire).toHaveBeenCalledWith("cs_retained");
++  expect(mocks.retrieve).toHaveBeenCalledTimes(1);
++});
++it("rechecks inconclusive expiry and accepts a proven concurrent completion", async () => {
++  mocks.retrieve.mockResolvedValueOnce({ status: "open" }).mockResolvedValueOnce({ status: "complete" });
++  mocks.expire.mockResolvedValue({ status: null }); await expireOpenCheckoutForCancellation("job");
++  expect(mocks.retrieve).toHaveBeenCalledTimes(2);
++});
++it("retries an expiry whose final state remains open", async () => {
++  mocks.retrieve.mockResolvedValue({ status: "open" }); mocks.expire.mockResolvedValue({ status: "open" });
++  await expect(expireOpenCheckoutForCancellation("job")).rejects.toThrow("not confirmed");
++});
++it.each(["transport", "authentication", "rate limit"])("preserves %s retrieval failure", async error => {
++  mocks.retrieve.mockRejectedValue(new Error(error));
++  await expect(expireOpenCheckoutForCancellation("job")).rejects.toThrow(error);
++  expect(mocks.expire).not.toHaveBeenCalled();
++});
++it("preserves expiry transport failure", async () => {
++  mocks.retrieve.mockResolvedValue({ status: "open" }); mocks.expire.mockRejectedValue(new Error("offline"));
++  await expect(expireOpenCheckoutForCancellation("job")).rejects.toThrow("offline");
++});
+diff --git a/packages/core/src/payments/checkout.ts b/packages/core/src/payments/checkout.ts
+--- a/packages/core/src/payments/checkout.ts
++++ b/packages/core/src/payments/checkout.ts
+@@ -150,6 +150,26 @@
+     // Already expired / already complete sessions reject expire(); nothing more to do here.
+     console.warn(`expireOpenCheckout: could not expire ${quote.sessionId}: ${err instanceof Error ? err.message : String(err)}`);
+     return "skipped";
++  }
++}
++
++/** Strict outbox cleanup: acknowledge only a proven absent, expired or completed Checkout session.
++ * Provider/configuration failures propagate so the durable cancellation worker retries them.
++ */
++export async function expireOpenCheckoutForCancellation(jobId: string): Promise<void> {
++  const [quote] = await db().select({ sessionId: schema.quotes.stripeCheckoutSessionId }).from(schema.quotes)
++    .where(eq(schema.quotes.jobId, jobId)).orderBy(desc(schema.quotes.version)).limit(1);
++  if (!quote?.sessionId) return;
++  if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe is required to expire retained Checkout session");
++  const sessions = stripe().checkout.sessions;
++  const current = await sessions.retrieve(quote.sessionId);
++  if (current.status === "expired" || current.status === "complete") return;
++  if (current.status !== "open") throw new Error("Checkout session status is not proven terminal or open");
++  const expired = await sessions.expire(quote.sessionId);
++  if (expired.status === "expired") return;
++  const verified = await sessions.retrieve(quote.sessionId);
++  if (verified.status !== "expired" && verified.status !== "complete") {
++    throw new Error("Checkout session expiry is not confirmed");
+   }
+ }
+ 

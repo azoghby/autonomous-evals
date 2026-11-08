@@ -2,6 +2,12 @@
 
 Source of truth: `docs/NAIVE_PLAN.md`, introduced by upstream `0c8342a`, explicitly selected by the user. This tracker records implemented evidence; it does not mark proposals as production features. Track A retains application, deployment, auth, platform and migration ownership. Track B owns agent/evaluation implementation and documented integration artifacts.
 
+## Latest cancellation and remediation continuation (2026-11-08)
+
+`naive-cancellation-integration` adds 28 source/test postimages and SQL (75 composed paths), preserving 19 current-main files through exact baseline overrides. Actual main `6793f48` is merged at `c4fcf0f`; Track A feedback/home/sample changes are included in the staged build rather than ignored. REST/MCP cancellation now atomically commits current authorization, retained intent/audit, terminal job state and one progress event. Independent Checkout/Workflow acknowledgements, strict expiry verification and fair oldest-attempt rotation drive automatic cron retry.
+
+Stage/standalone publication, lifecycle transitions, quotes, commercial messages and interrupted-result cleanup are cancellation-fenced under the canonical job lock. Pending remediation/control errors can no longer become a retained successful null. Measured costs and unknown holds remain independent. Final verification: 132 focused/4,199 full staged tests pass (zero failures/two skips), web types and build (57 steps/four workflows), independent patch/reproducible assembly and 2,234 original pins plus 19 upstream overrides. Required actual-source web types and 3,954 tests pass. This is unapplied staged source, not hosted cancellation or complete mixed recovery. Native PostgreSQL/provider acceptance, source adoption and the full Naïve plan remain open.
+
 ## Latest strict callback recovery candidate (2026-11-08)
 
 `naive-stage-recovery-integration` extends stage ownership with 15 source/test postimages and two SQL files. Real-mode qualification, trace audit and ordinary report generation now bind method/mode/input and a derived exact child key into retained stage authority, preserve raw pending errors until persistence, and recover both retained tasks and strictly proven pre-dispatch interruptions. Those three steps permit bounded polling (120 retries). Lite/mock and mixed Gateway/target/proxy callbacks remain outside this recovery profile.

@@ -1,0 +1,301 @@
+{
+  "reviewedRepositoryCommit": "c4fcf0f",
+  "status": "unapplied_incremental_candidate",
+  "requires": "naive-stage-recovery-integration",
+  "dependencyHashes": {
+    "manifest.json": "e4417ec83fb603e2e4b75d67811e3259dcfb4306fbae72bb26707f2e27d5f909",
+    "assemble.py": "0a4816bcbd909eb4be289c5514271a50c0643a15b4a65afbf8d70b4c55723a49"
+  },
+  "baselineOverrides": [
+    {
+      "path": "apps/web/src/app/api/operator/feedback/[id]/approval/route.ts",
+      "beforeSha256": null,
+      "afterSha256": "dc8a8e0f8916940ac07c1254063a1a8f99b692a94b8fcd5788711bb04a7fe01e",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/app/globals.css",
+      "beforeSha256": "de1b63c46483873a0b0241ab3fc1c0df08a4dc8d97e20c753459c314bef545f8",
+      "afterSha256": "269466b25deb95e4dad583ba5604594f813642f921bbfd7241da226cddaafa03",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/app/page.tsx",
+      "beforeSha256": "fe815c63ebba544e8731b5b51454cbd92e707da5e8947bc440b91183a52543c3",
+      "afterSha256": "613e54950598737f925ff70bc466933259727be5f109870ca7367fc5ec6345e2",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/app/sandbox/runs/[runId]/page.tsx",
+      "beforeSha256": "0d38591159d9649e99641c2f8721b2d0997c83c44698084734207bdd57dd2eaa",
+      "afterSha256": "1124a9a9eae118e617905a60656003fc02d26ae7de01c08e0b44b5de885024a6",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/components/app/operator-feedback.tsx",
+      "beforeSha256": "c096d719c1a42d8a9d5ee5f7b8319082d3546b4bd143ce7e11c545a2814f0c96",
+      "afterSha256": "f49690b6ee31742c88112c368c61e9f19ab08b780b9a8ac29ccfb5cf18f4efdf",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/components/marketing/BuiltOnNaive.tsx",
+      "beforeSha256": null,
+      "afterSha256": "8e40c2c5730361e1c97225f1894f2fae1d81469fed19becf3069c1d4395b3e64",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/components/marketing/ProofStats.tsx",
+      "beforeSha256": null,
+      "afterSha256": "1e841e0b0417d42ac8e2654841b0dbf1bcc61bb0ea146080e80953cc1bbc9973",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/feedback-logic.ts",
+      "beforeSha256": "a788904c6887296ce82a188c853ae654f69c350f53504268b9fc0d8fe2a811ba",
+      "afterSha256": "ba97d6381ce3d5899fc2a07b97d83c64976f4cb9c3096a3262783af8bb61ec4b",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/feedback-send.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "bf60d1e263932b619f278a0270a2cac241a2e03480ff0d3308f5dfdeec69dcc5",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/feedback-send.ts",
+      "beforeSha256": null,
+      "afterSha256": "69b8e59d899c1e2b24b45d1ef8c6a25ab7c82958df7e2ec7419c0ba74345150d",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/feedback.test.ts",
+      "beforeSha256": "052e8cd2b1ae406b5293f2dbbf7569bc6197db089f0aa2297375ae617a455b05",
+      "afterSha256": "1ae011452d0d1ba07bea9b10e944dbe5a79c8ef4abbbe958ef08ea49f9d70f42",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/feedback.ts",
+      "beforeSha256": "7fe1a97842e35562cb28714d04a296f03187bae9e85ab7180414744a17dbbcfc",
+      "afterSha256": "0be3ff87f16e8c757f17b042f1b78bb3c881cac00073869a260b4603b80812ae",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/home-stats.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "04cf0d83b1af9f9a4ba2ca8fda3e4921cc5e71fc106202ff62b05e415b58d0d6",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "apps/web/src/server/home-stats.ts",
+      "beforeSha256": null,
+      "afterSha256": "98bbd749b94633371b477a096d0fdd7f7e422981e2b360fa10996d08397f45ac",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "packages/core/src/db/migrations/0032_feedback_quote_approval.sql",
+      "beforeSha256": null,
+      "afterSha256": "bc49ef1facc7f3ddae960982eff31bacb17a16279197da3ec431b157d2b9cddb",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/0032_snapshot.json",
+      "beforeSha256": null,
+      "afterSha256": "264a51c62a3eab82e383f87997c34391efbaa897c70e0dc0549084056aebaf43",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "packages/core/src/db/migrations/meta/_journal.json",
+      "beforeSha256": "109d0b38dc74163f26bb765576a723bad4643ca80bdbba7932ccccad842a31b9",
+      "afterSha256": "ecbd6e11c41bd6e09ed013491eb9e20c7d6a6eaeb08daaae1059e44449b4cabe",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "packages/core/src/db/schema.ts",
+      "beforeSha256": "04da9950472bc02c87b43b73bf80d03d3b6af96b8b3d3aac64e05ab7ab868ae8",
+      "afterSha256": "b30b86b581a544035a395918221009f442fda4efa0d055f1535dacde6c46f0ac",
+      "commit": "c4fcf0f"
+    },
+    {
+      "path": "scripts/feedback-outreach.ts",
+      "beforeSha256": "804a28545032ed1b3d6bb14120daf8ced3c7ba3eac1d6b40b7b1f07ff5ff7a02",
+      "afterSha256": "0e80f54263f7e0daa84d7a7119a2c439e51dbee692e2680084b94d50003cd896",
+      "commit": "c4fcf0f"
+    }
+  ],
+  "files": [
+    {
+      "path": "apps/web/src/app/api/cron/stale-jobs/cancellation.test.ts",
+      "postimage": "postimages/apps/web/src/app/api/cron/stale-jobs/cancellation.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "5376c03fce2f7472e76d87642ad809dfe0f7fce762c93b2f900f0b28ff36c532"
+    },
+    {
+      "path": "apps/web/src/app/api/cron/stale-jobs/route.test.ts",
+      "postimage": "postimages/apps/web/src/app/api/cron/stale-jobs/route.test.ts",
+      "beforeSha256": "4e89828c00e7b4e9c2241f893c1da0bfa2947d38121020e0dc0ff937e6fa79b4",
+      "afterSha256": "88e1da1ba5700d5cb5fffdaad4cf3198f48173733661623f5d713122847e214a"
+    },
+    {
+      "path": "apps/web/src/app/api/cron/stale-jobs/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/cron/stale-jobs/route.ts",
+      "beforeSha256": "74f0b05aa0c118de6ecd764af8877e72be3ec4ced753e27d94c5d82457f848f5",
+      "afterSha256": "c51eab23666d96fc1a449c2c9675f78b19b0f3f594d095a35e79b0f85bd9373a"
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts",
+      "postimage": "postimages/apps/web/src/app/api/jobs/[jobId]/cancel/route.test.ts",
+      "beforeSha256": "c605573649ea48e375fa407b6cc541a822e44e5f3ca6b796b33aada49f220731",
+      "afterSha256": "6a74c25b2cf19ef86df779b777e997ddaf5957d9ce74b4ff3336994be1c6e221"
+    },
+    {
+      "path": "apps/web/src/app/api/jobs/[jobId]/cancel/route.ts",
+      "postimage": "postimages/apps/web/src/app/api/jobs/[jobId]/cancel/route.ts",
+      "beforeSha256": "50418f7311d8695b9580a004976d838d83c060710a7457d8c7b29f2f6c7ac1a4",
+      "afterSha256": "d4127431b4696a8d6760823a11b774db2a73a1b5a19dce81b547970aa8a1406b"
+    },
+    {
+      "path": "apps/web/src/server/job-cancellation-delivery.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-cancellation-delivery.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "9add7a18dff05108ecf6d07a37dac2373aba09a31bc37bcab5f6648cc90d0b1d"
+    },
+    {
+      "path": "apps/web/src/server/job-cancellation-delivery.ts",
+      "postimage": "postimages/apps/web/src/server/job-cancellation-delivery.ts",
+      "beforeSha256": null,
+      "afterSha256": "de744fbeec4d042d7eeda8f280e30e9f13edfbb2544623840775c1c9b843797a"
+    },
+    {
+      "path": "apps/web/src/server/job-cancellation.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-cancellation.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "34cef4f1916d54c3eafa5ac56bd6d71b371150175eae1292db78214a6cc6a325"
+    },
+    {
+      "path": "apps/web/src/server/job-cancellation.ts",
+      "postimage": "postimages/apps/web/src/server/job-cancellation.ts",
+      "beforeSha256": null,
+      "afterSha256": "7c2889ca2d51885aeabde2d690f6ef08d7a80f7259547b090f649650bb1a3bfd"
+    },
+    {
+      "path": "apps/web/src/server/job-store-stage-sql.test.ts",
+      "postimage": "postimages/apps/web/src/server/job-store-stage-sql.test.ts",
+      "beforeSha256": "ac46e212969df8ef8ed5243aadd8135ddc3a2b4c73c1e65bc2352a5041ed386b",
+      "afterSha256": "7f456eef418ebb4405bda1677a9f392dda54a55f72b6327c8293826d23976581"
+    },
+    {
+      "path": "apps/web/src/server/job-store.ts",
+      "postimage": "postimages/apps/web/src/server/job-store.ts",
+      "beforeSha256": "e0444a85628f5e8f39334ccaab86e9e16ee01cbd7b34920daac507a06b089bc2",
+      "afterSha256": "46eb3aafdd9f5405fe4a58847a1843208f952822b3991fea4e908e54e60aa6a9"
+    },
+    {
+      "path": "apps/web/src/server/mcp-tools.test.ts",
+      "postimage": "postimages/apps/web/src/server/mcp-tools.test.ts",
+      "beforeSha256": "c4db85fe8d7e3635867a878c9e364d52fa99f4dafb18c71e1ac0e3b2fdd60094",
+      "afterSha256": "07abd969b54388b429465753dec7ae6e656eba1b3289e5326196167489aa5b7f"
+    },
+    {
+      "path": "apps/web/src/server/mcp-tools.ts",
+      "postimage": "postimages/apps/web/src/server/mcp-tools.ts",
+      "beforeSha256": "f24a53d30ac9b94abecd401046d40d7d2a0431ba37b68d5c7117a055733df5e5",
+      "afterSha256": "aa8e6869d4c771a1f221c9b2df9b9fc872eebb4d0922d86749458bad1da2ed0f"
+    },
+    {
+      "path": "apps/web/src/server/services-recovery.test.ts",
+      "postimage": "postimages/apps/web/src/server/services-recovery.test.ts",
+      "beforeSha256": "248cac5db031542aa620390994c1d8bbd7b32d603053dc953651bd94182c2a42",
+      "afterSha256": "995a8966658376f894ee87e1935411a8eedaaed91b89331d41a9e9c630fbfc70"
+    },
+    {
+      "path": "apps/web/src/server/services.ts",
+      "postimage": "postimages/apps/web/src/server/services.ts",
+      "beforeSha256": "e7d3d39a3fa83f4df0fcb8c33076b786c25c1efe2f9846bc3fa0c16edcaf7db9",
+      "afterSha256": "905ed9a22cf73f8676bd72c97b21982757945d0eb7aa865b1285bc9db0b021ef"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-children.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-children.test.ts",
+      "beforeSha256": "c1941abd1fb26a1af2f287ebe38eec732793761b710e9e04ec90e5cc0854a743",
+      "afterSha256": "12cf4871d0a8829d18765c0c623ea268b2d6ac7bf434d4cc78e1a21defd49bf1"
+    },
+    {
+      "path": "apps/web/src/server/workflow-stage-recovery-integration.test.ts",
+      "postimage": "postimages/apps/web/src/server/workflow-stage-recovery-integration.test.ts",
+      "beforeSha256": "90c497ae2473ae35cc0ba3892a7f21c1f175af8e2e4be3f1892212f46a6dbfbd",
+      "afterSha256": "662ec96c879a199c7e0caf79a86cb402428a799a5deca7cacf6e98d8fa4ad707"
+    },
+    {
+      "path": "apps/web/src/workflows/job.ts",
+      "postimage": "postimages/apps/web/src/workflows/job.ts",
+      "beforeSha256": "ec01150d7c7b92d302e8f74be36952ba5e528ed9ffd0b4f15dd897e2bf1a708b",
+      "afterSha256": "f3d7aa7c8ebabdf12245ff18a5842a33700916642b90b16daeb497c94766ce32"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/evaluate.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/evaluate.ts",
+      "beforeSha256": "4f5d188be2ecdde90098a2aeae963eb09db95cdcdd94c12f2e81984a5262782e",
+      "afterSha256": "236658ee197ed1829f1596d5cdbfc0063c821c5e22370fc6c8ddcb996b8fcf2e"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/lifecycle-cancellation.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/lifecycle-cancellation.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "855c2e1c361da78fa1ace65eb622967dbafa239c3d28d05559a53f082bb008b8"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/lifecycle.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/lifecycle.ts",
+      "beforeSha256": "aaddedc7453cd661c8652e3e3955e42ff6a1650feeea3f13a84770db4459f5c5",
+      "afterSha256": "61d3d2fecfc58ce6fbaf640c4659afc93f3daaef5611ea984d10a692e82438aa"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/remediation-pending.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/remediation-pending.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "1d99bc816dc888868dc203f4144f0a126926e6a721e5dcc374b288cab1dc3b41"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/resume-cancellation.test.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/resume-cancellation.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "5177dcf1b6dcd941d1fb5c7c2ed1bc793226873f762829a8d469fd11d98f9894"
+    },
+    {
+      "path": "apps/web/src/workflows/steps/resume.ts",
+      "postimage": "postimages/apps/web/src/workflows/steps/resume.ts",
+      "beforeSha256": "d6fc873da6d8ee366a73e671f9a38c17281f61e4c445c23a32d92097ea475f77",
+      "afterSha256": "b07310a16f2aa80173b69c293a88d386f6ee1fab5b3fd0d0a9e00a8cc5b15734"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.test.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.test.ts",
+      "beforeSha256": "220f2e87d15d6fe63eefc7c8c411fc4243590b3b945a62eb3b3fef750d697520",
+      "afterSha256": "89d29631cdd93eb833855f14c7867c0f9eba3cd9173ebc1d2b3022631dc39da1"
+    },
+    {
+      "path": "packages/core/src/db/workflow-stage-authority.ts",
+      "postimage": "postimages/packages/core/src/db/workflow-stage-authority.ts",
+      "beforeSha256": "5cc0ef8e73051b64c95439bc79919c045a7ff8d6e986b355a163631d4a31d518",
+      "afterSha256": "663b7013f69d34881504ad324ad3013aa4f83a707e9c2f562e64b38b3b87b30e"
+    },
+    {
+      "path": "packages/core/src/payments/checkout-cancellation.test.ts",
+      "postimage": "postimages/packages/core/src/payments/checkout-cancellation.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "e4ede4f4722c4144969d69c6a011c793eaa7e4fdca563298e7cf492747742b45"
+    },
+    {
+      "path": "packages/core/src/payments/checkout.ts",
+      "postimage": "postimages/packages/core/src/payments/checkout.ts",
+      "beforeSha256": "2db153d4350988035aecbbf59a83f6359c23a2def4fa51122d851e46ab8e721b",
+      "afterSha256": "a14cdb27f47bfeefe95a55cad1ff2095d621d361eccb17aa3254291aa6b5b8a8"
+    }
+  ],
+  "sql": [
+    {
+      "path": "sql/001-job-cancellation.sql",
+      "sha256": "fe9dbbc67c8cc3afc5acd6508917c8b3832d12ac3f5ec8242c32ac02d62c1539"
+    }
+  ]
+}
