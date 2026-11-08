@@ -771,6 +771,10 @@ p.ec-dim { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
 .bill-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line-2); }
 .bill-facts dt { font-size: 12px; color: var(--subtle); }
 .bill-facts dd { margin: 2px 0 0; font-size: 15px; color: var(--fg); }
+.bill-trial { font-size: 14px; color: var(--fg-2); border: 1px solid var(--cyan-deep); background: var(--bg-sunken); padding: 10px 12px; border-radius: var(--radius-ctl); }
+.bill-inv { border-collapse: collapse; }
+.bill-inv th { text-align: left; font-size: 12px; font-weight: 500; color: var(--subtle); padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line-2); }
+.bill-inv td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line-2); color: var(--fg); }
 .bill-pill { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line-3); border-radius: 999px; color: var(--fg-2); white-space: nowrap; }
 .bill-pill[data-state="near_limit"] { color: var(--warn); border-color: var(--warn); }
 .bill-pill[data-state="at_limit"] { color: var(--danger); border-color: var(--danger); }

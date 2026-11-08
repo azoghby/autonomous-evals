@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@ae/core/db/client";
 import { getStripeMode } from "@ae/core/payments/stripe";
-import { OVERAGE_CENTS_PER_TRIAL, PLANS, formatUsd } from "@ae/core/pricing/plans";
+import { listCustomerInvoices } from "@ae/core/payments/invoices";
+import { OVERAGE_CENTS_PER_TRIAL, PLANS, formatUsd, trialDaysLeft } from "@ae/core/pricing/plans";
 import { Eyebrow } from "@/components/ui";
 import { getCurrentCustomer } from "@/server/queries";
 import { getUsageSummary, overageNotice } from "@/server/billing-usage";
@@ -35,6 +36,7 @@ export default async function BillingPage() {
       planInterval: schema.customers.planInterval,
       planStatus: schema.customers.planStatus,
       planCurrentPeriodEnd: schema.customers.planCurrentPeriodEnd,
+      planTrialEnd: schema.customers.planTrialEnd,
       stripeCustomerId: schema.customers.stripeCustomerId,
     }).from(schema.customers).where(eq(schema.customers.id, me.id)).limit(1),
   ]);
@@ -43,6 +45,9 @@ export default async function BillingPage() {
   const plan = PLANS[summary.plan];
   const { trials, environments, modelSpend } = summary;
   const renewal = row?.planCurrentPeriodEnd ? dateFmt.format(row.planCurrentPeriodEnd) : null;
+  const trialing = row?.planStatus === "trialing";
+  const trialLeft = trialing ? trialDaysLeft(row?.planTrialEnd ?? row?.planCurrentPeriodEnd ?? null) : 0;
+  const invoices = row?.stripeCustomerId ? await listCustomerInvoices(row.stripeCustomerId) : [];
 
   return (
     <div className="bill-page min-w-0 py-10 sm:py-14">
@@ -69,9 +74,16 @@ export default async function BillingPage() {
               </div>
               <span className="bill-pill" data-state={summary.status}>{STATUS_LABEL[summary.status]}</span>
             </div>
+            {trialing ? (
+              <p className="bill-trial mt-4" data-testid="trial-status">
+                Free trial: <strong>{trialLeft} {trialLeft === 1 ? "day" : "days"} left</strong>
+                {row?.planTrialEnd ? `, ends ${dateFmt.format(row.planTrialEnd)}` : ""}. You will be charged{" "}
+                {plan.monthlyCents ? formatUsd(plan.monthlyCents) : "the plan price"} when it ends unless you cancel in Manage billing.
+              </p>
+            ) : null}
             <dl className="bill-facts">
               {paid && row?.planStatus ? (<div><dt>Subscription</dt><dd className="capitalize">{row.planStatus.replace(/_/g, " ")}</dd></div>) : null}
-              {renewal ? (<div><dt>{row?.planStatus === "canceled" ? "Ends" : "Renews"}</dt><dd>{renewal}</dd></div>) : null}
+              {renewal ? (<div><dt>{row?.planStatus === "canceled" ? "Ends" : trialing ? "First charge" : "Renews"}</dt><dd>{renewal}</dd></div>) : null}
               <div><dt>Usage resets</dt><dd>{dateFmt.format(new Date(summary.resetsAt))}</dd></div>
             </dl>
             <div className="mt-5 flex flex-wrap items-start gap-3">
@@ -118,6 +130,35 @@ export default async function BillingPage() {
               <p className="mt-2 text-[14px] text-muted">
                 Trials beyond your included allowance cost {formatUsd(OVERAGE_CENTS_PER_TRIAL)} each. Overage is billed automatically to your card at the end of the month.
               </p>
+            </section>
+          ) : null}
+
+          {row?.stripeCustomerId ? (
+            <section className="bill-card" aria-labelledby="bill-inv-h">
+              <p className="bill-kicker">Billing history</p>
+              <h2 id="bill-inv-h" className="sr-only">Invoices</h2>
+              {invoices.length === 0 ? (
+                <p className="mt-3 text-[14px] text-muted">No invoices yet. Your first invoice appears here after your first charge.</p>
+              ) : (
+                <table className="bill-inv mt-3 w-full text-[14px]">
+                  <thead><tr><th scope="col">Date</th><th scope="col">Invoice</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Links</span></th></tr></thead>
+                  <tbody>
+                    {invoices.map((inv) => (
+                      <tr key={inv.id}>
+                        <td>{dateFmt.format(new Date(inv.created))}</td>
+                        <td>{inv.number ?? inv.id}</td>
+                        <td className="tabular-nums">{formatUsd(inv.amountCents)}</td>
+                        <td className="capitalize">{inv.status}</td>
+                        <td className="whitespace-nowrap">
+                          {inv.pdfUrl ? <a className="underline" href={inv.pdfUrl} rel="noopener noreferrer" target="_blank">PDF<span className="sr-only"> for invoice {inv.number ?? inv.id}</span></a> : null}
+                          {inv.pdfUrl && inv.hostedUrl ? " · " : null}
+                          {inv.hostedUrl ? <a className="underline" href={inv.hostedUrl} rel="noopener noreferrer" target="_blank">View</a> : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </section>
           ) : null}
         </div>
