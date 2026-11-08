@@ -1,0 +1,28 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/private/var/folders/dv/3krq9pqj29d7rz_qkckc6zqh0000gn/T/workflow-integration-Njej2z[39m
+
+ [32m✓[39m comparison-tests/monitoring-reuse.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1901[2mms[22m[39m
+   [32m✓[39m combined approved-suite monitoring seam [2m(1)[22m
+     [33m[2m✓[22m[39m reuses the reviewed frozen baseline suite without suite/design checkpoints and preserves rich outcomes[33m 1898[2mms[22m[39m
+ [32m✓[39m comparison-tests/app.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 15771[2mms[22m[39m
+   [32m✓[39m actual app + engine + durable SQL checkpoints (offline fixtures) [2m(12)[22m
+     [33m[2m✓[22m[39m claims tick before dispatch, retains rich results and replays without targets[33m 2008[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses tenant before dispatch/replay[33m 1510[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses environment before dispatch/replay[33m 1191[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses payment before dispatch/replay[33m 1461[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses subscription before dispatch/replay[33m 1312[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses pack before dispatch/replay[33m 741[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses hidden-pack before dispatch/replay[33m 800[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses changed-binding before dispatch/replay[33m 772[2mms[22m[39m
+     [33m[2m✓[22m[39m requires a monitoring subscription and protects private reads[33m 868[2mms[22m[39m
+     [33m[2m✓[22m[39m reopens durable app/core checkpoints without dispatch after process storage restart[33m 2155[2mms[22m[39m
+     [33m[2m✓[22m[39m serializes duplicate dispatchers behind one durable tick claim[33m 1627[2mms[22m[39m
+     [33m[2m✓[22m[39m fences lost workers permanently[33m 1313[2mms[22m[39m
+ [32m✓[39m comparison-tests/routes.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 17:51:59
+[2m   Duration [22m 18.94s[2m (tests 96%, import 3%, transform 1%)[22m
+
+JSON report written to /Users/alexzoghby/.t3/worktrees/YC Hackathon 2/t3-990ec7c9/tests/track-b/release-extensions/comparison/evidence/comparison/results.json
