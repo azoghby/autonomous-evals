@@ -31,7 +31,7 @@ Say: "Teams ship AI agents that say 'refund issued' when the refund tool actuall
 ### 0:20 Submit a trace audit (`/start`, signed in as demo)
 Do: choose Trace Audit, paste the prepared trace (`e2e/fixtures/trace-unsupported-claim.json`, success claim after a 503), tick "authorized to test", submit.
 Say: "This is a real support-bot trace. The agent claimed it booked a meeting after the calendar call returned 503."
-Quote appears: choose **Pay per confirmed finding** ($3 per confirmed finding, $15 cap, $0 if nothing real). Click through to Stripe Checkout, card `4242 4242 4242 4242`, any future date, any CVC.
+Quote appears: choose **Pay per confirmed finding** ($25 per confirmed finding, $250 cap, $0 if nothing real). Click through to Stripe Checkout, card `4242 4242 4242 4242`, any future date, any CVC.
 Say: "Real Stripe. Per-finding means the card is only authorized for the cap. We capture at delivery."
 
 ### 1:10 Live progress (`/jobs/<id>`)
@@ -41,7 +41,7 @@ If it falls back to polling the page still works; keep talking.
 
 ### 1:35 Report with validated fixes and the charge
 Open the seeded delivered job (Trace Audit, listed first in `/jobs`) so you are not waiting on the live one.
-Show: 2 confirmed findings with evidence, then **Validated fixes** (before 0/3, after 3/3, regressions 0), then the billing line: "2 confirmed findings x $3 = $6 captured of a $15 hold; the rest was released." Click download report.
+Show: 2 confirmed findings with evidence, then **Validated fixes** (before 0/3, after 3/3, regressions 0), then the billing line: "2 confirmed findings x $25 = $50 captured of a $250 hold; the rest was released." Click download report.
 Say: "We do not stop at 'here is a problem'. Every confirmed finding ships with a patch we replayed against the frozen scenarios. And the rubric concern at the bottom is not billed because we could not reproduce it."
 
 ### 2:05 MCP: an agent hires us
@@ -95,7 +95,7 @@ Backup
 
 | If this breaks | Do this |
 |---|---|
-| Stripe Checkout down or slow | Skip the live payment. Say "Stripe test mode, here is a payment from earlier" and open the seeded delivered Trace Audit (payment captured $6 of $15) plus the Stripe dashboard payment from the Gate 3 run. |
+| Stripe Checkout down or slow | Skip the live payment. Say "Stripe test mode, here is a payment from earlier" and open the seeded delivered Trace Audit (payment captured $50 of $250) plus the Stripe dashboard payment from the Gate 3 run. |
 | AgentMail / sign-in email not arriving | Use the already-signed-in browser profiles. Never sign out on stage. |
 | Neon Realtime not live | The page silently falls back to polling every 3 s; say "it normally streams via Neon Realtime" and continue. |
 | Live job slow or stuck | Switch to the seeded running job (`workflow_eval`) for progress, and the seeded delivered job for the report. |

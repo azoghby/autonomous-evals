@@ -315,3 +315,94 @@ describe("misc", () => {
     expect(runStatusView(failed)).toMatchObject({ trialsCompleted: 0, trialsTotal: 6, error: "x", errorKind: "fatal" });
   });
 });
+
+describe("plan limits (planFor)", () => {
+  const NOW = new Date("2026-06-15T00:00:00Z"); // memory-store rows are created 2026-06-01, inside this month's window
+  const withPlan = (plan: "developer" | "pro" | "scale" | "enterprise", now = NOW) => createEngineSandboxService({
+    store: m.store, executor, checkTarget, runBudgetMicroUsd: 3_000_000, suiteBudgetMicroUsd: 1_500_000,
+    sampleReport: async () => null, planFor: async () => plan, now: () => now,
+  });
+  const accepted = (n: number) => Array.from({ length: n }, (_, i) => draftScen(`sx_${i + 1}`, { decision: "accepted" }));
+  const runIdOf = (r: unknown) => (r as { runId: string }).runId;
+
+  it("Developer: one environment, the second is a 402; other owners unaffected", async () => {
+    const s = withPlan("developer");
+    await s.createEnvironment(OWNER_A, { name: "One", prebuilt: "acme-support", integration });
+    await expect(s.createEnvironment(OWNER_A, { name: "Two", prebuilt: "acme-support", integration })).rejects.toMatchObject({ status: 402 });
+    await expect(s.createEnvironment(OWNER_B, { name: "B", prebuilt: "acme-support", integration })).resolves.toBeTruthy();
+  });
+
+  it("Pro allows 3 environments", async () => {
+    const s = withPlan("pro");
+    for (const n of ["a", "b", "c"]) await s.createEnvironment(OWNER_A, { name: n, prebuilt: "acme-support", integration });
+    await expect(s.createEnvironment(OWNER_A, { name: "d", prebuilt: "acme-support", integration })).rejects.toBeInstanceOf(SandboxInputError);
+  });
+
+  it("Developer: hard stop at 50 trials per month", async () => {
+    const s = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(5));
+    const first = await s.startRun(OWNER_A, suite.id, { k: 10 }); // 50 trials
+    expect(first.ok).toBe(true);
+    await m.store.updateRun(runIdOf(first), { status: "complete" });
+    const second = await s.startRun(OWNER_A, suite.id, { k: 1 });
+    expect(second).toMatchObject({ ok: false, status: 402 });
+    expect((second as { error: string }).error).toMatch(/50 trials per month/);
+  });
+
+  it("failed runs only count the trials they actually ran", async () => {
+    const s = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(5));
+    const first = await s.startRun(OWNER_A, suite.id, { k: 10 });
+    await m.store.updateRun(runIdOf(first), { status: "failed", trialsDone: 5 });
+    expect((await s.startRun(OWNER_A, suite.id, { k: 9 })).ok).toBe(true); // 5 + 45 = 50
+  });
+
+  it("Pro runs past included trials (overage) instead of stopping", async () => {
+    const s = withPlan("pro");
+    const suite = await seedSuite(OWNER_A, accepted(2));
+    await m.store.insertRun({ id: "run_old", ownerId: OWNER_A, environmentId: suite.environmentId, status: "complete", k: 1, scenarios: [], budgetMicroUsd: 1, trialsTotal: 2_500 });
+    expect((await s.startRun(OWNER_A, suite.id, { k: 2 })).ok).toBe(true);
+  });
+
+  it("Developer: run budget shrinks to the $2/month model-spend headroom, and refuses at $0", async () => {
+    const s = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(1));
+    m.suites.set(suite.id, { ...m.suites.get(suite.id)!, costMicroUsd: 1_200_000 });
+    const r = await s.startRun(OWNER_A, suite.id, { k: 1 });
+    expect(m.runs.get(runIdOf(r))!.budgetMicroUsd).toBe(800_000);
+    await m.store.updateRun(runIdOf(r), { status: "complete", costMicroUsd: 800_000 });
+    expect(await s.startRun(OWNER_A, suite.id, { k: 1 })).toMatchObject({ ok: false, status: 402 });
+  });
+
+  it("Developer: suite generation is refused once the monthly model budget is spent", async () => {
+    const s = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(1));
+    m.suites.set(suite.id, { ...m.suites.get(suite.id)!, costMicroUsd: 2_000_000 });
+    await expect(s.generateSuite(OWNER_A, suite.environmentId)).rejects.toMatchObject({ status: 402 });
+  });
+
+  it("paid plans keep the normal run budget", async () => {
+    const s = withPlan("scale");
+    const suite = await seedSuite(OWNER_A, accepted(1));
+    m.suites.set(suite.id, { ...m.suites.get(suite.id)!, costMicroUsd: 50_000_000 });
+    const r = await s.startRun(OWNER_A, suite.id, { k: 1 });
+    expect(m.runs.get(runIdOf(r))!.budgetMicroUsd).toBe(3_000_000);
+  });
+
+  it("concurrent runs follow the plan: Developer 1, Scale 6", async () => {
+    const dev = withPlan("developer");
+    const suite = await seedSuite(OWNER_A, accepted(1));
+    expect((await dev.startRun(OWNER_A, suite.id, { k: 1 })).ok).toBe(true);
+    expect(await dev.startRun(OWNER_A, suite.id, { k: 1 })).toMatchObject({ ok: false, status: 429 });
+    const scale = withPlan("scale");
+    for (let i = 0; i < 5; i++) expect((await scale.startRun(OWNER_A, suite.id, { k: 1 })).ok).toBe(true);
+    expect(await scale.startRun(OWNER_A, suite.id, { k: 1 })).toMatchObject({ ok: false, status: 429 });
+  });
+
+  it("usage from a previous month does not count", async () => {
+    const s = withPlan("developer", new Date("2026-07-02T00:00:00Z"));
+    const suite = await seedSuite(OWNER_A, accepted(5));
+    await m.store.insertRun({ id: "run_june", ownerId: OWNER_A, environmentId: suite.environmentId, status: "complete", k: 10, scenarios: [], budgetMicroUsd: 1, trialsTotal: 50 });
+    expect((await s.startRun(OWNER_A, suite.id, { k: 10 })).ok).toBe(true);
+  });
+});

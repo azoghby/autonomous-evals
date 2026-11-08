@@ -65,7 +65,7 @@ describe("late payment after cancel", () => {
   it("releases a per_finding authorization immediately and stamps it", async () => {
     selects = [[{ state: "cancelled" }]];
     const send = vi.fn();
-    expect(await confirmAndResume(payment({ status: "authorized", amountCents: 1500 }), send)).toBe("needs_review");
+    expect(await confirmAndResume(payment({ status: "authorized", amountCents: 25000 }), send)).toBe("needs_review");
     expect(stripeMock.paymentIntents.cancel).toHaveBeenCalledWith("pi_1", undefined, { idempotencyKey: "release-late:p1" });
     expect(updates[0]).toMatchObject({ status: "released", capturedAmountCents: 0 });
     expect(stamped()).toBe(true);
@@ -116,7 +116,7 @@ describe("amount verification", () => {
     expect(inserts).toHaveLength(0);
   });
   it("per_finding authorization must equal the cap", async () => {
-    selects = [[{ state: "awaiting_payment" }], [quote({ pricingMode: "per_finding", capCents: 1500 })]];
+    selects = [[{ state: "awaiting_payment" }], [quote({ pricingMode: "per_finding", capCents: 25000 })]];
     const send = vi.fn();
     expect(await confirmAndResume(payment({ status: "authorized", amountCents: 4900 }), send)).toBe("needs_review");
     expect(stripeMock.paymentIntents.cancel).not.toHaveBeenCalled();

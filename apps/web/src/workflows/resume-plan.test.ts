@@ -102,8 +102,8 @@ describe("decideResumePlan: working states", () => {
 
 describe("findUnlockingPayment", () => {
   it("accepts per_finding authorizations at the cap amount", () => {
-    const q = quote({ pricingMode: "per_finding", capCents: 1500 });
-    expect(findUnlockingPayment([payment({ status: "authorized", amountCents: 1500 })], q)).toEqual({ id: PAY });
+    const q = quote({ pricingMode: "per_finding", capCents: 25000 });
+    expect(findUnlockingPayment([payment({ status: "authorized", amountCents: 25000 })], q)).toEqual({ id: PAY });
     expect(findUnlockingPayment([payment({ status: "authorized", amountCents: 4900 })], q)).toBeNull();
   });
   it("picks the first valid payment among several", () => {

@@ -44,6 +44,8 @@ export interface PlanLimits {
   overageAllowed: boolean;
   /** Hard cap on our model spend per month in micro-USD, or null when the plan pays for usage. */
   monthlyModelSpendCapMicroUsd: number | null;
+  /** Runs that may execute at once for the account ("priority runs" = more parallel capacity). */
+  concurrentRuns: number;
 }
 
 export interface Plan {
@@ -65,11 +67,11 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Developer",
     tagline: "Kick the tyres on a sample world.",
     monthlyCents: 0,
-    limits: { environments: 1, trialsPerMonth: 50, overageAllowed: false, monthlyModelSpendCapMicroUsd: FREE_MONTHLY_MODEL_SPEND_CAP_MICRO_USD },
+    limits: { environments: 1, trialsPerMonth: 50, overageAllowed: false, monthlyModelSpendCapMicroUsd: FREE_MONTHLY_MODEL_SPEND_CAP_MICRO_USD, concurrentRuns: 1 },
     features: [
       { label: "1 environment" },
       { label: "50 trials / month" },
-      { label: "Sample worlds (support, ops, fintech)" },
+      { label: "Sample worlds (support, retail)" },
       { label: "MCP server + REST API" },
       { label: "Community support" },
     ],
@@ -81,7 +83,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Pro",
     tagline: "For teams shipping one serious agent.",
     monthlyCents: 49_900,
-    limits: { environments: 3, trialsPerMonth: 2_500, overageAllowed: true, monthlyModelSpendCapMicroUsd: null },
+    limits: { environments: 3, trialsPerMonth: 2_500, overageAllowed: true, monthlyModelSpendCapMicroUsd: null, concurrentRuns: 2 },
     features: [
       { label: "3 custom environments" },
       { label: "2,500 trials / month" },
@@ -99,13 +101,13 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Scale",
     tagline: "For agents that run real money and real customers.",
     monthlyCents: 249_900,
-    limits: { environments: 15, trialsPerMonth: 25_000, overageAllowed: true, monthlyModelSpendCapMicroUsd: null },
+    limits: { environments: 15, trialsPerMonth: 25_000, overageAllowed: true, monthlyModelSpendCapMicroUsd: null, concurrentRuns: 6 },
     features: [
       { label: "15 environments" },
       { label: "25,000 trials / month" },
       { label: "Red-team packs" },
       { label: "Dedicated Neon project", comingSoon: true },
-      { label: "Priority runs" },
+      { label: "Priority runs (6 in parallel)" },
       { label: "Slack support", comingSoon: true },
     ],
     cta: { label: "Start Scale", href: "/pricing?checkout=scale" },
@@ -116,7 +118,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Enterprise",
     tagline: "We build your agent's world with you.",
     monthlyCents: null,
-    limits: { environments: null, trialsPerMonth: null, overageAllowed: true, monthlyModelSpendCapMicroUsd: null },
+    limits: { environments: null, trialsPerMonth: null, overageAllowed: true, monthlyModelSpendCapMicroUsd: null, concurrentRuns: 10 },
     features: [
       { label: "We build your environment from your APIs, data and policies" },
       { label: "Domain-expert reviewers" },

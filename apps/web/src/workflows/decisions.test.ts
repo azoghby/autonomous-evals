@@ -10,10 +10,10 @@ const pay = (quoteVersion: number, paymentId = "11111111-1111-4111-8111-11111111
 
 describe("decidePayment amount check", () => {
   const fixed = { pricingMode: "fixed", priceCents: 4900, capCents: null };
-  const pf = { pricingMode: "per_finding", priceCents: 4900, capCents: 1500 };
+  const pf = { pricingMode: "per_finding", priceCents: 4900, capCents: 25000 };
   it("accepts matching fixed and per_finding amounts", () => {
     expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 4900, currency: "usd" }, quote: fixed })).toEqual({ action: "accept" });
-    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 1500, currency: "usd" }, quote: pf })).toEqual({ action: "accept" });
+    expect(decidePayment(pay(2), 2, [], { payment: { amountCents: 25000, currency: "usd" }, quote: pf })).toEqual({ action: "accept" });
   });
   it("ignores wrong amount, wrong currency, and fixed amount on a per_finding quote", () => {
     const bad = { action: "ignore", reason: "amount_mismatch" };
@@ -139,8 +139,8 @@ describe("selectFindingsForFix", () => {
 import { settlementMessage } from "./decisions";
 describe("settlementMessage", () => {
   it("describes charges and the zero case", () => {
-    expect(settlementMessage(2, 600)).toBe("Charged $6.00 for 2 confirmed findings.");
-    expect(settlementMessage(1, 300)).toBe("Charged $3.00 for 1 confirmed finding.");
+    expect(settlementMessage(2, 5000)).toBe("Charged $50.00 for 2 confirmed findings.");
+    expect(settlementMessage(1, 2500)).toBe("Charged $25.00 for 1 confirmed finding.");
     expect(settlementMessage(0, 0)).toBe("No confirmed findings: authorization released, you pay $0.");
   });
 });

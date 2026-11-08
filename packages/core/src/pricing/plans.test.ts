@@ -21,6 +21,11 @@ describe("plan table", () => {
     expect(MODEL_TOKEN_MARKUP_PERCENT).toBe(0);
     expect(FREE_MONTHLY_MODEL_SPEND_CAP_MICRO_USD).toBe(2_000_000);
   });
+  it("gives Scale priority (more parallel runs)", () => {
+    expect(PLANS.developer.limits.concurrentRuns).toBe(1);
+    expect(PLANS.pro.limits.concurrentRuns).toBe(2);
+    expect(PLANS.scale.limits.concurrentRuns).toBe(6);
+  });
   it("highlights Pro only", () => {
     expect(PLAN_IDS.filter((p) => PLANS[p].highlighted)).toEqual(["pro"]);
   });

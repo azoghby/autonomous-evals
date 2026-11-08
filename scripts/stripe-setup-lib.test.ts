@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertKeyAllowed, maskSecret, normalizeUrl, sameEvents, upsertEnvLine, webhookUrl } from "./stripe-setup-lib";
+import { WEBHOOK_EVENTS, assertKeyAllowed, pricePlan, maskSecret, normalizeUrl, sameEvents, upsertEnvLine, webhookUrl } from "./stripe-setup-lib";
 
 describe("assertKeyAllowed", () => {
   it("accepts sk_test_ and rk_test_", () => {
@@ -55,5 +55,25 @@ describe("misc", () => {
   it("compares event sets order-insensitively", () => {
     expect(sameEvents(["a", "b"], ["b", "a"])).toBe(true);
     expect(sameEvents(["a"], ["a", "b"])).toBe(false);
+  });
+});
+
+describe("webhook events", () => {
+  it("includes subscription lifecycle events", () => {
+    expect(WEBHOOK_EVENTS).toContain("customer.subscription.updated");
+    expect(WEBHOOK_EVENTS).toContain("customer.subscription.deleted");
+  });
+});
+
+describe("pricePlan", () => {
+  it("lists all five prices with the expected amounts", () => {
+    const byKey = Object.fromEntries(pricePlan().map((p) => [p.lookupKey, p]));
+    expect(Object.keys(byKey)).toHaveLength(5);
+    expect(byKey.se_pro_monthly_v1).toMatchObject({ unitAmountCents: 49900, recurring: { interval: "month" }, productKey: "pro" });
+    expect(byKey.se_pro_annual_v1).toMatchObject({ unitAmountCents: 499000, recurring: { interval: "year" } });
+    expect(byKey.se_scale_monthly_v1).toMatchObject({ unitAmountCents: 249900, recurring: { interval: "month" } });
+    expect(byKey.se_scale_annual_v1).toMatchObject({ unitAmountCents: 2499000, recurring: { interval: "year" } });
+    expect(byKey.se_agent_audit_v1).toMatchObject({ unitAmountCents: 250000, productKey: "agent_audit" });
+    expect(byKey.se_agent_audit_v1!.recurring).toBeUndefined();
   });
 });

@@ -297,7 +297,7 @@ export interface SettleResult {
 }
 
 /**
- * Settles a per_finding authorization at delivery: captures min(3 USD * confirmed, cap) or, with no
+ * Settles a per_finding authorization at delivery: captures min(25 USD * confirmed, cap) or, with no
  * confirmed findings, cancels the PaymentIntent. Idempotent: a settled row is returned as-is and
  * Stripe's idempotency key makes a retried capture/cancel safe.
  */

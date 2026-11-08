@@ -2,20 +2,20 @@ import { describe, expect, it } from "vitest";
 import { PER_FINDING_CAP_CENTS, PER_FINDING_CENTS, perFindingCaptureCents, recognizedRevenueCents } from "./index";
 
 describe("perFindingCaptureCents", () => {
-  it("charges $3 per confirmed finding", () => {
-    expect(PER_FINDING_CENTS).toBe(300);
-    expect(perFindingCaptureCents(1, 1500)).toBe(300);
-    expect(perFindingCaptureCents(4, 1500)).toBe(1200);
+  it("charges $25 per confirmed finding", () => {
+    expect(PER_FINDING_CENTS).toBe(2500);
+    expect(perFindingCaptureCents(1, 25000)).toBe(2500);
+    expect(perFindingCaptureCents(4, 25000)).toBe(10000);
   });
   it("caps at the package cap", () => {
-    expect(perFindingCaptureCents(5, PER_FINDING_CAP_CENTS.text_eval)).toBe(1500);
-    expect(perFindingCaptureCents(50, PER_FINDING_CAP_CENTS.text_eval)).toBe(1500);
-    expect(perFindingCaptureCents(50, PER_FINDING_CAP_CENTS.version_comparison)).toBe(3000);
+    expect(perFindingCaptureCents(20, PER_FINDING_CAP_CENTS.text_eval)).toBe(25000);
+    expect(perFindingCaptureCents(50, PER_FINDING_CAP_CENTS.text_eval)).toBe(25000);
+    expect(perFindingCaptureCents(50, PER_FINDING_CAP_CENTS.version_comparison)).toBe(25000);
   });
   it("is zero (release) with no confirmed findings or bad input", () => {
-    expect(perFindingCaptureCents(0, 1500)).toBe(0);
-    expect(perFindingCaptureCents(-1, 1500)).toBe(0);
-    expect(perFindingCaptureCents(1.5, 1500)).toBe(0);
+    expect(perFindingCaptureCents(0, 25000)).toBe(0);
+    expect(perFindingCaptureCents(-1, 25000)).toBe(0);
+    expect(perFindingCaptureCents(1.5, 25000)).toBe(0);
   });
 });
 

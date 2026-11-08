@@ -37,7 +37,7 @@ export default function OpengraphImage() {
               </span>
             </div>
             <div style={{ display: "flex", marginTop: 36, fontSize: 30, color: "#a1a1aa" }}>
-              Scoped, quoted, tested by agents. Reproducible findings from $5.
+              Scoped, quoted, tested by agents. Plans from $0. Quick evals from $49.
             </div>
           </div>
         </div>

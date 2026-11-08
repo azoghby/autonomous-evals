@@ -172,7 +172,7 @@ const JOBS: JobPlan[] = [
     intake: IntakeInput.parse({ package: "trace_audit", trace: TRACE_JSON, systemPrompt: SYSTEM_PROMPT, notes: "DEMO: support bot claims success after tool errors.", authorizedToTest: true }),
     quote: { pricingMode: "per_finding", priceCents: PRICE_CENTS.trace_audit, capCents: PER_FINDING_CAP_CENTS.trace_audit, scope: "Audit one agent trace for unsupported claims, ignored errors and instruction violations, then propose and verify fixes.", deliverables: ["Findings with evidence", "Validated remediations", "Report (markdown + HTML)"], accepted: true },
     progress: [
-      { milestone: "draft", message: "Job created.", minAgo: 180 }, { milestone: "quoted", message: "Quote ready: $3 per confirmed finding, capped at $15.", minAgo: 178 },
+      { milestone: "draft", message: "Job created.", minAgo: 180 }, { milestone: "quoted", message: "Quote ready: $25 per confirmed finding, capped at $250.", minAgo: 178 },
       { milestone: "awaiting_payment", message: "Quote accepted. Waiting for payment.", minAgo: 176 }, { milestone: "planning", message: "Preparing the trace audit.", minAgo: 172 },
       { milestone: "auditing", message: "Auditing your trace.", minAgo: 171 }, { milestone: "trace_audited", message: "Trace audit found 3 finding(s).", minAgo: 166 },
       { milestone: "proposing_fix", message: "Proposing and verifying a fix for \"Agent says the refund was issued...\".", minAgo: 160 },
@@ -188,7 +188,7 @@ const JOBS: JobPlan[] = [
     intake: IntakeInput.parse({ package: "text_eval", endpoint: ENDPOINT("faq"), notes: "DEMO: FAQ bot.", authorizedToTest: true }),
     quote: { pricingMode: "fixed", priceCents: PRICE_CENTS.text_eval, capCents: null, scope: "Design and run a frozen text eval suite against your endpoint.", deliverables: ["Frozen suite", "Pass/fail per scenario", "Report"], accepted: true },
     progress: [
-      { milestone: "quoted", message: "Quote ready: $5 fixed.", minAgo: 118 }, { milestone: "planning", message: "Designing your test suite.", minAgo: 112 },
+      { milestone: "quoted", message: "Quote ready: $49 fixed.", minAgo: 118 }, { milestone: "planning", message: "Designing your test suite.", minAgo: 112 },
       { milestone: "suite_frozen", message: "Test suite frozen: 3 scenario(s).", minAgo: 100 }, { milestone: "running", message: "Running the suite against your system.", minAgo: 95 },
       { milestone: "suite_run", message: "Run default complete: 1 of 3 scenario(s) failed.", minAgo: 85 }, { milestone: "report_stored", message: "Report and evidence stored.", minAgo: 71 },
       { milestone: "delivered", message: "Delivered.", minAgo: 70 },
@@ -204,7 +204,7 @@ const JOBS: JobPlan[] = [
     intake: IntakeInput.parse({ package: "workflow_eval", endpoint: ENDPOINT("calendar-agent"), notes: "DEMO: calendar booking agent. Live progress example.", authorizedToTest: true }),
     quote: { pricingMode: "fixed", priceCents: PRICE_CENTS.workflow_eval, capCents: null, scope: "Run a stateful workflow eval against a simulated calendar.", deliverables: ["Scenario results", "State diffs", "Report"], accepted: true },
     progress: [
-      { milestone: "quoted", message: "Quote ready: $5 fixed.", minAgo: 5 }, { milestone: "planning", message: "Designing your test suite.", minAgo: 4 },
+      { milestone: "quoted", message: "Quote ready: $49 fixed.", minAgo: 5 }, { milestone: "planning", message: "Designing your test suite.", minAgo: 4 },
       { milestone: "branch_ready", message: "Isolated test environment created.", minAgo: 3 }, { milestone: "suite_frozen", message: "Test suite frozen: 6 scenario(s).", minAgo: 2 },
       { milestone: "running", message: "Running the suite against your system.", minAgo: 1 }, { milestone: "running_suite", message: "Running 6 scenario(s) against default. 4 of 6 done.", minAgo: 0 },
     ],

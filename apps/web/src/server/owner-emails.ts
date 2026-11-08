@@ -59,7 +59,7 @@ export function remediationHint(category: string): string {
 
 const usd = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 export const paidEvalPriceLine = (): string =>
-  `Paid evals start at ${usd(Math.min(...Object.values(PRICE_CENTS)))} (text eval); a version comparison is ${usd(PRICE_CENTS.version_comparison)}.`;
+  `Paid evals start at ${usd(Math.min(...Object.values(PRICE_CENTS)))} (trace audit); a version comparison is ${usd(PRICE_CENTS.version_comparison)}.`;
 
 export interface ResultsEmailInput {
   agentName: string; passed: number; total: number;

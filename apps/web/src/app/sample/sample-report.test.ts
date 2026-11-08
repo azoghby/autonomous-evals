@@ -29,9 +29,9 @@ describe("sample report fixture", () => {
 
   it("pricing shown on the page matches the contract constants", () => {
     const confirmed = sampleFindings.filter((f) => f.status === "confirmed").length;
-    expect(PRICE_CENTS.trace_audit).toBe(500);
+    expect(PRICE_CENTS.trace_audit).toBe(4900);
     expect(perFindingCaptureCents(confirmed, PER_FINDING_CAP_CENTS.trace_audit)).toBe(confirmed * PER_FINDING_CENTS);
-    expect(confirmed * PER_FINDING_CENTS).toBe(600);
+    expect(confirmed * PER_FINDING_CENTS).toBe(5000);
   });
 
   it("bundle is JSON-serialisable and flagged as a sample", () => {

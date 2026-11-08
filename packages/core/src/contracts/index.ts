@@ -8,12 +8,12 @@ export const PACKAGES = ["trace_audit", "text_eval", "workflow_eval", "version_c
 export const Package = z.enum(PACKAGES);
 export type Package = z.infer<typeof Package>;
 
-/** Fixed pilot price table in cents. Agents may pick a package, never a price. */
+/** Fixed Quick eval price table in cents. Agents may pick a package, never a price. */
 export const PRICE_CENTS: Record<Package, number> = {
-  trace_audit: 500,
-  text_eval: 500,
-  workflow_eval: 500,
-  version_comparison: 1000,
+  trace_audit: 4900,
+  text_eval: 9900,
+  workflow_eval: 19900,
+  version_comparison: 29900,
 };
 export const MONITORING_PRICE_CENTS_MONTHLY = 4900;
 /** Per-run Naive budget for one nightly monitoring re-run, in micro-USD. */
@@ -23,12 +23,12 @@ export const MONITORING_RUN_BUDGET_MICRO_USD = 1_000_000;
 export const PRICING_MODES = ["fixed", "per_finding"] as const;
 export const PricingMode = z.enum(PRICING_MODES);
 export type PricingMode = z.infer<typeof PricingMode>;
-export const PER_FINDING_CENTS = 300;
+export const PER_FINDING_CENTS = 2500;
 export const PER_FINDING_CAP_CENTS: Record<Package, number> = {
-  trace_audit: 1500,
-  text_eval: 1500,
-  workflow_eval: 1500,
-  version_comparison: 3000,
+  trace_audit: 25000,
+  text_eval: 25000,
+  workflow_eval: 25000,
+  version_comparison: 25000,
 };
 export const PAYMENT_STATUSES = ["paid", "authorized", "captured", "released", "needs_refund"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
@@ -53,7 +53,7 @@ export function recognizedRevenueCents(p: { status: string; amountCents: number;
   return p.amountCents;
 }
 
-/** Amount to capture for a per-finding job: $3 per confirmed finding, capped. 0 means release the authorization. */
+/** Amount to capture for a per-finding job: $25 per confirmed finding, capped. 0 means release the authorization. */
 export function perFindingCaptureCents(confirmedCount: number, capCents: number): number {
   if (!Number.isInteger(confirmedCount) || confirmedCount <= 0) return 0;
   return Math.min(confirmedCount * PER_FINDING_CENTS, capCents);

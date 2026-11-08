@@ -34,7 +34,7 @@ export function QuoteCard({ jobId, quote, jobEnv, state, paid }: { jobId: string
           <div>
             <p className={label}>Quote · version {quote.version}</p>
             <h2 className="t-h3 mt-4 text-fg">{PACKAGE_LABEL[quote.package] ?? quote.package}</h2>
-            <div className="mt-3 flex flex-wrap items-center gap-2"><Chip tone="muted">Pilot pricing</Chip>{env === "test" && <Chip tone="warn">Test mode</Chip>}</div>
+            <div className="mt-3 flex flex-wrap items-center gap-2"><Chip tone="muted">Quick eval pricing</Chip>{env === "test" && <Chip tone="warn">Test mode</Chip>}</div>
           </div>
           <CountUp value={quote.priceCents} format={(n) => dollars(Math.round(n))} className="font-mono text-[44px] leading-none tracking-[-0.04em] text-fg tabular-nums sm:text-[56px]" />
         </div>

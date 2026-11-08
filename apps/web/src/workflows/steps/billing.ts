@@ -12,7 +12,7 @@ export async function countConfirmedFindings(jobId: string): Promise<number> {
 }
 
 /**
- * Per-finding pricing settlement: capture $3 per confirmed finding (capped) or release the hold.
+ * Per-finding pricing settlement: capture $25 per confirmed finding (capped) or release the hold.
  * No-op for fixed-price jobs. Idempotent (Stripe idempotency keys + settled payment rows), so retries are safe.
  */
 export async function settlePaymentStep(jobId: string): Promise<void> {

@@ -9,12 +9,12 @@ import {
 } from "./index";
 
 describe("PRICE_CENTS", () => {
-  it("matches the pilot price table", () => {
+  it("matches the Quick eval price table", () => {
     expect(PRICE_CENTS).toEqual({
-      trace_audit: 500,
-      text_eval: 500,
-      workflow_eval: 500,
-      version_comparison: 1000,
+      trace_audit: 4900,
+      text_eval: 9900,
+      workflow_eval: 19900,
+      version_comparison: 29900,
     });
   });
 });

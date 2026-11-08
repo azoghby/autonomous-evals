@@ -55,6 +55,14 @@ export function createMemoryStore() {
         runs: [...runs.values()].filter((r) => r.ownerId === ownerId && (r.status === "queued" || r.status === "running")).length,
       };
     },
+    async countEnvironments(ownerId) { return [...envs.values()].filter((e) => e.ownerId === ownerId).length; },
+    async usageSince(ownerId, since) {
+      const inWindow = <T extends { ownerId: string; createdAt: Date }>(r: T) => r.ownerId === ownerId && r.createdAt >= since;
+      const rs = [...runs.values()].filter(inWindow);
+      const trials = rs.reduce((n, r) => n + (r.status === "failed" ? r.trialsDone : r.trialsTotal), 0);
+      const cost = rs.reduce((n, r) => n + r.costMicroUsd, 0) + [...suites.values()].filter(inWindow).reduce((n, s) => n + s.costMicroUsd, 0);
+      return { trials, costMicroUsd: cost };
+    },
     async addCost(target, entry) {
       costs.push({ ...target, microUsd: entry.microUsd });
       if (target.kind === "run") { const r = runs.get(target.id); if (r) runs.set(r.id, { ...r, costMicroUsd: r.costMicroUsd + entry.microUsd }); }

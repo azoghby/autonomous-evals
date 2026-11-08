@@ -1,6 +1,6 @@
 /**
  * One-command Stripe setup.
- *   STRIPE_SECRET_KEY=sk_test_... npx tsx scripts/stripe-setup.ts [--url https://autonomous-evals.vercel.app] [--recreate] [--no-vercel] [--live]
+ *   STRIPE_SECRET_KEY=sk_test_... npx tsx scripts/stripe-setup.ts [--url https://autonomous-evals.vercel.app] [--recreate] [--no-vercel] [--live] [--prices-only]
  * Creates (or finds) the webhook endpoint, writes env files, pushes env to Vercel. Never prints secrets.
  */
 import Stripe from "stripe";
@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { VERCEL_ENVS, WEBHOOK_EVENTS, assertKeyAllowed, maskSecret, sameEvents, upsertEnvLine, webhookUrl } from "./stripe-setup-lib";
+import { VERCEL_ENVS, WEBHOOK_EVENTS, assertKeyAllowed, pricePlan, maskSecret, sameEvents, upsertEnvLine, webhookUrl } from "./stripe-setup-lib";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCOPE = "agents-db31";
@@ -38,6 +38,32 @@ function vercelEnvAdd(name: string, env: string, value: string): Promise<void> {
   });
 }
 
+/** Finds or creates each product and price (by lookup key). A changed amount gets a new price that takes over the lookup key. */
+async function ensurePrices(client: Stripe): Promise<void> {
+  const products = new Map<string, string>();
+  for await (const p of client.products.list({ active: true, limit: 100 })) {
+    if (p.metadata.app === "autonomous-evals" && p.metadata.product_key) products.set(p.metadata.product_key, p.id);
+  }
+  for (const e of pricePlan()) {
+    let productId = products.get(e.productKey);
+    if (!productId) {
+      productId = (await client.products.create({ name: e.productName, metadata: { app: "autonomous-evals", product_key: e.productKey } })).id;
+      products.set(e.productKey, productId);
+    }
+    const [existing] = (await client.prices.list({ lookup_keys: [e.lookupKey], active: true, limit: 1 })).data;
+    let priceId = existing?.id;
+    if (!existing || existing.unit_amount !== e.unitAmountCents) {
+      priceId = (await client.prices.create({
+        product: productId, currency: "usd", unit_amount: e.unitAmountCents, lookup_key: e.lookupKey,
+        ...(existing ? { transfer_lookup_key: true } : {}),
+        ...(e.recurring ? { recurring: e.recurring } : {}),
+        metadata: { app: "autonomous-evals", product_key: e.productKey },
+      })).id;
+    }
+    console.log(`Price ${e.lookupKey} -> ${priceId}${existing && priceId === existing.id ? " (exists)" : ""}`);
+  }
+}
+
 async function main(): Promise<void> {
   const key = process.env.STRIPE_SECRET_KEY;
   const mode = assertKeyAllowed(key, { live: flag("--live"), stripeMode: process.env.STRIPE_MODE });
@@ -45,6 +71,11 @@ async function main(): Promise<void> {
   console.log(`Mode: ${mode}  Key: ${maskSecret(key!)}  Endpoint: ${url}`);
 
   const client = new Stripe(key!, { maxNetworkRetries: 2 });
+  await ensurePrices(client);
+  if (flag("--prices-only")) {
+    console.log("Prices ready (--prices-only: skipped webhook/env/Vercel).");
+    return;
+  }
   const events = [...WEBHOOK_EVENTS] as Stripe.WebhookEndpointCreateParams.EnabledEvent[];
   const existing = (await client.webhookEndpoints.list({ limit: 100 })).data.find((e) => e.url === url);
 

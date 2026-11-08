@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const store = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[] }));
+const store = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[], updates: [] as Record<string, unknown>[] }));
 const resume = vi.hoisted(() => ({ fn: vi.fn() }));
 
 // Minimal in-memory stand-in for the drizzle calls recordPaymentFromSession makes.
@@ -20,9 +20,17 @@ vi.mock("@ae/core/db/client", async (orig) => {
         }),
       }),
     }),
+    update: () => ({ set: (v: Record<string, unknown>) => { store.updates.push(v); return { where: async () => undefined }; } }),
     select: () => ({ from: () => ({ where: () => ({ limit: async () => [store.rows[0]] }) }) }),
   };
   return { ...actual, db: () => fake };
+});
+const alerts = vi.hoisted(() => ({ fn: vi.fn() }));
+const sync = vi.hoisted(() => ({ fn: vi.fn() }));
+vi.mock("@/server/operator-alerts", () => ({ alertOperators: (a: unknown) => alerts.fn(a) }));
+vi.mock("@ae/core/payments/plans-checkout", async (orig) => {
+  const actual = await orig<typeof import("@ae/core/payments/plans-checkout")>();
+  return { ...actual, syncSubscription: (s: unknown) => sync.fn(s) };
 });
 vi.mock("../../../../workflows/resume", () => ({
   resumeJobForPayment: async (p: Record<string, unknown>) => {
@@ -51,8 +59,8 @@ const signed = (body: string) => new Request("http://localhost/api/stripe/webhoo
 });
 
 beforeEach(() => {
-  store.rows.length = 0;
-  resume.fn.mockReset();
+  store.rows.length = 0; store.updates.length = 0;
+  resume.fn.mockReset(); alerts.fn.mockReset(); alerts.fn.mockResolvedValue(true); sync.fn.mockReset(); sync.fn.mockResolvedValue("c1");
   vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_dummy");
   vi.stubEnv("STRIPE_MODE", "test");
   vi.stubEnv("STRIPE_WEBHOOK_SECRET", SECRET);
@@ -121,5 +129,49 @@ describe("stripe webhook", () => {
   it("returns 500 when the server is misconfigured", async () => {
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "");
     expect((await POST(signed(eventBody()))).status).toBe(500);
+  });
+
+  const planEvent = (id: string, metadata: Record<string, string>, mode = "subscription") => JSON.stringify({
+    id, object: "event", type: "checkout.session.completed", livemode: false,
+    data: { object: {
+      id: `cs_${id}`, object: "checkout.session", mode, payment_status: "paid", livemode: false, amount_total: 49900, currency: "usd",
+      customer: "cus_1", subscription: mode === "subscription" ? "sub_1" : null, customer_details: { email: "a@b.co" }, metadata,
+    } },
+  });
+
+  it("activates a plan purchase without touching the job workflow", async () => {
+    const res = await POST(signed(planEvent("evt_p", { kind: "plan", plan: "pro", interval: "month", customer_id: "c1" })));
+    expect(res.status).toBe(200);
+    expect(store.rows[0]).toMatchObject({ kind: "subscription", product: "pro", customerId: "c1" });
+    expect(store.updates[0]).toMatchObject({ plan: "pro", planStatus: "active" });
+    expect(resume.fn).not.toHaveBeenCalled();
+    expect(alerts.fn).not.toHaveBeenCalled();
+  });
+
+  it("records an audit and alerts operators once; alert failure does not 500", async () => {
+    alerts.fn.mockRejectedValueOnce(new Error("smtp down"));
+    const body = planEvent("evt_a", { kind: "agent_audit", customer_id: "c1" }, "payment");
+    expect((await POST(signed(body))).status).toBe(200);
+    expect(store.rows[0]).toMatchObject({ kind: "audit", product: "agent_audit" });
+    expect(alerts.fn).toHaveBeenCalledWith(expect.objectContaining({ detail: expect.stringContaining("a@b.co") }));
+    expect((await POST(signed(body))).status).toBe(200);
+    expect(alerts.fn).toHaveBeenCalledTimes(1);
+    expect(store.rows).toHaveLength(1);
+  });
+
+  it("routes customer.subscription.deleted to syncSubscription", async () => {
+    const body = JSON.stringify({ id: "evt_s", object: "event", type: "customer.subscription.deleted", livemode: false,
+      data: { object: { id: "sub_1", object: "subscription", status: "canceled", metadata: {} } } });
+    const res = await POST(signed(body));
+    expect(res.status).toBe(200);
+    expect(sync.fn).toHaveBeenCalledWith(expect.objectContaining({ id: "sub_1" }));
+    expect(await res.json()).toMatchObject({ synced: true });
+  });
+
+  it("returns 500 when subscription sync throws", async () => {
+    sync.fn.mockRejectedValueOnce(new Error("db"));
+    const body = JSON.stringify({ id: "evt_s2", object: "event", type: "customer.subscription.updated", livemode: false,
+      data: { object: { id: "sub_1", object: "subscription", status: "active", metadata: {} } } });
+    expect((await POST(signed(body))).status).toBe(500);
   });
 });
