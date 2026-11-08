@@ -19,7 +19,7 @@ export function HowItWorks() {
           {STEPS.map((s) => (
             <li key={s.n} className="ls-step">
               <span aria-hidden className="ls-dot" />
-              <span className="font-mono text-xs text-accent-text">{s.n}</span>
+              <span className="ls-num">{s.n}</span>
               <h3 className="t-h4 text-fg">{s.title}</h3>
               <p className="t-small text-muted">{s.body}</p>
             </li>

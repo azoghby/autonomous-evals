@@ -11,12 +11,12 @@ const COLS = [
 export function ClosingCta() {
   return (
     <section aria-labelledby="cta-h" className="relative overflow-hidden border-t border-line-2 bg-bg-band py-24 md:py-40">
-      <div className="blue-light" aria-hidden="true" />
+      <div className="cta-spectrum" aria-hidden="true" />
       <div className="grid-lines" aria-hidden="true" />
       <Container className="relative flex flex-col gap-12 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 id="cta-h" className="text-balance text-[clamp(44px,7vw,104px)] leading-[0.98] tracking-[-0.045em] text-fg">
-            Hand us your agent.<br /><span className="text-muted">See what it does.</span>
+            Hand us your agent.<br /><span className="text-muted">See what it </span><span className="grad-text">does</span><span className="text-muted">.</span>
           </h2>
           <div className="cta-line" aria-hidden="true"><span className="cta-sweep" /></div>
         </div>
