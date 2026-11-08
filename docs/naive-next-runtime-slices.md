@@ -2,6 +2,14 @@
 
 Read-only source audit at `7c61008`, which preserves Track A main `8637532`. The generic three-method and operator surfaces remain candidate artifacts. This is implementation guidance, not a deployment receipt or authorization to contact anyone.
 
+## Current audit after `0ff262c`
+
+The typed factual gap is now actual core source, and the factual Workflow plus standing-policy sourcing bridge are verified but unapplied candidates. Do not implement the historical gap description below again. The next missing evaluation method is a current-authority remediation owner runtime, reusing the core engine, transport and accounting plus the historical `workflow-remediation-integration` architecture. Its old frozen12 assumptions and authority are not current acceptance.
+
+The next remediation candidate must resolve canonical admitted suite/full baseline/investigation, bind the stored public finding, prove only stateless request-message prompt application, retain immutable detailed receipts before projection, share budget/accounting scopes and hold unknown usage without redispatch. The current generic Workflow intentionally skips automatic fixes; its catch-all legacy fix step cannot carry durable reconciliation safely. Rerun remains a separate post-delivery authority/resolution slice; the existing atomic slot claim only closes attempt-count races.
+
+Phase0 staged roster planning, receipt export and strict rollout/app-pin compilation are actual scripts. Internal MCP/task-token/hash registration and idle receivers are still absent from actual app source. The first useful internal read-tool acceptance path must connect vault identity, a current authenticated task/session issuer and copilot progress projection end to end. A route or HMAC helper alone is not completion.
+
 ## Remediation owner runtime
 
 Reuse `packages/core/src/evals/remediation/index.ts` through a new owner runtime supplying `RemediationDeps.resolve`. Resolve the stored confirmed rich finding, admitted suite, original full baseline and failing checks from canonical retained evidence. Recheck owner, environment, credentials, target and admission at dispatch and publication.

@@ -21,6 +21,8 @@ These commands require the privately supplied provider credential (`NAIVE_API_KE
 
 Each bundle contains `schemaVersion`, `evidence`, `stage`, `planFingerprint`, enriched `receipts`, and the current stage's `resources` (kind/name/status/id/version). The terminal deployment stage retains all deployment IDs even though no later stage consumes them. No operation bodies, credential values, credential file paths, input templates or callback URLs are exported.
 
+The actual offline `scripts/naive-roster.ts` now compiles all stage options from one strict private specification and the ordered receipt files; see [naive-roster-rollout.md](naive-roster-rollout.md). Prefer it to manual JSON merging. The existing lower-level workflow below remains valid.
+
 For the next stage, place the bundle's `receipts` object in the next options file's `receipts` field. This is a mechanical JSON merge, not reconstruction of IDs, fingerprints or role bindings. For example, in a private shell with a restrictive umask:
 
 ```sh

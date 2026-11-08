@@ -20,6 +20,12 @@ Parent verified 26 postimages, independent incremental patch application, 2,228 
 
 The tested source baseline is `768ec87`. Latest main `5da0635` was merged at `842f8b5`; only LEDGER changed, preserving Track A's separate deployment receipts for d1ceaf0 and61e46bc. Actual app source remains unchanged and passes 3,887 tests plus web types. Neither candidate is adopted or deployed. Browser checks, native PostgreSQL contention, sidecar migration, hosted Workflow/provider acceptance, exact-source ownership response, judge recovery wiring, roster authorization and the remaining Naïve phases remain open.
 
+## Offline roster rollout compiler (2026-11-08)
+
+Actual scripts now include `naive-roster.ts`, `naive-roster-config.ts` and `naive-roster-handoff.ts`. One strict private specification compiles the five existing stages using the ordered retained receipt chain, then emits all 15 manifest app pins and five paused deployment identities with tool/coordinator bindings. The CLI never reads provider credentials or referenced bearer files; private outputs omit secrets from stdout and the terminal handoff omits callback tokens and credential paths. It does not write `.env`, provision or activate anything. See [naive-roster-rollout.md](naive-roster-rollout.md).
+
+Disjoint Sol implementation and independent review plus parent CLI tests pass 45 focused tests and strict standalone script types. Required root web TypeScript passes; npm passes **3,932 tests, zero failures and two documented skips**. Review found a FIFO-open hang, fixed with nonblocking open before regular-file checks. Stage receipts bind stage-relevant configuration; future-only settings can change until their affected stage is attested. The final handoff validates all five stages and remains `applyReady:false`. Internal MCP/idle routes, scoped authenticated task issuance, exact hosted tool authorization and full Phase0 acceptance remain unfinished. Required root verification is recorded in LEDGER.
+
 ## Phase 0
 
 Implemented and checked locally:
